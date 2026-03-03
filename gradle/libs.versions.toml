@@ -7,11 +7,11 @@ serialization = "1.10.0-RC"
 collections-immutable = "0.4.0"
 arrow = "2.2.1.1"
 coroutines = "1.10.2"
-ensnbt = "0.1-SNAPSHOT"
 knbt = "0.11.9"
-cli = "0.3.6"
 kotest = "6.1.4"
 jetbrains-annotations = "26.1.0"
+clikt = "5.1.0"
+shadow = "9.3.2"
 
 [libraries]
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
@@ -23,8 +23,7 @@ okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", versio
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-kotlinx-cli = { module = "org.jetbrains.kotlinx:kotlinx-cli", version.ref = "cli" }
-kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "cli" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collections-immutable" }
 
 arrow-stack = { module = "io.arrow-kt:arrow-stack", version.ref = "arrow" }
 arrow-core = { module = "io.arrow-kt:arrow-core" }
@@ -40,6 +39,8 @@ kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.
 
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+
 
 [bundles]
 okio = ["okio", "okio-fakefilesystem"]
@@ -51,3 +52,4 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotest = { id = "io.kotest", version.ref = "kotest" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="cli-jvm-0.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/cli/build/libs</output-path>
+    <root id="archive" name="cli-jvm-0.0-SNAPSHOT.jar">
+      <element id="module-output" name="mct.cli.jvmMain" />
+    </root>
+  </artifact>
+</component>

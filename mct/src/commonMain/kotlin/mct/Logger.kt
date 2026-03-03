@@ -22,11 +22,11 @@ abstract class Logger(
             override fun toString() = "Logger.None"
         }
 
-        fun Console(levels: List<LoggerLevel>) = object : Logger(levels) {
+        fun Console(levels: List<LoggerLevel> = LoggerLevel.Verbose) = object : Logger(levels) {
             override fun log(level: LoggerLevel, message: String) {
                 println("[$level] $message")
             }
-            override fun toString() = "Logger.None"
+            override fun toString() = "Logger.Console"
         }
     }
 

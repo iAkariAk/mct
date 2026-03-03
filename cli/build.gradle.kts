@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotest)
+    alias(libs.plugins.shadow)
 }
 
 kotlin {
@@ -17,36 +18,22 @@ kotlin {
                 useJUnitPlatform()
             }
         }
-    }
 
-    js(IR) {
-        browser {
-            testTask {
-                useKarma {
-                    useChromeHeadless()
-                }
-            }
+        mainRun {
+            mainClass.set("mct.MainKt")
         }
-        nodejs { testTask { useMocha() } }
-
     }
-//    wasmJs {
-//        browser()
-//        nodejs()
-//    }
-    mingwX64()
-    linuxX64()
+
+    tasks.named<Jar>("jvmJar") {
+        manifest {
+            attributes["Main-Class"] = "mct.MainKt"
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
-            api(libs.kotlinx.serialization.json)
-            api(libs.kotlinx.coroutines.core)
-            api(project.dependencies.platform((libs.arrow.stack)))
-            api(libs.bundles.arrow)
-            api(libs.korlibs.io)
-            api(libs.knbt)
-            api(libs.bundles.okio)
-            api(libs.jetbrains.annotations)
+            implementation(libs.clikt)
+            implementation(project(":mct"))
         }
 
         commonTest.dependencies {
@@ -55,8 +42,6 @@ kotlin {
 
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
-
         }
     }
 }
-
