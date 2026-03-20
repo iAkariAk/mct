@@ -67,14 +67,16 @@ suspend fun FileSystem.openZipReadWrite(path: Path): ZipFileSystem {
     }
 }
 
-suspend inline fun <R> ZipFileSystem.use2(block: (ZipFileSystem) -> R): R {
+suspend inline fun <R, FS : FileSystem> FS.useAsync(block: (FS) -> R): R {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
     }
     try {
         return block(this)
     } finally {
-        this.closeAsync()
+        if (this is ZipFileSystem)
+            closeAsync()
+        else close()
     }
 }
 

@@ -4,21 +4,21 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.raise
 import arrow.core.raise.recover
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import mct.MCTWorkspace
+import mct.RegionReplacementGroup
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.toReplacementGroups
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.Snbt
 import net.benwoodworth.knbt.*
-import mct.ReplacementGroup.Region as ReplacementGroup
 
 context(_: Raise<BackfillError>)
-suspend fun MCTWorkspace.backfillRegion(replacementGroups: Flow<ReplacementGroup>) = coroutineScope {
-    replacementGroups.collect { group ->
+suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplacementGroup>) = coroutineScope {
+    replacementGroups.asFlow().collect { group ->
         val dimension = dimensions[group.dimension]
             ?: raise(BackfillError.DimensionNotFound(group.dimension))
         val mgr = when (group.kind) {

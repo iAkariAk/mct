@@ -134,9 +134,9 @@ val BuiltinPatterns = PatternSet {
 
 
     command("give") {
-        // give <targets> <item> [count] [components/NBT]
-        WithSize(4) then {
-            +GreedyPositions(4)
+        // give <targets> <item> [<count>]
+        WithSize(3) then {
+            +Positions(2)
         }
     }
 

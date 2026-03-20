@@ -6,46 +6,49 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import mct.DatapackReplacement
+import mct.DatapackReplacementGroup
 import mct.MCTWorkspace
 import mct.dp.mcjson.MCJson
 import mct.dp.mcjson.standardizeMCJson
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.toReplacementGroups
+import mct.util.io.newRelativeFS
 import mct.util.io.openZipReadWrite
-import mct.util.io.use2
+import mct.util.io.useAsync
 import mct.util.io.writeText
 import okio.BufferedSource
 import okio.Path.Companion.toPath
 import kotlin.jvm.JvmName
-import mct.Replacement.Datapack as Replacement
-import mct.ReplacementGroup.Datapack as ReplacementGroup
 
 
-suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<ReplacementGroup>) = coroutineScope {
+suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackReplacementGroup>) = coroutineScope {
     replacementGroups.groupBy {
         datapackDir / it.source
-    }.forEach { (dbPath, replacementGroup) ->
+    }.forEach { (dbPath, replacementGroups) ->
         launch {
-            fs.openZipReadWrite(dbPath).use2 { zfs ->
-                replacementGroup.forEach { replacementGroup ->
+            val m = fs.metadata(dbPath)
+            val sfs = if (m.isDirectory) fs.newRelativeFS(dbPath) else fs.openZipReadWrite(dbPath)
+            sfs.useAsync { sfs ->
+                replacementGroups.forEach { replacementGroup ->
                     val path = replacementGroup.path.toPath()
-                    val origin = zfs.read(path, BufferedSource::readUtf8)
+                    val origin = sfs.read(path, BufferedSource::readUtf8)
                     val handled = origin.backfill(replacementGroup.replacements)
-                    path.writeText(handled, env.fs)
+                    path.writeText(handled, sfs)
                 }
             }
         }
     }
 }
 
-internal fun String.backfill(replacements: List<Replacement>): String {
-    val mcfunction = mutableListOf<Replacement.MCFunction>()
-    val mcjson = mutableListOf<Replacement.MCJson>()
+internal fun String.backfill(replacements: List<DatapackReplacement>): String {
+    val mcfunction = mutableListOf<DatapackReplacement.MCFunction>()
+    val mcjson = mutableListOf<DatapackReplacement.MCJson>()
     replacements.forEach { replacement ->
         when (replacement) {
-            is Replacement.MCFunction -> mcfunction.add(replacement)
-            is Replacement.MCJson -> mcjson.add(replacement)
+            is DatapackReplacement.MCFunction -> mcfunction.add(replacement)
+            is DatapackReplacement.MCJson -> mcjson.add(replacement)
         }
     }
     if (mcfunction.isNotEmpty()) return backfill(mcfunction)
@@ -53,12 +56,20 @@ internal fun String.backfill(replacements: List<Replacement>): String {
     return this
 }
 
+@JvmName($$"backfill$MCFunction")
+internal fun String.backfill(replacements: List<DatapackReplacement.MCFunction>) =
+    replacements
+        .sortedByDescending { it.indices.first }
+        .fold(StringBuilder(this)) { ace, e ->
+            ace.replaceRange(e.indices, e.replacement) as StringBuilder
+        }.toString()
+
 @JvmName($$"backfill$MCJson")
-internal fun String.backfill(replacements: List<Replacement.MCJson>): String {
+internal fun String.backfill(replacements: List<DatapackReplacement.MCJson>): String {
     val standardizedJson = standardizeMCJson(this)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standardizedJson)
-    val pointerReplacementGroups = replacements.map { it.pointer to it.replacement }.toReplacementGroups()
-    val backfilledJsonElement = jsonElement.transform(pointerReplacementGroups)
+    val pointerDatapackReplacementGroups = replacements.map { it.pointer to it.replacement }.toReplacementGroups()
+    val backfilledJsonElement = jsonElement.transform(pointerDatapackReplacementGroups)
     return MCJson.encodeToString(backfilledJsonElement)
 }
 

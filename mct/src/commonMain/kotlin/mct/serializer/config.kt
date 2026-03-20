@@ -9,6 +9,7 @@ import net.benwoodworth.knbt.*
 val MCTJson = Json {
     prettyPrint = true
     prettyPrintIndent = "  "
+    ignoreUnknownKeys = true
 
     serializersModule = extractPatternModule
 }

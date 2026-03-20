@@ -4,11 +4,11 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.raise
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
+import mct.DatapackExtractionGroup
 import mct.dp.Extractor
 import mct.dp.MCJsonExtractError
 import mct.pointer.*
-import mct.Extraction.Datapack.MCJson as Extraction
-import mct.ExtractionGroup.Datapack as ExtractionGroup
+import mct.DatapackExtraction.MCJson as MCJsonExtraction
 
 internal val MCJson = Json {
     ignoreUnknownKeys = true
@@ -34,19 +34,19 @@ internal fun extractTextMCJ(
     source: String,
     path: String,
     patterns: Set<DataPointerPattern>? = BuiltinPatterns
-): ExtractionGroup = try {
+): DatapackExtractionGroup = try {
     val standard = standardizeMCJson(json)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standard)
 
     val extractions = jsonElement.extractTextMCJ()
         .filterPointer(patterns)
         .map { (pointer, content) ->
-            Extraction(
+            MCJsonExtraction(
                 pointer,
                 content = content
             )
         }.toList()
-    ExtractionGroup(
+    DatapackExtractionGroup(
         source = source,
         path = path,
         extractions = extractions

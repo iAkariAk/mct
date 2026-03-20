@@ -1,9 +1,9 @@
 package mct.dp.mcfunction
 
+import mct.DatapackExtraction
+import mct.DatapackExtractionGroup
 import mct.Logger
 import mct.dp.Extractor
-import mct.Extraction.Datapack as Extraction
-import mct.ExtractionGroup.Datapack as ExtractionGroup
 
 
 internal fun MCFunctionExtractor(
@@ -31,25 +31,25 @@ internal fun extractTextMCF(
     source: String,
     path: String,
     patterns: Set<ExtractPattern> = BuiltinPatterns
-): ExtractionGroup {
+): DatapackExtractionGroup {
     val mcfunctions = parseMCFunction(mcf)
     val extractedArgs: Sequence<Extracted> = mcfunctions.asSequence().flatMap { command ->
         extractTextFromCommand(patterns, command)
     }
-    return ExtractionGroup(
+    return DatapackExtractionGroup(
         source = source,
         path = path,
         extractions = extractedArgs.map { extracted ->
             when (extracted) {
                 is Extracted.Arg -> {
                     val arg = extracted.arg
-                    Extraction.MCFunction(
+                    DatapackExtraction.MCFunction(
                         indices = arg.indices,
                         content = arg.content
                     )
                 }
 
-                is Extracted.GreedyString -> Extraction.MCFunction(
+                is Extracted.GreedyString -> DatapackExtraction.MCFunction(
                     indices = extracted.indices,
                     content = extracted.content
                 )

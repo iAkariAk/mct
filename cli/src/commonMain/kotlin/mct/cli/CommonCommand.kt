@@ -17,7 +17,7 @@ import kotlin.system.exitProcess
 abstract class BaseCommand(
     name: String? = null
 ) : SuspendingCliktCommand(name) {
-    val loggerLevels: List<String> by option("logger_level", "ll").multiple()
+    val loggerLevels: List<String> by option("--logger-level", "-l").multiple(listOf("Info", "Warning", "Debug", "Error"))
 
     val env: Env by lazy {
         try {
@@ -49,7 +49,8 @@ abstract class BaseCommand(
 abstract class WorkspaceCommand(
     name: String? = null
 ) : BaseCommand(name) {
-    val input: String by option("input", "i").required()
+    val input: String by option("--input", "-i").required()
 
     val workspace by lazy { MCTWorkspace(input.toPath(), env) }
 }
+

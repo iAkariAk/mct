@@ -32,16 +32,20 @@ class RawRegionManager private constructor(
             LoadError.InvalidSize(size)
         }
 
+        env.logger.debug { "Load region(${coord.x}, ${coord.z})" }
+
         return fs.openReadOnly(path).use { handle ->
-            RawRegion.fromHandle(coord.x, coord.y, handle)
+            RawRegion.fromHandle(coord.x, coord.z, handle)
         }
     }
 
     context(_: Raise<SaveError>)
     override fun save(coord: Coord, region: RawRegion) {
+        val path = locate(coord)
         ensure(fs.exists(path)) {
             SaveError.FileNotFound(path)
         }
+        env.logger.debug { "Save region(${coord.x}, ${coord.z})" }
         fs.openReadWrite(path).use { handle ->
             region.writeTo(handle)
         }

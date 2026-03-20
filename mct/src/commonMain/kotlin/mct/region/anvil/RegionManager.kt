@@ -11,7 +11,7 @@ import okio.Path
 @Serializable
 data class Coord(
     val x: Int,
-    val y: Int
+    val z: Int
 )
 
 abstract class RegionManager<T : Region>(
@@ -24,7 +24,7 @@ abstract class RegionManager<T : Region>(
         require(fs.exists(path))
     }
 
-    fun locate(coord: Coord): Path = path / "r.${coord.x}.${coord.y}.mca"
+    fun locate(coord: Coord): Path = path / "r.${coord.x}.${coord.z}.mca"
 
     fun coords(): Sequence<Coord> = fs.list(path).asSequence()
         .mapNotNull { it.filename }
@@ -42,7 +42,7 @@ abstract class RegionManager<T : Region>(
      */
     fun regions(): Sequence<T> = coords().mapNotNull { coord ->
         either { load(coord) }.onLeft {
-            env.logger.info { "(${path}) Skip region(${coord.x}, ${coord.y}) due to load error: ${it.message}" }
+            env.logger.info { "(${path}) Skip region(${coord.x}, ${coord.z}) due to load error: ${it.message}" }
         }.getOrNull()
     }
 
@@ -55,7 +55,7 @@ abstract class RegionManager<T : Region>(
     context(_: Raise<AnvilError>)
     fun modifyRegions(modify: (T) -> T) {
         regions().forEach {
-            save(Coord(it.regionX, it.regionY), it)
+            save(Coord(it.regionX, it.regionZ), it)
         }
     }
 

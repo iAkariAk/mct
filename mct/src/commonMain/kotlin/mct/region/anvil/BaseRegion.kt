@@ -48,7 +48,7 @@ open class BaseRegion<T : ChunkData>(
         val encodedData = data.mapIndexed { index, chunk ->
             modify(index, chunk)?.raw
         }
-        raw = RawRegion(raw.regionX, raw.regionY, raw.offsets, raw.timestamps, encodedData)
+        raw = RawRegion(raw.regionX, raw.regionZ, raw.offsets, raw.timestamps, encodedData)
     }
 
     override fun toString() = "BaseRegion(pointer=${data.contentToString()})"

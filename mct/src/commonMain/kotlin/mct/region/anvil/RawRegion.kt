@@ -13,7 +13,7 @@ private const val SECTOR_SIZE = 4096
 
 class RawRegion(
     override val regionX: Int, // align with 32
-    override val regionY: Int, // align with 32
+    override val regionZ: Int, // align with 32
     override val offsets: ChunkOffsetTable,
     override val timestamps: TimestampTable,
     val chunks: List<RawChunk?>
@@ -64,7 +64,7 @@ class RawRegion(
         }
     }
 
-    fun inferFilename() = "r.$regionX.$regionY.mca"
+    fun inferFilename() = "r.$regionX.$regionZ.mca"
 
     fun writeTo(handle: FileHandle) {
         var chunkBeginPos: Long
@@ -97,7 +97,7 @@ class RawRegion(
         }
         return RawRegion(
             regionX = regionX,
-            regionY = regionY,
+            regionZ = regionZ,
             offsets = ChunkOffsetTable(newOffsets),
             timestamps = timestamps,
             chunks = modified
@@ -106,7 +106,7 @@ class RawRegion(
 
     inline fun modifyChunks(modify: (List<RawChunk?>) -> List<RawChunk?>) = modifyChunks(modify(chunks))
 
-    override fun toString() = "Region(x=$regionX, y=$regionY, chunkCount=${chunks.size})"
+    override fun toString() = "Region(x=$regionX, y=$regionZ, chunkCount=${chunks.size})"
 }
 
 internal inline fun calculateSectorCount(usedByteCount: UInt): UByte =

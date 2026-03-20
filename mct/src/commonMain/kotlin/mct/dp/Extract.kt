@@ -5,39 +5,48 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.either
 import arrow.core.raise.nullable
 import kotlinx.coroutines.flow.*
+import mct.DatapackExtractionGroup
 import mct.Env
 import mct.MCTWorkspace
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
-import mct.util.io.ROOT
-import mct.util.io.endsWith
-import mct.util.io.openZipReadWrite
-import mct.util.io.use2
+import mct.util.io.*
 import okio.FileSystem
 import okio.Path
-import mct.ExtractionGroup.Datapack as ExtractionGroup
 
-fun MCTWorkspace.extractFromDatapack(): Flow<ExtractionGroup> {
+fun MCTWorkspace.extractFromDatapack(): Flow<DatapackExtractionGroup> {
     val extractors = listOf(
         MCFunctionExtractor(),
         MCJsonExtractor(),
     )
 
-    return fs.listRecursively(datapackDir)
-        .filter { it.endsWith(".zip") }
-        .asFlow().flatMapMerge { path ->
-            fs.openZipReadWrite(path).use2 { zfs ->
-                zfs.listRecursively(Path.ROOT)
+    return fs.list(datapackDir)
+        .asFlow()
+        .mapNotNull {
+            nullable {
+                val metadata = fs.metadata(it)
+                val sfs = if (metadata.isDirectory) {
+                    fs.newRelativeFS(it)
+                } else if (it.endsWith(".zip")) {
+                    fs.openZipReadWrite(it)
+                } else null
+                sfs.bind() to it
+            }
+
+        }
+        .flatMapMerge { (sfs, path) ->
+            sfs.useAsync { sfs ->
+                sfs.listRecursively(Path.ROOT)
                     .asFlow()
                     .mapNotNull { zpath ->
                         nullable { zpath to extractors.find { zpath.endsWith(it.targetExtension) }.bind() }
                     }
-                    .flatMapMerge { (zpath, extractor) ->
+                    .flatMapMerge { (filePath, extractor) ->
                         either {
                             env.logger.debug {
-                                "Extracting $zpath via $extractor"
+                                "Extracting $filePath via $extractor"
                             }
-                            flowOf(extractor.extract(env, zfs, zpath, path))
+                            flowOf(extractor.extract(env, sfs, filePath, path))
                         }.getOrElse { error ->
                             env.logger.error { error.message }
                             emptyFlow()
@@ -58,7 +67,7 @@ internal interface Extractor {
         zfs: FileSystem,
         zpath: Path,
         path: Path
-    ): ExtractionGroup
+    ): DatapackExtractionGroup
 }
 
 internal fun Extractor(
@@ -69,7 +78,7 @@ internal fun Extractor(
         zfs: FileSystem,
         zpath: Path,
         path: Path
-    ) -> ExtractionGroup
+    ) -> DatapackExtractionGroup
 ) = object : Extractor {
     override val targetExtension = targetExtension
 
@@ -79,7 +88,7 @@ internal fun Extractor(
         zfs: FileSystem,
         zpath: Path,
         path: Path
-    ): ExtractionGroup = extract(env, zfs, zpath, path)
+    ): DatapackExtractionGroup = extract(env, zfs, zpath, path)
 
     override fun toString() = "Extractor($name)"
 }

@@ -20,13 +20,13 @@ kotlin {
         }
 
         mainRun {
-            mainClass.set("mct.MainKt")
+            mainClass.set("mct.cli.MainKt")
         }
     }
 
     tasks.named<Jar>("jvmJar") {
         manifest {
-            attributes["Main-Class"] = "mct.MainKt"
+            attributes["Main-Class"] = "mct.cli.MainKt"
         }
     }
 

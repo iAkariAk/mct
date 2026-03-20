@@ -8,7 +8,7 @@ import kotlin.jvm.JvmInline
 
 sealed interface Region {
     val regionX: Int // align with 32
-    val regionY: Int // align with 32
+    val regionZ: Int // align with 32
     val offsets: ChunkOffsetTable
     val timestamps: TimestampTable
 

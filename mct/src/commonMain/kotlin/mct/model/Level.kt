@@ -145,15 +145,15 @@ data class DataPacks(
 
 @Serializable
 data class DragonFight(
-    @SerialName("DragonKilled") val dragonKilled: Boolean,
-    @SerialName("PreviouslyKilled") val previouslyKilled: Boolean,
-    @SerialName("NeedsStateScanning") val needsStateScanning: Boolean,
+    @SerialName("DragonKilled") val dragonKilled: Boolean = false,
+    @SerialName("PreviouslyKilled") val previouslyKilled: Boolean = false,
+    @SerialName("NeedsStateScanning") val needsStateScanning: Boolean = false,
     /** UUID 的 Int Array 形式 */
     @SerialName("Dragon") val dragonUUID: IntArray? = null,
     /** 退出传送门坐标 [x, y, z] */
     @SerialName("ExitPortalLocation") val exitPortalLocation: IntArray? = null,
     /** 折跃门索引或 ID */
-    @SerialName("Gateways") val gateways: IntArray? = null
+    @SerialName("Gateways") val gateways: List<Int>? = null
 )
 
 @Serializable

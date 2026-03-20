@@ -3,6 +3,8 @@ package mct.region
 import arrow.core.raise.Raise
 import kotlinx.coroutines.flow.*
 import mct.MCTWorkspace
+import mct.RegionExtraction
+import mct.RegionExtractionGroup
 import mct.pointer.*
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
@@ -10,14 +12,12 @@ import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 import net.benwoodworth.knbt.NbtTag
-import mct.Extraction.Region as Extraction
-import mct.ExtractionGroup.Region as ExtractionGroup
 
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
     patterns: Set<DataPointerPattern> = BuiltinPatterns
-): Flow<ExtractionGroup> =
+): Flow<RegionExtractionGroup> =
     dimensions.values.asFlow().flatMapMerge { dimension ->
         flowOf(
             dimension.regionRawMgr to ChunkDataKind.Terrain,
@@ -33,7 +33,7 @@ fun MCTWorkspace.extractFromRegion(
                             chunk.data.extractTexts()
                                 .filterPointer(patterns)
                                 .map { (pointer, content) ->
-                                    Extraction(
+                                    RegionExtraction(
                                         index = chunk.index.toInt(),
                                         pointer = pointer,
                                         content = content
@@ -42,10 +42,10 @@ fun MCTWorkspace.extractFromRegion(
                                 }
                         }
                     flowOf(
-                        ExtractionGroup(
+                        RegionExtractionGroup(
                             dimension = dimension.id,
                             kind = kind,
-                            coord = Coord(region.regionX, region.regionY),
+                            coord = Coord(region.regionX, region.regionZ),
                             extractions = extractions.toList().takeIf { it.isNotEmpty() }
                                 ?: return@flatMapMerge emptyFlow()
                         )
