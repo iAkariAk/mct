@@ -44,7 +44,7 @@ clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 
 [bundles]
 okio = ["okio", "okio-fakefilesystem"]
-arrow = ["arrow-core", "arrow-fx-coroutines", "arrow-optics", "arrow-functions"]
+arrow = ["arrow-core", "arrow-fx-coroutines", "arrow-functions"]
 kotest = ["kotest-framework-engine", "kotest-asserter-core", "kotest-asserter-arrow"]
 
 [plugins]

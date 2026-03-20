@@ -4,13 +4,11 @@
 
 package mct.region.anvil.model
 
-import arrow.optics.optics
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 @SerialName("")
-@optics
 data class EntitiesChunkData(
     /**
      * 保存此实体数据时的游戏数据版本。
@@ -36,7 +34,6 @@ data class EntitiesChunkData(
 }
 
 @Serializable
-@optics
 data class Entity(
     /**
      * 实体ID，例如 "minecraft:zombie"

@@ -11,31 +11,31 @@ plugins {
 }
 
 kotlin {
-    jvm {
-        testRuns.named("test") {
-            executionTask.configure {
-                useJUnitPlatform()
-            }
-        }
-    }
-
-    js(IR) {
-        browser {
-            testTask {
-                useKarma {
-                    useChromeHeadless()
+        jvm {
+            testRuns.named("test") {
+                executionTask.configure {
+                    useJUnitPlatform()
                 }
             }
         }
-        nodejs { testTask { useMocha() } }
 
-    }
-//    wasmJs {
-//        browser()
-//        nodejs()
-//    }
-    mingwX64()
-    linuxX64()
+        js(IR) {
+            browser {
+                testTask {
+                    useKarma {
+                        useChromeHeadless()
+                    }
+                }
+            }
+            nodejs { testTask { useMocha() } }
+
+        }
+        wasmJs {
+            browser()
+            nodejs()
+        }
+        mingwX64()
+        linuxX64()
 
     sourceSets {
         commonMain.dependencies {
@@ -58,9 +58,4 @@ kotlin {
 
         }
     }
-}
-
-
-dependencies {
-    ksp(libs.arrow.optics.ksp)
 }

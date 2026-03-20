@@ -1,6 +1,5 @@
 package mct.region.anvil.model
 
-import arrow.optics.optics
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -9,7 +8,6 @@ import kotlinx.serialization.serializer
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-@optics
 sealed interface ChunkData {
     companion object
 }

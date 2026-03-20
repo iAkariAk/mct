@@ -3,7 +3,6 @@
  */
 package mct.region.anvil.model
 
-import arrow.optics.optics
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.benwoodworth.knbt.NbtCompound
@@ -13,7 +12,6 @@ import net.benwoodworth.knbt.NbtCompound
  */
 @Serializable
 @SerialName("")
-@optics
 data class TerrainChunkData(
     /** 区块 X 坐标 */
     @SerialName("xPos")
@@ -102,7 +100,6 @@ data class TerrainChunkData(
  * 1.18 高度扩展升级重生成数据
  */
 @Serializable
-@optics
 data class BelowZeroRetrogen(
     /**
      * 缺失基岩标记
@@ -126,7 +123,6 @@ data class BelowZeroRetrogen(
  * 新旧区块混合数据
  */
 @Serializable
-@optics
 data class BlendingData(
 
     /**
@@ -152,7 +148,6 @@ data class BlendingData(
  * 区块高度图数据
  */
 @Serializable
-@optics
 data class Heightmaps(
 
     @SerialName("MOTION_BLOCKING")
@@ -181,7 +176,6 @@ data class Heightmaps(
  * 子区块数据
  */
 @Serializable
-@optics
 data class Section(
 
     /** 生物群系调色板 */
@@ -212,7 +206,6 @@ data class Section(
  * 通用调色板容器
  */
 @Serializable
-@optics
 data class PaletteContainer<T>(
 
     /** 位压缩数据 */
@@ -231,7 +224,6 @@ data class PaletteContainer<T>(
  * 方块状态
  */
 @Serializable
-@optics
 data class BlockState(
 
     @SerialName("Name")
@@ -248,7 +240,6 @@ data class BlockState(
  * 区块结构数据
  */
 @Serializable
-@optics
 data class Structures(
 
     /**
@@ -273,7 +264,6 @@ data class Structures(
  * 单个结构开始数据
  */
 @Serializable
-@optics
 data class StructureStart(
 
     @SerialName("Children")
@@ -299,7 +289,6 @@ data class StructureStart(
  * 区块升级数据
  */
 @Serializable
-@optics
 data class UpgradeData(
     /**
      * key = 子区块序号
@@ -328,7 +317,6 @@ data class UpgradeData(
  * 结构片段
  */
 @Serializable
-@optics
 data class StructurePiece(
     @SerialName("id")
     val id: String,
@@ -343,7 +331,6 @@ data class StructurePiece(
  * 计划刻数据
  */
 @Serializable
-@optics
 data class Tick(
     @SerialName("i")
     val blockId: String? = null,

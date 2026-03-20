@@ -4,7 +4,6 @@
 
 package mct.region.anvil.model
 
-import arrow.optics.optics
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -25,7 +24,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 @SerialName("")
-@optics
 data class PoiChunkData(
     /**
      * 保存此兴趣点存储文件的游戏的数据版本。
@@ -53,7 +51,6 @@ data class PoiChunkData(
  * 可以为负值。
  */
 @Serializable
-@optics
 data class PoiSection(
 
     /**
@@ -85,7 +82,6 @@ data class PoiSection(
  */
 @Serializable
 @SerialName("")
-@optics
 data class PoiRecord(
 
     /**
