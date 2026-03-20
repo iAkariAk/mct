@@ -10,8 +10,11 @@ import mct.MCTWorkspace
 import mct.dp.mcjson.MCJson
 import mct.dp.mcjson.standardizeMCJson
 import mct.pointer.DataPointer
+import mct.pointer.DataPointerReplacementGroup
+import mct.pointer.toReplacementGroups
 import mct.util.io.openZipReadWrite
 import mct.util.io.use2
+import mct.util.io.writeText
 import okio.BufferedSource
 import okio.Path.Companion.toPath
 import kotlin.jvm.JvmName
@@ -29,19 +32,17 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<Replacemen
                     val path = replacementGroup.path.toPath()
                     val origin = zfs.read(path, BufferedSource::readUtf8)
                     val handled = origin.backfill(replacementGroup.replacements)
-                    zfs.write(path) {
-                        writeUtf8(handled)
-                    }
+                    path.writeText(handled, env.fs)
                 }
             }
         }
     }
 }
 
-internal fun String.backfill(extractions: List<Replacement>): String {
+internal fun String.backfill(replacements: List<Replacement>): String {
     val mcfunction = mutableListOf<Replacement.MCFunction>()
     val mcjson = mutableListOf<Replacement.MCJson>()
-    extractions.forEach { replacement ->
+    replacements.forEach { replacement ->
         when (replacement) {
             is Replacement.MCFunction -> mcfunction.add(replacement)
             is Replacement.MCJson -> mcjson.add(replacement)
@@ -52,21 +53,12 @@ internal fun String.backfill(extractions: List<Replacement>): String {
     return this
 }
 
-@JvmName($$"backfill$MCFunction")
-internal fun String.backfill(replacements: List<Replacement.MCFunction>) =
-    replacements
-        .sortedByDescending { it.indices.first }
-        .fold(StringBuilder(this)) { ace, e ->
-            ace.replaceRange(e.indices, e.replacement) as StringBuilder
-        }.toString()
-
 @JvmName($$"backfill$MCJson")
-internal fun String.backfill(extractions: List<Replacement.MCJson>): String {
+internal fun String.backfill(replacements: List<Replacement.MCJson>): String {
     val standardizedJson = standardizeMCJson(this)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standardizedJson)
-    val backfilledJsonElement = extractions.fold(jsonElement) { acc, e ->
-        acc.transform(e.pointer, e.replacement)
-    }
+    val pointerReplacementGroups = replacements.map { it.pointer to it.replacement }.toReplacementGroups()
+    val backfilledJsonElement = jsonElement.transform(pointerReplacementGroups)
     return MCJson.encodeToString(backfilledJsonElement)
 }
 
@@ -91,4 +83,41 @@ private fun JsonElement.transform(pointer: DataPointer, replacement: String): Js
     DataPointer.Terminator -> {
         return JsonPrimitive(replacement)
     }
+}
+
+private fun JsonElement.transform(
+    pointers: List<DataPointerReplacementGroup>,
+): JsonElement = when (this) {
+    is JsonArray -> {
+        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.List>()
+            .filter { it.point < size }
+        if (isEmpty()) return this // safely first to infer type
+        val transformed = toMutableList()
+        pointers.forEach { pointer ->
+            transformed[pointer.point] = transformed[pointer.point].transform(pointer.values)
+        }
+        JsonArray(transformed)
+    }
+
+    is JsonObject -> {
+        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
+
+        val transformed = toMutableMap()
+        pointers.forEach { pointer ->
+            transformed[pointer.point]?.let {
+                transformed[pointer.point] = it.transform(pointer.values)
+            }
+        }
+        JsonObject(transformed)
+    }
+
+    is JsonPrimitive if isString -> {
+        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>()
+
+        val pointer = pointers.firstOrNull() ?: return this
+
+        JsonPrimitive(pointer.replacement)
+    }
+
+    else -> this
 }

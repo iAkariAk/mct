@@ -9,6 +9,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import mct.MCTWorkspace
 import mct.pointer.DataPointer
+import mct.pointer.DataPointerReplacementGroup
+import mct.pointer.toReplacementGroups
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.Snbt
 import net.benwoodworth.knbt.*
@@ -32,12 +34,10 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Flow<ReplacementGroup
                         val chunks = region.chunks.toMutableList()
                         group.replacements.groupBy { it.index }
                             .forEach { (index, replacements) ->
-                                replacements.forEach { replacement -> // FIXME: Use a more efficient algorithm
-                                    val chunk = chunks[index] ?: return@forEach
-                                    chunks[index] = chunk.modify {
-                                        it.transform(replacement.pointer, replacement.replacement)
-                                    }
-                                }
+                                val replacementGroups =
+                                    replacements.map { it.pointer to it.replacement }.toReplacementGroups()
+                                val chunk = chunks[index] ?: return@forEach
+                                chunks[index] = chunk.modify { it.transform(replacementGroups) }
                             }
                         region.modifyChunks(chunks)
                     }
@@ -54,9 +54,10 @@ private fun NbtTag.transform(pointer: DataPointer, replacement: String): NbtTag 
     is DataPointer.List -> {
         if (this !is NbtList<*>) return this
         if (size <= pointer.point) return this
+        if (isEmpty()) return this // safely first to infer type
         val transformed = toMutableList()
         transformed[pointer.point] = transformed[pointer.point].transform(pointer.value, replacement)
-        transformed.toNbtList()
+        transformed.toNbtListUnsafe()
     }
 
     is DataPointer.Map -> {
@@ -72,26 +73,65 @@ private fun NbtTag.transform(pointer: DataPointer, replacement: String): NbtTag 
     }
 }
 
-private fun List<NbtTag>.toNbtList() = buildNbtList<NbtTag> {
-    this@toNbtList.forEach {
-        @Suppress(
-            "CAST_NEVER_SUCCEEDS", "UNCHECKED_CAST",
-            "UPPER_BOUND_VIOLATED_IN_TYPE_OPERATOR_OR_PARAMETER_BOUNDS_WARNING"
-        )
-        fun <T> cast() = this as NbtListBuilder<T>
-        when (it) {
-            is NbtByte -> cast<NbtByte>().add(it)
-            is NbtByteArray -> cast<NbtByteArray>().add(it)
-            is NbtCompound -> cast<NbtCompound>().add(it)
-            is NbtDouble -> cast<NbtDouble>().add(it)
-            is NbtFloat -> cast<NbtFloat>().add(it)
-            is NbtInt -> cast<NbtInt>().add(it)
-            is NbtIntArray -> cast<NbtIntArray>().add(it)
-            is NbtList<*> -> cast<NbtList<*>>().add(it)
-            is NbtLong -> cast<NbtLong>().add(it)
-            is NbtLongArray -> cast<NbtLongArray>().add(it)
-            is NbtShort -> cast<NbtShort>().add(it)
-            is NbtString -> cast<NbtString>().add(it)
+
+private fun NbtTag.transform(
+    pointers: List<DataPointerReplacementGroup>,
+): NbtTag = when (this) {
+    is NbtList<*> -> {
+        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.List>()
+            .filter { it.point < size }
+        if (isEmpty()) return this // safely first to infer type
+        val transformed = toMutableList()
+        pointers.forEach { pointer ->
+            transformed[pointer.point] = transformed[pointer.point].transform(pointer.values)
         }
+        transformed.toNbtListUnsafe()
+    }
+
+    is NbtCompound -> {
+        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
+
+        val transformed = toMutableMap()
+        pointers.forEach { pointer ->
+            transformed[pointer.point]?.let {
+                transformed[pointer.point] = it.transform(pointer.values)
+            }
+        }
+        NbtCompound(transformed)
+    }
+
+    is NbtString -> {
+        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>()
+
+        val pointer = pointers.firstOrNull() ?: return this
+
+        Snbt.decodeFromString<NbtTag>(pointer.replacement)
+    }
+
+    else -> this
+}
+
+
+private fun List<NbtTag>.toNbtListUnsafe(): NbtList<NbtTag> {
+    val first = first()
+
+    @Suppress(
+        "CAST_NEVER_SUCCEEDS", "UNCHECKED_CAST",
+        "UPPER_BOUND_VIOLATED_IN_TYPE_OPERATOR_OR_PARAMETER_BOUNDS_WARNING"
+    )
+    fun <T> cast(): List<T> = this as List<T>
+    return when (first) {
+        is NbtByte -> NbtList(cast<NbtByte>())
+        is NbtByteArray -> NbtList(cast<NbtByteArray>())
+        is NbtCompound -> NbtList(cast<NbtCompound>())
+        is NbtDouble -> NbtList(cast<NbtDouble>())
+        is NbtFloat -> NbtList(cast<NbtFloat>())
+        is NbtInt -> NbtList(cast<NbtInt>())
+        is NbtIntArray -> NbtList(cast<NbtIntArray>())
+        is NbtLong -> NbtList(cast<NbtLong>())
+        is NbtLongArray -> NbtList(cast<NbtLongArray>())
+        is NbtShort -> NbtList(cast<NbtShort>())
+        is NbtString -> NbtList(cast<NbtString>())
+        is NbtList<*> -> NbtList(cast<NbtList<*>>())
     }
 }
