@@ -58,7 +58,7 @@ fun interface PreCondition {
         data class Regex(@field:Language("RegExp") val regex: String) : PreCondition {
             @Transient
             private val _regex = regex.toRegex()
-            override fun matches(command: MCCommand) = _regex.matches(command.raw)
+            override fun matches(command: MCCommand) = _regex.containsMatchIn(command.raw)
         }
     }
 }
@@ -154,7 +154,7 @@ fun interface PostCondition {
             @Transient
             private val _regex = regex.toRegex()
             override fun matches(command: MCCommand, arg: MCCommand.Arg): Boolean =
-                _regex.matches(arg.content)
+                _regex.containsMatchIn(arg.content)
         }
 
         @Serializable

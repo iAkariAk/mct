@@ -2,7 +2,7 @@ package mct.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.benwoodworth.knbt.NbtTag
+import net.benwoodworth.knbt.NbtCompound
 
 /**
  * Minecraft 存档 Level.dat 根标签
@@ -22,7 +22,7 @@ data class LevelData(
     /** 存档区块文件的版本 (如 Anvil 为 19133) */
     @SerialName("version") val version: Int = 19133,
     /** 存储此存档时游戏的详细版本信息 */
-    @SerialName("Version") val versionInfo: VersionDetail,
+    @SerialName("Version") val versionInfo: NbtCompound,
 
     // --- 基础存档状态 ---
     /** 存档的显示名称 */
@@ -87,17 +87,17 @@ data class LevelData(
 
     // --- 复杂子结构 ---
     /** 世界生成设置 (种子、维度等) */
-    @SerialName("WorldGenSettings") val worldGenSettings: WorldGenSettings,
+    @SerialName("WorldGenSettings") val worldGenSettings: NbtCompound,
     /** 数据包启用/禁用状态 */
-    @SerialName("DataPacks") val dataPacks: DataPacks,
+    @SerialName("DataPacks") val dataPacks: NbtCompound,
     /** 末影龙战斗状态数据 */
-    @SerialName("DragonFight") val dragonFight: DragonFight? = null,
+    @SerialName("DragonFight") val dragonFight: NbtCompound? = null,
     /** 自定义 Boss 栏 */
-    @SerialName("CustomBossEvents") val customBossEvents: Map<String, BossEvent> = emptyMap(),
+    @SerialName("CustomBossEvents") val customBossEvents: Map<String, NbtCompound> = emptyMap(),
     /** 计划任务事件 */
-    @SerialName("ScheduledEvents") val scheduledEvents: List<ScheduledEvent> = emptyList(),
+    @SerialName("ScheduledEvents") val scheduledEvents: List<NbtCompound> = emptyList(),
     /** 单人游戏玩家数据 */
-    @SerialName("Player") val player: PlayerData? = null,
+    @SerialName("Player") val player: NbtCompound? = null,
     /** 打开过此存档的服务端标识 */
     @SerialName("ServerBrands") val serverBrands: List<String> = emptyList(),
 
@@ -108,81 +108,4 @@ data class LevelData(
     @SerialName("WanderingTraderSpawnDelay") val wanderingTraderSpawnDelay: Int,
     /** 上次生成的流浪商人 UUID (Int Array) */
     @SerialName("WanderingTraderId") val wanderingTraderId: IntArray? = null
-)
-
-// --- 详细子类定义 ---
-
-@Serializable
-data class VersionDetail(
-    @SerialName("Id") val id: Int,
-    @SerialName("Name") val name: String,
-    @SerialName("Series") val series: String = "main",
-    @SerialName("Snapshot") val snapshot: Boolean = false
-)
-
-@Serializable
-data class WorldGenSettings(
-    @SerialName("seed") val seed: Long,
-    @SerialName("bonus_chest") val bonusChest: Boolean,
-    @SerialName("generate_features") val generateFeatures: Boolean,
-    @SerialName("dimensions") val dimensions: Map<String, DimensionData>
-)
-
-@Serializable
-data class DimensionData(
-    @SerialName("type") val type: String,
-    /** * generator 的结构在 Minecraft 中极不固定（平地、超平地、自定义等差异巨大）
-     * 建议使用 kotlinx.serialization.json.JsonElement 或库提供的 NbtElement 接收以增强兼容性
-     */
-    @SerialName("generator") val generator: Map<String, NbtTag>? = null
-)
-
-@Serializable
-data class DataPacks(
-    @SerialName("Enabled") val enabled: List<String>,
-    @SerialName("Disabled") val disabled: List<String> = emptyList()
-)
-
-@Serializable
-data class DragonFight(
-    @SerialName("DragonKilled") val dragonKilled: Boolean = false,
-    @SerialName("PreviouslyKilled") val previouslyKilled: Boolean = false,
-    @SerialName("NeedsStateScanning") val needsStateScanning: Boolean = false,
-    /** UUID 的 Int Array 形式 */
-    @SerialName("Dragon") val dragonUUID: IntArray? = null,
-    /** 退出传送门坐标 [x, y, z] */
-    @SerialName("ExitPortalLocation") val exitPortalLocation: IntArray? = null,
-    /** 折跃门索引或 ID */
-    @SerialName("Gateways") val gateways: List<Int>? = null
-)
-
-@Serializable
-data class PlayerData(
-    /** 坐标 [x, y, z] */
-    @SerialName("Pos") val pos: DoubleArray,
-    /** 旋转角 [yaw, pitch] */
-    @SerialName("Rotation") val rotation: FloatArray
-    // 玩家数据通常还有数百个字段，若只需基本位置则到此为止
-)
-
-@Serializable
-data class ScheduledEvent(
-    @SerialName("Name") val name: String,
-    @SerialName("TriggerTime") val triggerTime: Long,
-    @SerialName("Callback") val callback: Map<String, String> // 简化处理
-)
-
-@Serializable
-data class BossEvent(
-    @SerialName("Name") val name: String,
-    @SerialName("Color") val color: String,
-    @SerialName("Overlay") val overlay: String,
-    @SerialName("Max") val max: Int,
-    @SerialName("Value") val value: Int,
-    @SerialName("Visible") val visible: Boolean,
-    @SerialName("DarkenScreen") val darkenScreen: Boolean,
-    @SerialName("PlayBossMusic") val playBossMusic: Boolean,
-    @SerialName("CreateWorldFog") val createWorldFog: Boolean,
-    /** UUID 列表 */
-    @SerialName("Players") val players: List<IntArray> = emptyList()
 )

@@ -1,15 +1,18 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
+
 package mct.region.anvil
 
 import kotlinx.serialization.decodeFromByteArray
 import mct.region.anvil.ChunkOffset.Companion.ChunkOffset
+import mct.region.anvil.RawRegion.Companion.SECTOR_SIZE
 import mct.region.anvil.Region.Companion.CHUNK_COUNT
+import mct.util.divCeil
 import net.benwoodworth.knbt.NbtTag
 import okio.FileHandle
 import okio.buffer
 import okio.use
 import kotlin.math.min
-
-private const val SECTOR_SIZE = 4096
+import kotlin.time.Clock
 
 class RawRegion(
     override val regionX: Int, // align with 32
@@ -19,6 +22,9 @@ class RawRegion(
     val chunks: List<RawChunk?>
 ) : Region {
     companion object {
+        const val SECTOR_SIZE = 4096
+        val EMTPY_SECTOR = ByteArray(SECTOR_SIZE)
+
         fun fromHandle(
             regionX: Int,
             regionY: Int,
@@ -74,32 +80,43 @@ class RawRegion(
             chunkBeginPos = handle.position(sink) // must be 8192
         }
         val necessaryChunkCount = offsets.offsets.indexOfLast { !it.isEmpty() }
-        val necessarySectorCount = offsets.offsets.sliceArray(0..necessaryChunkCount).sumOf { it.sectorUsedCount }
+        val necessarySectorCount = offsets.offsets.sliceArray(0..necessaryChunkCount).sumOf { it.sectorUsedCount.toUInt() }
         handle.resize(chunkBeginPos + necessarySectorCount.toLong() * SECTOR_SIZE.toLong())
 
         offsets.offsets.forEachIndexed { index, offset ->
+            if (offset.isEmpty()) return@forEachIndexed
             val chunk = chunks[index] ?: return@forEachIndexed
-            handle.write(offset.sectorOffset.toLong(), chunk.rawData, 0, chunk.rawData.size)
+            handle.sink(offset.sectorOffset.toLong()).buffer()
+                .use(chunk::writeTo)
         }
     }
 
     fun modifyChunks(modified: List<RawChunk?>): RawRegion {
-        var sectorOffsetOffset = 0u
-        val newOffsets = Array(CHUNK_COUNT) { index ->
-            val origin = offsets[index]
-            val modified = modified[index] ?: return@Array ChunkOffset.EMPTY
-            val sectorCount = calculateSectorCount(modified.rawData.size.toUInt())
-            val diff = sectorCount - origin.sectorUsedCount
-            if (diff > 0u) {
-                sectorOffsetOffset += diff
-            }
-            ChunkOffset(origin.sectorOffset + sectorOffsetOffset, sectorCount)
+        require(modified.size == CHUNK_COUNT) {
+            "Chunk count only is $CHUNK_COUNT"
         }
+
+        var currentSector = 2u // header
+        val newTimestamps = UIntArray(CHUNK_COUNT) { 0u }
+        val currentTimestamps = Clock.System.now().epochSeconds.toUInt()
+        val newOffsets = Array(CHUNK_COUNT) { index ->
+            val chunk = modified[index] ?: return@Array ChunkOffset.EMPTY
+
+            newTimestamps[index] = currentTimestamps
+
+            val sectorCount = calculateSectorCountForData(chunk.rawData.size.toUInt())
+
+            ChunkOffset(currentSector, sectorCount).also {
+                currentSector += sectorCount
+            }
+        }
+
+
         return RawRegion(
             regionX = regionX,
             regionZ = regionZ,
             offsets = ChunkOffsetTable(newOffsets),
-            timestamps = timestamps,
+            timestamps = TimestampTable(newTimestamps),
             chunks = modified
         )
     }
@@ -109,5 +126,5 @@ class RawRegion(
     override fun toString() = "Region(x=$regionX, y=$regionZ, chunkCount=${chunks.size})"
 }
 
-internal inline fun calculateSectorCount(usedByteCount: UInt): UByte =
-    ((5u + usedByteCount + SECTOR_SIZE.toUInt() - 1u) / SECTOR_SIZE.toUInt()).toUByte() // ceil div
+internal inline fun calculateSectorCountForData(usedByteCount: UInt): UByte =
+    ((5u + usedByteCount) divCeil SECTOR_SIZE.toUInt()).toUByte()

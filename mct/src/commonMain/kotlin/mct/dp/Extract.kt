@@ -35,24 +35,27 @@ fun MCTWorkspace.extractFromDatapack(): Flow<DatapackExtractionGroup> {
 
         }
         .flatMapMerge { (sfs, path) ->
-            sfs.useAsync { sfs ->
-                sfs.listRecursively(Path.ROOT)
-                    .asFlow()
-                    .mapNotNull { zpath ->
-                        nullable { zpath to extractors.find { zpath.endsWith(it.targetExtension) }.bind() }
-                    }
-                    .flatMapMerge { (filePath, extractor) ->
-                        either {
-                            env.logger.debug {
-                                "Extracting $filePath via $extractor"
-                            }
-                            flowOf(extractor.extract(env, sfs, filePath, path))
-                        }.getOrElse { error ->
-                            env.logger.error { error.message }
-                            emptyFlow()
+            flow {
+                sfs.useAsync { sfs ->
+                    sfs.listRecursively(Path.ROOT)
+                        .asFlow()
+                        .mapNotNull { zpath ->
+                            nullable { zpath to extractors.find { zpath.endsWith(it.targetExtension) }.bind() }
                         }
-                    }
-                    .filter { it.extractions.isNotEmpty() }
+                        .flatMapMerge { (filePath, extractor) ->
+                            either {
+                                env.logger.debug {
+                                    "Extracting $filePath via $extractor"
+                                }
+                                flowOf(extractor.extract(env, sfs, filePath, path))
+                            }.getOrElse { error ->
+                                env.logger.error { error.message }
+                                emptyFlow()
+                            }
+                        }
+                        .filter { it.extractions.isNotEmpty() }
+                        .collect { emit(it) }
+                }
             }
         }
 }

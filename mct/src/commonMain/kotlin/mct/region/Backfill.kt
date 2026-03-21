@@ -4,12 +4,10 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.raise
 import arrow.core.raise.recover
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import mct.MCTWorkspace
 import mct.RegionReplacementGroup
-import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.toReplacementGroups
 import mct.region.anvil.model.ChunkDataKind
@@ -18,7 +16,7 @@ import net.benwoodworth.knbt.*
 
 context(_: Raise<BackfillError>)
 suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplacementGroup>) = coroutineScope {
-    replacementGroups.asFlow().collect { group ->
+    replacementGroups.forEach { group ->
         val dimension = dimensions[group.dimension]
             ?: raise(BackfillError.DimensionNotFound(group.dimension))
         val mgr = when (group.kind) {
@@ -26,7 +24,7 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
             ChunkDataKind.Entities -> dimension.entitiesRawMgr
             ChunkDataKind.Poi -> dimension.poiRawMgr
         }
-        if (mgr == null) return@collect
+        if (mgr == null) return@forEach
         launch {
             recover({
                 launch {
@@ -48,31 +46,6 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
         }
     }
 }
-
-
-private fun NbtTag.transform(pointer: DataPointer, replacement: String): NbtTag = when (pointer) {
-    is DataPointer.List -> {
-        if (this !is NbtList<*>) return this
-        if (size <= pointer.point) return this
-        if (isEmpty()) return this // safely first to infer type
-        val transformed = toMutableList()
-        transformed[pointer.point] = transformed[pointer.point].transform(pointer.value, replacement)
-        transformed.toNbtListUnsafe()
-    }
-
-    is DataPointer.Map -> {
-        if (this !is NbtCompound) return this
-        if (!containsKey(pointer.point)) return this
-        val transformed = toMutableMap()
-        transformed[pointer.point] = transformed[pointer.point]!!.transform(pointer.value, replacement)
-        NbtCompound(transformed)
-    }
-
-    DataPointer.Terminator -> {
-        return Snbt.decodeFromString<NbtTag>(replacement)
-    }
-}
-
 
 private fun NbtTag.transform(
     pointers: List<DataPointerReplacementGroup>,

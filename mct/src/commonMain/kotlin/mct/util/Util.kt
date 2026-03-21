@@ -15,5 +15,14 @@ inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
 fun NbtTag.toSnbt(): String = Snbt.encodeToString(this)
 
+inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other
+inline infix fun Short.divCeil(other: Short) = (this + other - 1) / other
+inline infix fun Int.divCeil(other: Int) = (this + other - 1) / other
+inline infix fun Long.divCeil(other: Long) = (this + other - 1) / other
+inline infix fun UByte.divCeil(other: UByte) = (this + other - 1u) / other
+inline infix fun UShort.divCeil(other: UShort) = (this + other - 1u) / other
+inline infix fun UInt.divCeil(other: UInt) = (this + other - 1u) / other
+inline infix fun ULong.divCeil(other: ULong) = (this + other - 1u) / other
+
 @DslMarker
 internal annotation class BuilderMaker

@@ -53,7 +53,7 @@ value class ChunkOffset(
     internal val raw: UInt,
 ) {
     val sectorOffset: UInt get() = raw shr 8
-    val sectorUsedCount: UInt get() = raw and 0xFFu
+    val sectorUsedCount: UByte get() = (raw and 0xFFu).toUByte()
 
     companion object {
         val EMPTY = ChunkOffset(0x00000000u)

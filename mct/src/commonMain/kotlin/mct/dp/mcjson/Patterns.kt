@@ -8,7 +8,5 @@ import mct.pointer.RightPattern
 
 val BuiltinPatterns = PatternSet {
     +RightPattern("#components>#custom_name")
-    +RegexPattern("""#components>#lore>\d+""")
-    +RegexPattern("""#components>#lore""")
-    +RegexPattern("""#components>#lore""")
+    +RegexPattern("""#components>#lore>\d+$""")
 }

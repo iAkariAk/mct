@@ -55,22 +55,21 @@ fun MCTWorkspace.extractFromRegion(
     }
 
 
-internal fun NbtTag.extractTexts(): Sequence<DataPointerWithValue> {
-    return when (this) {
-        is NbtList<*> -> asSequence().withIndex().flatMap { (index, tag) ->
-            tag.extractTexts().map {
-                it.markArray(index)
-            }
-        } // wrap inner pointer
+internal fun NbtTag.extractTexts(): Sequence<DataPointerWithValue> = when (this) {
+    is NbtList<*> -> asSequence().withIndex().flatMap { (index, tag) ->
+        tag.extractTexts().map {
+            it.markArray(index)
+        }
+    } // wrap inner pointer
 
-        is NbtCompound -> asSequence().flatMap { (key, value) ->
-            value.extractTexts().map {
-                it.markMap(key)
-            }
-        } // wrap inner pointer
+    is NbtCompound -> asSequence().flatMap { (key, value) ->
+        value.extractTexts().map {
+            it.markMap(key)
+        }
+    } // wrap inner pointer
 
-        is NbtString -> sequenceOf(DataPointer.Terminator to value)
-        else -> emptySequence()
-    }
+    is NbtString -> sequenceOf(DataPointer.Terminator to value)
+    else -> emptySequence()
 }
+
 

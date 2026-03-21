@@ -8,7 +8,7 @@ fun interface DataPointerPattern {
 }
 
 fun DataPointer.matches(regex: Regex) =
-    encodeToString().matches(regex)
+    regex.containsMatchIn(encodeToString())
 
 fun DataPointer.matchesRight(right: String) =
     encodeToString().endsWith(right)

@@ -8,7 +8,6 @@ import mct.serializer.NbtGzip
 import mct.serializer.NbtNone
 import mct.serializer.NbtZlib
 import net.benwoodworth.knbt.NbtTag
-import net.benwoodworth.knbt.encodeToSink
 import okio.BufferedSink
 
 
@@ -48,14 +47,16 @@ class RawChunk(
 
     val nbtSerializer get() = getNbtSerializer(compressKind)
 
-    inline fun modify(modify: (NbtTag) -> NbtTag) =
-        RawChunk(index, size, compressKind, data, nbtSerializer.encodeToByteArray(data))
+    inline fun modify(modify: (NbtTag) -> NbtTag): RawChunk {
+        val modified = modify(data)
+        return RawChunk(index, size, compressKind, modified, nbtSerializer.encodeToByteArray(modified))
+    }
 
-    fun writeTo(sink: BufferedSink) {
+    fun writeTo(sink: BufferedSink): Long {
         sink.writeInt(size.toInt())
         sink.writeByte(compressKind.toInt())
-        val nbtSerializer = getNbtSerializer(compressKind)
-        nbtSerializer.encodeToSink(data, sink)
+        sink.write(rawData)
+        return 5 + rawData.size.toLong()
     }
 
     override fun toString(): String {
