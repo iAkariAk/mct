@@ -1,4 +1,4 @@
-package mct.cli.dp
+package mct.cli.cmd
 
 import arrow.core.raise.Raise
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
@@ -11,27 +11,25 @@ import mct.DatapackReplacementGroup
 import mct.MCTError
 import mct.cli.PrettyJson
 import mct.cli.WorkspaceCommand
+import mct.cli.jsonFile
 import mct.cli.path
 import mct.dp.backfillDatapack
 import mct.dp.extractFromDatapack
-import mct.serializer.MCTJson
-import mct.util.io.readText
 import mct.util.io.writeText
 import okio.FileSystem
 
-val DatapackCmd: SuspendingCliktCommand = Datapack()
-    .subcommands(ExtractDatapack(), BackfillDatapack())
-
-private class Datapack : SuspendingCliktCommand(name = "db") {
+class Datapack : SuspendingCliktCommand(name = "datapack") {
     override suspend fun run() {
         echo("Some operation about datapacks.")
+    }
+
+    init {
+        subcommands(ExtractDatapack(), BackfillDatapack())
     }
 }
 
 private class ExtractDatapack : WorkspaceCommand(name = "extract") {
-    val output by option()
-        .path()
-        .required()
+    val output by option().path().required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
@@ -43,13 +41,10 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
 
 private class BackfillDatapack : WorkspaceCommand(name = "backfill") {
-    val replacementPath by option("-r").path().required()
+    val replacementGroups by option("-r").jsonFile<List<DatapackReplacementGroup>>().required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        val replacementGroups: List<DatapackReplacementGroup> =
-            MCTJson.decodeFromString(replacementPath.readText())
-
         workspace.backfillDatapack(replacementGroups)
     }
 }

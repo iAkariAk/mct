@@ -1,4 +1,4 @@
-package mct.cli.region
+package mct.cli.cmd
 
 
 import arrow.core.raise.Raise
@@ -12,18 +12,18 @@ import mct.RegionExtractionGroup
 import mct.RegionReplacementGroup
 import mct.cli.PrettyJson
 import mct.cli.WorkspaceCommand
+import mct.cli.jsonFile
 import mct.cli.path
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
-import mct.serializer.MCTJson
-import mct.util.io.readText
 import mct.util.io.writeText
 import okio.FileSystem
 
-val RegionCmd: SuspendingCliktCommand = Region()
-    .subcommands(RegionExtract(), RegionBackfill())
+class Region : SuspendingCliktCommand(name = "region") {
+    init {
+        subcommands(RegionExtract(), RegionBackfill())
+    }
 
-private class Region : SuspendingCliktCommand(name = "region") {
     override suspend fun run() {
         echo("Some operation about region.")
     }
@@ -43,12 +43,10 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
 
 
 private class RegionBackfill : WorkspaceCommand(name = "backfill") {
-    val replacementPath by option("-r").path().required()
+    val replacementGroups by option("-r").jsonFile<List<RegionReplacementGroup>>().required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        val replacementGroups: List<RegionReplacementGroup> =
-            MCTJson.decodeFromString(replacementPath.readText())
         workspace.backfillRegion(replacementGroups)
     }
 }

@@ -8,9 +8,9 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.versionOption
 import kotlinx.serialization.json.Json
 import mct.MCTError
-import mct.cli.dp.DatapackCmd
-import mct.cli.kits.KitCmd
-import mct.cli.region.RegionCmd
+import mct.cli.cmd.Datapack
+import mct.cli.cmd.Kit
+import mct.cli.cmd.Region
 import mct.serializer.MCTJson
 
 val PrettyJson = Json(MCTJson) {
@@ -19,13 +19,13 @@ val PrettyJson = Json(MCTJson) {
 }
 
 suspend fun main(args: Array<String>) = MCT()
-    .subcommands(DatapackCmd, RegionCmd, KitCmd)
     .main(args)
 
 
-class MCT : SuspendingCliktCommand() {
+class MCT : SuspendingCliktCommand("MCT") {
     init {
         versionOption("SNAPSHOT")
+        subcommands(Datapack(), Region(), Kit())
     }
 
     override suspend fun run() = Unit

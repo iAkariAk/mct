@@ -4,6 +4,8 @@ import kotlinx.serialization.encodeToString
 import mct.serializer.Snbt
 import net.benwoodworth.knbt.NbtTag
 
+val unreachable: Nothing get() = error("Unreachable")
+
 inline fun <T> ArrayDeque<T>.top() = last()
 inline fun <T> ArrayDeque<T>.bottom() = first()
 inline fun <T> ArrayDeque<T>.peek() = last()
