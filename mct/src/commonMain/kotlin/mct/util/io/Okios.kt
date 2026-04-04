@@ -7,6 +7,7 @@ import korlibs.io.file.std.MemoryVfs
 import korlibs.io.file.std.createZipFromTreeTo
 import korlibs.io.file.std.openAsZip
 import korlibs.io.lang.unsupported
+import korlibs.io.stream.openAsync
 import korlibs.io.stream.toAsyncStream
 import okio.BufferedSource
 import okio.FileSystem
@@ -63,6 +64,18 @@ suspend fun FileSystem.openZipReadWrite(path: Path): ZipFileSystem {
             }
 
             tfs.close()
+        }
+    }
+}
+
+// Note: No way to get the file which was modified
+suspend fun ByteArray.openZipReadWrite(): ZipFileSystem {
+    val tfs = FakeFileSystem()
+    val zipVfs = openAsync().openAsZip()
+    zipVfs.copyToRecursively(tfs, Path.ROOT)
+
+    return object : ZipFileSystem(tfs) {
+        override suspend fun closeAsync() {
         }
     }
 }

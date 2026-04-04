@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotest) apply false
     alias(libs.plugins.shadow) apply false
+    alias(libs.plugins.goncalossilva.resources) apply false
 }
 
 subprojects {

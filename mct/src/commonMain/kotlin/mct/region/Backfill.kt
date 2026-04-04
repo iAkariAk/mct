@@ -5,13 +5,11 @@ import arrow.core.raise.context.raise
 import arrow.core.raise.recover
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.serialization.decodeFromString
 import mct.MCTWorkspace
 import mct.RegionReplacementGroup
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.toReplacementGroups
 import mct.region.anvil.model.ChunkDataKind
-import mct.serializer.Snbt
 import net.benwoodworth.knbt.*
 
 context(_: Raise<BackfillError>)
@@ -78,7 +76,7 @@ private fun NbtTag.transform(
 
         val pointer = pointers.firstOrNull() ?: return this
 
-        Snbt.decodeFromString<NbtTag>(pointer.replacement)
+        NbtString(pointer.replacement)
     }
 
     else -> this

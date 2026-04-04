@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotest)
+    alias(libs.plugins.goncalossilva.resources)
 }
 
 kotlin {
@@ -51,11 +52,11 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.bundles.kotest)
+            implementation(libs.goncalossilva.resources)
         }
 
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
-
         }
     }
 }

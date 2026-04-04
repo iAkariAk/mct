@@ -15,6 +15,7 @@ shadow = "9.3.2"
 compose = "1.10.3"
 material3 = "1.10.0-alpha05"
 androidx-lifecycle = "2.10.0"
+resources = "0.15.0"
 
 
 [libraries]
@@ -43,6 +44,8 @@ kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.
 
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 
+goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources"}
+
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 
 androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
@@ -67,6 +70,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotest = { id = "io.kotest", version.ref = "kotest" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+goncalossilva-resources = { id = "com.goncalossilva.resources", version.ref = "resources"}
 
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
