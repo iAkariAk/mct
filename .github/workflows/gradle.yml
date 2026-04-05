@@ -28,6 +28,15 @@ jobs:
 
     - name: Build with Gradle Wrapper
       run: chmod +x ./gradlew && ./gradlew build
+    
+    - name: Assembly Cli
+      run: ./gradlew cli:shadowJar
+    
+    - name: Upload cli jar
+      uses: actions/upload-artifact@v3.2.2
+      with:
+       name: mct-cli.jar
+       path: cli/build/libs/cli-*-all.jar
 
   dependency-submission:
 
