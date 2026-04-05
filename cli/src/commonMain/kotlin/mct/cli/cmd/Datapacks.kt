@@ -4,6 +4,7 @@ import arrow.core.raise.Raise
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
@@ -32,7 +33,7 @@ class Datapack : SuspendingCliktCommand(name = "datapack") {
 
 private class ExtractDatapack : WorkspaceCommand(name = "extract") {
     val output by option(help = "The JSON output of extract").path().required()
-     val mcfPatternsPath by option(
+    val mcfPatternsPath by option(
         "--mcfunction-patterns",
         "-pF",
         help = "Append pattern to filter specified text for mcfunction"
@@ -43,11 +44,13 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         help = "Append pattern to filter specified text for mcjson"
     ).path()
 
+    val disableMCJFilter by option("--disable-mcjson-filter").flag()
+
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        val mcfPatterns = mcfPatternsPath.jsonFile<List<ExtractPattern>>(emptyList())
-        val mcjPatterns = mcjPatternsPath.jsonFile<List<DataPointerPattern>>(emptyList())
+        val mcfPatterns =  mcfPatternsPath.jsonFile<List<ExtractPattern>>(emptyList())
+        val mcjPatterns = if (disableMCJFilter) null else mcjPatternsPath.jsonFile<List<DataPointerPattern>>(emptyList())
 
         val extractions: List<DatapackExtractionGroup> =
             workspace.extractFromDatapack(mcfPatterns, mcjPatterns).toList()

@@ -11,6 +11,7 @@ import mct.DatapackExtractionGroup
 import mct.Env
 import mct.MCTWorkspace
 import mct.dp.mcfunction.ExtractPattern
+import mct.dp.mcfunction.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
 import mct.pointer.DataPointerPattern
@@ -22,11 +23,21 @@ import mct.dp.mcjson.BuiltinPatterns as MCJsonBuiltinPatterns
 
 fun MCTWorkspace.extractFromDatapack(
     mcfPatterns: List<ExtractPattern> = emptyList(),
-    mcjPatterns: List<DataPointerPattern> = emptyList()
+    mcjPatterns: List<DataPointerPattern>? = emptyList()
+) = extractFromDatapack(
+    MCFBuiltinPatterns + mcfPatterns.groupBy { it.command }.toMap(),
+    mcjPatterns?.let { MCJsonBuiltinPatterns + mcjPatterns },
+)
+
+fun MCTWorkspace.extractFromDatapack(
+    mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
+    mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
 ): Flow<DatapackExtractionGroup> {
+    if (mcjPatterns == null) logger.warning { "The filter MCJson was disabled, which causes export all string from the datapack" }
+
     val extractors = listOf(
-        MCFunctionExtractor(MCFBuiltinPatterns + mcfPatterns.groupBy { it.command }.toMap()),
-        MCJsonExtractor(MCJsonBuiltinPatterns + mcjPatterns),
+        MCFunctionExtractor(mcfPatterns),
+        MCJsonExtractor(mcjPatterns),
     )
 
     return fs.list(datapackDir)

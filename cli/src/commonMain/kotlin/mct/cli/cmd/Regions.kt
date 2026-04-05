@@ -5,6 +5,7 @@ import arrow.core.raise.Raise
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
@@ -34,9 +35,11 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
     val output by option("--output", "-o").path().required()
     val patternsPath by option("--pattern", "-p").path()
 
+    val disableFilter by option("--disable-filter").flag()
+
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        val patterns = patternsPath.jsonFile<List<DataPointerPattern>>(emptyList())
+        val patterns = if (disableFilter) null else patternsPath.jsonFile<List<DataPointerPattern>>(emptyList())
         val extractions: List<RegionExtractionGroup> = workspace.extractFromRegion(patterns).toList()
 
         val result = PrettyJson.encodeToString(extractions)

@@ -20,9 +20,10 @@ import net.benwoodworth.knbt.NbtTag
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
-    patterns: List<DataPointerPattern> = emptyList()
+    patterns: List<DataPointerPattern>? = BuiltinPatterns
 ): Flow<RegionExtractionGroup> {
-    val patterns = BuiltinPatterns + patterns
+    if (patterns == null) logger.warning { "The filter MCJson was disabled, which causes export all string from the region" }
+
     return dimensions.values.asFlow().flatMapMerge { dimension ->
         flowOf(
             dimension.regionRawMgr to ChunkDataKind.Terrain,
