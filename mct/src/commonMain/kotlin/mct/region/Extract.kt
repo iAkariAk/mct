@@ -39,7 +39,7 @@ fun MCTWorkspace.extractFromRegion(
                                 .filterPointer(patterns)
                                 .map { (pointer, content, isStoredViaCompound) ->
                                     RegionExtraction(
-                                        index = chunk.index.toInt(),
+                                        index = chunk.index,
                                         pointer = pointer,
                                         isStoredViaCompound = isStoredViaCompound,
                                         content = content

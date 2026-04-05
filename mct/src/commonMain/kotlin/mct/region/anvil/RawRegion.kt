@@ -28,7 +28,7 @@ class RawRegion internal constructor(
 
         fun fromHandle(
             regionX: Int,
-            regionY: Int,
+            regionZ: Int,
             handle: FileHandle
         ): RawRegion {
             val offsets: ChunkOffsetTable
@@ -44,10 +44,10 @@ class RawRegion internal constructor(
                 if (fileOffset >= handle.size()) return@List null
 
                 handle.source(fileOffset).buffer().use { source ->
-                    val size = source.readInt()
-                        .toUInt() // beginning from the 5th byte of this chunk, excludes self and compress kind byte
+                    val size = source.readInt() // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
+                    require(size >= 0) { "Illegal negative chunk size $size" }
                     val actualSectorByteCount = offset.sectorUsedCount.toLong() * SECTOR_SIZE
-                    val usedSize = 5 + size.toLong()
+                    val usedSize = 4 + size.toLong()
                     require(usedSize <= actualSectorByteCount) {
                         "Chunk size($usedSize) exceeds allocated sectors($actualSectorByteCount)"
                     }
@@ -56,7 +56,7 @@ class RawRegion internal constructor(
                     val nbtSerializer = RawChunk.getNbtSerializer(compressKind)
 
                     val bytes = try {
-                        source.readByteArray(size.toLong())
+                        source.readByteArray(size.toLong() - 1)
                     } catch (_: IOException) {
                         return@List null
                     }
@@ -70,12 +70,12 @@ class RawRegion internal constructor(
                     } catch (_: IOException) {
                         return@List null
                     }
-                    RawChunk(index.toUInt(), size, compressKind, data, bytes)
+                    RawChunk(index, compressKind, data, bytes)
                 }
             }
             return RawRegion(
                 regionX,
-                regionY,
+                regionZ,
                 offsets,
                 timestamps,
                 chunks
@@ -119,7 +119,7 @@ class RawRegion internal constructor(
 
             newTimestamps[index] = currentTimestamps
 
-            val sectorCount = calculateSectorCountForData(chunk.rawData.size.toUInt())
+            val sectorCount = calculateSectorCountForChunk(chunk.size)
 
             ChunkOffset(currentSector, sectorCount).also {
                 currentSector += sectorCount
@@ -138,8 +138,8 @@ class RawRegion internal constructor(
 
     inline fun modifyChunks(modify: (List<RawChunk?>) -> List<RawChunk?>) = modifyChunks(modify(chunks))
 
-    override fun toString() = "Region(x=$regionX, y=$regionZ, chunkCount=${chunks.size})"
+    override fun toString() = "Region(x=$regionX, z=$regionZ, chunkCount=${chunks.size})"
 }
 
-internal inline fun calculateSectorCountForData(usedByteCount: UInt): UByte =
-    ((5u + usedByteCount) divCeil SECTOR_SIZE.toUInt()).toUByte()
+internal inline fun calculateSectorCountForChunk(chunkSize: Int): UByte =
+    (chunkSize divCeil SECTOR_SIZE).toUByte()

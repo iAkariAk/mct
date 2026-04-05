@@ -4,7 +4,6 @@ import arrow.core.raise.Raise
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.subcommands
-import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
@@ -33,11 +32,23 @@ class Datapack : SuspendingCliktCommand(name = "datapack") {
 
 private class ExtractDatapack : WorkspaceCommand(name = "extract") {
     val output by option(help = "The JSON output of extract").path().required()
-    val mcfPatterns by option("--mcfunction-patterns", "-pF", help = "Append pattern to filter specified text for mcfunction").jsonFile<List<ExtractPattern>>().default(emptyList())
-    val mcjPatterns by option("--mcjson-patterns", "-pJ", help = "Append pattern to filter specified text for mcjson").jsonFile<List<DataPointerPattern>>().default(emptyList())
+     val mcfPatternsPath by option(
+        "--mcfunction-patterns",
+        "-pF",
+        help = "Append pattern to filter specified text for mcfunction"
+    ).path()
+    val mcjPatternsPath by option(
+        "--mcjson-patterns",
+        "-pJ",
+        help = "Append pattern to filter specified text for mcjson"
+    ).path()
+
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
+        val mcfPatterns = mcfPatternsPath.jsonFile<List<ExtractPattern>>(emptyList())
+        val mcjPatterns = mcjPatternsPath.jsonFile<List<DataPointerPattern>>(emptyList())
+
         val extractions: List<DatapackExtractionGroup> =
             workspace.extractFromDatapack(mcfPatterns, mcjPatterns).toList()
         val result = PrettyJson.encodeToString(extractions)
@@ -47,10 +58,11 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
 
 private class BackfillDatapack : WorkspaceCommand(name = "backfill") {
-    val replacementGroups by option("-r").jsonFile<List<DatapackReplacementGroup>>().required()
+    val replacementGroupsPath by option("-r").path().required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
+        val replacementGroups = replacementGroupsPath.jsonFile<List<DatapackReplacementGroup>>()
         workspace.backfillDatapack(replacementGroups)
     }
 }

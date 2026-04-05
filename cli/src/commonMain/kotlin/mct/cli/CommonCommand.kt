@@ -16,10 +16,17 @@ import mct.MCTError
 import mct.MCTWorkspace
 import okio.FileSystem
 
+interface EnvProvider {
+    val env: Env
+}
+
+val EnvProvider.fs get() = env.fs
+val EnvProvider.logger get() = env.logger
+
 abstract class BaseCommand(
     val name: String? = null,
     private val help: String? = null,
-) : SuspendingCliktCommand(name) {
+) : SuspendingCliktCommand(name), EnvProvider {
     override fun help(context: Context): String = help ?: super.help(context)
 
     val loggerLevels by mutuallyExclusiveOptions(
@@ -34,16 +41,17 @@ abstract class BaseCommand(
         option("--verbose", "-V").flag().convert { f -> LoggerLevel.Verbose.takeIf { f } }
     ).default(emptyList())
 
-    val env: Env by lazy {
+    override val env by lazy {
         Env(
             SystemFileSystem,
             ColorTerminalLogger(loggerLevels)
         )
     }
 
+
     override suspend fun run() {
         either {
-            context(env.fs) {
+            context(fs) {
                 App()
             }
         }.onLeft { error ->
@@ -58,7 +66,7 @@ abstract class BaseCommand(
 abstract class WorkspaceCommand(
     name: String? = null,
     help: String? = null,
-) : BaseCommand(name) {
+) : BaseCommand(name, help) {
     val input by option("--input", "-i", help = "The path to your map where there should be level.dat").path().required()
 
     val workspace by lazy {

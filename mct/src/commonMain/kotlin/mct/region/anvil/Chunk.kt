@@ -14,8 +14,7 @@ import okio.BufferedSink
 sealed interface Chunk
 
 class RawChunk(
-    val index: UInt,
-    val size: UInt,
+    val index: Int,
     val compressKind: Byte,
     val data: NbtTag,
     internal val rawData: ByteArray
@@ -45,15 +44,17 @@ class RawChunk(
         require(compressKind in 1..3)
     }
 
+    val size = 5 + rawData.size
+
     val nbtSerializer get() = getNbtSerializer(compressKind)
 
     inline fun modify(modify: (NbtTag) -> NbtTag): RawChunk {
         val modified = modify(data)
-        return RawChunk(index, size, compressKind, modified, nbtSerializer.encodeToByteArray(modified))
+        return RawChunk(index, compressKind, modified, nbtSerializer.encodeToByteArray(modified))
     }
 
     fun writeTo(sink: BufferedSink): Long {
-        sink.writeInt(size.toInt())
+        sink.writeInt(1 + rawData.size)
         sink.writeByte(compressKind.toInt())
         sink.write(rawData)
         return 5 + rawData.size.toLong()
