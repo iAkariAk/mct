@@ -33,7 +33,7 @@ jobs:
       run: ./gradlew cli:shadowJar
     
     - name: Upload cli jar
-      uses: actions/upload-artifact@v3.2.2
+      uses: actions/upload-artifact@v4
       with:
        name: mct-cli.jar
        path: cli/build/libs/cli-*-all.jar
