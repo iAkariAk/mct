@@ -8,6 +8,18 @@ import kotlinx.serialization.modules.subclass
 import mct.serializer.IntRangeSerializable
 import org.intellij.lang.annotations.Language
 
+typealias ExtractPatternSet = Map<String, List<ExtractPattern>>
+
+operator fun ExtractPatternSet.plus(other: ExtractPatternSet): ExtractPatternSet {
+    val result = this.toMutableMap()
+    for ((key, value) in other) {
+        result[key]?.let {
+            value + it
+        } ?: value
+    }
+    return result
+}
+
 @Serializable
 data class ExtractPattern(
     val command: String,

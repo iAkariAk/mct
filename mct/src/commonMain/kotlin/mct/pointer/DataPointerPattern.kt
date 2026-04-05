@@ -20,15 +20,15 @@ inline fun DataPointer.matchesRight(right: DataPointerBuilderDsl.() -> DataPoint
     matchesRight(DataPointerBuilderDsl.run(right))
 
 
-fun PatternSet(action: DataPointerPatternSetBuilderScope.() -> Unit): Set<DataPointerPattern> {
-    val set = mutableSetOf<DataPointerPattern>()
+fun PatternSet(action: DataPointerPatternSetBuilderScope.() -> Unit): List<DataPointerPattern> {
+    val result = mutableListOf<DataPointerPattern>()
     val scope = object : DataPointerPatternSetBuilderScope {
         override fun DataPointerPattern.unaryPlus() {
-            set += this
+            result += this
         }
     }
     scope.apply(action)
-    return set
+    return result
 }
 
 interface DataPointerPatternSetBuilderScope {

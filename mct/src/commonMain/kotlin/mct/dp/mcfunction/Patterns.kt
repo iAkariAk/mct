@@ -1,5 +1,7 @@
 package mct.dp.mcfunction
 
+import mct.util.isTextComponent
+
 val BuiltinPatterns = PatternSet {
     listOf("say", "me", "teammsg").forEach { cmd ->
         // say <message...>
@@ -118,15 +120,29 @@ val BuiltinPatterns = PatternSet {
         }
     }
 
+
+
     command("data") {
         // data modify <target> <path> set value <json>
-        WithSize(6) then {
+        WithSize(6, strict = true) then {
             GreedyPositions(6) then {
                 Matches("data modify value json") { cmd, arg ->
                     cmd[1].content == "modify" &&
                             cmd[4].content == "set" &&
                             cmd[5].content == "value" &&
-                            "\"text\"" in arg.content
+                            arg.content.isTextComponent()
+                }
+            }
+        }
+        // data modify <target> <path> Name set value <json>
+        WithSize(7, strict = true) then {
+            GreedyPositions(7) then {
+                Matches("data modify Name value json") { cmd, arg ->
+                    cmd[1].content == "modify" &&
+                            cmd[3].content == "Name" &&
+                            cmd[5].content == "set" &&
+                            cmd[6].content == "value" &&
+                            arg.content.isTextComponent()
                 }
             }
         }
@@ -178,8 +194,6 @@ val BuiltinPatterns = PatternSet {
     }
 
 }
-
-private fun String.isTextComponent() = contains("\"text\"") || contains("\"translate\"")
 
 
 

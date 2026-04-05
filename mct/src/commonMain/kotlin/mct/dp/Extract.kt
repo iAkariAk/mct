@@ -21,11 +21,11 @@ import mct.dp.mcfunction.BuiltinPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinPatterns as MCJsonBuiltinPatterns
 
 fun MCTWorkspace.extractFromDatapack(
-    mcfPatterns: Set<ExtractPattern> = emptySet(),
-    mcjPatterns: Set<DataPointerPattern> = emptySet()
+    mcfPatterns: List<ExtractPattern> = emptyList(),
+    mcjPatterns: List<DataPointerPattern> = emptyList()
 ): Flow<DatapackExtractionGroup> {
     val extractors = listOf(
-        MCFunctionExtractor(MCFBuiltinPatterns + mcfPatterns),
+        MCFunctionExtractor(MCFBuiltinPatterns + mcfPatterns.groupBy { it.command }.toMap()),
         MCJsonExtractor(MCJsonBuiltinPatterns + mcjPatterns),
     )
 

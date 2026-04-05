@@ -80,7 +80,7 @@ class MCFunctionTest : StringSpec({
                 complex "item_id_001" b{strength:50b, durability:100s}
                 
                 # test escape
-                data modify storage asset:artifact Name set value '{"text":"アンク\'s Fury","color":"#FF5555","bold":true}'
+                data modify storage asset:artifact Name set value {CIALLO}
                 tell @a {CIALLO}
                 
                 \\ invali char

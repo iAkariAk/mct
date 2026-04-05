@@ -17,7 +17,7 @@ internal val MCJson = Json {
 }
 
 internal fun MCJsonExtractor(
-    patterns: Set<DataPointerPattern>? = BuiltinPatterns
+    patterns: List<DataPointerPattern>? = BuiltinPatterns
 ) = Extractor("MCJson", ".json") { env, zfs, zpath, path ->
     val text = zfs.read(zpath) { readUtf8() }
     extractTextMCJ(
@@ -33,7 +33,7 @@ internal fun extractTextMCJ(
     json: String,
     source: String,
     path: String,
-    patterns: Set<DataPointerPattern>? = BuiltinPatterns
+    patterns: List<DataPointerPattern>? = BuiltinPatterns
 ): DatapackExtractionGroup = try {
     val standard = standardizeMCJson(json)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standard)

@@ -7,7 +7,7 @@ import mct.dp.Extractor
 
 
 internal fun MCFunctionExtractor(
-    patterns: Set<ExtractPattern> = BuiltinPatterns
+    patterns: ExtractPatternSet = BuiltinPatterns
 ) = Extractor("MCFunction", ".mcfunction") { env, zfs, zpath, path ->
     val text = zfs.read(zpath) { readUtf8() }
     context(env.logger) {
@@ -30,7 +30,7 @@ internal fun extractTextMCF(
     mcf: String,
     source: String,
     path: String,
-    patterns: Set<ExtractPattern> = BuiltinPatterns
+    patterns: ExtractPatternSet = BuiltinPatterns
 ): DatapackExtractionGroup {
     val mcfunctions = parseMCFunction(mcf)
     val extractedArgs: Sequence<Extracted> = mcfunctions.asSequence().flatMap { command ->
@@ -60,7 +60,7 @@ internal fun extractTextMCF(
 
 
 private fun extractTextFromCommand(
-    patterns: Set<ExtractPattern>,
+    patterns: ExtractPatternSet,
     command: MCCommand
 ): Sequence<Extracted> {
     if (command.name == "execute") { // handle nested subcommand after `run`
@@ -77,8 +77,7 @@ private fun extractTextFromCommand(
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
         return extractTextFromCommand(patterns, subCommand)
     }
-    return patterns.asSequence()
-        .filter { it.command == command.name }
+    return (patterns[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
             when (val selector = pattern.selected) {

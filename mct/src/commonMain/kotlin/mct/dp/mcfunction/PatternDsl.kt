@@ -70,7 +70,7 @@ class CommandBuilderPostConditionScope {
         object : PostCondition {
             override fun toString() = "Matches{$comment}"
             override fun matches(command: MCCommand, arg: MCCommand.Arg) = matcher(command, arg)
-        }
+        }.bind()
 
     fun At(position: Int, condition: CommandBuilderPostConditionScope.() -> Unit) {
         val scope = CommandBuilderPostConditionScope()
@@ -91,7 +91,7 @@ class CommandBuilderPostConditionScope {
 
 @BuilderMaker
 class RootBuilderScope {
-    internal val patterns = mutableSetOf<ExtractPattern>()
+    internal val patterns = mutableMapOf<String, List<ExtractPattern>>()
 
     fun command(
         command: String,
@@ -99,7 +99,8 @@ class RootBuilderScope {
         indexSelector: IndexSelector,
         postCondition: PostCondition
     ) {
-        patterns.add(ExtractPattern(command, preCondition, indexSelector, postCondition))
+        val p = patterns(command)
+        p.add(ExtractPattern(command, preCondition, indexSelector, postCondition))
     }
 
     fun command(
@@ -110,11 +111,16 @@ class RootBuilderScope {
         context(this) {
             scope.builder()
         }
-        patterns.addAll(scope.result)
+        val p = patterns(command)
+        p.addAll(scope.result)
     }
+
+    @Suppress("UNCHECKED_CAST")
+    private inline fun patterns(command: String): MutableList<ExtractPattern> =
+        patterns.getOrPut(command) { mutableListOf() } as MutableList<ExtractPattern>
 }
 
-fun PatternSet(builder: RootBuilderScope.() -> Unit): Set<ExtractPattern> {
+fun PatternSet(builder: RootBuilderScope.() -> Unit): Map<String, List<ExtractPattern>> {
     val scope = RootBuilderScope()
     context(scope) {
         scope.builder()

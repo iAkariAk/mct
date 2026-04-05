@@ -10,6 +10,7 @@ import mct.RegionExtractionGroup
 import mct.pointer.*
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
+import mct.util.isTextCompound
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
@@ -93,15 +94,4 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
 
     else -> emptySequence()
 }
-
-private val MAYBE_FIELDS = arrayOf(
-    "text",
-    "translate",
-    "selector",
-    "score",
-    "nbt",
-    "keybind",
-)
-
-private fun NbtCompound.isTextCompound() = MAYBE_FIELDS.any(this::containsKey)
 
