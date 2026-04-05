@@ -29,7 +29,7 @@ fun MCTWorkspace.extractFromDatapack(
     mcjPatterns?.let { MCJsonBuiltinPatterns + mcjPatterns },
 )
 
-fun MCTWorkspace.extractFromDatapack(
+private fun MCTWorkspace.extractFromDatapack(
     mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
     mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
 ): Flow<DatapackExtractionGroup> {

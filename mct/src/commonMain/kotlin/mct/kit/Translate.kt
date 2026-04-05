@@ -5,6 +5,8 @@ import kotlin.jvm.JvmName
 
 
 typealias TranslationMapping = Map<String, String>
+typealias TranslationPool = List<String>
+
 
 fun List<ExtractionGroup<*>>.exportIntoPool(): List<String> =
     flatMap { it.extractions.map { it.content } }.distinct()
