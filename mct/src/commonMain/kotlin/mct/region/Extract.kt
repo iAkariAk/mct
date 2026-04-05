@@ -20,7 +20,7 @@ import net.benwoodworth.knbt.NbtTag
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
-    patterns: Set<DataPointerPattern> = emptySet()
+    patterns: List<DataPointerPattern> = emptyList()
 ): Flow<RegionExtractionGroup> {
     val patterns = BuiltinPatterns + patterns
     return dimensions.values.asFlow().flatMapMerge { dimension ->

@@ -33,8 +33,8 @@ class Datapack : SuspendingCliktCommand(name = "datapack") {
 
 private class ExtractDatapack : WorkspaceCommand(name = "extract") {
     val output by option(help = "The JSON output of extract").path().required()
-    val mcfPatterns by option("--mcfunction-patterns", "-pF", help = "Append pattern to filter specified text for mcfunction").jsonFile<Set<ExtractPattern>>().default(emptySet())
-    val mcjPatterns by option("--mcjson-patterns", "-pJ", help = "Append pattern to filter specified text for mcjson").jsonFile<Set<DataPointerPattern>>().default(emptySet())
+    val mcfPatterns by option("--mcfunction-patterns", "-pF", help = "Append pattern to filter specified text for mcfunction").jsonFile<List<ExtractPattern>>().default(emptyList())
+    val mcjPatterns by option("--mcjson-patterns", "-pJ", help = "Append pattern to filter specified text for mcjson").jsonFile<List<DataPointerPattern>>().default(emptyList())
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
