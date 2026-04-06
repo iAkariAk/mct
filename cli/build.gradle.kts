@@ -15,6 +15,8 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(17)
+
     jvm {
         testRuns.named("test") {
             executionTask.configure {
@@ -25,6 +27,7 @@ kotlin {
         mainRun {
             mainClass.set("mct.cli.MainKt")
         }
+
     }
 
     val exeConfigure: KotlinNativeBinaryContainer.() -> Unit = {
