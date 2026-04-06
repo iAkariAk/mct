@@ -1,19 +1,28 @@
-
 package mct.text
 
 
+import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import mct.dp.mcjson.MCJson
+import kotlinx.serialization.json.Json
+import mct.serializer.MCTJson
 import mct.serializer.NbtNone
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 
 class TextCompoundSerializerTest : StringSpec({
-    val json = MCJson
+    val json = Json(MCTJson) {
+        prettyPrint = false
+    }
     val nbt = NbtNone
     val serializer = TextCompoundSerializer()
+
+    "@Serialization" {
+        shouldNotThrowAny {
+            json.decodeFromString<TextCompound>("\"hi\"")
+        }
+    }
 
     "deserialize plain string" {
         val input = "\"hello\""
@@ -114,12 +123,7 @@ class TextCompoundSerializerTest : StringSpec({
 
         val result = json.encodeToString(serializer, value)
 
-        result shouldBe """
-            [
-              {"translate":"chat.type.text","with":["Akari"]},
-              "!!!"
-            ]
-        """.trimIndent().replace("\n", "")
+        result shouldBe """{"translate":"chat.type.text","with":["Akari"],"extra":"!!!"}"""
     }
 
     "fail on non-string primitive" {

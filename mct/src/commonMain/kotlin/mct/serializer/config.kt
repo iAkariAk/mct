@@ -7,10 +7,11 @@ import mct.dp.mcfunction.extractPatternModule
 import net.benwoodworth.knbt.*
 
 val MCTJson = Json {
-    prettyPrint = true
-    prettyPrintIndent = "  "
+//    prettyPrint = true
+//    prettyPrintIndent = "  "
     ignoreUnknownKeys = true
     encodeDefaults = false
+    explicitNulls = false
 
     serializersModule = extractPatternModule
 }
@@ -19,6 +20,7 @@ private val CommonNbt= Nbt {
     variant = NbtVariant.Java
     ignoreUnknownKeys = true
     compression = NbtCompression.None
+    encodeDefaults = false
 }
 
 val NbtZlib = Nbt(CommonNbt) {

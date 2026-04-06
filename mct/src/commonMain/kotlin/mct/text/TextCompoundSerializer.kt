@@ -1,17 +1,22 @@
+@file:OptIn(InternalSerializationApi::class)
+
 package mct.text
 
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.SerialKind
+import kotlinx.serialization.descriptors.buildSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
 import mct.serializer.toNbtListUnsafe
+import mct.util.putIfPresent
 import net.benwoodworth.knbt.*
 
 class TextCompoundSerializer : KSerializer<TextCompound> {
     override val descriptor: SerialDescriptor =
-        buildClassSerialDescriptor("mct.text.TextCompound") // dynamic
+        buildSerialDescriptor("mct.text.TextCompound", SerialKind.CONTEXTUAL) // dynamic
 
     override fun serialize(encoder: Encoder, value: TextCompound) = when (encoder) {
         is JsonEncoder -> serializeJson(encoder, value)
@@ -43,12 +48,13 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
             }
 
             fun JsonObjectBuilder.commonPut() {
-                value.color?.let { put("color", it) }
-                value.bold?.let { put("bold", it) }
-                value.italic?.let { put("italic", it) }
-                value.underlined?.let { put("underlined", it) }
-                value.strikethrough?.let { put("strikethrough", it) }
-                value.obfuscated?.let { put("obfuscated", it) }
+                putIfPresent("extra", value.extra.simplify())
+                putIfPresent("color", value.color)
+                putIfPresent("bold", value.bold)
+                putIfPresent("italic", value.italic)
+                putIfPresent("underlined", value.underlined)
+                putIfPresent("strikethrough", value.strikethrough)
+                putIfPresent("obfuscated", value.obfuscated)
             }
             return when (value) {
                 is TextCompound.Plain -> {
@@ -61,18 +67,17 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
                         buildJsonObject {
                             put("text", value.text)
                             commonPut()
-                            value.extra.simplify()?.let { put("extra", it) }
                         }
+
                     }
                 }
 
                 is TextCompound.Translatable -> {
                     buildJsonObject {
                         put("translate", value.translate)
-                        value.fallback?.let { put("fallback", it) }
+                        putIfPresent("fallback", value.fallback)
+                        putIfPresent("with", value.with.simplify(remainList = true))
                         commonPut()
-                        value.extra.simplify()?.let { put("extra", it) }
-                        value.with.simplify(remainList = true)?.let { put("with", it) }
                     }
                 }
 
@@ -85,71 +90,70 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
         encoder.encodeJsonElement(simplified)
     }
 
-        private fun serializeNbt(encoder: NbtEncoder, value: TextCompound) {
-            val nbt = encoder.nbt
+    private fun serializeNbt(encoder: NbtEncoder, value: TextCompound) {
+        val nbt = encoder.nbt
 
-            fun simplifyRecursively(value: TextCompound): NbtTag {
-                fun List<TextCompound>.simplify(vararg prefixes: NbtTag, remainList: Boolean = false): NbtTag? {
-                    val compounds = this
-                    return if (compounds.isEmpty()) prefixes.asList().toNbtListUnsafe() else {
-                        compounds.fold(prefixes.toMutableList()) { acc, compound ->
-                            when (val r = simplifyRecursively(compound)) {
-                                is NbtList<*> -> acc.addAll(r)
-                                else -> acc.add(r)
-                            }
-                            acc
+        fun simplifyRecursively(value: TextCompound): NbtTag {
+            fun List<TextCompound>.simplify(vararg prefixes: NbtTag, remainList: Boolean = false): NbtTag? {
+                val compounds = this
+                return if (compounds.isEmpty()) prefixes.asList().toNbtListUnsafe() else {
+                    compounds.fold(prefixes.toMutableList()) { acc, compound ->
+                        when (val r = simplifyRecursively(compound)) {
+                            is NbtList<*> -> acc.addAll(r)
+                            else -> acc.add(r)
                         }
-                    }.let {
-                        when (it.size) {
-                            0 -> null
-                            1 if !remainList -> it.first()
-                            else -> it.toNbtListUnsafe()
-                        }
+                        acc
                     }
-                }
-
-                fun NbtCompoundBuilder.commonPut() {
-                    value.color?.let { put("color", it) }
-                    value.bold?.let { put("bold", it) }
-                    value.italic?.let { put("italic", it) }
-                    value.underlined?.let { put("underlined", it) }
-                    value.strikethrough?.let { put("strikethrough", it) }
-                    value.obfuscated?.let { put("obfuscated", it) }
-                }
-                return when (value) {
-                    is TextCompound.Plain -> {
-                        if (value.isPlainText()) {
-                            val self = NbtString(value.text)
-                            if (value.extra.isEmpty()) self else {
-                                value.extra.simplify(self)!!
-                            }
-                        } else {
-                            buildNbtCompound {
-                                put("text", value.text)
-                                commonPut()
-                                value.extra.simplify()?.let { put("extra", it) }
-                            }
-                        }
+                }.let {
+                    when (it.size) {
+                        0 -> null
+                        1 if !remainList -> it.first()
+                        else -> it.toNbtListUnsafe()
                     }
-
-                    is TextCompound.Translatable -> {
-                        buildNbtCompound {
-                            put("translate", value.translate)
-                            value.fallback?.let { put("fallback", it) }
-                            commonPut()
-                            value.extra.simplify()?.let { put("extra", it) }
-                            value.with.simplify(remainList = true)?.let { put("with", it) }
-                        }
-                    }
-
-                    else -> nbt.compoundEncodeToNbtTag(value)
-
                 }
             }
 
-            val simplified = simplifyRecursively(value)
-            encoder.encodeNbtTag(simplified) // FIXME: Here knbt will wrap it in a compound again
+            fun NbtCompoundBuilder.commonPut() {
+                putIfPresent("extra", value.extra.simplify())
+                putIfPresent("color", value.color)
+                putIfPresent("bold", value.bold)
+                putIfPresent("italic", value.italic)
+                putIfPresent("underlined", value.underlined)
+                putIfPresent("strikethrough", value.strikethrough)
+                putIfPresent("obfuscated", value.obfuscated)
+            }
+
+            return when (value) {
+                is TextCompound.Plain -> {
+                    if (value.isPlainText()) {
+                        val self = NbtString(value.text)
+                        if (value.extra.isEmpty()) self else {
+                            value.extra.simplify(self)!!
+                        }
+                    } else {
+                        buildNbtCompound {
+                            put("text", value.text)
+                            commonPut()
+                        }
+                    }
+                }
+
+                is TextCompound.Translatable -> {
+                    buildNbtCompound {
+                        put("translate", value.translate)
+                        putIfPresent("fallback", value.fallback)
+                        putIfPresent("with", value.with.simplify(remainList = true))
+                        commonPut()
+                    }
+                }
+
+                else -> nbt.compoundEncodeToNbtTag(value)
+            }
         }
+
+        val simplified = simplifyRecursively(value)
+        encoder.encodeNbtTag(simplified) // FIXME: Here knbt will wrap it in a compound again
+    }
 
 
     override fun deserialize(decoder: Decoder): TextCompound = when (decoder) {
@@ -169,7 +173,7 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
                 error("Illegal JSON element $element, which isn't a string")
             }
 
-            is JsonArray -> element.map(::deserializeRecursively).multi()
+            is JsonArray -> element.map(::deserializeRecursively).flatMap(TextCompound::flatten).multi()
 
             is JsonObject -> when {
                 "type" in element -> json.decodeFromJsonElement<TextCompound>(element)
@@ -195,7 +199,7 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
         fun deserializeRecursively(element: NbtTag): TextCompound = when (element) {
             is NbtString -> TextCompound.Plain(element.value)
 
-            is NbtList<NbtTag> -> element.map(::deserializeRecursively).multi()
+            is NbtList<NbtTag> -> element.map(::deserializeRecursively).flatMap(TextCompound::flatten).multi()
 
             is NbtCompound -> when {
                 "type" in element -> nbt.decodeFromNbtTag<TextCompound>(element)
@@ -213,6 +217,15 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
 
         return deserializeRecursively(decoder.decodeNbtTag())
     }
+}
+
+private fun TextCompound.flatten(): List<TextCompound> = when (val compound = this) {
+    is TextCompound.Plain if compound.isPlainText() && compound.extra.isNotEmpty() -> listOf(compound.copy(extra = emptyList())) +
+            compound.extra.flatMap(TextCompound::flatten)
+
+    is TextCompound.Translatable if compound.isPlainText() && compound.extra.isNotEmpty() -> listOf(compound.copy(extra = emptyList())) +
+            compound.extra.flatMap(TextCompound::flatten)
+    else -> listOf(compound)
 }
 
 private fun Json.compoundEncodeToJsonElement(
@@ -263,6 +276,5 @@ private fun NbtFormat.compoundEncodeToNbtTag(
 
     is TextCompound.Object ->
         encodeToNbtTag(TextCompound.Object.serializer(), value)
-
 }
 

@@ -18,7 +18,7 @@ fun List<TextCompound>.multi() = when {
 inline operator fun <TC:TextCompound> TC.plus(extras: List<TextCompound>): TC =
     plus(extra) as TC
 
-@Serializable
+@Serializable(TextCompoundSerializer::class)
 sealed interface TextCompound {
     val extra: List<TextCompound>
 
