@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.toList
 import mct.MCTError
 import mct.RegionExtractionGroup
 import mct.RegionReplacementGroup
-import mct.cli.PrettyJson
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -20,6 +19,7 @@ import mct.pointer.DataPointerPattern
 import mct.region.BuiltinPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
+import mct.serializer.PrettyJson
 import mct.util.io.writeText
 import okio.FileSystem
 

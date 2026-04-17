@@ -7,17 +7,10 @@ import com.github.ajalt.clikt.command.main
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.versionOption
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
 import mct.MCTError
 import mct.cli.cmd.Datapack
 import mct.cli.cmd.Kit
 import mct.cli.cmd.Region
-import mct.serializer.MCTJson
-
-val PrettyJson = Json(MCTJson) {
-    prettyPrint = true
-    prettyPrintIndent = "  "
-}
 
 fun main(args: Array<String>) = runBlocking {
     MCT().main(args)

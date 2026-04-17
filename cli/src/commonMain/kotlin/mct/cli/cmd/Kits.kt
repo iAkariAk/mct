@@ -10,9 +10,13 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import mct.*
-import mct.cli.*
+import mct.cli.BaseCommand
+import mct.cli.WorkspaceCommand
+import mct.cli.jsonFile
+import mct.cli.path
 import mct.kit.*
 import mct.serializer.MCTJson
+import mct.serializer.PrettyJson
 import mct.util.io.readText
 import mct.util.io.writeText
 import mct.util.unreachable

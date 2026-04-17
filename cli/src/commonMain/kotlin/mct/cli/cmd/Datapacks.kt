@@ -11,15 +11,15 @@ import kotlinx.coroutines.flow.toList
 import mct.DatapackExtractionGroup
 import mct.DatapackReplacementGroup
 import mct.MCTError
-import mct.cli.PrettyJson
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
 import mct.dp.backfillDatapack
 import mct.dp.compile
-import mct.dp.extractFromDatapack
+import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
 import mct.pointer.DataPointerPattern
+import mct.serializer.PrettyJson
 import mct.util.io.writeText
 import okio.FileSystem
 import mct.dp.mcfunction.BuiltinPatterns as MCFBuiltinPatterns
@@ -57,7 +57,7 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
             if (disableMCJFilter) null else mcjPatternsPath.jsonFile<List<DataPointerPattern>>(MCJBuiltinPatterns)
 
         val extractions: List<DatapackExtractionGroup> =
-            workspace.extractFromDatapack(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
+            workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
         val result = PrettyJson.encodeToString(extractions)
         output.writeText(result)
     }

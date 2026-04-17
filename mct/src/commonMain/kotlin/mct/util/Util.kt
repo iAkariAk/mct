@@ -1,6 +1,7 @@
 package mct.util
 
 import kotlinx.serialization.encodeToString
+import mct.serializer.PrettySnbt
 import mct.serializer.Snbt
 import net.benwoodworth.knbt.NbtTag
 
@@ -15,7 +16,7 @@ inline fun <T> ArrayDeque<T>.peekOrNull() = lastOrNull()
 inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
 
-fun NbtTag.toSnbt(): String = Snbt.encodeToString(this)
+fun NbtTag.toSnbt(pretty: Boolean = false): String = (if(pretty) PrettySnbt else Snbt).encodeToString(this)
 
 inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other
 inline infix fun Short.divCeil(other: Short) = (this + other - 1) / other
