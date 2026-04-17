@@ -1,6 +1,6 @@
 package mct.dp.mcfunction
 
-import mct.util.isTextComponent
+import mct.text.isTextComponent
 
 val BuiltinPatterns = PatternSet {
     listOf("say", "me", "teammsg").forEach { cmd ->

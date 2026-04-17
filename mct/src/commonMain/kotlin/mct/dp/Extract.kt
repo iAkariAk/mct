@@ -29,10 +29,10 @@ fun MCTWorkspace.extractFromDatapack(
     mcjPatterns?.let { MCJsonBuiltinPatterns + mcjPatterns },
 )
 
-fun List<ExtractPattern>.compile(): Map<String, List<ExtractPattern>> =
+private fun List<ExtractPattern>.compile(): Map<String, List<ExtractPattern>> =
     MCFBuiltinPatterns + groupBy { it.command }.toMap()
 
-fun MCTWorkspace.extractFromDatapack(
+private fun MCTWorkspace.extractFromDatapack(
     mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
     mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
 ): Flow<DatapackExtractionGroup> {

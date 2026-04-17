@@ -10,7 +10,7 @@ import mct.RegionExtractionGroup
 import mct.pointer.*
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
-import mct.util.isTextCompound
+import mct.text.isTextCompound
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList

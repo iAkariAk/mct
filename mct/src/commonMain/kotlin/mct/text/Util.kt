@@ -1,4 +1,4 @@
-package mct.util
+package mct.text
 
 import net.benwoodworth.knbt.NbtCompound
 

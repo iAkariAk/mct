@@ -4,7 +4,7 @@ package mct.text
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-fun TextCompound.isPlainText() =
+fun TextCompound.isPlainStyle() =
     color == null && bold == null && italic == null && underlined == null && strikethrough == null && obfuscated == null
 
 
@@ -22,12 +22,12 @@ inline operator fun <TC:TextCompound> TC.plus(extras: List<TextCompound>): TC =
 sealed interface TextCompound {
     val extra: List<TextCompound>
 
-    val color: String? get() = null
-    val bold: Boolean? get() = null
-    val italic: Boolean? get() = null
-    val underlined: Boolean? get() = null
-    val strikethrough: Boolean? get() = null
-    val obfuscated: Boolean? get() = null
+    val color: String?
+    val bold: Boolean?
+    val italic: Boolean?
+    val underlined: Boolean?
+    val strikethrough: Boolean?
+    val obfuscated: Boolean?
 
     operator fun plus(extras: List<TextCompound>): TextCompound
 
@@ -72,6 +72,11 @@ sealed interface TextCompound {
         override val extra: List<TextCompound> = emptyList(),
 
         override val color: String? = null,
+        override val bold: Boolean? = null,
+        override val italic: Boolean? = null,
+        override val underlined: Boolean? = null,
+        override val strikethrough: Boolean? = null,
+        override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
     }
@@ -81,6 +86,13 @@ sealed interface TextCompound {
     data class Score(
         val score: Info,
         override val extra: List<TextCompound> = emptyList(),
+
+        override val color: String? = null,
+        override val bold: Boolean? = null,
+        override val italic: Boolean? = null,
+        override val underlined: Boolean? = null,
+        override val strikethrough: Boolean? = null,
+        override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
 
@@ -97,6 +109,13 @@ sealed interface TextCompound {
         val selector: String,
         val separator: TextCompound? = null,
         override val extra: List<TextCompound> = emptyList(),
+
+        override val color: String? = null,
+        override val bold: Boolean? = null,
+        override val italic: Boolean? = null,
+        override val underlined: Boolean? = null,
+        override val strikethrough: Boolean? = null,
+        override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
     }
@@ -113,6 +132,13 @@ sealed interface TextCompound {
         val storage: String? = null,
 
         override val extra: List<TextCompound> = emptyList(),
+
+        override val color: String? = null,
+        override val bold: Boolean? = null,
+        override val italic: Boolean? = null,
+        override val underlined: Boolean? = null,
+        override val strikethrough: Boolean? = null,
+        override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
     }
@@ -123,6 +149,13 @@ sealed interface TextCompound {
         val fallback: String? = null,
         val `object`: String,
         override val extra: List<TextCompound> = emptyList(),
+
+        override val color: String? = null,
+        override val bold: Boolean? = null,
+        override val italic: Boolean? = null,
+        override val underlined: Boolean? = null,
+        override val strikethrough: Boolean? = null,
+        override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
     }
