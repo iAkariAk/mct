@@ -12,6 +12,8 @@ import io.ktor.client.plugins.logging.*
 import korlibs.math.toIntFloor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import mct.Env
 
@@ -151,7 +153,7 @@ class OpenAITranslator(
     private val apiUrl: String?,
     private val token: String,
     private val model: String,
-    private val defaultTerms: TermTable = emptySet(),
+    private val defaultTerms: TermTable,
     private val env: Env = Env.Default
 ) : Translator {
     private val client = OpenAI(
@@ -173,6 +175,10 @@ class OpenAITranslator(
         }
     )
 
+    override val terms: MutableSet<Term> = defaultTerms.toMutableSet()
+
+    private val mutex = Mutex()
+
     private suspend fun chatCompletion(message: String) = client.chatCompletion(
         ChatCompletionRequest(
             model = ModelId(model),
@@ -189,7 +195,7 @@ class OpenAITranslator(
         ),
     )
 
-    override suspend fun translate(sources: List<String>): TranslateResponse {
+    override suspend fun translate(sources: List<String>): List<String> {
         var tokenCount = 0
         val chunk = sequence {
             val tmp = mutableListOf<String>()
@@ -213,7 +219,7 @@ class OpenAITranslator(
             }
         }.withIndex().toList()
         val chunkCount = chunk.size
-        val (terms, translated) = chunk.fold(defaultTerms to emptyList<String>()) { (terms, translated), (index, chunk) ->
+        val translated = chunk.fold(mutableListOf<String>()) { translated, (index, chunk) ->
             val message = buildString {
                 if (terms.isNotEmpty()) {
                     append(terms.render())
@@ -226,11 +232,15 @@ class OpenAITranslator(
             env.logger.info { "Handling $index (total ${chunkCount - 1})" }
             val completion = chatCompletion(message)
             val (appendTerms, appendedTranslated) = parseLLMResponse(completion.choices.first().message.content!!)
+            terms += appendTerms
             env.logger.info { "Handled $index (total ${chunkCount - 1})" }
             env.logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x to $y" } }
-            (terms + appendTerms) to (translated + appendedTranslated)
+            mutex.withLock {
+                translated += appendedTranslated
+            }
+            translated
         }
-        return TranslateResponse(translated, terms)
+        return translated
     }
 
     override fun toString() = "OpenAITranslator($model)"

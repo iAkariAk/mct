@@ -34,6 +34,7 @@ private fun IRObject.decodeToCompound(): TextCompound = when {
         null -> error("Type must be string")
         else -> error("Unsupported type $type")
     }
+
     containsKey("text") -> decodeAsPlain()
     containsKey("translate") -> decodeAsTranslatable()
     containsKey("keybind") -> decodeAsKeybind()
@@ -45,7 +46,16 @@ private fun IRObject.decodeToCompound(): TextCompound = when {
 }
 
 private fun IRObject.decodeCommon() = object {
-    val extra = optional<IRList>("extra")?.value?.map { it.decodeToCompound() } ?: emptyList()
+    val extra = run {
+        val obj = this@decodeCommon
+        val extra = when (val extra = obj["extra"]) {
+            is IRObject -> IRList(listOf(extra))
+            is IRString -> IRList(listOf(extra))
+            is IRList -> extra
+            else -> null
+        }
+        extra?.value?.map { it.decodeToCompound() } ?: emptyList()
+    }
     val color = optional<IRString>("color")?.value
     val bold = optional<IRBoolean>("bold")?.value
     val italic = optional<IRBoolean>("italic")?.value
@@ -56,7 +66,10 @@ private fun IRObject.decodeCommon() = object {
 
 private fun IRObject.decodeAsPlain() = decodeCommon().let {
     TextCompound.Plain(
-        text = require<IRString>("text").value,
+        text = when (val t = this["text"] as? IRString) {
+            is IRString -> t.value
+            else -> it.toString()
+        },
         extra = it.extra,
         color = it.color,
         bold = it.bold,
@@ -162,5 +175,7 @@ private fun IRObject.decodeAsObject() = decodeCommon().let {
 private inline fun <reified T : IRElement> IRElement.requireTypeOf(field: String) =
     this as? T ?: error("Expected ${T::class} but found ${this::class} in $field")
 
-private inline fun <reified T : IRElement> IRObject.require(key: String): T = this[key]?.requireTypeOf<T>(key) ?: error("$key not found")
+private inline fun <reified T : IRElement> IRObject.require(key: String): T =
+    this[key]?.requireTypeOf<T>(key) ?: error("$key not found")
+
 private inline fun <reified T : IRElement> IRObject.optional(key: String): T? = this[key]?.requireTypeOf<T>(key)

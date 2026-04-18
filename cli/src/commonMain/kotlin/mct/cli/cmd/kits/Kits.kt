@@ -9,23 +9,34 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.JsonElement
 import mct.*
 import mct.cli.BaseCommand
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
+import mct.cli.translator.OpenAITranslator
+import mct.cli.translator.TermTable
 import mct.kit.*
 import mct.serializer.MCTJson
 import mct.serializer.PrettyJson
+import mct.serializer.Snbt
+import mct.text.TextCompound
+import mct.text.decodeToCompound
+import mct.text.encodeToIR
+import mct.util.formatir.toIR
+import mct.util.formatir.toJson
 import mct.util.io.readText
 import mct.util.io.writeText
 import mct.util.unreachable
+import net.benwoodworth.knbt.NbtTag
 import okio.FileSystem
 
 
 class Kit : SuspendingCliktCommand(name = "kit") {
     init {
-        subcommands(ExportSnbt(), Ciallo(), TextPool())
+        subcommands(ExportSnbt(), ReplaceAll(), TextPool(), AITranslate())
     }
 
     override fun help(context: Context) = "Some helpful tool"
@@ -40,7 +51,6 @@ private class TextPool : BaseCommand(
     init {
         subcommands(Flatten(), Unflatten())
     }
-
 
     private class Flatten : BaseCommand(
         name = "flatten",
@@ -89,7 +99,7 @@ private class TextPool : BaseCommand(
             val map: TranslationMapping = mapping.jsonFile()
 
             @Suppress("UNCHECKED_CAST")
-            val result: List<ReplacementGroup<*>> = groups.replace(map)
+            val result: List<ReplacementGroup> = groups.replace(map)
 
             @Suppress("UNCHECKED_CAST")
             when (kind) {
@@ -114,7 +124,7 @@ private class ExportSnbt : WorkspaceCommand(
     }
 }
 
-private class Ciallo : BaseCommand(name = "ciallo") {
+private class ReplaceAll : BaseCommand(name = "replace-all") {
     val input by option(
         "--input",
         "-i",
@@ -125,27 +135,81 @@ private class Ciallo : BaseCommand(name = "ciallo") {
         "--replacement",
         "-r",
         help = "The replacement which will replace extraction"
-    ).default("{CIALLO powered by MCT}")
-    val kind by option(help = "The kind of extractions").choice("datapack", "region").required()
+    ).default("\"MCT\"")
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        when (kind) {
-            "datapack" -> {
-                val extractionGroups = MCTJson.decodeFromString<List<DatapackExtractionGroup>>(input.readText())
-                val cialloized = extractionGroups.replaceSimply { replacement }
-                output.writeText(MCTJson.encodeToString(cialloized))
-            }
-
-            "region" -> {
-                val extractionGroups = MCTJson.decodeFromString<List<RegionExtractionGroup>>(input.readText())
-                val cialloized = extractionGroups.replaceSimply { replacement }
-                output.writeText(MCTJson.encodeToString(cialloized))
-            }
-
-            else -> unreachable
-        }
-
+        val extractionGroups = MCTJson.decodeFromString<List<ExtractionGroup>>(input.readText())
+        val r = extractionGroups.replaceSimply { replacement }
+        output.writeText(MCTJson.encodeToString(r))
     }
 }
 
+private class AITranslate : BaseCommand(
+    name = "translate",
+    help = "Translate via OpenAI api"
+) {
+    val input by option("--input", "-i").path().required()
+    val output by option("--output", "-o").path().required()
+    val termOutput by option("--output-term", "-ot").path().required()
+    val term by option("--term").path()
+    val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL")
+    val model by option("--openai-model", envvar = "OPENAI_MODEL").required()
+    val token by option("--openai-token", envvar = "$4=").required()
+
+    context(_: Raise<MCTError>, fs: FileSystem)
+    override suspend fun App() {
+        val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
+        val terms = term.jsonFile<TermTable>(emptySet())
+        val translator = OpenAITranslator(apiUrl, token, model, terms, env)
+
+        val dpGroups = extractionGroups.filterIsInstance<DatapackExtractionGroup>()
+        val regionGroups = extractionGroups.filterIsInstance<RegionExtractionGroup>()
+
+        suspend fun translate(kind: FormatKind, extractions: List<String>): List<Pair<String, String>> {
+            val parsed = extractions.map {
+                when (kind) {
+                    FormatKind.Json -> MCTJson.decodeFromString<JsonElement>(it).toIR()
+                    FormatKind.Snbt -> Snbt.decodeFromString<NbtTag>(it).toIR()
+                }.decodeToCompound()
+            }
+
+            val compressed = parsed.map { compressCompound(it) }
+            val submitted = compressed.mapIndexed { index, string -> string ?: extractions[index] }
+            val translated = translator.translate(submitted)
+            val decompressed = compressed.mapIndexed { index, string ->
+                if (string != null) {
+                    translated[index]
+                } else {
+                    MCTJson.encodeToString(
+                        (parsed[index] as TextCompound.Plain).copy(text = translated[index]).encodeToIR().toJson()
+                    )
+                }
+            }
+            return extractions.zip(decompressed)
+        }
+
+        suspend fun translate(groups: List<ExtractionGroup>): List<ReplacementGroup> {
+            val extractions = groups.flatMap { it.extractions }.groupBy {
+                when (it) {
+                    is DatapackExtraction -> FormatKind.Json
+                    is RegionExtraction -> it.kind
+                }
+            }
+            val mapping = extractions.flatMap { (kind, extractions) ->
+                translate(
+                    kind,
+                    extractions.mapNotNull { it.content.takeIf { it.isNotBlank() } })
+            }.toMap()
+            return groups.replace(mapping)
+        }
+
+        val translated = translate(dpGroups) + translate(regionGroups)
+
+        output.writeText(PrettyJson.encodeToString(translated))
+        termOutput.writeText(PrettyJson.encodeToString(translator.terms))
+    }
+
+    private fun compressCompound(compound: TextCompound): String? =
+        (compound.takeIf { it.extra.isEmpty() } as? TextCompound.Plain)?.text
+}

@@ -10,11 +10,15 @@ import mct.serializer.IntRangeSerializable
 @Serializable
 sealed interface ExtractionGroup {
     val extractions: List<Extraction>
+
+    fun replace(replacements: List<Replacement>): ReplacementGroup
 }
 
 @Serializable
 sealed interface Extraction {
     val content: String
+
+    fun replace(replacement: String): Replacement
 }
 
 @Serializable
@@ -47,7 +51,15 @@ data class DatapackExtractionGroup(
     val source: String,
     val path: String,
     override val extractions: List<DatapackExtraction>,
-) : ExtractionGroup
+) : ExtractionGroup {
+    override fun replace(replacements: List<Replacement>) =
+        @Suppress("UNCHECKED_CAST")
+        DatapackReplacementGroup(
+            source = source,
+            path = path,
+            replacements = replacements as List<DatapackReplacement>,
+        )
+}
 
 /**
  * Data extracted from Minecraft Region files (.mca).
@@ -62,7 +74,16 @@ data class RegionExtractionGroup(
     val kind: ChunkDataKind,
     val coord: Coord,
     override val extractions: List<RegionExtraction>,
-) : ExtractionGroup
+) : ExtractionGroup {
+    override fun replace(replacements: List<Replacement>) =
+        @Suppress("UNCHECKED_CAST")
+        RegionReplacementGroup(
+            dimension = dimension,
+            kind = kind,
+            coord = coord,
+            replacements = replacements as List<RegionReplacement>,
+        )
+}
 
 
 @Serializable
@@ -77,7 +98,9 @@ sealed interface DatapackExtraction : Extraction {
     data class MCJson(
         val pointer: DataPointer,
         override val content: String,
-    ) : DatapackExtraction
+    ) : DatapackExtraction {
+        override fun replace(replacement: String) = DatapackReplacement.MCJson(pointer, replacement)
+    }
 
     /**
      * A text-based extraction from a file within a datapack.
@@ -88,7 +111,9 @@ sealed interface DatapackExtraction : Extraction {
     data class MCFunction(
         val indices: IntRangeSerializable,
         override val content: String,
-    ) : DatapackExtraction
+    ) : DatapackExtraction {
+        override fun replace(replacement: String) = DatapackReplacement.MCFunction(indices, replacement)
+    }
 
 }
 
@@ -107,7 +132,9 @@ data class RegionExtraction(
     val pointer: DataPointer,
     val kind: FormatKind = FormatKind.Json,
     override val content: String,
-) : Extraction
+) : Extraction {
+    override fun replace(replacement: String) = RegionReplacement(index, pointer, kind, replacement)
+}
 
 /**
  * Replacements to be applied to a specific file in a datapack.
