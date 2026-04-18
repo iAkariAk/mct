@@ -15,6 +15,7 @@ import mct.LoggerLevel
 import mct.MCTError
 import mct.MCTWorkspace
 import okio.FileSystem
+import okio.Path.Companion.toPath
 
 interface EnvProvider {
     val env: Env
@@ -48,6 +49,7 @@ abstract class BaseCommand(
         )
     }
 
+    val cacheDir by option("--cache-dir", help = "Path to cache directory").path().default(".".toPath())
 
     override suspend fun run() {
         either {
@@ -67,10 +69,11 @@ abstract class WorkspaceCommand(
     name: String? = null,
     help: String? = null,
 ) : BaseCommand(name, help) {
-    val input by option("--input", "-i", help = "The path to your map where there should be level.dat").path().required()
+    val input by option("--input", "-i", help = "The path to your map where there should be level.dat").path()
+        .required()
 
     val workspace by lazy {
-        either{
+        either {
             MCTWorkspace(input, env)
         }.getOrElse {
             throw CliktError(it.message)

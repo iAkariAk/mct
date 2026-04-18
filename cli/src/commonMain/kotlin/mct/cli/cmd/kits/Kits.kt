@@ -12,23 +12,17 @@ import com.github.ajalt.clikt.parameters.types.choice
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonElement
 import mct.*
-import mct.cli.BaseCommand
-import mct.cli.WorkspaceCommand
-import mct.cli.jsonFile
-import mct.cli.path
+import mct.cli.*
 import mct.cli.translator.OpenAITranslator
 import mct.cli.translator.TermTable
 import mct.kit.*
 import mct.serializer.MCTJson
-import mct.serializer.PrettyJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
 import mct.text.decodeToCompound
 import mct.text.encodeToIR
 import mct.util.formatir.toIR
 import mct.util.formatir.toJson
-import mct.util.io.readText
-import mct.util.io.writeText
 import mct.util.unreachable
 import net.benwoodworth.knbt.NbtTag
 import okio.FileSystem
@@ -71,9 +65,7 @@ private class TextPool : BaseCommand(
 
             val pool: TranslationPool = groups.exportIntoPool(simply)
 
-            output.writeText(
-                PrettyJson.encodeToString(pool)
-            )
+            output.writeJson(pool)
         }
     }
 
@@ -86,27 +78,17 @@ private class TextPool : BaseCommand(
         val input by option("--input", "-i").path().required()
         val mapping by option("--mapping", "-m").path().required()
         val output by option("--output", "-o").path().required()
-        val kind by option(help = "The kind of extractions").choice("datapack", "region").required()
 
         context(_: Raise<MCTError>, fs: FileSystem)
         override suspend fun App() {
-            val groups = when (kind) {
-                "datapack" -> input.jsonFile<List<DatapackExtractionGroup>>()
-                "region" -> input.jsonFile<List<RegionExtractionGroup>>()
-                else -> unreachable
-            }
+            val groups = input.jsonFile<List<ExtractionGroup>>()
 
             val map: TranslationMapping = mapping.jsonFile()
 
             @Suppress("UNCHECKED_CAST")
             val result: List<ReplacementGroup> = groups.replace(map)
 
-            @Suppress("UNCHECKED_CAST")
-            when (kind) {
-                "datapack" -> PrettyJson.encodeToString(result as List<DatapackReplacementGroup>)
-                "region" -> PrettyJson.encodeToString(result as List<RegionReplacementGroup>)
-                else -> unreachable
-            }.let { output.writeText(it) }
+            output.writeJson(result)
         }
     }
 }
@@ -139,9 +121,9 @@ private class ReplaceAll : BaseCommand(name = "replace-all") {
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        val extractionGroups = MCTJson.decodeFromString<List<ExtractionGroup>>(input.readText())
-        val r = extractionGroups.replaceSimply { replacement }
-        output.writeText(MCTJson.encodeToString(r))
+        val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
+        val result = extractionGroups.replaceSimply { replacement }
+        output.writeJson(result)
     }
 }
 
@@ -174,6 +156,8 @@ private class AITranslate : BaseCommand(
                 }.decodeToCompound()
             }
 
+            createCache("ai_translate.json")
+
             val compressed = parsed.map { compressCompound(it) }
             val submitted = compressed.mapIndexed { index, string -> string ?: extractions[index] }
             val translated = translator.translate(submitted)
@@ -199,15 +183,16 @@ private class AITranslate : BaseCommand(
             val mapping = extractions.flatMap { (kind, extractions) ->
                 translate(
                     kind,
-                    extractions.mapNotNull { it.content.takeIf { it.isNotBlank() } })
+                    extractions.asSequence().mapNotNull { it.content.takeIf { it.isNotBlank() } }.distinct().toList()
+                )
             }.toMap()
             return groups.replace(mapping)
         }
 
         val translated = translate(dpGroups) + translate(regionGroups)
 
-        output.writeText(PrettyJson.encodeToString(translated))
-        termOutput.writeText(PrettyJson.encodeToString(translator.terms))
+        output.writeJson(translated)
+        termOutput.writeJson(translator.terms)
     }
 
     private fun compressCompound(compound: TextCompound): String? =

@@ -15,9 +15,7 @@ context(env: EnvProvider)
 fun Path?.fileText(default: String) = this?.readText(env.fs) ?: default
 
 context(env: EnvProvider)
-inline fun <reified T : Any> Path?.jsonFile(default: T) = this?.readText(env.fs)?.let {
-    MCTJson.decodeFromString<T>(it)
-} ?: default
+inline fun <reified T : Any> Path?.jsonFile(default: T) = this?.readJson<T>() ?: default
 
 
 context(env: EnvProvider)

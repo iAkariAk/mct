@@ -16,12 +16,11 @@ import mct.ReplacementGroup
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
+import mct.cli.writeJson
 import mct.pointer.DataPointerPattern
 import mct.region.BuiltinPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
-import mct.serializer.PrettyJson
-import mct.util.io.writeText
 import okio.FileSystem
 
 class Region : SuspendingCliktCommand(name = "region") {
@@ -44,8 +43,7 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
         val patterns = if (disableFilter) null else patternsPath.jsonFile<List<DataPointerPattern>>(BuiltinPatterns)
         val extractions: List<ExtractionGroup> = workspace.extractFromRegion(patterns).toList()
 
-        val result = PrettyJson.encodeToString(extractions)
-        output.writeText(result)
+        output.writeJson(extractions)
     }
 }
 

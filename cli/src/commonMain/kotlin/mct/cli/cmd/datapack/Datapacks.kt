@@ -15,13 +15,12 @@ import mct.ReplacementGroup
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
+import mct.cli.writeJson
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
 import mct.pointer.DataPointerPattern
-import mct.serializer.PrettyJson
-import mct.util.io.writeText
 import okio.FileSystem
 import mct.dp.mcfunction.BuiltinPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinPatterns as MCJBuiltinPatterns
@@ -59,8 +58,7 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
         val extractions: List<ExtractionGroup> =
             workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
-        val result = PrettyJson.encodeToString(extractions)
-        output.writeText(result)
+        output.writeJson(extractions)
     }
 }
 
