@@ -54,6 +54,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.clikt)
+            implementation(libs.kotlinx.serialization.json.okio)
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.kotlinx.io.okio)
             implementation(libs.openai.client)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.cio)

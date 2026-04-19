@@ -156,19 +156,18 @@ private class AITranslate : BaseCommand(
                 }.decodeToCompound()
             }
 
-            createCache("ai_translate.json")
-
             val compressed = parsed.map { compressCompound(it) }
             val submitted = compressed.mapIndexed { index, string -> string ?: extractions[index] }
             val translated = translator.translate(submitted)
             val decompressed = compressed.mapIndexed { index, string ->
+                val translated = translated.getOrNull(index) ?: submitted[index]
                 if (string != null) {
-                    translated[index]
+                    null
                 } else {
                     MCTJson.encodeToString(
-                        (parsed[index] as TextCompound.Plain).copy(text = translated[index]).encodeToIR().toJson()
+                        (parsed.getOrNull(index) as? TextCompound.Plain)?.copy(text = translated)?.encodeToIR()?.toJson()
                     )
-                }
+                } ?: translated
             }
             return extractions.zip(decompressed)
         }

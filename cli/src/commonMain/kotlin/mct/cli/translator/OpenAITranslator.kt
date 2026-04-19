@@ -230,11 +230,13 @@ class OpenAITranslator(
                 chunk.map { it.replace("\n", "\\n") }.forEach { appendLine(it) }
             }
             env.logger.info { "Handling $index (total ${chunkCount - 1})" }
+
             val completion = chatCompletion(message)
+
             val (appendTerms, appendedTranslated) = parseLLMResponse(completion.choices.first().message.content!!)
             terms += appendTerms
             env.logger.info { "Handled $index (total ${chunkCount - 1})" }
-            env.logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x to $y" } }
+            env.logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" } }
             mutex.withLock {
                 translated += appendedTranslated
             }
