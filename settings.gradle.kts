@@ -5,11 +5,6 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-
-plugins {
-    id("org.gradle.toolchains.foojay-resolver") version "0.10.0"
-}
-
 dependencyResolutionManagement {
     rulesMode = RulesMode.PREFER_SETTINGS
     repositories {
@@ -31,6 +26,7 @@ rootProject.name = "mct"
 
 include(
     "mct",
+    "util",
     "cli",
     "gui",
 //    "web"

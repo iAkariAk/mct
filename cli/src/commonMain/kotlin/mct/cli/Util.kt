@@ -6,13 +6,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.okio.decodeFromBufferedSource
 import kotlinx.serialization.json.okio.encodeToBufferedSink
 import mct.serializer.PrettyJson
-import okio.FileSystem
 import okio.Path
-
-expect val SystemFileSystem: FileSystem
-
-expect fun envvar(name: String): String?
-
 
 context(env: EnvProvider)
 inline fun <reified T : Any> Path.readJson(): T =

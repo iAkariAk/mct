@@ -14,6 +14,7 @@ import mct.Env
 import mct.LoggerLevel
 import mct.MCTError
 import mct.MCTWorkspace
+import mct.util.system.SystemFileSystem
 import okio.FileSystem
 import okio.Path.Companion.toPath
 

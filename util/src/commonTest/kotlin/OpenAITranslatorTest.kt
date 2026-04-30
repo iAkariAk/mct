@@ -1,8 +1,10 @@
-package mct.cli.translator
-
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import mct.cli.envvar
+import mct.util.translator.OpenAITranslator
+import mct.util.translator.Term
+import mct.util.translator.TermType
+import mct.util.translator.parseLLMResponse
 
 class OpenAITranslatorTest : StringSpec({
     val apiUrl = envvar("OPENAI_URL")

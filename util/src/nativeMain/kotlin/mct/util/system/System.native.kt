@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalForeignApi::class)
 
-package mct.cli
+package mct.util.system
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString

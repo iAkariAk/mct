@@ -21,22 +21,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import mct.*
-import mct.cli.translator.OpenAITranslator
-import mct.cli.translator.TermTable
 import mct.dp.backfillDatapack
 import mct.dp.extractFromDatapack
-import mct.kit.replace
 import mct.region.BuiltinPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
+import mct.util.translator.OpenAITranslator
+import mct.util.translator.TermTable
+import mct.util.translator.TranslateSign
+import mct.util.translator.translate
 import okio.FileSystem
 import okio.Path.Companion.toPath
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -407,7 +406,7 @@ private fun TranslatePanel(
                     isRunning,
                     onRun,
                     enabled = inputPath.isNotBlank() && outputPath.isNotBlank()
-                        && termOutput.isNotBlank() && model.isNotBlank() && apiToken.isNotBlank()
+                            && termOutput.isNotBlank() && model.isNotBlank() && apiToken.isNotBlank()
                 )
             }
         }
@@ -557,6 +556,7 @@ private fun chooseOpenFile(defaultName: String): String? {
 
 private fun guiLogger(appendLog: (String) -> Unit) = object : Logger(LoggerLevel.Verbose) {
     override fun log(level: LoggerLevel, message: String) {
+        if (level == LoggerLevel.Sign) return
         appendLog("[$level] $message\n")
     }
 }
@@ -580,11 +580,13 @@ private suspend fun runExtraction(
                     val patterns = if (disableFilter) null else BuiltinPatterns.toList()
                     workspace.extractFromRegion(patterns = patterns).toList() as List<ExtractionGroup>
                 }
+
                 "datapack" -> {
                     val mcjPatterns: List<mct.pointer.DataPointerPattern>? =
                         if (disableFilter) null else emptyList()
                     workspace.extractFromDatapack(mcjPatterns = mcjPatterns).toList() as List<ExtractionGroup>
                 }
+
                 else -> error("未知模式: $mode")
             }
         }
@@ -621,7 +623,12 @@ private suspend fun runTranslation(
             }
         } else emptySet()
 
-        val env = Env(fs = FileSystem.SYSTEM, logger = guiLogger(onLog))
+        val env = Env(fs = FileSystem.SYSTEM, logger = guiLogger(onLog).onSign<TranslateSign> {
+            when (it) {
+                is TranslateSign.Begin -> onLog("开始翻译，总的批数${it.batch}")
+                is TranslateSign.Progress -> onProgress(it.progress, "OK")
+            }
+        })
         val translator = OpenAITranslator(
             apiUrl?.trim()?.ifBlank { null },
             token.trim(),
@@ -629,51 +636,13 @@ private suspend fun runTranslation(
             existingTerms,
             env
         )
-
-        val allTexts = extractionGroups
-            .flatMap { it.extractions }
-            .map { it.content }
-            .filter { it.isNotBlank() }
-            .distinct()
-
-        onLog("使用模型 '$model' 翻译 ${allTexts.size} 条唯一文本...\n")
-
         try {
-            val batchSize = 8
-            val batches = allTexts.chunked(batchSize)
-            val mapping = mutableMapOf<String, String>()
-
-            val failedCount = mutableListOf<Int>()
-            batches.forEachIndexed { index, batch ->
-                val pct = (index + 1).toFloat() / batches.size
-                onProgress(pct, "正在翻译 ${index + 1}/${batches.size} 批 (${batch.size} 条)...")
-                onLog("[${index + 1}/${batches.size}] 正在翻译 ${batch.size} 条...\n")
-                try {
-                    val translated = translator.translate(batch)
-                    if (translated.size != batch.size) {
-                        onLog("  警告: 翻译返回 ${translated.size} 条, 期望 ${batch.size} 条, 跳过\n")
-                        failedCount.add(index)
-                    } else {
-                        batch.zip(translated).forEach { (src, tgt) -> mapping[src] = tgt }
-                        onLog("[${index + 1}/${batches.size}] 完成\n")
-                    }
-                } catch (e: Exception) {
-                    onLog("  错误: ${e.message}, 跳过此批次\n")
-                    failedCount.add(index)
-                }
-            }
-            onProgress(1f, "翻译完成, 共 ${mapping.size} 条")
-
-            if (failedCount.isNotEmpty()) {
-                onLog("共 ${failedCount.size} 个批次失败 (${failedCount.map { it + 1 }}), ${mapping.size} 条已翻译\n")
-            }
-
-            val replacements = extractionGroups.replace(mapping)
+            val replacements = translator.translate(extractionGroups)
 
             File(output).writeText(MCTJson.encodeToString(replacements))
             File(termOutput).writeText(MCTJson.encodeToString(translator.terms))
 
-            onLog("已翻译 ${mapping.size} 条文本, 共 ${extractionGroups.sumOf { it.extractions.size }} 条原文\n")
+//            onLog("已翻译 ${mapping.size} 条文本, 共 ${extractionGroups.sumOf { it.extractions.size }} 条原文\n")
             onLog("新发现 ${translator.terms.size - existingTerms.size} 个术语\n")
             onLog("替换文件已写入: $output\n")
             onLog("术语表已写入: $termOutput\n完成。\n")
@@ -720,6 +689,7 @@ private suspend fun runBackfill(
                             ifRight = { appendLog("Region 回填完成。\n") }
                         )
                     }
+
                     "datapack" -> {
                         val groups = all.filterIsInstance<DatapackReplacementGroup>()
                         appendLog("正在回填 ${groups.size} 个 Datapack 替换分组...\n")
@@ -730,6 +700,7 @@ private suspend fun runBackfill(
                             appendLog("错误: ${e.message}\n")
                         }
                     }
+
                     else -> appendLog("错误: 未知模式 $mode\n")
                 }
             }

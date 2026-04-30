@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="translator-jvm-0.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/translator/build/libs</output-path>
+    <root id="archive" name="translator-jvm-0.0-SNAPSHOT.jar">
+      <element id="module-output" name="mct.translator.jvmMain" />
+    </root>
+  </artifact>
+</component>

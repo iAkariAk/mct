@@ -16,12 +16,14 @@ class ColorTerminalLogger(
             LoggerLevel.Debug -> TextColors.gray
             LoggerLevel.Error -> TextColors.red
             LoggerLevel.Warning -> TextColors.yellow
+            LoggerLevel.Sign -> TextColors.magenta
         }
         val prefix = when (level) {
             LoggerLevel.Info -> "[INFO]"
             LoggerLevel.Debug -> "[DEBUG]"
             LoggerLevel.Error -> "[ERROR]"
             LoggerLevel.Warning -> "[WARN]"
+            LoggerLevel.Sign -> "[SIGN]"
         }.let {
             TextStyles.bold(it)
         }

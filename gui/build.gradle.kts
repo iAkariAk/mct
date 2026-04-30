@@ -23,7 +23,7 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.foundation)
             implementation(project(":mct"))
-            implementation(project(":cli"))
+            implementation(project(":util"))
             implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
         }
     }

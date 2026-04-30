@@ -1,10 +1,13 @@
 package mct
 
+import kotlinx.serialization.json.Json
+
 enum class LoggerLevel {
     Info,
     Debug,
     Error,
-    Warning;
+    Warning,
+    Sign;
 
     val mask = 1 shl ordinal
 
@@ -14,7 +17,7 @@ enum class LoggerLevel {
 }
 
 abstract class Logger(
-    enabledLevels: List<LoggerLevel>
+    val enabledLevels: List<LoggerLevel>
 ) {
     companion object {
         val None = object : Logger(emptyList()) {
@@ -26,6 +29,7 @@ abstract class Logger(
             override fun log(level: LoggerLevel, message: String) {
                 println("[$level] $message")
             }
+
             override fun toString() = "Logger.Console"
         }
     }
@@ -44,6 +48,27 @@ abstract class Logger(
     inline fun debug(message: () -> String) = logFiltered(LoggerLevel.Debug, message)
     inline fun error(message: () -> String) = logFiltered(LoggerLevel.Error, message)
     inline fun warning(message: () -> String) = logFiltered(LoggerLevel.Warning, message)
+
+    inline fun <reified T> sign(value: () -> T) = logFiltered(LoggerLevel.Sign) {
+        val key = keyOf<T>()
+        val value = Json.encodeToString(value())
+        "$key $value"
+    }
 }
 
+inline fun <reified T> Logger.onSign(crossinline callback: (T) -> Unit): Logger = object : Logger(enabledLevels) {
+    override fun log(level: LoggerLevel, message: String) {
+        val orig = this@onSign
+        if (level == LoggerLevel.Sign) {
+            val (key, value) = message.split(" ", limit = 2)
+            val expectedKey = keyOf<T>()
+            if (expectedKey == key) {
+                val msg = Json.decodeFromString<T>(value)
+                callback(msg)
+            }
+        }
+        orig.log(level, message)
+    }
+}
 
+inline fun <reified T> keyOf() = (T::class.qualifiedName ?: T::class.toString()).hashCode().toString()

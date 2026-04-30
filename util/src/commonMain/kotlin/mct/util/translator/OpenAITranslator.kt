@@ -1,26 +1,22 @@
-package mct.cli.translator
+package mct.util.translator
 
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logging
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
+import com.aallam.openai.api.chat.ChatCompletionRequest
+import com.aallam.openai.api.chat.ChatMessage
+import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.logging.LogLevel
+import com.aallam.openai.api.model.ModelId
+import com.aallam.openai.client.LoggingConfig
+import com.aallam.openai.client.OpenAI
+import com.aallam.openai.client.OpenAIHost
+import io.ktor.client.plugins.logging.*
 import korlibs.math.toIntFloor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import mct.Env
-import mct.Logger
+import io.ktor.client.plugins.logging.Logger as KtorLogger
 
 private const val PROMPT = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为简体中文，同时严格保护数据结构的完整性。
 
@@ -115,95 +111,52 @@ private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) -
 private val REGEX_LLM_OUTPUT =
     """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
 
-// ── custom serializable types for direct API calls ───────────
-
-@Serializable
-private data class ApiMessage(val role: String, val content: String)
-
-@Serializable
-private data class ApiRequest(
-    val model: String,
-    val messages: List<ApiMessage>,
-)
-
-@Serializable
-private data class ApiResponse(
-    val choices: List<Choice>? = null,
-) {
-    @Serializable
-    data class Choice(val message: ApiMessage? = null)
-}
-
-// ── translator ───────────────────────────────────────────────
-
 class OpenAITranslator(
     private val apiUrl: String?,
     private val token: String,
     private val model: String,
     private val defaultTerms: TermTable,
-    private val env: Env = Env.Default
+    override val env: Env = Env.Default
 ) : Translator {
-    private val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        encodeDefaults = false
-    }
-
-    private val client = HttpClient(CIO) {
-        engine { dispatcher = Dispatchers.IO }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 300_000 // 5 minutes for translation
-            connectTimeoutMillis = 30_000
-        }
-        install(ContentNegotiation) {
-            json(json)
-        }
-        install(Logging) {
-            logger = object : io.ktor.client.plugins.logging.Logger {
-                override fun log(message: String) {
-                    env.logger.debug { message }
+    private val client = OpenAI(
+        token,
+        host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
+        logging = LoggingConfig(
+            logLevel = LogLevel.All,
+        ), httpClientConfig = {
+            engine {
+                dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
+            }
+            install(Logging) {
+                logger = object : KtorLogger {
+                    override fun log(message: String) {
+                        env.logger.debug { message }
+                    }
                 }
             }
-            level = LogLevel.ALL
         }
-    }
+    )
 
     override val terms: MutableSet<Term> = defaultTerms.toMutableSet()
 
     private val mutex = Mutex()
 
-    private suspend fun chatCompletion(message: String): String {
-        val url = (apiUrl ?: "https://api.openai.com/v1") + "/chat/completions"
-        val request = ApiRequest(
-            model = model,
+
+    private suspend fun chatCompletion(message: String) = client.chatCompletion(
+        ChatCompletionRequest(
+            model = ModelId(model),
             messages = listOf(
-                ApiMessage(role = "system", content = PROMPT),
-                ApiMessage(role = "user", content = message),
+                ChatMessage(
+                    role = ChatRole.System,
+                    content = PROMPT,
+                ),
+                ChatMessage(
+                    role = ChatRole.User,
+                    content = message,
+                )
             )
-        )
-        var lastError: Exception? = null
-        repeat(3) { attempt ->
-            try {
-                val response = client.post(url) {
-                    contentType(ContentType.Application.Json)
-                    setBody(request)
-                    headers["Authorization"] = "Bearer $token"
-                }
-                val body = response.bodyAsText()
-                val apiResponse = json.decodeFromString<ApiResponse>(body)
-                val content = apiResponse.choices?.firstOrNull()?.message?.content
-                    ?: error("No content in response: $body")
-                return content
-            } catch (e: Exception) {
-                lastError = e
-                if (attempt < 2) {
-                    kotlinx.coroutines.delay(2000L * (attempt + 1))
-                    env.logger.warning { "请求失败，第${attempt + 1}次重试: ${e.message}" }
-                }
-            }
-        }
-        throw lastError ?: error("Unknown error")
-    }
+        ),
+    )
 
     override suspend fun translate(sources: List<String>): List<String> {
         var tokenCount = 0
@@ -244,7 +197,7 @@ class OpenAITranslator(
             lateinit var appendedTranslated: List<String>
             while (llmRetry < 3) {
                 val completion = chatCompletion(message)
-                val (t, tr) = parseLLMResponse(completion)
+                val (t, tr) = parseLLMResponse(completion.choices.first().message.content!!)
                 if (tr.size == chunk.size) {
                     appendTerms = t
                     appendedTranslated = tr

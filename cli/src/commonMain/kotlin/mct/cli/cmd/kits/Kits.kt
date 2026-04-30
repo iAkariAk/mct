@@ -13,8 +13,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonElement
 import mct.*
 import mct.cli.*
-import mct.cli.translator.OpenAITranslator
-import mct.cli.translator.TermTable
 import mct.kit.*
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
@@ -23,6 +21,8 @@ import mct.text.decodeToCompound
 import mct.text.encodeToIR
 import mct.util.formatir.toIR
 import mct.util.formatir.toJson
+import mct.util.translator.OpenAITranslator
+import mct.util.translator.TermTable
 import mct.util.unreachable
 import net.benwoodworth.knbt.NbtTag
 import okio.FileSystem
