@@ -8,7 +8,7 @@ class OpenAITranslatorTest : StringSpec({
     val apiUrl = envvar("OPENAI_URL")
     val token = envvar("OPENAI_TOKEN")
     val model = envvar("OPENAI_MODEL")
-    fun translator() = OpenAITranslator(apiUrl!!, token!!, model!!)
+    fun translator() = OpenAITranslator(apiUrl!!, token!!, model!!, defaultTerms = emptySet())
 
 
     "parse test" {
@@ -35,7 +35,7 @@ class OpenAITranslatorTest : StringSpec({
     "translate test".config(enabled = testEnabled) {
         val translator = translator()
         val result = translator.translate(TEST_TEXT.lines())
-        println("translated: ${result.texts}")
-        println("terms: ${result.terms}")
+        println("translated: $result")
+        println("terms: ${translator.terms}")
     }
 })

@@ -125,7 +125,7 @@ val BuiltinPatterns = PatternSet {
     command("data") {
         // data modify <target> <path> set value <json>
         WithSize(6, strict = true) then {
-            GreedyPositions(6) then {
+            Positions(6) then {
                 Matches("data modify value json") { cmd, arg ->
                     cmd[1].content == "modify" &&
                             cmd[4].content == "set" &&
@@ -136,7 +136,7 @@ val BuiltinPatterns = PatternSet {
         }
         // data modify <target> <path> Name set value <json>
         WithSize(7, strict = true) then {
-            GreedyPositions(7) then {
+            Positions(7) then {
                 Matches("data modify Name value json") { cmd, arg ->
                     cmd[1].content == "modify" &&
                             cmd[3].content == "Name" &&
@@ -150,9 +150,14 @@ val BuiltinPatterns = PatternSet {
 
 
     command("give") {
-        // give <targets> <item> [<count>]
+        // give <targets> <item>
+        // Only match when item spec contains text components (item_name, custom_name, Name, Lore, etc.)
         WithSize(3) then {
-            +Positions(2)
+            Positions(2) then {
+                Matches("give item with text component") { _, arg ->
+                    arg.content.contains(""""text"""") || arg.content.contains("""'text'""")
+                }
+            }
         }
     }
 

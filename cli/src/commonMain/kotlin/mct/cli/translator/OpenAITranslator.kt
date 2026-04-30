@@ -1,153 +1,140 @@
 package mct.cli.translator
 
-import com.aallam.openai.api.chat.ChatCompletionRequest
-import com.aallam.openai.api.chat.ChatMessage
-import com.aallam.openai.api.chat.ChatRole
-import com.aallam.openai.api.logging.LogLevel
-import com.aallam.openai.api.model.ModelId
-import com.aallam.openai.client.LoggingConfig
-import com.aallam.openai.client.OpenAI
-import com.aallam.openai.client.OpenAIHost
-import io.ktor.client.plugins.logging.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.serialization.kotlinx.json.json
 import korlibs.math.toIntFloor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import mct.Env
+import mct.Logger
 
-private const val PROMPT = """You are a professional translator specialized in structured data.
+private const val PROMPT = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为简体中文，同时严格保护数据结构的完整性。
 
-Your task is to translate human-readable text into Chinese, while strictly preserving the original data structure.
+=== 输入协议 ===
+- 输入采用 MCT-CLI 协议格式。
+- "-- MCT-CLI:START --" 之前是术语表（JSON 格式），必须严格遵循其中的翻译映射，且术语表本身不要翻译。
+- "-- MCT-CLI:START --" 之后是待翻译内容，每行以 "[N] " 开头（N 是行号），后跟该行的文本内容。
+- 行内的 "\n" 是转义换行符，不要还原为真实换行。
+- 行号 [N] 是该行的唯一标识，你输出的每行译文也必须以相同的 "[N] " 开头。
 
-=== INPUT PROTOCOL ===
-- The input follows the MCT-CLI protocol.
-- Everything before "-- MCT-CLI:START --" is a terminology table in JSON format.
-- Everything after "-- MCT-CLI:START --" is the content to translate.
-- The terminology table must NOT be translated.
-
-e.g. 
+示例：
 ```
-Kuguya => 辉夜姬
+Kaguya => 辉夜姬
 -- MCT-CLI:START --
-<some text needing translating>
+[1] 待翻译文本行1
+[2] 待翻译文本行2
 ```
 
-=== INPUT FORMAT ===
-- The content consists of multiple lines.
-- Each line is an independent string.
-- Line breaks inside a line are escaped as "\n" and must NOT be unescaped.
+=== 核心规则（优先级从高到低） ===
 
-=== STRICT RULES ===
+【规则 0 — 行数必须一致（最高优先级）】
+- 输出的译文行数必须等于输入行数。
+- 禁止合并多行为一行，禁止将一行拆分为多行。
+- 顺序必须与输入完全一致。即使相邻行文本相似（如多个药水效果行），也禁止调换顺序——第N行译文必须严格对应第N行原文。
+- 如果某行内容无需翻译（纯数字/符号/已为中文），原样保留该行。
 
-1. STRUCTURE PRESERVATION (HIGHEST PRIORITY)
-- The content may be JSON or SNBT (Minecraft TextCompound).
-- You MUST NOT modify:
-  - keys, field names
-  - object/array structure (except allowed cases below)
-  - brackets, commas, or syntax
-  - escape sequences (e.g. "\n")
-- Output must remain structurally valid.
+【规则 1 — 数据结构保护】
+- 内容可能是 JSON 或 SNBT（Minecraft 文本组件）。
+- 绝对禁止修改：字段名、键名、对象/数组结构、方括号/花括号/逗号、引号类型。
+- 转义序列（如 \n、\"、\\）必须原样保留。
+- 输出必须是结构合法的 JSON/SNBT。
 
-2. CONTROLLED STRUCTURAL ADJUSTMENT
+【规则 2 — 翻译范围】
+- 只翻译字符串值中的自然语言部分。
+- 重点翻译 "text" 和 "fallback" 字段的内容。
+- 不要翻译：键名、标识符、颜色代码（如 §a、§6）、格式化代码、枚举类值。
 
-2.1 TRANSLATE COMPONENT
-- For "translate" with "with":
-  - You MAY reorder elements in "with" for natural Chinese word order.
-- You MUST NOT:
-  - change element count
-  - remove/duplicate elements
-  - modify non-text fields
-  - move elements outside "with"
-  - change the "translate" key
+【规则 3 — 文本组件保护】
+- 对于 Minecraft 的 "translate" + "with" 组件：可以调整 with 数组内元素的顺序以符合中文语序，但不能增减元素数量。
+- 对于富文本（text + extra 列表）：可以调整相邻文本节点的顺序以获得自然的中文表达，但样式属性（color、bold、italic 等）必须原封不动保留。
+- 禁止跨越语义边界（如 clickEvent、hoverEvent 包裹的文本块）。
 
-2.2 RICH TEXT (TEXT + EXTRA)
-- You MAY reorder or merge adjacent text nodes for natural Chinese.
-- ONLY IF:
-  - all styles (color, bold, etc.) are preserved exactly
-  - final rendering is equivalent except word order
-- You MUST NOT:
-  - cross semantic boundaries (clickEvent, hoverEvent, etc.)
-  - alter non-text properties
-  - break style scopes
+【规则 4 — 字符串处理】
+- 保持原有引号形式不变（双引号/单引号）。
+- 不要修改任何转义字符。
+- 如果替换后的文本包含特殊字符，不需要做额外转义（由程序处理）。
 
-3. TRANSLATION SCOPE
-- ONLY translate natural language inside string values.
-- Focus on "text" and "fallback".
-- DO NOT translate:
-  - keys, identifiers
-  - enum-like values
-  - formatting codes or color names
+【规则 5 — 术语一致性】
+- 严格遵循术语表中提供的翻译。
+- 同一人物名、地名、物品名在整个翻译中保持统一。
+- 不确定时优先一致性而非猜测。
 
-4. STRING HANDLING
-- Preserve quoting exactly.
-- Do NOT change escape sequences.
+【规则 6 — 翻译风格】
+- 使用简洁自然的简体中文，轻小说风格。
+- 保持原文的情感色彩和语气。
+- 不要过度意译，忠实于原文含义。
+- 人名、地名使用日文汉字/中文习惯译名。
 
-5. MULTILINE CONSISTENCY
-- Output line count MUST equal input.
-- Keep exact order.
-- Do NOT merge or split lines.
+=== 输出协议（必须严格遵守） ===
 
-6. TERMINOLOGY & CONSISTENCY
-- Follow provided terminology strictly.
-- Keep terms consistent.
-- Prefer consistency over guessing.
-
-7. STYLE (LOW PRIORITY)
-- Use a light, natural, slightly lively tone (similar to light novel style).
-- Keep style subtle.
-- Do NOT alter meaning or structure.
-
-=== OUTPUT PROTOCOL (MANDATORY) ===
-
-You MUST output exactly:
+输出必须严格按照以下格式，不能有任何额外文字：
 
 -- MCT-CLI:TRANSLATED --
-<one translated line per input line>
+[1] <译文第1行>
+[2] <译文第2行>
+...
 -- MCT-CLI:TERMS --
 [
-  {
-    "source": "<original>",
-    "target": "<chinese>",
-    "type": "name | term"
-  }
+  {"source": "原文", "target": "译文", "type": "name"},
+  {"source": "原文2", "target": "译文2", "type": "term"}
 ]
 -- MCT-CLI:END --
 
-=== OUTPUT RULES ===
-- No extra text anywhere.
-- Section headers must match exactly.
-- Order must not change.
+关键约束：
+- "-- MCT-CLI:TRANSLATED --" 与 "-- MCT-CLI:TERMS --" 以及 "-- MCT-CLI:END --" 必须原样出现。
+- TRANSLATED 部分的译文行数 = 输入行数。
+- TERMS 部分必须是合法的 JSON 数组，元素包含 source（原文）、target（译文）、type（类型：name 为人名/地名，term 为专有名词）。
+- 新发现的术语才放入 TERMS，已存在于术语表中的不要重复。
+- 没有新术语时 TERMS 部分写空数组 []。
 
-TRANSLATED:
-- Same number of lines as input
-- Same order
-- No merge/split
-
-TERMS:
-- Must be valid JSON
-- Only newly discovered terms
-- No duplicates
-- If none:
-
-[]
-
-=== FAILURE RULE ===
-- If unsure, prioritize valid format over fluency.
-
-=== GOAL ===
-Produce a natural Chinese translation while preserving structure and style, allowing only safe reordering in "translate.with" and rich text trees.
+=== 失败处理 ===
+- 如果对某行的结构安全性有疑问，优先保留原文而非冒险修改格式。
+- 宁可少翻译一行，也不能破坏数据结构的完整性。
 """
 
-private const val TOKEN_COUNT_THRESHOLD = 50 shl 10
+private const val TOKEN_COUNT_THRESHOLD = 2 shl 10
 
 private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) ->
     "${source.trim()} => ${target.trim()}"
 }
 
 private val REGEX_LLM_OUTPUT =
-    """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)\n-- MCT-CLI:END --\s*$""".toRegex()
+    """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
+
+// ── custom serializable types for direct API calls ───────────
+
+@Serializable
+private data class ApiMessage(val role: String, val content: String)
+
+@Serializable
+private data class ApiRequest(
+    val model: String,
+    val messages: List<ApiMessage>,
+)
+
+@Serializable
+private data class ApiResponse(
+    val choices: List<Choice>? = null,
+) {
+    @Serializable
+    data class Choice(val message: ApiMessage? = null)
+}
+
+// ── translator ───────────────────────────────────────────────
 
 class OpenAITranslator(
     private val apiUrl: String?,
@@ -156,44 +143,67 @@ class OpenAITranslator(
     private val defaultTerms: TermTable,
     private val env: Env = Env.Default
 ) : Translator {
-    private val client = OpenAI(
-        token,
-        host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
-        logging = LoggingConfig(
-            logLevel = LogLevel.All,
-        ), httpClientConfig = {
-            engine {
-                dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
-            }
-            install(Logging) {
-                logger = object : Logger {
-                    override fun log(message: String) {
-                        env.logger.debug { message }
-                    }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        encodeDefaults = false
+    }
+
+    private val client = HttpClient(CIO) {
+        engine { dispatcher = Dispatchers.IO }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 300_000 // 5 minutes for translation
+            connectTimeoutMillis = 30_000
+        }
+        install(ContentNegotiation) {
+            json(json)
+        }
+        install(Logging) {
+            logger = object : io.ktor.client.plugins.logging.Logger {
+                override fun log(message: String) {
+                    env.logger.debug { message }
                 }
             }
+            level = LogLevel.ALL
         }
-    )
+    }
 
     override val terms: MutableSet<Term> = defaultTerms.toMutableSet()
 
     private val mutex = Mutex()
 
-    private suspend fun chatCompletion(message: String) = client.chatCompletion(
-        ChatCompletionRequest(
-            model = ModelId(model),
+    private suspend fun chatCompletion(message: String): String {
+        val url = (apiUrl ?: "https://api.openai.com/v1") + "/chat/completions"
+        val request = ApiRequest(
+            model = model,
             messages = listOf(
-                ChatMessage(
-                    role = ChatRole.System,
-                    content = PROMPT,
-                ),
-                ChatMessage(
-                    role = ChatRole.User,
-                    content = message,
-                )
+                ApiMessage(role = "system", content = PROMPT),
+                ApiMessage(role = "user", content = message),
             )
-        ),
-    )
+        )
+        var lastError: Exception? = null
+        repeat(3) { attempt ->
+            try {
+                val response = client.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                    headers["Authorization"] = "Bearer $token"
+                }
+                val body = response.bodyAsText()
+                val apiResponse = json.decodeFromString<ApiResponse>(body)
+                val content = apiResponse.choices?.firstOrNull()?.message?.content
+                    ?: error("No content in response: $body")
+                return content
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < 2) {
+                    kotlinx.coroutines.delay(2000L * (attempt + 1))
+                    env.logger.warning { "请求失败，第${attempt + 1}次重试: ${e.message}" }
+                }
+            }
+        }
+        throw lastError ?: error("Unknown error")
+    }
 
     override suspend fun translate(sources: List<String>): List<String> {
         var tokenCount = 0
@@ -203,14 +213,11 @@ class OpenAITranslator(
                 val approximateTokenCount = calculateToken(source.length + 1)
                 val isThresholdOver = tokenCount + approximateTokenCount >= TOKEN_COUNT_THRESHOLD
                 if (isThresholdOver) {
-                    require(tmp.isNotEmpty()) {
-                        "The content size too large."
-                    }
+                    require(tmp.isNotEmpty()) { "The content size too large." }
                     yield(tmp)
                     tokenCount = 0
                     tmp.clear()
                 }
-
                 tmp += source
                 tokenCount += approximateTokenCount
             }
@@ -225,15 +232,31 @@ class OpenAITranslator(
                     append(terms.render())
                     appendLine()
                 }
-
-                append("-- MCT-CLI:START --")
-                chunk.map { it.replace("\n", "\\n") }.forEach { appendLine(it) }
+                appendLine("-- MCT-CLI:START --")
+                chunk.map { it.replace("\n", "\\n") }.forEachIndexed { i, text ->
+                    appendLine("[${i + 1}] $text")
+                }
             }
             env.logger.info { "Handling $index (total ${chunkCount - 1})" }
 
-            val completion = chatCompletion(message)
+            var llmRetry = 0
+            lateinit var appendTerms: Set<Term>
+            lateinit var appendedTranslated: List<String>
+            while (llmRetry < 3) {
+                val completion = chatCompletion(message)
+                val (t, tr) = parseLLMResponse(completion)
+                if (tr.size == chunk.size) {
+                    appendTerms = t
+                    appendedTranslated = tr
+                    break
+                }
+                llmRetry++
+                env.logger.warning { "翻译行数不匹配: 期望 ${chunk.size}, 实际 ${tr.size}, 重试 $llmRetry/3" }
+                if (llmRetry >= 3) {
+                    error("LLM 返回行数与输入不匹配 (期望 ${chunk.size}, 实际 ${tr.size}), 重试耗尽")
+                }
+            }
 
-            val (appendTerms, appendedTranslated) = parseLLMResponse(completion.choices.first().message.content!!)
             terms += appendTerms
             env.logger.info { "Handled $index (total ${chunkCount - 1})" }
             env.logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" } }
@@ -248,11 +271,22 @@ class OpenAITranslator(
     override fun toString() = "OpenAITranslator($model)"
 }
 
+private val LINE_PREFIX = Regex("""^\[(\d+)\]\s*""")
+
 internal fun parseLLMResponse(content: String): Pair<TermTable, List<String>> {
     val (appendedTranslated, appendTermsStr) = REGEX_LLM_OUTPUT.matchEntire(content)?.destructured
         ?: error("LLM responses invalidly")
     val appendTerms = Json.decodeFromString<TermTable>(appendTermsStr)
-    return appendTerms to appendedTranslated.lines()
+    // 按 [N] 行号重新排序，即使 LLM 输出乱序也能正确配对
+    val lines = appendedTranslated.lines()
+        .map { line ->
+            val num = LINE_PREFIX.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val text = line.replaceFirst(LINE_PREFIX, "")
+            num to text
+        }
+        .sortedBy { it.first }
+        .map { it.second }
+    return appendTerms to lines
 }
 
 private fun calculateToken(strSize: Int): Int = (strSize / 1.5).toIntFloor()

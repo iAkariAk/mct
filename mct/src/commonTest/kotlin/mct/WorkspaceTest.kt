@@ -5,6 +5,8 @@ import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import kotlinx.coroutines.flow.toList
+import mct.DatapackReplacementGroup
+import mct.RegionReplacementGroup
 import mct.dp.backfillDatapack
 import mct.dp.extractFromDatapack
 import mct.kit.replaceSimply
@@ -42,7 +44,7 @@ class WorkspaceTest : StringSpec({
             val replacements = extractions.replaceSimply {
                 "Kaguya&Iroha"
             }
-            workspace.backfillRegion(replacements)
+            workspace.backfillRegion(replacements.filterIsInstance<RegionReplacementGroup>())
 
             // Validate if it corrupts
 
@@ -58,7 +60,7 @@ class WorkspaceTest : StringSpec({
             val replacements = extractions.replaceSimply {
                 "Kaguya&Iroha"
             }
-            workspace.backfillDatapack(replacements)
+            workspace.backfillDatapack(replacements.filterIsInstance<DatapackReplacementGroup>())
 
             // Validate if it corrupts
 

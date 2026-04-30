@@ -30,4 +30,14 @@ val BuiltinPatterns = PatternSet {
     +RegexPattern("""#pages>\d+$""")                  // Individual book pages
     +RightPattern("#title")                           // Book title
     +RightPattern("#author")                          // Book author
+
+    // --- Loot Tables & Item Modifiers ---
+    // set_name / set_custom_name: {"text": "..."}
+    +RegexPattern("""#functions>\d+>#name>#text$""")
+    +RegexPattern("""#functions>\d+>#name>#fallback$""")
+    // set_lore entries
+    +RegexPattern("""#functions>\d+>#lore>\d+>#text$""")
+    +RegexPattern("""#functions>\d+>#lore>\d+>#fallback$""")
+    // set_attributes with custom names
+    +RegexPattern("""#functions>\d+>#entity>#name>#text$""")
 }

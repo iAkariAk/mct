@@ -73,7 +73,13 @@ private fun extractTextFromCommand(
         val subBeginIndexAbs = command.indices.first + subBeginIndexRel
         val subIndicesAbs = subBeginIndexAbs..command.indices.last
         val subRaw = command.raw.substring(subBeginIndexRel)
-        val subArgs = rawSubcommand.subList(1, rawSubcommand.size)
+        val subArgs = rawSubcommand.subList(1, rawSubcommand.size).map { arg ->
+            MCCommand.Arg(
+                relativeIndices = (arg.relativeIndices.first - subBeginIndexRel)..(arg.relativeIndices.last - subBeginIndexRel),
+                indices = arg.indices,
+                content = arg.content
+            )
+        }
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
         return extractTextFromCommand(patterns, subCommand)
     }
