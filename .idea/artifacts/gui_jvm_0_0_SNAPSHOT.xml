@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="gui-jvm-0.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/gui/build/libs</output-path>
+    <root id="archive" name="gui-jvm-0.0-SNAPSHOT.jar">
+      <element id="module-output" name="mct.gui.jvmMain" />
+    </root>
+  </artifact>
+</component>
