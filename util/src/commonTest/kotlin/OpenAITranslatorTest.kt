@@ -1,6 +1,6 @@
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import mct.cli.envvar
+import mct.util.system.envvar
 import mct.util.translator.OpenAITranslator
 import mct.util.translator.Term
 import mct.util.translator.TermType

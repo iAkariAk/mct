@@ -1,5 +1,3 @@
-package mct.cli.translator
-
 val TEST_TEXT =
     """「なにって……なんで？」
 『え？』
