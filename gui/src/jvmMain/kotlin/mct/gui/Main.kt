@@ -65,6 +65,9 @@ fun App() {
     var extractOutput by remember { mutableStateOf("extractions.json") }
     var extractMode by remember { mutableStateOf("region") }
     var disableFilter by remember { mutableStateOf(false) }
+    var regionPatternPath by remember { mutableStateOf("") }
+    var mcfPatternPath by remember { mutableStateOf("") }
+    var mcjPatternPath by remember { mutableStateOf("") }
 
     // 翻译
     var translateInput by remember { mutableStateOf("extractions.json") }
@@ -187,11 +190,17 @@ fun App() {
                                 outputPath = extractOutput, onOutputChange = { extractOutput = it },
                                 mode = extractMode, onModeChange = { extractMode = it },
                                 disableFilter = disableFilter, onDisableFilterChange = { disableFilter = it },
+                                regionPatternPath = regionPatternPath, onRegionPatternChange = { regionPatternPath = it },
+                                mcfPatternPath = mcfPatternPath, onMcfPatternChange = { mcfPatternPath = it },
+                                mcjPatternPath = mcjPatternPath, onMcjPatternChange = { mcjPatternPath = it },
                                 isRunning = isRunning,
                                 onRun = {
                                     isRunning = true; logText = ""
                                     scope.launch {
-                                        runExtraction(env, extractInput, extractOutput, extractMode, disableFilter)
+                                        runExtraction(
+                                            env, extractInput, extractOutput, extractMode, disableFilter,
+                                            regionPatternPath, mcfPatternPath, mcjPatternPath
+                                        )
                                         isRunning = false
                                     }
                                 }

@@ -6,7 +6,7 @@ import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
-val BuiltinPatterns = PatternSet {
+val BuiltinMCJPatterns = PatternSet {
     // --- Item Components (Modern 1.20.5+ System) ---
     +RightPattern("#components>#custom_name")         // Custom item names
     +RegexPattern("""#components>#lore>\d+$""")        // List of item lore lines

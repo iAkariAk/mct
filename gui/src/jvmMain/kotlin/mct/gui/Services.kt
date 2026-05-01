@@ -9,8 +9,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import mct.*
 import mct.dp.backfillDatapack
-import mct.dp.extractFromDatapack
-import mct.region.BuiltinPatterns
+import mct.dp.compile
+import mct.dp.extractFromDatapackRaw
+import mct.dp.mcfunction.ExtractPattern
+import mct.pointer.CustomizedDataPointerPattern
+import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
@@ -21,6 +24,8 @@ import mct.util.translator.translate
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
+import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
+import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
 // ── API 设置持久化 ──────────────────────────────────────────────
 
@@ -95,6 +100,9 @@ suspend fun runExtraction(
     output: String,
     mode: String,
     disableFilter: Boolean,
+    regionPatternPath: String = "",
+    mcfPatternPath: String = "",
+    mcjPatternPath: String = "",
 ) {
     withContext(Dispatchers.IO) {
         env.logger.info { "正在打开: $input" }
@@ -105,14 +113,43 @@ suspend fun runExtraction(
             val workspace = MCTWorkspace(inputPath, env)
             when (mode) {
                 "region" -> {
-                    val patterns = if (disableFilter) null else BuiltinPatterns.toList()
+                    val patterns = if (disableFilter) {
+                        null
+                    } else {
+                        val userPatterns = regionPatternPath.takeIf { it.isNotBlank() }
+                            ?.let { p ->
+                                env.fs.read(p.toPath()) { readUtf8() }
+                                    .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
+                                    .map { it.compile() }
+                            }
+                        if (userPatterns != null) BuiltinRegionPatterns.toList() + userPatterns
+                        else BuiltinRegionPatterns.toList()
+                    }
                     workspace.extractFromRegion(patterns = patterns).toList() as List<ExtractionGroup>
                 }
 
                 "datapack" -> {
+                    val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
+                        ?.let { p ->
+                            env.fs.read(p.toPath()) { readUtf8() }
+                                .let { MCTJson.decodeFromString<List<ExtractPattern>>(it) }
+                                .compile()
+                        } ?: MCFBuiltinPatterns
+
                     val mcjPatterns: List<mct.pointer.DataPointerPattern>? =
-                        if (disableFilter) null else emptyList()
-                    workspace.extractFromDatapack(mcjPatterns = mcjPatterns).toList() as List<ExtractionGroup>
+                        if (disableFilter) {
+                            null
+                        } else {
+                            val userPatterns = mcjPatternPath.takeIf { it.isNotBlank() }
+                                ?.let { p ->
+                                    env.fs.read(p.toPath()) { readUtf8() }
+                                        .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
+                                        .map { it.compile() }
+                                }
+                            if (userPatterns != null) MCJBuiltinPatterns + userPatterns
+                            else MCJBuiltinPatterns
+                        }
+                    workspace.extractFromDatapackRaw(mcfPatterns, mcjPatterns).toList() as List<ExtractionGroup>
                 }
 
                 else -> error("未知模式: $mode")

@@ -17,7 +17,7 @@ class NbtExtractPatternTest : FreeSpec({
                 DataPointer.decodeFromString(ptr)
             }
             "BUILTIN_SET should match $ptr" {
-                BuiltinPatterns.any { it.match(ptr) } shouldBe true
+                BuiltinRegionPatterns.any { it.match(ptr) } shouldBe true
             }
         }
     }

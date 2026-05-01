@@ -18,8 +18,8 @@ import mct.pointer.DataPointerPattern
 import mct.util.io.*
 import okio.FileSystem
 import okio.Path
-import mct.dp.mcfunction.BuiltinPatterns as MCFBuiltinPatterns
-import mct.dp.mcjson.BuiltinPatterns as MCJsonBuiltinPatterns
+import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
+import mct.dp.mcjson.BuiltinMCJPatterns as MCJsonBuiltinPatterns
 
 fun MCTWorkspace.extractFromDatapack(
     mcfPatterns: List<ExtractPattern> = emptyList(),

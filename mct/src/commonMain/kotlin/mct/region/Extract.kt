@@ -21,7 +21,7 @@ import net.benwoodworth.knbt.NbtTag
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
-    patterns: List<DataPointerPattern>? = BuiltinPatterns
+    patterns: List<DataPointerPattern>? = BuiltinRegionPatterns
 ): Flow<RegionExtractionGroup> {
     if (patterns == null) logger.warning { "The filter MCJson was disabled, which causes export all string from the region" }
 

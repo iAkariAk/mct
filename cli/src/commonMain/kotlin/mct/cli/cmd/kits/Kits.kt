@@ -50,10 +50,10 @@ private class TextPool : BaseCommand(
         name = "flatten",
         help = "Flatten extraction groups into a translation pool"
     ) {
-        val input by option("--input", "-i").path().required()
-        val output by option("--output", "-o").path().required()
+        val input by option("--input", "-i", help = "The extraction JSON file to flatten").path().required()
+        val output by option("--output", "-o", help = "The output path for the translation pool JSON").path().required()
         val kind by option(help = "The kind of extractions").choice("datapack", "region").required()
-        val simply by option("--simply").flag()
+        val simply by option("--simply", help = "Use simple flatten mode without preserving structure").flag()
 
         context(_: Raise<MCTError>, fs: FileSystem)
         override suspend fun App() {
@@ -75,9 +75,9 @@ private class TextPool : BaseCommand(
         help = "Apply translation mapping back into extraction groups"
     ) {
 
-        val input by option("--input", "-i").path().required()
-        val mapping by option("--mapping", "-m").path().required()
-        val output by option("--output", "-o").path().required()
+        val input by option("--input", "-i", help = "The extraction JSON file to unflatten").path().required()
+        val mapping by option("--mapping", "-m", help = "The translation mapping JSON file").path().required()
+        val output by option("--output", "-o", help = "The output path for the replacement groups JSON").path().required()
 
         context(_: Raise<MCTError>, fs: FileSystem)
         override suspend fun App() {
@@ -131,13 +131,13 @@ private class AITranslate : BaseCommand(
     name = "translate",
     help = "Translate via OpenAI api"
 ) {
-    val input by option("--input", "-i").path().required()
-    val output by option("--output", "-o").path().required()
-    val termOutput by option("--output-term", "-ot").path().required()
-    val term by option("--term").path()
-    val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL")
-    val model by option("--openai-model", envvar = "OPENAI_MODEL").required()
-    val token by option("--openai-token", envvar = "$4=").required()
+    val input by option("--input", "-i", help = "The extraction JSON file to translate").path().required()
+    val output by option("--output", "-o", help = "The output path for the replacements JSON").path().required()
+    val termOutput by option("--output-term", "-ot", help = "The output path for the term table JSON").path().required()
+    val term by option("--term", help = "Path to an existing term table JSON file").path()
+    val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
+    val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
+    val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {

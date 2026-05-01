@@ -28,6 +28,9 @@ fun ExtractPanel(
     outputPath: String, onOutputChange: (String) -> Unit,
     mode: String, onModeChange: (String) -> Unit,
     disableFilter: Boolean, onDisableFilterChange: (Boolean) -> Unit,
+    regionPatternPath: String, onRegionPatternChange: (String) -> Unit,
+    mcfPatternPath: String, onMcfPatternChange: (String) -> Unit,
+    mcjPatternPath: String, onMcjPatternChange: (String) -> Unit,
     isRunning: Boolean, onRun: () -> Unit
 ) {
     val dirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
@@ -36,6 +39,18 @@ fun ExtractPanel(
     val fileSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
         file?.let { onOutputChange(ensureJsonExt(it.absolutePath())) }
     }
+    val patternPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(),
+        mode = FileKitMode.Single
+    ) { file: PlatformFile? -> file?.let { onRegionPatternChange(it.absolutePath()) } }
+    val mcfPatternPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(),
+        mode = FileKitMode.Single
+    ) { file: PlatformFile? -> file?.let { onMcfPatternChange(it.absolutePath()) } }
+    val mcjPatternPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(),
+        mode = FileKitMode.Single
+    ) { file: PlatformFile? -> file?.let { onMcjPatternChange(it.absolutePath()) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -63,6 +78,29 @@ fun ExtractPanel(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+        SectionTitle("自定义过滤规则（可选）", Icons.Outlined.FilterList)
+
+        if (mode == "region") {
+            PathRow(
+                "Region 过滤规则 JSON",
+                "留空则使用内置规则...",
+                regionPatternPath, onRegionPatternChange
+            ) { patternPicker.launch() }
+        } else {
+            PathRow(
+                "MCFunction 过滤规则 JSON",
+                "留空则使用内置规则...",
+                mcfPatternPath, onMcfPatternChange
+            ) { mcfPatternPicker.launch() }
+            PathRow(
+                "MCJson 过滤规则 JSON",
+                "留空则使用内置规则...",
+                mcjPatternPath, onMcjPatternChange
+            ) { mcjPatternPicker.launch() }
         }
 
         Spacer(Modifier.height(4.dp))

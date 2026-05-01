@@ -17,10 +17,12 @@ import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
 import mct.cli.writeJson
-import mct.pointer.DataPointerPattern
-import mct.region.BuiltinPatterns
+import mct.pointer.CustomizedDataPointerPattern
+import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
+import mct.serializer.MCTJson
+import mct.util.io.readText
 import okio.FileSystem
 
 class Region : SuspendingCliktCommand(name = "region") {
@@ -33,14 +35,21 @@ class Region : SuspendingCliktCommand(name = "region") {
 }
 
 private class RegionExtract : WorkspaceCommand(name = "extract") {
-    val output by option("--output", "-o").path().required()
-    val patternsPath by option("--pattern", "-p").path()
+    val output by option("--output", "-o", help = "The JSON output path for extracted texts").path().required()
+    val patternsPath by option("--pattern", "-p", help = "Custom region filter patterns JSON file").path()
 
-    val disableFilter by option("--disable-filter").flag()
+    val disableFilter by option("--disable-filter", help = "Disable built-in filter, extract all strings").flag()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
-        val patterns = if (disableFilter) null else patternsPath.jsonFile<List<DataPointerPattern>>(BuiltinPatterns)
+        val userPatterns = patternsPath?.readText()?.let {
+            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+        }
+        val patterns = when {
+            disableFilter -> null
+            userPatterns != null -> BuiltinRegionPatterns.toList() + userPatterns
+            else -> BuiltinRegionPatterns.toList()
+        }
         val extractions: List<ExtractionGroup> = workspace.extractFromRegion(patterns).toList()
 
         output.writeJson(extractions)
@@ -49,7 +58,10 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
 
 
 private class RegionBackfill : WorkspaceCommand(name = "backfill") {
-    val replacementGroupsPath by option("-r").path().required()
+    val replacementGroupsPath by option(
+        "--replacements", "-r",
+        help = "The replacements JSON file to apply back to region files"
+    ).path().required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {

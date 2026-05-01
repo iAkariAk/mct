@@ -2,7 +2,7 @@ package mct.dp.mcfunction
 
 import mct.text.isTextComponent
 
-val BuiltinPatterns = PatternSet {
+val BuiltinMCFPatterns = PatternSet {
     listOf("say", "me", "teammsg").forEach { cmd ->
         // say <message...>
         // me <action...>

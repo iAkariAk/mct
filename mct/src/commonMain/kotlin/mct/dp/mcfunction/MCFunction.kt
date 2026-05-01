@@ -7,7 +7,7 @@ import mct.dp.Extractor
 
 
 internal fun MCFunctionExtractor(
-    patterns: ExtractPatternSet = BuiltinPatterns
+    patterns: ExtractPatternSet = BuiltinMCFPatterns
 ) = Extractor("MCFunction", ".mcfunction") { env, zfs, zpath, path ->
     val text = zfs.read(zpath) { readUtf8() }
     context(env.logger) {
@@ -30,7 +30,7 @@ internal fun extractTextMCF(
     mcf: String,
     source: String,
     path: String,
-    patterns: ExtractPatternSet = BuiltinPatterns
+    patterns: ExtractPatternSet = BuiltinMCFPatterns
 ): DatapackExtractionGroup {
     val mcfunctions = parseMCFunction(mcf)
     val extractedArgs: Sequence<Extracted> = mcfunctions.asSequence().flatMap { command ->

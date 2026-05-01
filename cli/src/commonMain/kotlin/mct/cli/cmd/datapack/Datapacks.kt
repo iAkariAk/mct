@@ -20,10 +20,12 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
-import mct.pointer.DataPointerPattern
+import mct.pointer.CustomizedDataPointerPattern
+import mct.serializer.MCTJson
+import mct.util.io.readText
 import okio.FileSystem
-import mct.dp.mcfunction.BuiltinPatterns as MCFBuiltinPatterns
-import mct.dp.mcjson.BuiltinPatterns as MCJBuiltinPatterns
+import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
+import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
 class Datapack : SuspendingCliktCommand(name = "datapack") {
     override suspend fun run() = Unit
@@ -35,26 +37,35 @@ class Datapack : SuspendingCliktCommand(name = "datapack") {
 }
 
 private class ExtractDatapack : WorkspaceCommand(name = "extract") {
-    val output by option(help = "The JSON output of extract").path().required()
+    val output by option("--output", "-o", help = "The JSON output path for extracted texts").path().required()
     val mcfPatternsPath by option(
         "--mcfunction-patterns",
         "-pF",
-        help = "Append pattern to filter specified text for mcfunction"
+        help = "Append patterns to filter specified text for mcfunction"
     ).path()
     val mcjPatternsPath by option(
         "--mcjson-patterns",
         "-pJ",
-        help = "Append pattern to filter specified text for mcjson"
+        help = "Append patterns to filter specified text for mcjson"
     ).path()
 
-    val disableMCJFilter by option("--disable-mcjson-filter").flag()
+    val disableMCJFilter by option(
+        "--disable-mcjson-filter",
+        help = "Disable mcjson filter, extract all strings from JSON files"
+    ).flag()
 
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
         val mcfPatterns = mcfPatternsPath?.jsonFile<List<ExtractPattern>>()
-        val mcjPatterns =
-            if (disableMCJFilter) null else mcjPatternsPath.jsonFile<List<DataPointerPattern>>(MCJBuiltinPatterns)
+        val userMcjPatterns = mcjPatternsPath?.readText()?.let {
+            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+        }
+        val mcjPatterns = when {
+            disableMCJFilter -> null
+            userMcjPatterns != null -> MCJBuiltinPatterns + userMcjPatterns
+            else -> MCJBuiltinPatterns
+        }
 
         val extractions: List<ExtractionGroup> =
             workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
@@ -64,7 +75,10 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
 
 private class BackfillDatapack : WorkspaceCommand(name = "backfill") {
-    val replacementGroupsPath by option("-r").path().required()
+    val replacementGroupsPath by option(
+        "--replacements", "-r",
+        help = "The replacements JSON file to apply back to datapack files"
+    ).path().required()
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {

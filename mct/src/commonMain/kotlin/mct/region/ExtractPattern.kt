@@ -6,7 +6,7 @@ import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
-val BuiltinPatterns = PatternSet {
+val BuiltinRegionPatterns = PatternSet {
     // --- Item Display & Lore (Legacy/General) ---
     +RightPattern("#display>#Name")                   // Item custom name
     +RightPattern("#display>#Lore")                   // Item lore lines
