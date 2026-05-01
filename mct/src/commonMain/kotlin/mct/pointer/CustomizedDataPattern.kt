@@ -24,7 +24,7 @@ sealed interface CustomizedDataPointerPattern {
     @SerialName("regex")
     data class RegexPattern(
         val regex: String,
-        override val negative: Boolean
+        override val negative: Boolean = false
     ) : CustomizedDataPointerPattern {
         private val _regex by lazy { regex.toRegex() }
         override fun compile() = DataPointerPattern { pointer ->
