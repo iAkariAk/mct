@@ -27,6 +27,7 @@ import androidx.compose.ui.window.application
 import arrow.core.raise.either
 import kotlinx.coroutines.launch
 import mct.Env
+import mct.on
 import mct.onSign
 import mct.util.translator.TranslateError
 import mct.util.translator.TranslateSign
@@ -87,15 +88,13 @@ fun App() {
 
 
     val guiLogger = remember {
-        GuiLogger { logText += it }.onSign<TranslateSign> {
-            when (it) {
-                is TranslateSign.Begin -> {
-                    logText += "开始翻译，总的批数${it.batch}\n"
-                }
-
-                is TranslateSign.Progress -> {
-                    translateProgress = it.progress
-                    translateStatus = if (it.progress >= 1f) "完成" else "翻译中..."
+        GuiLogger { logText += it }.onSign {
+            on<TranslateSign> { sign ->
+                when (sign) {
+                    is TranslateSign.Progress -> {
+                        translateProgress = sign.progress
+                        translateStatus = if (sign.progress >= 1f) "完成" else "翻译中..."
+                    }
                 }
             }
         }

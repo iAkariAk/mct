@@ -156,7 +156,7 @@ class OpenAITranslator private constructor(
         token,
         host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
         logging = LoggingConfig(
-            logLevel = LogLevel.Body,
+            logLevel = LogLevel.Info,
         ),
         httpClientConfig = {
             engine {
@@ -194,7 +194,7 @@ class OpenAITranslator private constructor(
         ),
     )
 
-    override suspend fun translate(sources: List<String>): List<String> {
+    override suspend fun translate(sources: List<String>): List<String> = context(env) {
         val chunks = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).toList()
         val totalChunkSize = chunks.size
         env.logger.info { "Starting translation: ${sources.size} sources → ${totalChunkSize} chunks, ${terms.size} existing terms" }
@@ -248,7 +248,7 @@ class OpenAITranslator private constructor(
             mutex.withLock {
                 translated += appendedTranslated
             }
-            val pct = (index + 1).toFloat() / chunk.size
+            val pct = (index + 1).toFloat() / totalChunkSize
             env.logger.sign<TranslateSign> { TranslateSign.Progress(pct) }
 
             translated
@@ -271,7 +271,11 @@ private enum class Format {
     JSON, SNBT
 }
 
+context(env: Env)
 private fun List<String>.strip(): List<CompoundStrip> = map { raw: String ->
+    fun cannotStrip() = null.also {
+        env.logger.warning { "Cannot strip $raw" }
+    }
     runCatching {
         Format.JSON to MCTJson.decodeFromString<JsonElement>(raw).toIR()
     }.getOrElse {
@@ -286,9 +290,9 @@ private fun List<String>.strip(): List<CompoundStrip> = map { raw: String ->
         val strip = if (compound.extra.isEmpty()) {
             when (compound) {
                 is TextCompound.Plain -> compound.text
-                else -> null
+                else -> cannotStrip()
             }
-        } else null
+        } else cannotStrip()
         CompoundStrip(raw, format, compound, strip)
     } ?: CompoundStrip(raw)
 }

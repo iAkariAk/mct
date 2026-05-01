@@ -1,6 +1,10 @@
 package mct
 
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+import mct.util.BuilderMaker
+import kotlin.reflect.KClass
 
 enum class LoggerLevel {
     Info,
@@ -56,20 +60,49 @@ abstract class Logger(
     }
 }
 
-inline fun <reified T> Logger.onSign(crossinline callback: (T) -> Unit): Logger = object : Logger(enabledLevels) {
-    override fun log(level: LoggerLevel, message: String) {
-        val orig = this@onSign
-        if (level == LoggerLevel.Sign) {
-            val (key, value) = message.split(" ", limit = 2)
-            val expectedKey = keyOf<T>()
-            if (expectedKey == key) {
-                val msg = Json.decodeFromString<T>(value)
-                callback(msg)
-                return
-            }
+data class RegistryItem<T : Any>(
+    val clazz: KClass<T>,
+    val callback: (T) -> Unit,
+) {
+    @Suppress("UNCHECKED_CAST")
+    operator fun invoke(data: Any) = callback(data as T)
+
+    val key = clazz.qualifiedName ?: clazz.toString()
+
+    @OptIn(InternalSerializationApi::class)
+    val serializer = clazz.serializer()
+}
+
+@BuilderMaker
+interface OnSignRegistry {
+    fun <T : Any> on(clazz: KClass<T>, callback: (T) -> Unit)
+}
+
+inline fun <reified T : Any> OnSignRegistry.on(noinline callback: (T) -> Unit) = on(T::class, callback)
+
+inline fun Logger.onSign(register: OnSignRegistry.() -> Unit): Logger {
+    val hooks = mutableMapOf<String, RegistryItem<*>>()
+
+    val registry = object : OnSignRegistry {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : Any> on(clazz: KClass<T>, callback: (T) -> Unit) {
+            hooks[clazz.qualifiedName ?: clazz.toString()] = RegistryItem(clazz, callback as (Any) -> Unit)
         }
-        orig.log(level, message)
+    }
+    registry.register()
+    return object : Logger(enabledLevels) {
+        override fun log(level: LoggerLevel, message: String) {
+            val orig = this@onSign
+            if (level == LoggerLevel.Sign) {
+                val (key, value) = message.split(" ", limit = 2)
+                hooks[key]?.let { item ->
+                    val data = Json.decodeFromString(item.serializer, value)
+                    item.invoke(data)
+                }
+            } else orig.log(level, message)
+        }
     }
 }
+
 
 inline fun <reified T> keyOf() = (T::class.qualifiedName ?: T::class.toString()).hashCode().toString()
