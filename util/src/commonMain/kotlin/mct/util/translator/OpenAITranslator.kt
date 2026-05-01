@@ -1,5 +1,7 @@
 package mct.util.translator
 
+import arrow.core.raise.Raise
+import arrow.core.raise.context.ensure
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
@@ -8,8 +10,9 @@ import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.LoggingConfig
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIHost
+import io.ktor.client.plugins.api.*
 import io.ktor.client.plugins.logging.*
-import korlibs.math.toIntFloor
+import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
@@ -102,7 +105,6 @@ Kaguya => 辉夜姬
 - 宁可少翻译一行，也不能破坏数据结构的完整性。
 """
 
-private const val TOKEN_COUNT_THRESHOLD = 2 shl 10
 
 private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) ->
     "${source.trim()} => ${target.trim()}"
@@ -111,18 +113,56 @@ private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) -
 private val REGEX_LLM_OUTPUT =
     """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
 
-class OpenAITranslator(
+private class IllegalEmptyResponseException : Exception()
+private class IllegalJsonResponseException(val body: String) : Exception()
+
+private fun String.isJson() = runCatching {
+    Json.parseToJsonElement(this)
+    true
+}.getOrNull() ?: false
+
+private val ResponseInspectorPlugin = createClientPlugin("ResponseInspector") {
+    transformResponseBody { response, channel, type ->
+        val bodyText = channel.readRemaining().readText()
+
+        when {
+            bodyText.isBlank() -> throw IllegalEmptyResponseException()
+            !bodyText.isJson() -> throw IllegalJsonResponseException(bodyText)
+            else -> {
+                ByteReadChannel(bodyText)
+            }
+        }
+    }
+}
+
+class OpenAITranslator private constructor(
     private val apiUrl: String?,
     private val token: String,
     private val model: String,
     private val defaultTerms: TermTable,
     override val env: Env = Env.Default
 ) : Translator {
+    companion object {
+        context(_: Raise<TranslateError>)
+        operator fun invoke(
+            apiUrl: String?,
+            token: String,
+            model: String,
+            defaultTerms: TermTable,
+            env: Env = Env.Default
+        ): OpenAITranslator {
+            ensure(apiUrl?.endsWith("/v1/") ?: false) {
+                TranslateError.IllegalUrl
+            }
+            return OpenAITranslator(apiUrl, token, model, defaultTerms)
+        }
+    }
+
     private val client = OpenAI(
         token,
         host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
         logging = LoggingConfig(
-            logLevel = LogLevel.All,
+            logLevel = LogLevel.None,
         ), httpClientConfig = {
             engine {
                 dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
@@ -134,6 +174,7 @@ class OpenAITranslator(
                     }
                 }
             }
+            install(ResponseInspectorPlugin)
         }
     )
 
@@ -159,26 +200,8 @@ class OpenAITranslator(
     )
 
     override suspend fun translate(sources: List<String>): List<String> {
-        var tokenCount = 0
-        val chunk = sequence {
-            val tmp = mutableListOf<String>()
-            sources.forEach { source ->
-                val approximateTokenCount = calculateToken(source.length + 1)
-                val isThresholdOver = tokenCount + approximateTokenCount >= TOKEN_COUNT_THRESHOLD
-                if (isThresholdOver) {
-                    require(tmp.isNotEmpty()) { "The content size too large." }
-                    yield(tmp)
-                    tokenCount = 0
-                    tmp.clear()
-                }
-                tmp += source
-                tokenCount += approximateTokenCount
-            }
-            if (tmp.isNotEmpty()) {
-                yield(tmp)
-            }
-        }.withIndex().toList()
-        val chunkCount = chunk.size
+        val chunk = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).withIndex().toList()
+        val totalChunkSize = chunk.size
         val translated = chunk.fold(mutableListOf<String>()) { translated, (index, chunk) ->
             val message = buildString {
                 if (terms.isNotEmpty()) {
@@ -190,13 +213,23 @@ class OpenAITranslator(
                     appendLine("[${i + 1}] $text")
                 }
             }
-            env.logger.info { "Handling $index (total ${chunkCount - 1})" }
+            env.logger.info { "Handling $index (total ${totalChunkSize - 1})" }
 
             var llmRetry = 0
             lateinit var appendTerms: Set<Term>
             lateinit var appendedTranslated: List<String>
             while (llmRetry < 3) {
-                val completion = chatCompletion(message)
+                val completion = try {
+                    chatCompletion(message)
+                } catch (_: IllegalEmptyResponseException) {
+                    env.logger.error { "The api responded empty, try again ($llmRetry/3)." }
+                    llmRetry++
+                    continue
+                } catch (e: IllegalJsonResponseException) {
+                    env.logger.error { "The api responded wrongly ${e.body}" }
+                    continue
+
+                }
                 val (t, tr) = parseLLMResponse(completion.choices.first().message.content!!)
                 if (tr.size == chunk.size) {
                     appendTerms = t
@@ -204,18 +237,22 @@ class OpenAITranslator(
                     break
                 }
                 llmRetry++
-                env.logger.warning { "翻译行数不匹配: 期望 ${chunk.size}, 实际 ${tr.size}, 重试 $llmRetry/3" }
+                env.logger.warning { "Lines not match: the expected is ${chunk.size}, but the actual is ${tr.size}. Retry $llmRetry/3" }
                 if (llmRetry >= 3) {
-                    error("LLM 返回行数与输入不匹配 (期望 ${chunk.size}, 实际 ${tr.size}), 重试耗尽")
+                    error("The line count LLM responded (${tr.size}) don't match ${chunk.size}, and trying run out.")
                 }
             }
 
             terms += appendTerms
-            env.logger.info { "Handled $index (total ${chunkCount - 1})" }
+            env.logger.info { "Handled $index (total ${chunk.size - 1})" }
             env.logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" } }
             mutex.withLock {
                 translated += appendedTranslated
             }
+            val pct = (index + 1).toFloat() / chunk.size
+            env.logger.sign<TranslateSign> { TranslateSign.Progress(pct) }
+            env.logger.info { "[${index + 1}/${chunk.size}] Translating ${chunk.size} items of a chunk..." }
+
             translated
         }
         return translated
@@ -230,7 +267,6 @@ internal fun parseLLMResponse(content: String): Pair<TermTable, List<String>> {
     val (appendedTranslated, appendTermsStr) = REGEX_LLM_OUTPUT.matchEntire(content)?.destructured
         ?: error("LLM responses invalidly")
     val appendTerms = Json.decodeFromString<TermTable>(appendTermsStr)
-    // 按 [N] 行号重新排序，即使 LLM 输出乱序也能正确配对
     val lines = appendedTranslated.lines()
         .map { line ->
             val num = LINE_PREFIX.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
@@ -242,4 +278,4 @@ internal fun parseLLMResponse(content: String): Pair<TermTable, List<String>> {
     return appendTerms to lines
 }
 
-private fun calculateToken(strSize: Int): Int = (strSize / 1.5).toIntFloor()
+

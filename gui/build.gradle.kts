@@ -20,11 +20,12 @@ kotlin {
     sourceSets {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
-            implementation(compose.material3)
-            implementation(compose.foundation)
             implementation(project(":mct"))
             implementation(project(":util"))
-            implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
+            implementation(libs.compose.material3)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material.icons.extended)
+            implementation(libs.filekit.dialogs.compose)
         }
     }
 }

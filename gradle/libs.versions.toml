@@ -15,10 +15,13 @@ clikt = "5.1.0"
 shadow = "9.4.0"
 compose = "1.10.3"
 material3 = "1.10.0-alpha05"
+material-icons-extended = "1.7.3"
 androidx-lifecycle = "2.10.0"
 resources = "0.15.0"
 ktor = "3.4.2"
 openai-client = "4.1.0"
+jtokkit = "1.1.0"
+filekit = "0.13.0"
 
 [libraries]
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
@@ -48,6 +51,7 @@ kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.re
 kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.ref = "kotest" }
 
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
+jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 
 goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources" }
 
@@ -59,6 +63,8 @@ ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor" }
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
+compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
+filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
 
 
 androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }

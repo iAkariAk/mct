@@ -1,3 +1,4 @@
+import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import mct.util.system.envvar
@@ -10,7 +11,7 @@ class OpenAITranslatorTest : StringSpec({
     val apiUrl = envvar("OPENAI_URL")
     val token = envvar("OPENAI_TOKEN")
     val model = envvar("OPENAI_MODEL")
-    fun translator() = OpenAITranslator(apiUrl!!, token!!, model!!, defaultTerms = emptySet())
+    fun translator() = shouldNotRaise { OpenAITranslator(apiUrl!!, token!!, model!!, defaultTerms = emptySet()) }
 
 
     "parse test" {

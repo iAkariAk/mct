@@ -60,11 +60,16 @@ kotlin {
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.contentNegotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
+
             implementation(project(":mct"))
         }
 
         commonTest.dependencies {
             implementation(libs.bundles.kotest)
+        }
+
+        jvmMain.dependencies {
+            implementation(libs.jtokkit)
         }
 
         jvmTest.dependencies {
