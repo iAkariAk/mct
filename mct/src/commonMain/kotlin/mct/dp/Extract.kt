@@ -36,7 +36,8 @@ fun MCTWorkspace.extractFromDatapackRaw(
     mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
     mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
 ): Flow<DatapackExtractionGroup> {
-    if (mcjPatterns == null) logger.warning { "The filter MCJson was disabled, which causes export all string from the datapack" }
+    if (mcjPatterns == null) logger.warning { "The filter was disabled, which causes export all string from the datapack" }
+    logger.info { "Scanning datapacks in $datapackDir" }
 
     val extractors = listOf(
         MCFunctionExtractor(mcfPatterns),

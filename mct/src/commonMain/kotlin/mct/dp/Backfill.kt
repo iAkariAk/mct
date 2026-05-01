@@ -28,9 +28,11 @@ import kotlin.jvm.JvmName
 
 
 suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackReplacementGroup>) = coroutineScope {
+    logger.info { "Backfilling ${replacementGroups.count()} datapack replacement groups" }
     replacementGroups.groupBy {
         datapackDir / it.source
     }.forEach { (dbPath, replacementGroups) ->
+        logger.debug { "Backfilling ${replacementGroups.size} replacements in $dbPath" }
         launch(Dispatchers.IO) {
             val m = fs.metadata(dbPath)
             val sfs = if (m.isDirectory) fs.newRelativeFS(dbPath) else fs.openZipReadWrite(dbPath)

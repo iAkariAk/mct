@@ -33,28 +33,31 @@ internal fun extractTextMCF(
     patterns: ExtractPatternSet = BuiltinMCFPatterns
 ): DatapackExtractionGroup {
     val mcfunctions = parseMCFunction(mcf)
-    val extractedArgs: Sequence<Extracted> = mcfunctions.asSequence().flatMap { command ->
+    logger.debug { "Parsed ${mcfunctions.size} commands in $path" }
+    val extractedArgs = mcfunctions.asSequence().flatMap { command ->
         extractTextFromCommand(patterns, command)
     }
+    val extractions = extractedArgs.map { extracted ->
+        when (extracted) {
+            is Extracted.Arg -> {
+                val arg = extracted.arg
+                DatapackExtraction.MCFunction(
+                    indices = arg.indices,
+                    content = arg.content
+                )
+            }
+
+            is Extracted.GreedyString -> DatapackExtraction.MCFunction(
+                indices = extracted.indices,
+                content = extracted.content
+            )
+        }
+    }.toList()
+    logger.debug { "Extracted ${extractions.size} texts from $path" }
     return DatapackExtractionGroup(
         source = source,
         path = path,
-        extractions = extractedArgs.map { extracted ->
-            when (extracted) {
-                is Extracted.Arg -> {
-                    val arg = extracted.arg
-                    DatapackExtraction.MCFunction(
-                        indices = arg.indices,
-                        content = arg.content
-                    )
-                }
-
-                is Extracted.GreedyString -> DatapackExtraction.MCFunction(
-                    indices = extracted.indices,
-                    content = extracted.content
-                )
-            }
-        }.toList()
+        extractions = extractions
     )
 }
 

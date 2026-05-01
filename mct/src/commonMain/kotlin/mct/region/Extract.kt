@@ -23,7 +23,8 @@ context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
     patterns: List<DataPointerPattern>? = BuiltinRegionPatterns
 ): Flow<RegionExtractionGroup> {
-    if (patterns == null) logger.warning { "The filter MCJson was disabled, which causes export all string from the region" }
+    if (patterns == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
+    logger.info { "Extracting from ${dimensions.size} dimensions" }
 
     return dimensions.values.asFlow().flatMapMerge { dimension ->
         flowOf(

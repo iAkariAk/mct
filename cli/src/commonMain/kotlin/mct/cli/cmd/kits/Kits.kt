@@ -63,7 +63,9 @@ private class TextPool : BaseCommand(
                 else -> unreachable
             }
 
+            env.logger.info { "Exporting ${groups.size} groups into pool" }
             val pool: TranslationPool = groups.exportIntoPool(simply)
+            env.logger.info { "Pool has ${pool.size} unique texts" }
 
             output.writeJson(pool)
         }
@@ -81,12 +83,16 @@ private class TextPool : BaseCommand(
 
         context(_: Raise<MCTError>, fs: FileSystem)
         override suspend fun App() {
+            env.logger.info { "Loading groups from $input" }
             val groups = input.jsonFile<List<ExtractionGroup>>()
 
+            env.logger.info { "Loading mapping from $mapping" }
             val map: TranslationMapping = mapping.jsonFile()
+            env.logger.info { "Loaded mapping with ${map.size} entries" }
 
             @Suppress("UNCHECKED_CAST")
             val result: List<ReplacementGroup> = groups.replace(map)
+            env.logger.info { "Writing ${result.size} replacement groups to $output" }
 
             output.writeJson(result)
         }
@@ -102,7 +108,9 @@ private class ExportSnbt : WorkspaceCommand(
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
+        env.logger.info { "Exporting region SNBT to $output" }
         workspace.exportRegionSnbt(output)
+        env.logger.info { "Done." }
     }
 }
 
@@ -121,9 +129,13 @@ private class ReplaceAll : BaseCommand(name = "replace-all") {
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
+        env.logger.info { "Loading extractions from $input" }
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
+        env.logger.info { "Replacing ${extractionGroups.size} groups with $replacement" }
         val result = extractionGroups.replaceSimply { replacement }
+        env.logger.info { "Writing ${result.size} replacement groups to $output" }
         output.writeJson(result)
+        env.logger.info { "Done." }
     }
 }
 
@@ -141,14 +153,19 @@ private class AITranslate : BaseCommand(
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
+        env.logger.info { "Loading extractions from $input" }
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
         val terms = term.jsonFile<TermTable>(emptySet())
+        env.logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
+
         val translator = OpenAITranslator(apiUrl, token, model, terms, env)
 
         val dpGroups = extractionGroups.filterIsInstance<DatapackExtractionGroup>()
         val regionGroups = extractionGroups.filterIsInstance<RegionExtractionGroup>()
+        env.logger.info { "Groups: ${dpGroups.size} datapack, ${regionGroups.size} region" }
 
         suspend fun translate(kind: FormatKind, extractions: List<String>): List<Pair<String, String>> {
+            env.logger.debug { "Parsing ${extractions.size} $kind extractions" }
             val parsed = extractions.map {
                 when (kind) {
                     FormatKind.Json -> MCTJson.decodeFromString<JsonElement>(it).toIR()
@@ -156,9 +173,12 @@ private class AITranslate : BaseCommand(
                 }.decodeToCompound()
             }
 
+            env.logger.debug { "Compressing ${parsed.size} parsed compounds" }
             val compressed = parsed.map { compressCompound(it) }
             val submitted = compressed.mapIndexed { index, string -> string ?: extractions[index] }
+            env.logger.info { "Translating ${submitted.size} texts ($kind)" }
             val translated = translator.translate(submitted)
+            env.logger.debug { "Decompressing ${translated.size} translated texts" }
             val decompressed = compressed.mapIndexed { index, string ->
                 val translated = translated.getOrNull(index) ?: submitted[index]
                 if (string != null) {
@@ -173,6 +193,8 @@ private class AITranslate : BaseCommand(
         }
 
         suspend fun translate(groups: List<ExtractionGroup>): List<ReplacementGroup> {
+            if (groups.isEmpty()) return emptyList()
+            env.logger.debug { "Grouping ${groups.flatMap { it.extractions }.size} extractions by format" }
             val extractions = groups.flatMap { it.extractions }.groupBy {
                 when (it) {
                     is DatapackExtraction -> FormatKind.Json
@@ -185,13 +207,19 @@ private class AITranslate : BaseCommand(
                     extractions.asSequence().mapNotNull { it.content.takeIf { it.isNotBlank() } }.distinct().toList()
                 )
             }.toMap()
+            env.logger.info { "Built mapping with ${mapping.size} entries" }
             return groups.replace(mapping)
         }
 
+        env.logger.info { "Starting translation..." }
         val translated = translate(dpGroups) + translate(regionGroups)
+        env.logger.info { "Translation done, ${translated.size} replacement groups" }
 
+        env.logger.info { "Writing replacements to $output" }
         output.writeJson(translated)
+        env.logger.info { "Writing ${translator.terms.size} terms to $termOutput" }
         termOutput.writeJson(translator.terms)
+        env.logger.info { "Done." }
     }
 
     private fun compressCompound(compound: TextCompound): String? =

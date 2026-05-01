@@ -48,13 +48,17 @@ abstract class RegionManager<T : Region>(
 
     context(_: Raise<AnvilError>)
     fun modify(coord: Coord, modify: (T) -> T) {
+        env.logger.debug { "Modify region(${coord.x}, ${coord.z})" }
         val data = load(coord)
         save(coord, modify(data))
     }
 
     context(_: Raise<AnvilError>)
     fun modifyRegions(modify: (T) -> T) {
-        regions().forEach {
+        val list = regions().toList()
+        env.logger.info { "Modifying ${list.size} regions" }
+        list.forEach {
+            env.logger.debug { "Save region(${it.regionX}, ${it.regionZ})" }
             save(Coord(it.regionX, it.regionZ), it)
         }
     }

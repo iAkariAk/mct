@@ -36,7 +36,9 @@ suspend fun Translator.translate(extractionGroups: List<ExtractionGroup>): List<
         .filter { it.isNotBlank() }
         .distinct()
 
+    env.logger.info { "Translating ${allTexts.size} unique texts from ${extractionGroups.size} groups" }
     val mapping = allTexts.zip(translate(allTexts)).toMap()
+    env.logger.info { "Built mapping: ${mapping.size} entries" }
 
     env.logger.sign<TranslateSign> { TranslateSign.Progress(1f) }
 

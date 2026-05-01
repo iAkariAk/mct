@@ -197,8 +197,11 @@ class OpenAITranslator private constructor(
     override suspend fun translate(sources: List<String>): List<String> {
         val chunks = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).toList()
         val totalChunkSize = chunks.size
+        env.logger.info { "Starting translation: ${sources.size} sources → ${totalChunkSize} chunks, ${terms.size} existing terms" }
         val translated = chunks.withIndex().fold(mutableListOf<String>()) { translated, (index, chunk) ->
             val strips = chunk.strip()
+            val strippedCount = strips.count { it.strip != null }
+            env.logger.debug { "Chunk $index: ${strippedCount}/${strips.size} items stripped to plain text" }
             val message = buildString {
                 if (terms.isNotEmpty()) {
                     append(terms.render())
@@ -250,6 +253,7 @@ class OpenAITranslator private constructor(
 
             translated
         }
+        env.logger.info { "Translation complete: ${translated.size} items, ${terms.size} terms accumulated" }
         return translated
     }
 

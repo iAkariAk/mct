@@ -50,7 +50,9 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
             userPatterns != null -> BuiltinRegionPatterns.toList() + userPatterns
             else -> BuiltinRegionPatterns.toList()
         }
+        env.logger.info { "Extracting from region..." }
         val extractions: List<ExtractionGroup> = workspace.extractFromRegion(patterns).toList()
+        env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
 
         output.writeJson(extractions)
     }

@@ -67,8 +67,10 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
             else -> MCJBuiltinPatterns
         }
 
+        env.logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
             workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
+        env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)
     }
 }
@@ -82,8 +84,11 @@ private class BackfillDatapack : WorkspaceCommand(name = "backfill") {
 
     context(_: Raise<MCTError>, fs: FileSystem)
     override suspend fun App() {
+        env.logger.info { "Backfilling datapack..." }
         val replacementGroups =
             replacementGroupsPath.jsonFile<List<ReplacementGroup>>().filterIsInstance<DatapackReplacementGroup>()
+        env.logger.info { "Loaded ${replacementGroups.size} datapack replacement groups" }
         workspace.backfillDatapack(replacementGroups)
+        env.logger.info { "Datapack backfill complete" }
     }
 }

@@ -23,6 +23,7 @@ import net.benwoodworth.knbt.NbtTag
 
 context(_: Raise<BackfillError>)
 suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplacementGroup>) = coroutineScope {
+    logger.info { "Backfilling ${replacementGroups.count()} region replacement groups" }
     replacementGroups.forEach { group ->
         val dimension = dimensions[group.dimension]
             ?: raise(BackfillError.DimensionNotFound(group.dimension))
@@ -31,7 +32,11 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
             ChunkDataKind.Entities -> dimension.entitiesRawMgr
             ChunkDataKind.Poi -> dimension.poiRawMgr
         }
-        if (mgr == null) return@forEach
+        if (mgr == null) {
+            logger.debug { "Skip ${group.dimension}/${group.kind}: manager unavailable" }
+            return@forEach
+        }
+        logger.debug { "Backfilling ${group.dimension}/${group.kind} at (${group.coord.x}, ${group.coord.z}) with ${group.replacements.size} replacements" }
         launch(Dispatchers.IO) {
             recover({
                 mgr.modify(group.coord) { region ->
