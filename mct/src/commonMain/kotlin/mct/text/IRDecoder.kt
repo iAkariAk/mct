@@ -31,6 +31,7 @@ private fun IRObject.decodeToCompound(): TextCompound = when {
         "selector" -> decodeAsSelector()
         "nbt" -> decodeAsNbt()
         "object" -> decodeAsObject()
+        "sprite" -> decodeAsSprite()
         null -> error("Type must be string")
         else -> error("Unsupported type $type")
     }
@@ -42,6 +43,7 @@ private fun IRObject.decodeToCompound(): TextCompound = when {
     containsKey("selector") -> decodeAsSelector()
     containsKey("nbt") -> decodeAsNbt()
     containsKey("object") -> decodeAsObject()
+    containsKey("sprite") -> decodeAsSprite()
     else -> error("Unknown TextCompound type: $this")
 }
 
@@ -57,11 +59,11 @@ private fun IRObject.decodeCommon() = object {
         extra?.value?.map { it.decodeToCompound() } ?: emptyList()
     }
     val color = optional<IRString>("color")?.value
-    val bold = optional<IRBoolean>("bold")?.value
-    val italic = optional<IRBoolean>("italic")?.value
-    val underlined = optional<IRBoolean>("underlined")?.value
-    val strikethrough = optional<IRBoolean>("strikethrough")?.value
-    val obfuscated = optional<IRBoolean>("obfuscated")?.value
+    val bold = optionalBoolean("bold")
+    val italic = optionalBoolean("italic")
+    val underlined = optionalBoolean("underlined")
+    val strikethrough = optionalBoolean("strikethrough")
+    val obfuscated = optionalBoolean("obfuscated")
 }
 
 private fun IRObject.decodeAsPlain() = decodeCommon().let {
@@ -142,7 +144,7 @@ private fun IRObject.decodeAsSelector() = decodeCommon().let {
 private fun IRObject.decodeAsNbt() = decodeCommon().let {
     TextCompound.Nbt(
         nbt = require<IRString>("nbt").value,
-        interpret = optional<IRBoolean>("interpret")?.value ?: false,
+        interpret = optionalBoolean("interpret") ?: false,
         separator = optional<IRElement>("separator")?.decodeToCompound(),
         entity = optional<IRString>("entity")?.value,
         block = optional<IRString>("block")?.value,
@@ -171,6 +173,20 @@ private fun IRObject.decodeAsObject() = decodeCommon().let {
     )
 }
 
+private fun IRObject.decodeAsSprite() = decodeCommon().let {
+    TextCompound.Sprite(
+        sprite = require<IRString>("sprite").value,
+        extra = it.extra,
+        color = it.color,
+        bold = it.bold,
+        italic = it.italic,
+        underlined = it.underlined,
+        strikethrough = it.strikethrough,
+        obfuscated = it.obfuscated,
+    )
+}
+
+
 
 private inline fun <reified T : IRElement> IRElement.requireTypeOf(field: String) =
     this as? T ?: error("Expected ${T::class} but found ${this::class} in $field")
@@ -178,4 +194,13 @@ private inline fun <reified T : IRElement> IRElement.requireTypeOf(field: String
 private inline fun <reified T : IRElement> IRObject.require(key: String): T =
     this[key]?.requireTypeOf<T>(key) ?: error("$key not found")
 
-private inline fun <reified T : IRElement> IRObject.optional(key: String): T? = this[key]?.requireTypeOf<T>(key)
+private inline fun <reified T : IRElement> IRObject.optional(key: String): T? =
+    this[key]?.requireTypeOf<T>(key)
+
+private inline fun IRObject.optionalBoolean(key: String): Boolean? =
+    when (val v = this[key]) {
+        null -> null
+        is IRBoolean -> v.value
+        is IRByte -> v.value == 1.toByte()
+        else -> error("Expected boolean(byte) but found ${this::class} in $key")
+    }

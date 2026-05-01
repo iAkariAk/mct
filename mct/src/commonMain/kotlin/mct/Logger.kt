@@ -65,6 +65,7 @@ inline fun <reified T> Logger.onSign(crossinline callback: (T) -> Unit): Logger 
             if (expectedKey == key) {
                 val msg = Json.decodeFromString<T>(value)
                 callback(msg)
+                return
             }
         }
         orig.log(level, message)

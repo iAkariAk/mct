@@ -24,7 +24,7 @@ class OpenAITranslatorTest : StringSpec({
             [{"source":"Iroha","target":"彩叶","type":"name"}]
             -- MCT-CLI:END --
         """.trimIndent()
-        val (terms, translated) = parseLLMResponse(response)
+        val (terms, translated) = parseLLMResponse(response, 3)
         terms shouldBe setOf(Term("Iroha", "彩叶", TermType.Name))
         translated shouldBe listOf("a", "b", "c")
     }

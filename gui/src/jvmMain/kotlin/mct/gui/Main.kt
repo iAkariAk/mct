@@ -85,24 +85,25 @@ fun App() {
     var backfillReplacements by remember { mutableStateOf("replacements.json") }
     var backfillMode by remember { mutableStateOf("region") }
 
-    // ── Unified Env: single GuiLogger + single FileSystem ──────
 
-    val guiLogger = remember { GuiLogger { logText += it } }
+    val guiLogger = remember {
+        GuiLogger { logText += it }.onSign<TranslateSign> {
+            when (it) {
+                is TranslateSign.Begin -> {
+                    logText += "开始翻译，总的批数${it.batch}\n"
+                }
+
+                is TranslateSign.Progress -> {
+                    translateProgress = it.progress
+                    translateStatus = if (it.progress >= 1f) "完成" else "翻译中..."
+                }
+            }
+        }
+    }
     val env = remember {
         Env(
             fs = FileSystem.SYSTEM,
-            logger = guiLogger.onSign<TranslateSign> {
-                when (it) {
-                    is TranslateSign.Begin -> {
-                        logText += "开始翻译，总的批数${it.batch}\n"
-                    }
-
-                    is TranslateSign.Progress -> {
-                        translateProgress = it.progress
-                        translateStatus = if (it.progress >= 1f) "完成" else "翻译中..."
-                    }
-                }
-            }
+            logger = guiLogger
         )
     }
 
@@ -118,7 +119,6 @@ fun App() {
     }
 
     val scope = rememberCoroutineScope()
-
 
     Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -186,13 +186,20 @@ fun App() {
                     Column(modifier = Modifier.fillMaxSize().verticalScroll(contentScroll)) {
                         when (tab) {
                             0 -> ExtractPanel(
-                                inputPath = extractInput, onInputChange = { extractInput = it },
-                                outputPath = extractOutput, onOutputChange = { extractOutput = it },
-                                mode = extractMode, onModeChange = { extractMode = it },
-                                disableFilter = disableFilter, onDisableFilterChange = { disableFilter = it },
-                                regionPatternPath = regionPatternPath, onRegionPatternChange = { regionPatternPath = it },
-                                mcfPatternPath = mcfPatternPath, onMcfPatternChange = { mcfPatternPath = it },
-                                mcjPatternPath = mcjPatternPath, onMcjPatternChange = { mcjPatternPath = it },
+                                inputPath = extractInput,
+                                onInputChange = { extractInput = it },
+                                outputPath = extractOutput,
+                                onOutputChange = { extractOutput = it },
+                                mode = extractMode,
+                                onModeChange = { extractMode = it },
+                                disableFilter = disableFilter,
+                                onDisableFilterChange = { disableFilter = it },
+                                regionPatternPath = regionPatternPath,
+                                onRegionPatternChange = { regionPatternPath = it },
+                                mcfPatternPath = mcfPatternPath,
+                                onMcfPatternChange = { mcfPatternPath = it },
+                                mcjPatternPath = mcjPatternPath,
+                                onMcjPatternChange = { mcjPatternPath = it },
                                 isRunning = isRunning,
                                 onRun = {
                                     isRunning = true; logText = ""
@@ -231,7 +238,10 @@ fun App() {
                                 translationStatus = translateStatus,
                                 isRunning = isRunning,
                                 onRun = {
-                                    isRunning = true; logText = ""; translateProgress = 0f; translateStatus = ""
+                                    isRunning = true
+                                    logText = ""
+                                    translateProgress = 0f
+                                    translateStatus = ""
                                     scope.launch {
                                         either {
                                             runTranslation(

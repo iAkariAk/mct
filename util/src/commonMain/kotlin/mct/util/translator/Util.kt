@@ -1,6 +1,6 @@
 package mct.util.translator
 
-internal const val TOKEN_COUNT_THRESHOLD = 100 shl 10 // 100k
+internal const val TOKEN_COUNT_THRESHOLD = 1 shl 10 // n k
 
 internal expect fun calculateToken(str: String): Int
 

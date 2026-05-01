@@ -18,6 +18,11 @@ fun List<TextCompound>.multi() = when {
 inline operator fun <TC:TextCompound> TC.plus(extras: List<TextCompound>): TC =
     plus(extra) as TC
 
+inline fun TextCompound.replaceText(text: String): TextCompound = when(this) {
+    is TextCompound.Plain -> copy(text = text)
+    else -> this
+}
+
 @Serializable(TextCompoundSerializer::class)
 sealed interface TextCompound {
     val extra: List<TextCompound>
@@ -148,6 +153,22 @@ sealed interface TextCompound {
     data class Object(
         val fallback: String? = null,
         val `object`: String,
+        override val extra: List<TextCompound> = emptyList(),
+
+        override val color: String? = null,
+        override val bold: Boolean? = null,
+        override val italic: Boolean? = null,
+        override val underlined: Boolean? = null,
+        override val strikethrough: Boolean? = null,
+        override val obfuscated: Boolean? = null,
+    ) : TextCompound {
+        override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+    }
+
+    @Serializable
+    @SerialName("object")
+    data class Sprite(
+        val sprite: String,
         override val extra: List<TextCompound> = emptyList(),
 
         override val color: String? = null,

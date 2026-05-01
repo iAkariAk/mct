@@ -2,23 +2,37 @@ package mct.util.translator
 
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
+import arrow.core.raise.nullable
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
+import com.aallam.openai.api.chat.ChatResponseFormat
 import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.exception.OpenAIHttpException
 import com.aallam.openai.api.logging.LogLevel
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.LoggingConfig
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIHost
-import io.ktor.client.plugins.api.*
 import io.ktor.client.plugins.logging.*
-import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import mct.Env
+import mct.serializer.MCTJson
+import mct.serializer.Snbt
+import mct.text.TextCompound
+import mct.text.decodeToCompound
+import mct.text.encodeToIR
+import mct.text.replaceText
+import mct.util.formatir.toIR
+import mct.util.formatir.toJson
+import mct.util.formatir.toNbt
+import mct.util.toSnbt
+import net.benwoodworth.knbt.NbtTag
 import io.ktor.client.plugins.logging.Logger as KtorLogger
 
 private const val PROMPT = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为简体中文，同时严格保护数据结构的完整性。
@@ -113,34 +127,14 @@ private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) -
 private val REGEX_LLM_OUTPUT =
     """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
 
-private class IllegalEmptyResponseException : Exception()
-private class IllegalJsonResponseException(val body: String) : Exception()
-
-private fun String.isJson() = runCatching {
-    Json.parseToJsonElement(this)
-    true
-}.getOrNull() ?: false
-
-private val ResponseInspectorPlugin = createClientPlugin("ResponseInspector") {
-    transformResponseBody { response, channel, type ->
-        val bodyText = channel.readRemaining().readText()
-
-        when {
-            bodyText.isBlank() -> throw IllegalEmptyResponseException()
-            !bodyText.isJson() -> throw IllegalJsonResponseException(bodyText)
-            else -> {
-                ByteReadChannel(bodyText)
-            }
-        }
-    }
-}
+private const val MAX_RETRY = 20
 
 class OpenAITranslator private constructor(
     private val apiUrl: String?,
     private val token: String,
     private val model: String,
     private val defaultTerms: TermTable,
-    override val env: Env = Env.Default
+    override val env: Env
 ) : Translator {
     companion object {
         context(_: Raise<TranslateError>)
@@ -154,7 +148,7 @@ class OpenAITranslator private constructor(
             ensure(apiUrl?.endsWith("/v1/") ?: false) {
                 TranslateError.IllegalUrl
             }
-            return OpenAITranslator(apiUrl, token, model, defaultTerms)
+            return OpenAITranslator(apiUrl, token, model, defaultTerms, env)
         }
     }
 
@@ -162,8 +156,9 @@ class OpenAITranslator private constructor(
         token,
         host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
         logging = LoggingConfig(
-            logLevel = LogLevel.None,
-        ), httpClientConfig = {
+            logLevel = LogLevel.Body,
+        ),
+        httpClientConfig = {
             engine {
                 dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
             }
@@ -174,7 +169,6 @@ class OpenAITranslator private constructor(
                     }
                 }
             }
-            install(ResponseInspectorPlugin)
         }
     )
 
@@ -186,6 +180,7 @@ class OpenAITranslator private constructor(
     private suspend fun chatCompletion(message: String) = client.chatCompletion(
         ChatCompletionRequest(
             model = ModelId(model),
+            responseFormat = ChatResponseFormat.Text,
             messages = listOf(
                 ChatMessage(
                     role = ChatRole.System,
@@ -195,63 +190,63 @@ class OpenAITranslator private constructor(
                     role = ChatRole.User,
                     content = message,
                 )
-            )
+            ),
         ),
     )
 
     override suspend fun translate(sources: List<String>): List<String> {
-        val chunk = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).withIndex().toList()
-        val totalChunkSize = chunk.size
-        val translated = chunk.fold(mutableListOf<String>()) { translated, (index, chunk) ->
+        val chunks = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).toList()
+        val totalChunkSize = chunks.size
+        val translated = chunks.withIndex().fold(mutableListOf<String>()) { translated, (index, chunk) ->
+            val strips = chunk.strip()
             val message = buildString {
                 if (terms.isNotEmpty()) {
                     append(terms.render())
                     appendLine()
                 }
                 appendLine("-- MCT-CLI:START --")
-                chunk.map { it.replace("\n", "\\n") }.forEachIndexed { i, text ->
-                    appendLine("[${i + 1}] $text")
+                strips.map { strip ->
+                    val str = strip.strip ?: strip.original
+                    str.replace("\n", "\\n")
+                }.forEachIndexed { i, text ->
+                    appendLine("[${i}] $text")
                 }
             }
-            env.logger.info { "Handling $index (total ${totalChunkSize - 1})" }
+            env.logger.info { "Handling ${index + 1} (total $totalChunkSize)" }
 
             var llmRetry = 0
-            lateinit var appendTerms: Set<Term>
-            lateinit var appendedTranslated: List<String>
-            while (llmRetry < 3) {
+            var appendTerms = emptySet<Term>()
+            var appendedTranslated = emptyList<String>()
+            while (llmRetry < MAX_RETRY) {
                 val completion = try {
                     chatCompletion(message)
-                } catch (_: IllegalEmptyResponseException) {
-                    env.logger.error { "The api responded empty, try again ($llmRetry/3)." }
+                } catch (e: OpenAIHttpException) {
+                    env.logger.error { "The api responded empty, try again (${llmRetry + 1}/$MAX_RETRY)." }
                     llmRetry++
                     continue
-                } catch (e: IllegalJsonResponseException) {
-                    env.logger.error { "The api responded wrongly ${e.body}" }
-                    continue
-
                 }
-                val (t, tr) = parseLLMResponse(completion.choices.first().message.content!!)
+                val (t, tr) = parseLLMResponse(completion.choices.first().message.content!!, strips.size)
                 if (tr.size == chunk.size) {
                     appendTerms = t
-                    appendedTranslated = tr
+                    appendedTranslated = strips.destrip(tr)
                     break
                 }
                 llmRetry++
                 env.logger.warning { "Lines not match: the expected is ${chunk.size}, but the actual is ${tr.size}. Retry $llmRetry/3" }
-                if (llmRetry >= 3) {
+                if (llmRetry >= MAX_RETRY) {
                     error("The line count LLM responded (${tr.size}) don't match ${chunk.size}, and trying run out.")
                 }
             }
 
+
             terms += appendTerms
-            env.logger.info { "Handled $index (total ${chunk.size - 1})" }
+            env.logger.info { "Handled ${index + 1} (total ${chunk.size})" }
             env.logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" } }
             mutex.withLock {
                 translated += appendedTranslated
             }
             val pct = (index + 1).toFloat() / chunk.size
             env.logger.sign<TranslateSign> { TranslateSign.Progress(pct) }
-            env.logger.info { "[${index + 1}/${chunk.size}] Translating ${chunk.size} items of a chunk..." }
 
             translated
         }
@@ -261,21 +256,76 @@ class OpenAITranslator private constructor(
     override fun toString() = "OpenAITranslator($model)"
 }
 
+private data class CompoundStrip(
+    val original: String,
+    val sourceFormat: Format? = null,
+    val source: TextCompound? = null,
+    val strip: String? = null,
+)
+
+private enum class Format {
+    JSON, SNBT
+}
+
+private fun List<String>.strip(): List<CompoundStrip> = map { raw: String ->
+    runCatching {
+        Format.JSON to MCTJson.decodeFromString<JsonElement>(raw).toIR()
+    }.getOrElse {
+        runCatching {
+            Format.SNBT to Snbt.decodeFromString<NbtTag>(raw).toIR()
+        }.getOrNull()
+    }?.let { (f, x) ->
+        nullable {
+            f to runCatching { x.decodeToCompound() }.getOrNull().bind()
+        } ?: return@map CompoundStrip(raw)
+    }?.let { (format, compound) ->
+        val strip = if (compound.extra.isEmpty()) {
+            when (compound) {
+                is TextCompound.Plain -> compound.text
+                else -> null
+            }
+        } else null
+        CompoundStrip(raw, format, compound, strip)
+    } ?: CompoundStrip(raw)
+}
+
+private fun List<CompoundStrip>.destrip(response: List<String?>): List<String> =
+    zip(response).map { (cs, s) ->
+        s?.let {
+            cs.source?.let {
+                val ir = it.replaceText(s).encodeToIR()
+                when (cs.sourceFormat!!) {
+                    Format.JSON -> MCTJson.encodeToString<JsonElement>(ir.toJson())
+                    Format.SNBT -> ir.toNbt().toSnbt(false)
+                }
+            }
+        } ?: cs.original
+    }
+
 private val LINE_PREFIX = Regex("""^\[(\d+)\]\s*""")
 
-internal fun parseLLMResponse(content: String): Pair<TermTable, List<String>> {
+internal fun parseLLMResponse(content: String, expectedSize: Int): Pair<TermTable, List<String?>> {
     val (appendedTranslated, appendTermsStr) = REGEX_LLM_OUTPUT.matchEntire(content)?.destructured
         ?: error("LLM responses invalidly")
     val appendTerms = Json.decodeFromString<TermTable>(appendTermsStr)
     val lines = appendedTranslated.lines()
-        .map { line ->
-            val num = LINE_PREFIX.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        .asSequence()
+        .mapNotNull { line ->
+            val num = LINE_PREFIX.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
             val text = line.replaceFirst(LINE_PREFIX, "")
-            num to text
+                .replace("\\n", "\n")
+            IndexedValue(num, text)
         }
-        .sortedBy { it.first }
-        .map { it.second }
+        .pad(expectedSize)
     return appendTerms to lines
+}
+
+private fun Sequence<IndexedValue<String>>.pad(expectedSize: Int): List<String?> {
+    val list = MutableList<String?>(expectedSize) { null }
+    sortedBy { it.index }.forEach { (i, v) ->
+        list[i] = v
+    }
+    return list
 }
 
 

@@ -54,6 +54,7 @@ class GuiLogger(
     private val onLog: (String) -> Unit
 ) : Logger(LoggerLevel.Verbose) {
     override fun log(level: LoggerLevel, message: String) {
+        println(message)
         if (level == LoggerLevel.Sign) return
         onLog("[$level] $message\n")
     }
@@ -220,7 +221,7 @@ suspend fun runTranslation(
             env.logger.info { "完成。" }
             saveSettings(apiUrl ?: "", model, token)
         } catch (e: Exception) {
-            env.logger.error { "翻译出错: ${e.message}" }
+            env.logger.error { "${e.stackTraceToString()}" }
         }
     }
 }

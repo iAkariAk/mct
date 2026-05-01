@@ -92,5 +92,10 @@ fun TextCompound.encodeToIR(simplify: Boolean = true): IRElement {
             putIfPresent("separator", separator?.encodeToIR(simplify))
             commonPut(value)
         }
+
+        is TextCompound.Sprite -> buildIRObject {
+            put("sprite", sprite)
+            commonPut(value)
+        }
     }
 }
