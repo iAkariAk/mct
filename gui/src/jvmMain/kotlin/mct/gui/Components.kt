@@ -2,13 +2,10 @@ package mct.gui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
@@ -24,8 +21,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -48,15 +49,24 @@ import mct.extra.translator.CustomizedPrompts
 fun SectionTitle(text: String, icon: ImageVector? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (icon != null) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 1.dp,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
         }
         Text(
             text,
@@ -91,7 +101,10 @@ fun PathRow(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
-            FilledTonalButton(onClick = onBrowse) {
+            FilledTonalButton(
+                onClick = onBrowse,
+                shape = RoundedCornerShape(10.dp),
+            ) {
                 Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("浏览")
@@ -117,7 +130,8 @@ fun ActionButton(label: String, running: Boolean, onClick: () -> Unit, enabled: 
     Button(
         onClick = onClick,
         enabled = enabled && !running,
-        modifier = Modifier.fillMaxWidth().height(44.dp)
+        modifier = Modifier.fillMaxWidth().height(44.dp),
+        shape = RoundedCornerShape(12.dp),
     ) {
         if (running) {
             CircularProgressIndicator(
@@ -132,6 +146,29 @@ fun ActionButton(label: String, running: Boolean, onClick: () -> Unit, enabled: 
             Spacer(Modifier.width(6.dp))
             Text(label)
         }
+    }
+}
+
+// ── TextSwitch ─────────────────────────────────────────────────
+
+@Composable
+fun TextSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -168,9 +205,12 @@ data class TranslateState(
     val apiUrl: String = "",
     val apiToken: String = "",
     val model: String = "gpt-4o",
+    val availableModels: List<String> = emptyList(),
+    val isModelsLoading: Boolean = false,
     val useStreamApi: Boolean = false,
     val existingTermPath: String = "",
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
+    val isOptimizing: Boolean = false,
 )
 
 data class BackfillState(
@@ -246,6 +286,42 @@ fun coloredLogAnnotatedString(logLines: List<LogEntry>) = buildAnnotatedString {
     }
 }
 
+// ── 波浪进度条 ────────────────────────────────────────────────
+
+@Composable
+fun WaveProgressIndicator(
+    progress: () -> Float,
+    modifier: Modifier = Modifier,
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val infiniteTransition = rememberInfiniteTransition()
+    val wavePhase by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing)),
+    )
+
+    Canvas(modifier = modifier.clip(RoundedCornerShape(4.dp))) {
+        val p = progress().coerceIn(0f, 1f)
+        val w = size.width
+        val h = size.height
+        drawRoundRect(trackColor)
+        if (p > 0.005f) {
+            val shift = wavePhase * 60f
+            drawRoundRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(primary, tertiary, primary),
+                    start = Offset(shift, 0f),
+                    end = Offset(shift + w, 0f),
+                    tileMode = TileMode.Mirror,
+                ),
+                size = Size(w * p, h),
+            )
+        }
+    }
+}
+
 // ── 可拖拽分割面板 ────────────────────────────────────────────
 
 @Composable
@@ -270,7 +346,7 @@ fun DraggableSplitPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(10.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                 .pointerInput(totalHeight) {
                     detectVerticalDragGestures { _, dragAmount ->
                         if (totalHeight > 0) {
@@ -285,7 +361,7 @@ fun DraggableSplitPane(
                     .width(40.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
         }
 
@@ -329,17 +405,6 @@ fun FrameWindowScope.WindowTitleBar(
         }
     }
 
-    DisposableEffect(Unit) {
-        val awt = window
-        val listener = object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                if (e.clickCount == 2) toggleMax()
-            }
-        }
-        awt.addMouseListener(listener)
-        onDispose { awt.removeMouseListener(listener) }
-    }
-
     Column(Modifier.fillMaxWidth()) {
         WindowDraggableArea(Modifier.fillMaxWidth()) {
             Row(
@@ -356,12 +421,21 @@ fun FrameWindowScope.WindowTitleBar(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    "MCT - Minecraft 翻译工具",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .pointerInput(Unit) {
+                            detectTapGestures(onDoubleTap = { toggleMax() })
+                        },
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        "MCT - Minecraft 翻译工具",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
                 WinCtlBtn(onClick = { windowState.isMinimized = true }) {
                     Box(Modifier.size(14.dp, 2.dp).background(Color.White, RectangleShape))

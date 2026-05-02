@@ -5,7 +5,6 @@ package mct.gui
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import mct.Env
 import mct.LoggerLevel
 import mct.extra.translator.TranslateSign
+import mct.extra.translator.optimizePrompt
 import mct.on
 import mct.onSign
 import okio.FileSystem
@@ -107,6 +108,31 @@ fun App(modifier: Modifier = Modifier) {
         )
         if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank()) {
             logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
+            try {
+                openAIClient = createOpenAIClient(savedSettings.apiUrl.ifBlank { null }, savedSettings.apiToken)
+                logLines.add(LogEntry(LoggerLevel.Debug, "正在请求可用模型列表..."))
+                val models = listModels(openAIClient!!)
+                translateState = translateState.copy(availableModels = models)
+                logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
+                logLines.add(LogEntry(null, "已获取 ${models.size} 个可用模型"))
+            } catch (e: Exception) {
+                logLines.add(LogEntry(LoggerLevel.Warning, "获取模型列表失败: ${e.message}"))
+            }
+        }
+    }
+    // API 设置变更时刷新模型列表
+    LaunchedEffect(translateState.apiUrl, translateState.apiToken) {
+        if (translateState.apiUrl.isNotBlank() && translateState.apiToken.isNotBlank()) {
+            translateState = translateState.copy(isModelsLoading = true)
+            try {
+                openAIClient = createOpenAIClient(translateState.apiUrl.ifBlank { null }, translateState.apiToken)
+                logLines.add(LogEntry(LoggerLevel.Debug, "正在刷新模型列表..."))
+                val models = listModels(openAIClient!!)
+                translateState = translateState.copy(availableModels = models, isModelsLoading = false)
+                logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
+            } catch (e: Exception) {
+                translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
+            }
         }
     }
 
@@ -130,29 +156,37 @@ fun App(modifier: Modifier = Modifier) {
     }
 
     Box(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            SecondaryTabRow(
-                selectedTabIndex = selectedTab.ordinal,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
-                contentColor = MaterialTheme.colorScheme.surface,
-                containerColor = MaterialTheme.colorScheme.primary,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+        Row(modifier = Modifier.fillMaxSize()) {
+            NavigationRail(
+                header = {
+                    Spacer(Modifier.height(8.dp))
+                    Icon(
+                        Icons.Outlined.Translate, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                },
+                modifier = Modifier.padding(end = 4.dp),
+                containerColor = Color.Transparent,
             ) {
-                Tab(selectedTab == Tab.Extract, { selectedTab = Tab.Extract }) {
-                    Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(Tab.Extract.label)
-                }
-                Tab(selectedTab == Tab.Translate, { selectedTab = Tab.Translate }) {
-                    Icon(Icons.Outlined.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(Tab.Translate.label)
-                }
-                Tab(selectedTab == Tab.Backfill, { selectedTab = Tab.Backfill }) {
-                    Icon(Icons.Outlined.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(Tab.Backfill.label)
-                }
+                NavigationRailItem(
+                    selected = selectedTab == Tab.Extract,
+                    onClick = { selectedTab = Tab.Extract },
+                    icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    label = { Text(Tab.Extract.label, style = MaterialTheme.typography.labelSmall) },
+                )
+                NavigationRailItem(
+                    selected = selectedTab == Tab.Translate,
+                    onClick = { selectedTab = Tab.Translate },
+                    icon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
+                    label = { Text(Tab.Translate.label, style = MaterialTheme.typography.labelSmall) },
+                )
+                NavigationRailItem(
+                    selected = selectedTab == Tab.Backfill,
+                    onClick = { selectedTab = Tab.Backfill },
+                    icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
+                    label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) },
+                )
             }
 
             // 可拖拽分割区
@@ -161,7 +195,7 @@ fun App(modifier: Modifier = Modifier) {
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     ),
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
                 ) {
                     AnimatedContent(
                         targetState = selectedTab,
@@ -236,6 +270,27 @@ fun App(modifier: Modifier = Modifier) {
                                                     "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"
                                             )
                                         )
+                                    },
+                                    onOptimizePrompt = { current, streamApi ->
+                                        val cl = openAIClient
+                                        if (cl == null) {
+                                            logLines.add(LogEntry(LoggerLevel.Error, "请先在 API 设置中连接"))
+                                            null
+                                        } else {
+                                            logLines.add(LogEntry(null, "正在优化翻译风格提示词..."))
+                                            try {
+                                                context(env) {
+                                                    val result =
+                                                        cl.optimizePrompt(translateState.model, current, streamApi)
+                                                    logLines.add(LogEntry(null, "优化完成"))
+                                                    result
+                                                }
+                                            } catch (e: Exception) {
+                                                env.logger.error { "优化失败: ${e.stackTraceToString()}" }
+                                                snackbarHostState.showSnackbar("优化失败: ${e.message?.take(100)}")
+                                                null
+                                            }
+                                        }
                                     }
                                 )
 
@@ -291,12 +346,6 @@ fun App(modifier: Modifier = Modifier) {
                                 expanded = showLogSettings,
                                 onDismissRequest = { showLogSettings = false }
                             ) {
-                                Text(
-                                    "日志级别过滤",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                )
-                                HorizontalDivider()
                                 listOf(
                                     LoggerLevel.Info,
                                     LoggerLevel.Warning,
@@ -305,16 +354,17 @@ fun App(modifier: Modifier = Modifier) {
                                 ).forEach { level ->
                                     val checked = level in logLevelFilter
                                     DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Checkbox(checked = checked, onCheckedChange = null)
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(level.name)
-                                            }
-                                        },
+                                        text = { Text(level.name) },
                                         onClick = {
-                                            logLevelFilter =
-                                                if (checked) logLevelFilter - level else logLevelFilter + level
+                                            logLevelFilter = if (checked) logLevelFilter - level
+                                            else logLevelFilter + level
+                                        },
+                                        leadingIcon = {
+                                            if (checked) Icon(
+                                                Icons.Outlined.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
                                         }
                                     )
                                 }

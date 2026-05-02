@@ -4,22 +4,13 @@ import arrow.core.Option
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.raise
-import com.aallam.openai.api.chat.ChatCompletionRequest
-import com.aallam.openai.api.chat.ChatMessage
-import com.aallam.openai.api.chat.ChatResponseFormat
-import com.aallam.openai.api.chat.ChatRole
-import com.aallam.openai.api.exception.OpenAIHttpException
-import com.aallam.openai.api.exception.OpenAITimeoutException
 import com.aallam.openai.api.logging.LogLevel
-import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.LoggingConfig
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIHost
 import io.ktor.client.plugins.logging.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import kotlinx.coroutines.flow.fold
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
@@ -148,40 +139,20 @@ private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) -
 private val REGEX_LLM_OUTPUT =
     """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
 
-private const val MAX_RETRY = 20
-
-private suspend fun OpenAI.chatCompletion(
+context(env: Env)
+private suspend fun OpenAI.translate(
     customizePrompts: CustomizedPrompts = CustomizedPrompts.Default,
     model: String,
     message: String,
+    expectedSize: Int,
     useStreamApi: Boolean = false
-): String {
-    val request = ChatCompletionRequest(
-        model = ModelId(model),
-        responseFormat = ChatResponseFormat.Text,
-        messages = listOf(
-            ChatMessage(
-                role = ChatRole.System,
-                content = prompt(customizePrompts),
-            ),
-            ChatMessage(
-                role = ChatRole.User,
-                content = message,
-            )
-        ),
-    )
-    return if (useStreamApi) chatCompletions(request)
-        .mapNotNull { it.choices.firstOrNull() }
-        .mapNotNull { it.delta }
-        .fold(StringBuilder()) { acc, e ->
-            e.content?.let {
-                acc.append(it)
-            } ?: acc
-        }.toString() else chatCompletion(request).choices.first().message.content!!
-}
+): Pair<TermTable, List<String?>> =
+    chat(model, prompt(customizePrompts), message, useStreamApi = useStreamApi, parseLLM = {
+        parseLLMResponse(it, expectedSize)
+    })
 
 class OpenAITranslator internal constructor(
-    private val chatCompletion: suspend (String) -> String,
+    private val chatCompletion: suspend (Int, String) -> Pair<TermTable, List<String?>>,
     private val model: String,
     defaultTerms: TermTable,
     override val env: Env,
@@ -223,6 +194,25 @@ class OpenAITranslator internal constructor(
                     }
                 }
             )
+            return OpenAITranslator(
+                client = client,
+                model = model,
+                defaultTerms = defaultTerms,
+                customizedPrompts = customizedPrompts,
+                useStreamApi = useStreamApi,
+                env = env
+            )
+        }
+
+        context(_: Raise<TranslateError>)
+        suspend operator fun invoke(
+            client: OpenAI,
+            model: String,
+            defaultTerms: TermTable,
+            useStreamApi: Boolean = false,
+            env: Env = Env.Default,
+            customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
+        ): OpenAITranslator = context(env) {
             val models = runCatching {
                 client.models()
             }.getOrElse {
@@ -232,8 +222,8 @@ class OpenAITranslator internal constructor(
                 TranslateError.ModelNotFound(model)
             }
 
-            val chatCompletion = suspend { message: String ->
-                client.chatCompletion(customizedPrompts, model, message, useStreamApi)
+            val chatCompletion = suspend { expectedSize: Int, message: String ->
+                client.translate(customizedPrompts, model, message, expectedSize, useStreamApi)
             }
 
             return OpenAITranslator(chatCompletion, model, defaultTerms, env, customizedPrompts)
@@ -268,48 +258,15 @@ class OpenAITranslator internal constructor(
             }
             logger.info { "Handling ${index + 1} (total $totalChunkSize)" }
 
-            var llmRetry = 0
-            var appendTerms = emptySet<Term>()
-            var appendedTranslated = emptyList<String>()
-            while (llmRetry < MAX_RETRY) {
-                val completion = try {
-                    chatCompletion(message)
-                } catch (e: Exception) {
-                    if (e is OpenAIHttpException || e is OpenAITimeoutException) {
-                        logger.error { "The api responded empty, try again (${llmRetry + 1}/$MAX_RETRY)." }
-                        llmRetry++
-                        continue
-                    } else throw e
-                }
-                try {
-                    val (t, tr) = parseLLMResponse(completion, strips.size)
-                    if (tr.size == chunk.size) {
-                        appendTerms = t
-                        appendedTranslated = strips.destrip(tr)
-                        break
-                    }
-                    llmRetry++
-                    logger.warning { "Lines not match: the expected is ${chunk.size}, but the actual is ${tr.size}. Retry $llmRetry/$MAX_RETRY" }
-                    if (llmRetry >= MAX_RETRY) {
-                        error("The line count LLM responded (${tr.size}) don't match ${chunk.size}, and trying to run out.")
-                    }
-                } catch (e: Exception) {
-                    llmRetry++
-                    logger.error { "LLM response parse failed (${llmRetry}/$MAX_RETRY): ${e.message}. Retrying..." }
-                    if (llmRetry >= MAX_RETRY) {
-                        error("LLM response consistently malformed after $MAX_RETRY retries")
-                    }
-                }
-            }
-
-
-            terms += appendTerms
+            val (appendTerms, appendedTranslatedRaw) = chatCompletion(strips.size, message)
+            val appendedTranslated = strips.destrip(appendedTranslatedRaw)
+            translated.addAll(appendedTranslated)
             logger.info { "Handled ${index + 1} (total $totalChunkSize)" }
             logger.debug {
                 chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" }
             }
             mutex.withLock {
-                translated += appendedTranslated
+                terms += appendTerms
             }
             val pct = (index + 1).toFloat() / totalChunkSize
             logger.sign<TranslateSign> { TranslateSign.Progress(pct) }

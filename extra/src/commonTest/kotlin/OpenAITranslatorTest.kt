@@ -154,24 +154,18 @@ class OpenAITranslatorTest : FreeSpec({
             var callIndex = 0
             val callChunkSizes = mutableListOf<Int>()
 
-            val mockChat: suspend (String) -> String = { message ->
+            val mockChat: suspend (Int, String) -> Pair<TermTable, List<String?>> = { expectedSize, _ ->
                 val idx = callIndex++
-                // Count [N] markers in the input message body
-                val body = message.substringAfter("-- MCT-CLI:START --").trim()
-                val chunkSize = body.lines().count { it.startsWith("[") }
-                callChunkSizes += chunkSize
-
-                val translated = (0 until chunkSize).joinToString("\n") { i ->
-                    "[$i] chunk${idx}_line${i}"
-                }
+                callChunkSizes += expectedSize
                 val content = buildString {
                     appendLine("-- MCT-CLI:TRANSLATED --")
-                    appendLine(translated)
+                    (0 until expectedSize).joinTo(this, "\n") { i -> "[$i] chunk${idx}_line${i}" }
+                    appendLine()
                     appendLine("-- MCT-CLI:TERMS --")
                     appendLine("[]")
                     append("-- MCT-CLI:END --")
                 }
-                content
+                parseLLMResponse(content, expectedSize)
             }
 
             val sources = (0 until 10).flatMap { TEST_TEXT.lines() }
@@ -196,5 +190,7 @@ class OpenAITranslatorTest : FreeSpec({
 
 /**
  * Creates a mock chatCompletion function that returns a pre-configured response.
+ * The mock ignores the input message and returns parsed mock data for any expected line count.
  */
-fun mockChatCompletion(content: String): suspend (String) -> String = { content }
+fun mockChatCompletion(content: String): suspend (Int, String) -> Pair<TermTable, List<String?>> =
+    { expectedSize, _ -> parseLLMResponse(content, expectedSize) }

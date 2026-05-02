@@ -206,15 +206,27 @@ suspend fun runTranslation(
         } else emptySet()
 
         val translator = either {
-            OpenAITranslator(
-                customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
-                apiUrl = apiUrl?.trim()?.ifBlank { null },
-                token = token.trim(),
-                model = model.trim(),
-                defaultTerms = existingTerms,
-                env = env,
-                useStreamApi = useStreamApi
-            )
+            val cl = openAIClient
+            if (cl != null) {
+                OpenAITranslator(
+                    client = cl,
+                    model = model.trim(),
+                    defaultTerms = existingTerms,
+                    env = env,
+                    useStreamApi = useStreamApi,
+                    customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle)
+                )
+            } else {
+                OpenAITranslator(
+                    customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
+                    apiUrl = apiUrl?.trim()?.ifBlank { null },
+                    token = token.trim(),
+                    model = model.trim(),
+                    defaultTerms = existingTerms,
+                    env = env,
+                    useStreamApi = useStreamApi
+                )
+            }
         }.getOrElse {
             onFailure?.invoke(it)
             return@withContext
