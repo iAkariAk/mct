@@ -20,7 +20,7 @@ internal fun MCFunctionExtractor(
     }
 }
 
-private sealed interface Extracted {
+internal sealed interface Extracted {
     data class Arg(val arg: MCCommand.Arg) : Extracted
     data class GreedyString(val indices: IntRange, val content: String) : Extracted
 }
@@ -62,7 +62,7 @@ internal fun extractTextMCF(
 }
 
 
-private fun extractTextFromCommand(
+internal fun extractTextFromCommand(
     patterns: ExtractPatternSet,
     command: MCCommand
 ): Sequence<Extracted> {
