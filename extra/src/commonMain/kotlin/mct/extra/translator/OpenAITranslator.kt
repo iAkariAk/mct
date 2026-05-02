@@ -1,5 +1,6 @@
 package mct.extra.translator
 
+import arrow.core.Option
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import com.aallam.openai.api.chat.*
@@ -16,6 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import mct.Env
 import mct.EnvHolder
@@ -26,10 +28,12 @@ import mct.text.TextCompound
 import mct.text.decodeToCompound
 import mct.text.encodeToIR
 import mct.text.replaceText
+import mct.util.formatir.IRList
 import mct.util.formatir.toIR
 import mct.util.formatir.toJson
 import mct.util.formatir.toNbt
 import mct.util.toSnbt
+import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
 import io.ktor.client.plugins.logging.Logger as KtorLogger
 
@@ -130,7 +134,7 @@ private const val MAX_RETRY = 20
 class OpenAITranslator internal constructor(
     private val chatCompletion: suspend (String) -> ChatCompletion,
     private val model: String,
-    private val defaultTerms: TermTable,
+    defaultTerms: TermTable,
     override val env: Env
 ) : Translator {
     companion object {
@@ -142,13 +146,13 @@ class OpenAITranslator internal constructor(
             defaultTerms: TermTable,
             env: Env = Env.Default
         ): OpenAITranslator {
-            ensure(apiUrl?.endsWith("/v1/") ?: false) {
+            ensure(apiUrl?.endsWith("/v1/") ?: true) {
                 TranslateError.IllegalUrl
             }
 
             val client = OpenAI(
                 token,
-                host = apiUrl.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
+                host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
                 logging = LoggingConfig(
                     logLevel = LogLevel.Info,
                 ),
@@ -199,7 +203,7 @@ class OpenAITranslator internal constructor(
         logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms" }
         val translated = chunks.withIndex().fold(mutableListOf<String>()) { translated, (index, chunk) ->
             val strips = chunk.strip(kind)
-            val strippedCount = strips.count { it.strip != null }
+            val strippedCount = strips.count { it is CompoundStrip.Success }
             logger.debug { "Chunk $index: ${strippedCount}/${strips.size} items stripped to plain text" }
             val message = buildString {
                 if (terms.isNotEmpty()) {
@@ -208,7 +212,7 @@ class OpenAITranslator internal constructor(
                 }
                 appendLine("-- MCT-CLI:START --")
                 strips.map { strip ->
-                    val str = strip.strip ?: strip.original
+                    val str = strip.stripOrOriginal()
                     str.replace("\n", "\\n")
                 }.forEachIndexed { i, text ->
                     appendLine("[${i}] $text")
@@ -222,7 +226,7 @@ class OpenAITranslator internal constructor(
             while (llmRetry < MAX_RETRY) {
                 val completion = try {
                     chatCompletion(message)
-                } catch (e: OpenAIHttpException) {
+                } catch (_: OpenAIHttpException) {
                     logger.error { "The api responded empty, try again (${llmRetry + 1}/$MAX_RETRY)." }
                     llmRetry++
                     continue
@@ -236,13 +240,13 @@ class OpenAITranslator internal constructor(
                 llmRetry++
                 logger.warning { "Lines not match: the expected is ${chunk.size}, but the actual is ${tr.size}. Retry $llmRetry/3" }
                 if (llmRetry >= MAX_RETRY) {
-                    error("The line count LLM responded (${tr.size}) don't match ${chunk.size}, and trying run out.")
+                    error("The line count LLM responded (${tr.size}) don't match ${chunk.size}, and trying to run out.")
                 }
             }
 
 
             terms += appendTerms
-            logger.info { "Handled ${index + 1} (total ${chunk.size})" }
+            logger.info { "Handled ${index + 1} (total $totalChunkSize)" }
             logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" } }
             mutex.withLock {
                 translated += appendedTranslated
@@ -259,56 +263,84 @@ class OpenAITranslator internal constructor(
     override fun toString() = "OpenAITranslator($model)"
 }
 
-private data class CompoundStrip(
-    val original: String,
-    val sourceFormat: FormatKind? = null,
-    val source: TextCompound? = null,
-    val strip: String? = null,
-)
+private sealed interface CompoundStrip {
+    val original: String
 
+    data class Failure(override val original: String) : CompoundStrip
+    data class Success(
+        override val original: String,
+        val sourceFormat: FormatKind,
+        val source: TextCompound,
+        val strip: String,
+        val isSingleList: Boolean = false,
+    ) : CompoundStrip
+}
+
+private fun CompoundStrip.stripOrOriginal() = when (this) {
+    is CompoundStrip.Failure -> original
+    is CompoundStrip.Success -> strip
+}
 
 context(env: EnvHolder)
-private fun List<String>.strip(kind: FormatKind): List<CompoundStrip> = map { raw: String ->
+private fun String.strip(kind: FormatKind): CompoundStrip {
+    val raw = this
     fun cannotStrip() = null.also {
         env.logger.warning { "Cannot strip $raw" }
     }
 
-    val compound = runCatching {
+    var isList = false
+    val compound = Option.catch {
         when (kind) {
-            FormatKind.Json -> MCTJson.decodeFromString<JsonElement>(raw).toIR()
-            FormatKind.Snbt -> Snbt.decodeFromString<NbtTag>(raw).toIR()
-        }.decodeToCompound()
-    }.getOrNull() ?: return@map CompoundStrip(raw)
+            FormatKind.Json -> MCTJson.decodeFromString<JsonElement>(raw).let {
+                if (it is JsonArray) {
+                    it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
+                } else it
+            }.toIR()
 
-    val strip = if (compound.extra.isEmpty()) {
+            FormatKind.Snbt -> Snbt.decodeFromString<NbtTag>(raw).let {
+                if (it is NbtList<*>) {
+                    it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
+                } else it
+            }.toIR()
+        }.decodeToCompound()
+    }.getOrNull() ?: return CompoundStrip.Failure(raw)
+
+    val strip = (if (compound.extra.isEmpty()) {
         when (compound) {
             is TextCompound.Plain -> compound.text
             else -> cannotStrip()
         }
-    } else cannotStrip()
-    CompoundStrip(raw, kind, compound, strip)
-
+    } else cannotStrip()) ?: return CompoundStrip.Failure(raw)
+    return CompoundStrip.Success(raw, kind, compound, strip, isList)
 }
+
+context(env: EnvHolder)
+private fun List<String>.strip(kind: FormatKind): List<CompoundStrip> = map { it.strip(kind) }
 
 private fun List<CompoundStrip>.destrip(response: List<String?>): List<String> =
     zip(response).map { (cs, s) ->
         s?.let {
-            cs.source?.let {
-                val ir = it.replaceText(s).encodeToIR()
-                when (cs.sourceFormat!!) {
-                    FormatKind.Json -> MCTJson.encodeToString<JsonElement>(ir.toJson())
-                    FormatKind.Snbt -> ir.toNbt().toSnbt(false)
+            when (cs) {
+                is CompoundStrip.Success -> {
+                    val ir = cs.source.replaceText(s).encodeToIR().let { e ->
+                        if (cs.isSingleList) IRList(e) else e
+                    }
+                    when (cs.sourceFormat) {
+                        FormatKind.Json -> MCTJson.encodeToString<JsonElement>(ir.toJson())
+                        FormatKind.Snbt -> ir.toNbt().toSnbt(false)
+                    }
                 }
-            } ?: s
+                is CompoundStrip.Failure -> s
+            }
         } ?: cs.original
     }
 
-private val LINE_PREFIX = Regex("""^\[(\d+)\]\s*""")
+private val LINE_PREFIX = Regex("""^\[(\d+)]\s*""")
 
 internal fun parseLLMResponse(content: String, expectedSize: Int): Pair<TermTable, List<String?>> {
     val (appendedTranslated, appendTermsStr) = REGEX_LLM_OUTPUT.matchEntire(content)?.destructured
         ?: error("LLM responses invalidly")
-    val appendTerms = Json.decodeFromString<TermTable>(appendTermsStr)
+    val appendTerms = runCatching { Json.decodeFromString<TermTable>(appendTermsStr) }.getOrNull().orEmpty()
     val lines = appendedTranslated.lines()
         .asSequence()
         .mapNotNull { line ->

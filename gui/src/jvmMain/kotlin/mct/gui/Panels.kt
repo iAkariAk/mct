@@ -115,6 +115,7 @@ fun ExtractPanel(
 fun TranslatePanel(
     inputPath: String, onInputChange: (String) -> Unit,
     outputPath: String, onOutputChange: (String) -> Unit,
+    mappingOutput: String, onMappingOutput: (String) -> Unit,
     termOutput: String, onTermOutputChange: (String) -> Unit,
     apiUrl: String, onApiUrlChange: (String) -> Unit,
     apiToken: String, onApiTokenChange: (String) -> Unit,
@@ -148,6 +149,9 @@ fun TranslatePanel(
         PathRow("提取结果 JSON（来自步骤①）", "选择 extractions.json...", inputPath, onInputChange) {
             inputPicker.launch()
         }
+        PathRow("输出替换Mapping JSON", "选择保存位置...", mappingOutput, onMappingOutput) {
+            outputSaver.launch(suggestedName = "mappings", extension = "json")
+        }
         PathRow("输出替换文件 JSON", "选择保存位置...", outputPath, onOutputChange) {
             outputSaver.launch(suggestedName = "replacements", extension = "json")
         }
@@ -168,7 +172,7 @@ fun TranslatePanel(
             value = apiUrl,
             onValueChange = onApiUrlChange,
             label = { Text("API 地址") },
-            placeholder = { Text("留空使用 OpenAI 官方；或填入 https://api.openai.com/v1") },
+            placeholder = { Text("留空使用 OpenAI 官方；或填入 https://api.openai.com/v1/") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(

@@ -16,6 +16,7 @@ import mct.extra.translator.OpenAITranslator
 import mct.extra.translator.TermTable
 import mct.extra.translator.TranslateError
 import mct.extra.translator.translate
+import mct.kit.replace
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
@@ -183,6 +184,7 @@ suspend fun runTranslation(
     env: Env,
     input: String,
     output: String,
+    mappingOutput: String,
     termOutput: String,
     apiUrl: String?,
     token: String,
@@ -210,13 +212,16 @@ suspend fun runTranslation(
             env
         )
         try {
-            val replacements = translator.translate(extractionGroups)
+            val mapping = translator.translate(extractionGroups)
+            val replacements = extractionGroups.replace(translator.translate(extractionGroups))
 
             env.fs.write(output.toPath()) { writeUtf8(MCTJson.encodeToString(replacements)) }
+            env.fs.write(mappingOutput.toPath()) { writeUtf8(MCTJson.encodeToString(mapping)) }
             env.fs.write(termOutput.toPath()) { writeUtf8(MCTJson.encodeToString(translator.terms)) }
 
             env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
             env.logger.info { "替换文件已写入: $output" }
+            env.logger.info { "映射文件已写入: $mapping" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
             saveSettings(apiUrl ?: "", model, token)

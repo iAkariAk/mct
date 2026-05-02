@@ -26,10 +26,10 @@ interface Translator : EnvHolder {
     suspend fun translate(kind: FormatKind, sources: List<String>): List<String>
 }
 
-suspend fun Translator.translate(groups: List<ExtractionGroup>): List<ReplacementGroup> {
+suspend fun Translator.translate(groups: List<ExtractionGroup>): Map<String, String> {
     if (groups.isEmpty()) {
         logger.debug { "Skipping empty group" }
-        return emptyList()
+        return emptyMap()
     }
     val extractions = groups.flatMap { it.extractions }.groupBy {
         when (it) {
@@ -47,5 +47,9 @@ suspend fun Translator.translate(groups: List<ExtractionGroup>): List<Replacemen
     }.toMap()
     logger.sign<TranslateSign> { TranslateSign.Progress(1f) }
     env.logger.info { "Built mapping with ${mapping.size} entries" }
-    return groups.replace(mapping)
+    return mapping
 }
+
+
+suspend fun Translator.translateReplace(groups: List<ExtractionGroup>): List<ReplacementGroup> =
+    groups.replace(translate(groups))

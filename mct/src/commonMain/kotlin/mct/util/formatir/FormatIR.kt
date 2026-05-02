@@ -39,6 +39,8 @@ data class IRObject(val value: Map<String, IRElement>) : IRElement, Map<String, 
     override fun toString() = value.toString()
 }
 data class IRList(val value: List<IRElement>) : IRElement, List<IRElement> by value {
+    constructor(vararg element: IRElement) : this(listOf(*element))
+
     override fun toString() = value.toString()
 }
 data object IRNull : IRElement {

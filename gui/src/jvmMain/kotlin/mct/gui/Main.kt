@@ -73,6 +73,7 @@ fun App() {
     // 翻译
     var translateInput by remember { mutableStateOf("extractions.json") }
     var translateOutput by remember { mutableStateOf("replacements.json") }
+    var mappingOutput by remember { mutableStateOf("mappings.json") }
     var termOutput by remember { mutableStateOf("terms.json") }
     var apiUrl by remember { mutableStateOf("") }
     var apiToken by remember { mutableStateOf("") }
@@ -217,6 +218,8 @@ fun App() {
                                 onInputChange = { translateInput = it },
                                 outputPath = translateOutput,
                                 onOutputChange = { translateOutput = it },
+                                mappingOutput = mappingOutput,
+                                onMappingOutput = { mappingOutput = it },
                                 termOutput = termOutput,
                                 onTermOutputChange = { termOutput = it },
                                 apiUrl = apiUrl,
@@ -228,10 +231,10 @@ fun App() {
                                 existingTermPath = existingTermPath,
                                 onExistingTermPathChange = { existingTermPath = it },
                                 onSaveSettings = {
-                                    if (saveSettings(apiUrl, model, apiToken))
-                                        logText += "API 设置已保存到 $settingsPathString\n"
+                                    logText += if (saveSettings(apiUrl, model, apiToken))
+                                        "API 设置已保存到 $settingsPathString\n"
                                     else
-                                        logText += "保存 API 设置失败\n"
+                                        "保存 API 设置失败\n"
                                 },
                                 translationProgress = translateProgress,
                                 translationStatus = translateStatus,
@@ -247,6 +250,7 @@ fun App() {
                                                 env,
                                                 translateInput,
                                                 translateOutput,
+                                                mappingOutput,
                                                 termOutput,
                                                 apiUrl.ifBlank { null },
                                                 apiToken,
@@ -315,13 +319,25 @@ fun App() {
                     modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
                     tonalElevation = 2.dp
                 ) {
-                    SelectionContainer {
-                        Text(
-                            text = logText,
-                            modifier = Modifier.fillMaxSize().padding(10.dp).verticalScroll(logScroll),
-                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        TextButton(
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            onClick = {
+                                scope.launch {
+                                    logScroll.scrollTo(logScroll.maxValue)
+                                }
+                            }
+                        ) {
+                            Text("to bottom")
+                        }
+                        SelectionContainer {
+                            Text(
+                                text = logText,
+                                modifier = Modifier.fillMaxSize().padding(10.dp).verticalScroll(logScroll),
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
