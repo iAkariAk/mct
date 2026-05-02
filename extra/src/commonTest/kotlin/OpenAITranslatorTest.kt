@@ -4,15 +4,13 @@ import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
 import com.aallam.openai.api.model.ModelId
 import io.kotest.assertions.arrow.core.shouldNotRaise
+import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.Env
 import mct.FormatKind
 import mct.Logger
-import mct.extra.translator.OpenAITranslator
-import mct.extra.translator.Term
-import mct.extra.translator.TermType
-import mct.extra.translator.parseLLMResponse
+import mct.extra.translator.*
 import mct.util.envvar
 
 class OpenAITranslatorTest : FreeSpec({
@@ -47,6 +45,22 @@ class OpenAITranslatorTest : FreeSpec({
         val result = translator.translate(FormatKind.Json, TEST_TEXT.lines())
         println("translated: $result")
         println("terms: ${translator.terms}")
+    }
+
+    "strip test" {
+        val raws = listOf(
+            """[{"color":"gray","text":"Key recipes unlocked!\n(Check the recipe book in a crafting table)"}]""",
+            """{"color":"red","text":"ILLEGAL BUCKET USE DETECTED"}"""
+        )
+        context(Env()) {
+            val result = raws.strip(FormatKind.Json)
+
+            val failures = result.filterIsInstance<CompoundStrip.Failure>()
+
+            if (failures.isNotEmpty()) {
+                fail("Strip failed for: ${failures.joinToString { it.original }}")
+            }
+        }
     }
 
     "mock" - {

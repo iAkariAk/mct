@@ -320,16 +320,6 @@ fun App() {
                     tonalElevation = 2.dp
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        TextButton(
-                            modifier = Modifier.align(Alignment.TopEnd),
-                            onClick = {
-                                scope.launch {
-                                    logScroll.scrollTo(logScroll.maxValue)
-                                }
-                            }
-                        ) {
-                            Text("to bottom")
-                        }
                         SelectionContainer {
                             Text(
                                 text = logText,
@@ -337,6 +327,16 @@ fun App() {
                                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                        TextButton(
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            onClick = {
+                                scope.launch {
+                                    logScroll.animateScrollTo(logScroll.maxValue)
+                                }
+                            }
+                        ) {
+                            Text("↓")
                         }
                     }
                 }

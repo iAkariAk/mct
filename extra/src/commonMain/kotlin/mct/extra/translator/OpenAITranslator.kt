@@ -5,6 +5,7 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import com.aallam.openai.api.chat.*
 import com.aallam.openai.api.exception.OpenAIHttpException
+import com.aallam.openai.api.exception.OpenAITimeoutException
 import com.aallam.openai.api.logging.LogLevel
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.LoggingConfig
@@ -226,10 +227,12 @@ class OpenAITranslator internal constructor(
             while (llmRetry < MAX_RETRY) {
                 val completion = try {
                     chatCompletion(message)
-                } catch (_: OpenAIHttpException) {
-                    logger.error { "The api responded empty, try again (${llmRetry + 1}/$MAX_RETRY)." }
-                    llmRetry++
-                    continue
+                } catch (e: Exception) {
+                    if (e is OpenAIHttpException || e is OpenAITimeoutException) {
+                        logger.error { "The api responded empty, try again (${llmRetry + 1}/$MAX_RETRY)." }
+                        llmRetry++
+                        continue
+                    } else throw e
                 }
                 val (t, tr) = parseLLMResponse(completion.choices.first().message.content!!, strips.size)
                 if (tr.size == chunk.size) {
@@ -247,7 +250,9 @@ class OpenAITranslator internal constructor(
 
             terms += appendTerms
             logger.info { "Handled ${index + 1} (total $totalChunkSize)" }
-            logger.debug { chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" } }
+            logger.debug {
+                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" }
+            }
             mutex.withLock {
                 translated += appendedTranslated
             }
@@ -263,7 +268,7 @@ class OpenAITranslator internal constructor(
     override fun toString() = "OpenAITranslator($model)"
 }
 
-private sealed interface CompoundStrip {
+internal sealed interface CompoundStrip {
     val original: String
 
     data class Failure(override val original: String) : CompoundStrip
@@ -282,7 +287,7 @@ private fun CompoundStrip.stripOrOriginal() = when (this) {
 }
 
 context(env: EnvHolder)
-private fun String.strip(kind: FormatKind): CompoundStrip {
+internal fun String.strip(kind: FormatKind): CompoundStrip {
     val raw = this
     fun cannotStrip() = null.also {
         env.logger.warning { "Cannot strip $raw" }
@@ -315,9 +320,9 @@ private fun String.strip(kind: FormatKind): CompoundStrip {
 }
 
 context(env: EnvHolder)
-private fun List<String>.strip(kind: FormatKind): List<CompoundStrip> = map { it.strip(kind) }
+internal fun List<String>.strip(kind: FormatKind): List<CompoundStrip> = map { it.strip(kind) }
 
-private fun List<CompoundStrip>.destrip(response: List<String?>): List<String> =
+internal fun List<CompoundStrip>.destrip(response: List<String?>): List<String> =
     zip(response).map { (cs, s) ->
         s?.let {
             when (cs) {
@@ -330,6 +335,7 @@ private fun List<CompoundStrip>.destrip(response: List<String?>): List<String> =
                         FormatKind.Snbt -> ir.toNbt().toSnbt(false)
                     }
                 }
+
                 is CompoundStrip.Failure -> s
             }
         } ?: cs.original
