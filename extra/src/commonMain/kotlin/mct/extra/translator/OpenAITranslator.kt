@@ -2,10 +2,7 @@ package mct.extra.translator
 
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
-import com.aallam.openai.api.chat.ChatCompletionRequest
-import com.aallam.openai.api.chat.ChatMessage
-import com.aallam.openai.api.chat.ChatResponseFormat
-import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.chat.*
 import com.aallam.openai.api.exception.OpenAIHttpException
 import com.aallam.openai.api.logging.LogLevel
 import com.aallam.openai.api.model.ModelId
@@ -130,9 +127,8 @@ private val REGEX_LLM_OUTPUT =
 
 private const val MAX_RETRY = 20
 
-class OpenAITranslator private constructor(
-    private val apiUrl: String?,
-    private val token: String,
+class OpenAITranslator internal constructor(
+    private val chatCompletion: suspend (String) -> ChatCompletion,
     private val model: String,
     private val defaultTerms: TermTable,
     override val env: Env
@@ -149,51 +145,53 @@ class OpenAITranslator private constructor(
             ensure(apiUrl?.endsWith("/v1/") ?: false) {
                 TranslateError.IllegalUrl
             }
-            return OpenAITranslator(apiUrl, token, model, defaultTerms, env)
+
+            val client = OpenAI(
+                token,
+                host = apiUrl.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
+                logging = LoggingConfig(
+                    logLevel = LogLevel.Info,
+                ),
+                httpClientConfig = {
+                    engine {
+                        dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
+                    }
+                    install(Logging) {
+                        logger = object : KtorLogger {
+                            override fun log(message: String) {
+                                env.logger.debug { message }
+                            }
+                        }
+                    }
+                }
+            )
+            val chatCompletion = suspend { message: String ->
+                client.chatCompletion(
+                    ChatCompletionRequest(
+                        model = ModelId(model),
+                        responseFormat = ChatResponseFormat.Text,
+                        messages = listOf(
+                            ChatMessage(
+                                role = ChatRole.System,
+                                content = PROMPT,
+                            ),
+                            ChatMessage(
+                                role = ChatRole.User,
+                                content = message,
+                            )
+                        ),
+                    ),
+                )
+            }
+
+            return OpenAITranslator(chatCompletion, model, defaultTerms, env)
         }
     }
 
-    private val client = OpenAI(
-        token,
-        host = apiUrl?.let(::OpenAIHost) ?: OpenAIHost.OpenAI,
-        logging = LoggingConfig(
-            logLevel = LogLevel.Info,
-        ),
-        httpClientConfig = {
-            engine {
-                dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
-            }
-            install(Logging) {
-                logger = object : KtorLogger {
-                    override fun log(message: String) {
-                        env.logger.debug { message }
-                    }
-                }
-            }
-        }
-    )
 
     override val terms: MutableSet<Term> = defaultTerms.toMutableSet()
 
     private val mutex = Mutex()
-
-
-    private suspend fun chatCompletion(message: String) = client.chatCompletion(
-        ChatCompletionRequest(
-            model = ModelId(model),
-            responseFormat = ChatResponseFormat.Text,
-            messages = listOf(
-                ChatMessage(
-                    role = ChatRole.System,
-                    content = PROMPT,
-                ),
-                ChatMessage(
-                    role = ChatRole.User,
-                    content = message,
-                )
-            ),
-        ),
-    )
 
     override suspend fun translate(kind: FormatKind, sources: List<String>): List<String> {
         val chunks = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).toList()
@@ -301,7 +299,7 @@ private fun List<CompoundStrip>.destrip(response: List<String?>): List<String> =
                     FormatKind.Json -> MCTJson.encodeToString<JsonElement>(ir.toJson())
                     FormatKind.Snbt -> ir.toNbt().toSnbt(false)
                 }
-            }
+            } ?: s
         } ?: cs.original
     }
 

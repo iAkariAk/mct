@@ -14,7 +14,7 @@ internal fun List<String>.chunkedByToken(tokenSizePerChunk: Int = TOKEN_COUNT_TH
             val isThresholdOver = tokenCount + approximateTokenCount >= tokenSizePerChunk
             if (isThresholdOver) {
                 require(tmp.isNotEmpty()) { "The content size too large." }
-                yield(tmp)
+                yield(tmp.toMutableList())
                 tokenCount = 0
                 tmp.clear()
             }
@@ -22,7 +22,7 @@ internal fun List<String>.chunkedByToken(tokenSizePerChunk: Int = TOKEN_COUNT_TH
             tokenCount += approximateTokenCount
         }
         if (tmp.isNotEmpty()) {
-            yield(tmp)
+            yield(tmp.toMutableList())
         }
     }
 }
