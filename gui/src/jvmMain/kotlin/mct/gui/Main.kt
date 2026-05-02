@@ -213,6 +213,7 @@ fun App() {
                                                 model = translateState.model,
                                                 termPath = translateState.existingTermPath.ifBlank { null },
                                                 useStreamApi = translateState.useStreamApi,
+                                                literatureStyle = translateState.literatureStyle,
                                                 onFailure = {
                                                     scope.launch {
                                                         snackbarHostState.showSnackbar(it.message)

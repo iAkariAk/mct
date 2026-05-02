@@ -44,7 +44,22 @@ import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
 import io.ktor.client.plugins.logging.Logger as KtorLogger
 
-private const val PROMPT = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为简体中文，同时严格保护数据结构的完整性。
+data class CustomizedPrompts(
+    val literatureStyle: String = Defaults.literatureStyle
+) {
+    companion object Defaults {
+        val literatureStyle = """
+        - 使用简洁自然的简体中文，轻小说风格。
+        - 保持原文的情感色彩和语气。
+        - 不要过度意译，忠实于原文含义。
+        - 人名、地名使用日文汉字/中文习惯译名。
+    """.trimIndent()
+
+        val Default = CustomizedPrompts() // Always at least to wait the above initialization
+    }
+}
+
+private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为简体中文，同时严格保护数据结构的完整性。
 
 === 输入协议 ===
 - 输入采用 MCT-CLI 协议格式。
@@ -96,10 +111,7 @@ Kaguya => 辉夜姬
 - 不确定时优先一致性而非猜测。
 
 【规则 6 — 翻译风格】
-- 使用简洁自然的简体中文，轻小说风格。
-- 保持原文的情感色彩和语气。
-- 不要过度意译，忠实于原文含义。
-- 人名、地名使用日文汉字/中文习惯译名。
+${prompts.literatureStyle}
 
 === 输出协议（必须严格遵守） ===
 
@@ -139,6 +151,7 @@ private val REGEX_LLM_OUTPUT =
 private const val MAX_RETRY = 20
 
 private suspend fun OpenAI.chatCompletion(
+    customizePrompts: CustomizedPrompts = CustomizedPrompts.Default,
     model: String,
     message: String,
     useStreamApi: Boolean = false
@@ -149,7 +162,7 @@ private suspend fun OpenAI.chatCompletion(
         messages = listOf(
             ChatMessage(
                 role = ChatRole.System,
-                content = PROMPT,
+                content = prompt(customizePrompts),
             ),
             ChatMessage(
                 role = ChatRole.User,
@@ -171,7 +184,8 @@ class OpenAITranslator internal constructor(
     private val chatCompletion: suspend (String) -> String,
     private val model: String,
     defaultTerms: TermTable,
-    override val env: Env
+    override val env: Env,
+    private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
 ) : Translator {
     companion object {
         context(_: Raise<TranslateError>)
@@ -181,7 +195,8 @@ class OpenAITranslator internal constructor(
             model: String,
             defaultTerms: TermTable,
             useStreamApi: Boolean = false,
-            env: Env = Env.Default
+            env: Env = Env.Default,
+            customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
         ): OpenAITranslator {
             val host = apiUrl?.let {
                 val url = StringBuilder(apiUrl)
@@ -218,10 +233,10 @@ class OpenAITranslator internal constructor(
             }
 
             val chatCompletion = suspend { message: String ->
-                client.chatCompletion(model, message, useStreamApi)
+                client.chatCompletion(customizedPrompts, model, message, useStreamApi)
             }
 
-            return OpenAITranslator(chatCompletion, model, defaultTerms, env)
+            return OpenAITranslator(chatCompletion, model, defaultTerms, env, customizedPrompts)
         }
     }
 
@@ -305,7 +320,7 @@ class OpenAITranslator internal constructor(
         return translated
     }
 
-    override fun toString() = "OpenAITranslator($model)"
+    override fun toString() = "OpenAITranslator($model, $customizedPrompts)"
 }
 
 internal sealed interface CompoundStrip {

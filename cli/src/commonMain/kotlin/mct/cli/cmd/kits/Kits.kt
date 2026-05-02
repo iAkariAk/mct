@@ -11,6 +11,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import mct.*
 import mct.cli.*
+import mct.extra.translator.CustomizedPrompts
 import mct.extra.translator.OpenAITranslator
 import mct.extra.translator.TermTable
 import mct.extra.translator.translate
@@ -141,6 +142,7 @@ private class AITranslate : BaseCommand(
     val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
     val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
     val useStreamApi by option("--use-stream-api", envvar = "OPENAI_STREAM_API", help = "Using streaming API can solve some api empty response, but maybe will slow down translation.").flag(default = false)
+    val literatureStyle by option("--literature-style", envvar = "LITERATURE_STYLE", help = "Custom literature style prompt for translation").default(CustomizedPrompts.Defaults.literatureStyle)
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -150,6 +152,7 @@ private class AITranslate : BaseCommand(
         logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
 
         val translator = OpenAITranslator(
+            customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
             apiUrl = apiUrl,
             token = token,
             model = model,

@@ -13,10 +13,7 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
-import mct.extra.translator.OpenAITranslator
-import mct.extra.translator.TermTable
-import mct.extra.translator.TranslateError
-import mct.extra.translator.translate
+import mct.extra.translator.*
 import mct.kit.replace
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
@@ -192,6 +189,7 @@ suspend fun runTranslation(
     model: String,
     termPath: String?,
     useStreamApi: Boolean = false,
+    literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
     onFailure: ((TranslateError) -> Unit)? = null
 ) {
     withContext(Dispatchers.IO) {
@@ -209,6 +207,7 @@ suspend fun runTranslation(
 
         val translator = either {
             OpenAITranslator(
+                customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
                 apiUrl = apiUrl?.trim()?.ifBlank { null },
                 token = token.trim(),
                 model = model.trim(),

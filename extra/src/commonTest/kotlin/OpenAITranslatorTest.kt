@@ -12,7 +12,9 @@ class OpenAITranslatorTest : FreeSpec({
     val apiUrl = envvar("OPENAI_URL")
     val token = envvar("OPENAI_TOKEN")
     val model = envvar("OPENAI_MODEL")
-    suspend fun translator() = shouldNotRaise { OpenAITranslator(apiUrl!!, token!!, model!!, defaultTerms = emptySet()) }
+    suspend fun translator() = shouldNotRaise {
+        OpenAITranslator(apiUrl!!, token!!, model!!, defaultTerms = emptySet())
+    }
 
     "parse test" {
         val response = """

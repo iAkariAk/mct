@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -222,6 +223,24 @@ fun TranslatePanel(
         PathRow("已有术语表 JSON（可选）", "留空则从头翻译...", state.existingTermPath, { onStateChange(state.copy(existingTermPath = it)) }) {
             termPicker.launch()
         }
+
+        // 翻译风格自定义
+        Text(
+            "自定义翻译风格提示词",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        OutlinedTextField(
+            value = state.literatureStyle,
+            onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+            minLines = 4,
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            )
+        )
 
         // 翻译进度
         AnimatedVisibility(visible = isRunning || translationProgress > 0f) {

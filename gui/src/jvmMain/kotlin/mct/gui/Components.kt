@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import mct.LoggerLevel
+import mct.extra.translator.CustomizedPrompts
 
 // ── 可复用组件 ───────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ data class TranslateState(
     val model: String = "gpt-4o",
     val useStreamApi: Boolean = false,
     val existingTermPath: String = "",
+    val literatureStyle: String = CustomizedPrompts.literatureStyle,
 )
 
 data class BackfillState(
