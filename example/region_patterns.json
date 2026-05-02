@@ -1,0 +1,24 @@
+[
+  {"type": "right", "right": "#display>#Name"},
+  {"type": "right", "right": "#display>#Lore"},
+
+  {"type": "regex", "regex": "#components>#minecraft:custom_name(?:>#raw)?$"},
+  {"type": "regex", "regex": "#components>#minecraft:item_name(?:>#raw)?$"},
+  {"type": "regex", "regex": "#components>#minecraft:item_display(?:>#raw)?$"},
+  {"type": "regex", "regex": "#components>#minecraft:lore>\\d+(?:>#raw)?$"},
+  {"type": "regex", "regex": "#components>#minecraft:written_book_content>#(?:pages>\\d+|title|author)(?:>#(?:raw|filtered))?$"},
+  {"type": "regex", "regex": "#components>#minecraft:writable_book_content>#pages>\\d+(?:>#(?:raw|filtered))?$"},
+
+  {"type": "right", "right": "#Book>#tag>#title"},
+  {"type": "right", "right": "#Book>#tag>#author"},
+  {"type": "right", "right": "#Book>#tag>#filtered_pages"},
+  {"type": "right", "right": "#Book>#tag>#filtered_title"},
+
+  {"type": "regex", "regex": "(?:^>#>#Entities>\\d+|(?:>#SpawnData|>#SpawnPotentials>\\d+>#data)>#entity)>#CustomName$"},
+
+  {"type": "regex", "regex": "^>#>#block_entities>\\d+>#(?:front|back)_text>#(?:filtered_)?messages>\\d+(?:>#raw)?$"},
+  {"type": "regex", "regex": "^>#>#block_entities>\\d+>#CustomName$"},
+  {"type": "regex", "regex": "^>#>#block_entities>\\d+>#SpawnData>#entity>#CustomName$"},
+
+  {"type": "right", "right": "#banners>#name"}
+]

@@ -1,0 +1,24 @@
+[
+  {"type": "right", "right": "#components>#custom_name"},
+  {"type": "regex", "regex": "#components>#lore>\\d+$"},
+
+  {"type": "right", "right": "#display>#title"},
+  {"type": "right", "right": "#display>#description"},
+
+  {"type": "right", "right": "#display>#Name"},
+  {"type": "regex", "regex": "#display>#Lore>\\d+$"},
+
+  {"type": "right", "right": "#CustomName"},
+
+  {"type": "regex", "regex": "#(?:front|back)_text>#messages>\\d+$"},
+
+  {"type": "regex", "regex": "#pages>\\d+$"},
+  {"type": "right", "right": "#title"},
+  {"type": "right", "right": "#author"},
+
+  {"type": "regex", "regex": "#functions>\\d+>#name>#text$"},
+  {"type": "regex", "regex": "#functions>\\d+>#name>#fallback$"},
+  {"type": "regex", "regex": "#functions>\\d+>#lore>\\d+>#text$"},
+  {"type": "regex", "regex": "#functions>\\d+>#lore>\\d+>#fallback$"},
+  {"type": "regex", "regex": "#functions>\\d+>#entity>#name>#text$"}
+]

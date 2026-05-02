@@ -10,25 +10,18 @@ import com.github.ajalt.clikt.parameters.groups.default
 import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
-import mct.Env
-import mct.LoggerLevel
-import mct.MCTError
-import mct.MCTWorkspace
-import mct.util.system.SystemFileSystem
-import okio.FileSystem
+import mct.*
+import mct.util.SystemFileSystem
 import okio.Path.Companion.toPath
 
 interface EnvProvider {
     val env: Env
 }
 
-val EnvProvider.fs get() = env.fs
-val EnvProvider.logger get() = env.logger
-
 abstract class BaseCommand(
     val name: String? = null,
     private val help: String? = null,
-) : SuspendingCliktCommand(name), EnvProvider {
+) : SuspendingCliktCommand(name), EnvHolder {
     override fun help(context: Context): String = help ?: super.help(context)
 
     val loggerLevels by mutuallyExclusiveOptions(
@@ -62,7 +55,7 @@ abstract class BaseCommand(
         }
     }
 
-    context(_: Raise<MCTError>, fs: FileSystem)
+    context(_: Raise<MCTError>)
     protected open suspend fun App() = Unit
 }
 

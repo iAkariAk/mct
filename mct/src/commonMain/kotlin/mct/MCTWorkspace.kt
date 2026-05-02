@@ -7,19 +7,8 @@ import mct.region.anvil.*
 import mct.serializer.NbtGzip
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.decodeFromSource
-import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
-import okio.SYSTEM
-
-data class Env(
-    val fs: FileSystem = FileSystem.SYSTEM,
-    val logger: Logger = Logger.None
-) {
-    companion object {
-        val Default = Env()
-    }
-}
 
 sealed interface OpenError : MCTError {
     data class UnvalidatedDir(val dir: Path) : OpenError {
@@ -29,8 +18,8 @@ sealed interface OpenError : MCTError {
 
 class MCTWorkspace private constructor(
     val rootDir: Path,
-    val env: Env
-) {
+    override val env: Env
+) : EnvHolder {
     companion object {
         context(_: Raise<OpenError>)
         operator fun invoke(rootDir: Path, env: Env): MCTWorkspace {
@@ -40,9 +29,6 @@ class MCTWorkspace private constructor(
             return MCTWorkspace(rootDir, env)
         }
     }
-
-    val fs get() = env.fs
-    val logger get() = env.logger
 
     val level =
         fs.read(rootDir / "level.dat".toPath()) {

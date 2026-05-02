@@ -12,18 +12,13 @@ import mct.DatapackReplacementGroup
 import mct.ExtractionGroup
 import mct.MCTError
 import mct.ReplacementGroup
-import mct.cli.WorkspaceCommand
-import mct.cli.jsonFile
-import mct.cli.path
-import mct.cli.writeJson
+import mct.cli.*
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson
-import mct.util.io.readText
-import okio.FileSystem
 import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
@@ -55,7 +50,7 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
     ).flag()
 
 
-    context(_: Raise<MCTError>, fs: FileSystem)
+    context(_: Raise<MCTError>)
     override suspend fun App() {
         val mcfPatterns = mcfPatternsPath?.jsonFile<List<ExtractPattern>>()
         val userMcjPatterns = mcjPatternsPath?.readText()?.let {
@@ -67,10 +62,10 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
             else -> MCJBuiltinPatterns
         }
 
-        env.logger.info { "Extracting from datapack..." }
+        logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
             workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
-        env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
+        logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)
     }
 }
@@ -82,13 +77,13 @@ private class BackfillDatapack : WorkspaceCommand(name = "backfill") {
         help = "The replacements JSON file to apply back to datapack files"
     ).path().required()
 
-    context(_: Raise<MCTError>, fs: FileSystem)
+    context(_: Raise<MCTError>)
     override suspend fun App() {
-        env.logger.info { "Backfilling datapack..." }
+        logger.info { "Backfilling datapack..." }
         val replacementGroups =
             replacementGroupsPath.jsonFile<List<ReplacementGroup>>().filterIsInstance<DatapackReplacementGroup>()
-        env.logger.info { "Loaded ${replacementGroups.size} datapack replacement groups" }
+        logger.info { "Loaded ${replacementGroups.size} datapack replacement groups" }
         workspace.backfillDatapack(replacementGroups)
-        env.logger.info { "Datapack backfill complete" }
+        logger.info { "Datapack backfill complete" }
     }
 }

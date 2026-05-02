@@ -12,15 +12,15 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
+import mct.extra.translator.OpenAITranslator
+import mct.extra.translator.TermTable
+import mct.extra.translator.TranslateError
+import mct.extra.translator.translate
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
-import mct.util.translator.OpenAITranslator
-import mct.util.translator.TermTable
-import mct.util.translator.TranslateError
-import mct.util.translator.translate
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -221,7 +221,7 @@ suspend fun runTranslation(
             env.logger.info { "完成。" }
             saveSettings(apiUrl ?: "", model, token)
         } catch (e: Exception) {
-            env.logger.error { "${e.stackTraceToString()}" }
+            env.logger.error { e.stackTraceToString() }
         }
     }
 }

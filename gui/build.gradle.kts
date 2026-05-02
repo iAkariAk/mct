@@ -21,7 +21,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(project(":mct"))
-            implementation(project(":util"))
+            implementation(project(":extra"))
             implementation(libs.compose.material3)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material.icons.extended)

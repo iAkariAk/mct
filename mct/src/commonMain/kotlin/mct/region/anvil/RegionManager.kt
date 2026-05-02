@@ -5,6 +5,7 @@ import arrow.core.raise.context.either
 import arrow.core.raise.nullable
 import kotlinx.serialization.Serializable
 import mct.Env
+import mct.EnvHolder
 import mct.util.io.filename
 import okio.Path
 
@@ -15,10 +16,9 @@ data class Coord(
 )
 
 abstract class RegionManager<T : Region>(
-    internal val env: Env,
+    override val env: Env,
     internal val path: Path
-) {
-    internal val fs get() = env.fs
+) : EnvHolder{
 
     init {
         require(fs.exists(path))
@@ -42,13 +42,13 @@ abstract class RegionManager<T : Region>(
      */
     fun regions(): Sequence<T> = coords().mapNotNull { coord ->
         either { load(coord) }.onLeft {
-            env.logger.info { "(${path}) Skip region(${coord.x}, ${coord.z}) due to load error: ${it.message}" }
+            logger.info { "(${path}) Skip region(${coord.x}, ${coord.z}) due to load error: ${it.message}" }
         }.getOrNull()
     }
 
     context(_: Raise<AnvilError>)
     fun modify(coord: Coord, modify: (T) -> T) {
-        env.logger.debug { "Modify region(${coord.x}, ${coord.z})" }
+        logger.debug { "Modify region(${coord.x}, ${coord.z})" }
         val data = load(coord)
         save(coord, modify(data))
     }
@@ -56,9 +56,9 @@ abstract class RegionManager<T : Region>(
     context(_: Raise<AnvilError>)
     fun modifyRegions(modify: (T) -> T) {
         val list = regions().toList()
-        env.logger.info { "Modifying ${list.size} regions" }
+        logger.info { "Modifying ${list.size} regions" }
         list.forEach {
-            env.logger.debug { "Save region(${it.regionX}, ${it.regionZ})" }
+            logger.debug { "Save region(${it.regionX}, ${it.regionZ})" }
             save(Coord(it.regionX, it.regionZ), it)
         }
     }

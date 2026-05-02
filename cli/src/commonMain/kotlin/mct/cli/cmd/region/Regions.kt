@@ -13,17 +13,12 @@ import mct.ExtractionGroup
 import mct.MCTError
 import mct.RegionReplacementGroup
 import mct.ReplacementGroup
-import mct.cli.WorkspaceCommand
-import mct.cli.jsonFile
-import mct.cli.path
-import mct.cli.writeJson
+import mct.cli.*
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
-import mct.util.io.readText
-import okio.FileSystem
 
 class Region : SuspendingCliktCommand(name = "region") {
     init {
@@ -40,7 +35,7 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
 
     val disableFilter by option("--disable-filter", help = "Disable built-in filter, extract all strings").flag()
 
-    context(_: Raise<MCTError>, fs: FileSystem)
+    context(_: Raise<MCTError>)
     override suspend fun App() {
         val userPatterns = patternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
@@ -65,7 +60,7 @@ private class RegionBackfill : WorkspaceCommand(name = "backfill") {
         help = "The replacements JSON file to apply back to region files"
     ).path().required()
 
-    context(_: Raise<MCTError>, fs: FileSystem)
+    context(_: Raise<MCTError>)
     override suspend fun App() {
         val replacementGroups =
             replacementGroupsPath.jsonFile<List<ReplacementGroup>>().filterIsInstance<RegionReplacementGroup>()

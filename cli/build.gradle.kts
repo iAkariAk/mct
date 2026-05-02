@@ -58,7 +58,7 @@ kotlin {
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.io.okio)
             implementation(project(":mct"))
-            implementation(project(":util"))
+            implementation(project(":extra"))
         }
 
         commonTest.dependencies {

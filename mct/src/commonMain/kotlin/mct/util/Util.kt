@@ -28,4 +28,4 @@ inline infix fun UInt.divCeil(other: UInt) = (this + other - 1u) / other
 inline infix fun ULong.divCeil(other: ULong) = (this + other - 1u) / other
 
 @DslMarker
-internal annotation class BuilderMaker
+annotation class BuilderMaker

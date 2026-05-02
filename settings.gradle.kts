@@ -26,7 +26,7 @@ rootProject.name = "mct"
 
 include(
     "mct",
-    "util",
+    "extra",
     "cli",
     "gui",
 //    "web"

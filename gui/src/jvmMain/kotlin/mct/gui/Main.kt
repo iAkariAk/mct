@@ -27,10 +27,10 @@ import androidx.compose.ui.window.application
 import arrow.core.raise.either
 import kotlinx.coroutines.launch
 import mct.Env
+import mct.extra.translator.TranslateError
+import mct.extra.translator.TranslateSign
 import mct.on
 import mct.onSign
-import mct.util.translator.TranslateError
-import mct.util.translator.TranslateSign
 import okio.FileSystem
 
 // ── 入口 ──────────────────────────────────────────────────────
