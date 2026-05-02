@@ -1,15 +1,34 @@
 package mct.gui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -17,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.FrameWindowScope
+import androidx.compose.ui.window.WindowState
+import kotlinx.coroutines.launch
 import mct.LoggerLevel
 import mct.extra.translator.CustomizedPrompts
 
@@ -222,4 +244,172 @@ fun coloredLogAnnotatedString(logLines: List<LogEntry>) = buildAnnotatedString {
         append(" ")
         withStyle(SpanStyle(color = textColor)) { append(entry.message) }
     }
+}
+
+// ── 可拖拽分割面板 ────────────────────────────────────────────
+
+@Composable
+fun DraggableSplitPane(
+    modifier: Modifier = Modifier,
+    initialRatio: Float = 0.7f,
+    minRatio: Float = 0.25f,
+    maxRatio: Float = 0.85f,
+    top: @Composable () -> Unit,
+    bottom: @Composable () -> Unit,
+) {
+    var ratio by remember { mutableFloatStateOf(initialRatio) }
+    var totalHeight by remember { mutableIntStateOf(0) }
+
+    Column(modifier = modifier.onSizeChanged { totalHeight = it.height }) {
+        Box(modifier = Modifier.weight(ratio.coerceIn(minRatio, maxRatio)).fillMaxWidth()) {
+            top()
+        }
+
+        // 拖拽手柄
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .pointerInput(totalHeight) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (totalHeight > 0) {
+                            ratio = (ratio + dragAmount / totalHeight).coerceIn(minRatio, maxRatio)
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Box(modifier = Modifier.weight((1f - ratio).coerceIn(minRatio, maxRatio)).fillMaxWidth()) {
+            bottom()
+        }
+    }
+}
+
+
+@Composable
+fun FrameWindowScope.WindowTitleBar(
+    windowState: WindowState,
+    onCloseRequest: () -> Unit,
+) {
+    var isMax by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val anim = remember { Animatable(0f) }
+    val savedBounds = remember { mutableStateOf<java.awt.Rectangle?>(null) }
+
+    val toggleMax = {
+        isMax = !isMax
+        scope.launch {
+            val screen = window.graphicsConfiguration.bounds
+            val from = window.bounds
+            val to = if (isMax) { savedBounds.value = from; screen }
+                     else savedBounds.value ?: java.awt.Rectangle(100, 100, 820, 760)
+            anim.snapTo(0f)
+            anim.animateTo(1f, tween(130)) {
+                val v = value
+                window.setBounds(
+                    (from.x + (to.x - from.x) * v).toInt(),
+                    (from.y + (to.y - from.y) * v).toInt(),
+                    (from.width + (to.width - from.width) * v).toInt(),
+                    (from.height + (to.height - from.height) * v).toInt()
+                )
+            }
+            window.setBounds(to.x, to.y, to.width, to.height)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val awt = window
+        val listener = object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                if (e.clickCount == 2) toggleMax()
+            }
+        }
+        awt.addMouseListener(listener)
+        onDispose { awt.removeMouseListener(listener) }
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        WindowDraggableArea(Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .padding(start = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Outlined.Translate,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "MCT - Minecraft 翻译工具",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.weight(1f))
+
+                WinCtlBtn(onClick = { windowState.isMinimized = true }) {
+                    Box(Modifier.size(14.dp, 2.dp).background(Color.White, RectangleShape))
+                }
+                WinCtlBtn(onClick = { toggleMax() }) {
+                    AnimatedContent(
+                        targetState = isMax,
+                        label = "max-btn"
+                    ) { maxd ->
+                        if (maxd)
+                            Box(Modifier.size(12.dp).border(2.dp, Color.White, RectangleShape).padding(2.dp).then(Modifier.fillMaxSize()).background(Color.White, RectangleShape))
+                        else
+                            Box(Modifier.size(12.dp).border(2.dp, Color.White, RectangleShape))
+                    }
+                }
+                WinCtlBtn(onClick = onCloseRequest, isClose = true) {
+                    Icon(Icons.Outlined.Close, contentDescription = "关闭", modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+fun WinCtlBtn(
+    onClick: () -> Unit,
+    isClose: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val bg by animateColorAsState(
+        when {
+            isClose && isHovered -> Color(0xFFE53935)
+            isHovered -> Color.White.copy(alpha = 0.1f)
+            else -> Color.Transparent
+        },
+        label = "winctl-bg"
+    )
+
+    Box(
+        modifier = Modifier
+            .width(48.dp)
+            .fillMaxHeight()
+            .hoverable(interactionSource)
+            .clickable(onClick = onClick)
+            .background(bg, RectangleShape),
+        contentAlignment = Alignment.Center
+    ) { content() }
 }
