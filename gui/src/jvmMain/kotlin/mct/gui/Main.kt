@@ -27,6 +27,7 @@ import mct.Env
 import mct.LoggerLevel
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
+import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.createOpenAIClient
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
@@ -42,6 +43,9 @@ fun main() = application {
     }
 
     val state = rememberWindowState(size = DpSize(820.dp, 760.dp))
+    var settingsVisible by remember { mutableStateOf(false) }
+    var tokenThreshold by remember { mutableIntStateOf(TOKEN_COUNT_THRESHOLD) }
+
     Window(
         onCloseRequest = ::exitApplication,
         state = state,
@@ -55,9 +59,21 @@ fun main() = application {
                 modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.background
             ) {
-                Column(Modifier.fillMaxSize()) {
-                    WindowTitleBar(state, onCloseRequest = ::exitApplication)
-                    App(Modifier.weight(1f))
+                Box(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                        WindowTitleBar(
+                            state,
+                            onCloseRequest = ::exitApplication,
+                            onOpenSettings = { settingsVisible = true }
+                        )
+                        App(Modifier.weight(1f), tokenThreshold = tokenThreshold, onTokenThresholdChange = { tokenThreshold = it })
+                    }
+                    SettingsSheet(
+                        visible = settingsVisible,
+                        tokenThreshold = tokenThreshold,
+                        onTokenThresholdChange = { tokenThreshold = it },
+                        onDismiss = { settingsVisible = false }
+                    )
                 }
             }
         }
@@ -67,7 +83,11 @@ fun main() = application {
 // ── 主框架 ────────────────────────────────────────────────────
 
 @Composable
-fun App(modifier: Modifier = Modifier) {
+fun App(
+    modifier: Modifier = Modifier,
+    tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
+    onTokenThresholdChange: (Int) -> Unit = {},
+) {
     val clientManager = koinInject<ClientManager>()
     var selectedTab by remember { mutableStateOf(Tab.Extract) }
     val logLines = remember { mutableStateListOf(LogEntry(null, "就绪。")) }
@@ -291,6 +311,7 @@ fun App(modifier: Modifier = Modifier) {
                                                         token = translateState.apiToken,
                                                         model = translateState.model,
                                                         termPath = translateState.existingTermPath.ifBlank { null },
+                                                        tokenThreshold = tokenThreshold,
                                                         literatureStyle = translateState.literatureStyle,
                                                         onFailure = { scope.launch { snackbarHostState.showSnackbar(it.message) } },
                                                         clientManager = clientManager

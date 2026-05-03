@@ -5,6 +5,7 @@ import arrow.core.raise.context.ensure
 import arrow.core.raise.context.raise
 import com.aallam.openai.api.chat.*
 import com.aallam.openai.api.core.Usage
+import com.aallam.openai.api.exception.GenericIOException
 import com.aallam.openai.api.exception.OpenAIHttpException
 import com.aallam.openai.api.exception.OpenAITimeoutException
 import com.aallam.openai.api.logging.LogLevel
@@ -169,7 +170,7 @@ class ChatCompletionCallImpl internal constructor(
                     noticeTokenConsume(it.usage)
                 }.choices.first().message.content!!
             }.getOrElse { e ->
-                if (e is OpenAIHttpException || e is OpenAITimeoutException) {
+                if (e is OpenAIHttpException || e is OpenAITimeoutException || e is GenericIOException) {
                     env.logger.error { "API error: ${e.message}. Retry ${llmRetry + 1}/$MAX_RETRY." }
                     llmRetry++
                     continue

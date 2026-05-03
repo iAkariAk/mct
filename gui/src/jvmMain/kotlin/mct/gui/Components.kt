@@ -12,10 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -380,6 +377,7 @@ fun DraggableSplitPane(
 fun FrameWindowScope.WindowTitleBar(
     windowState: WindowState,
     onCloseRequest: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     var isMax by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -437,6 +435,10 @@ fun FrameWindowScope.WindowTitleBar(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+
+                WinCtlBtn(onClick = onOpenSettings) {
+                    Icon(Icons.Outlined.Settings, contentDescription = "设置", modifier = Modifier.size(16.dp))
                 }
 
                 WinCtlBtn(onClick = { windowState.isMinimized = true }) {

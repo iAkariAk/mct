@@ -13,6 +13,7 @@ import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
 import mct.extra.ai.ChatCompletionCallError
+import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
@@ -191,6 +192,7 @@ suspend fun runTranslation(
     token: String,
     model: String,
     termPath: String?,
+    tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null
 ) {
@@ -220,7 +222,8 @@ suspend fun runTranslation(
     val translator = OpenAITranslator(
         call = call,
         defaultTerms = existingTerms,
-        customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle)
+        customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
+        tokenThreshold = tokenThreshold,
     )
 
     withContext(Dispatchers.IO) {

@@ -9,9 +9,11 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.int
 import mct.*
 import mct.cli.*
 import mct.extra.ai.ChatCompletionCall
+import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
@@ -71,7 +73,8 @@ private class TextPool : BaseCommand(
 
         val input by option("--input", "-i", help = "The extraction JSON file to unflatten").path().required()
         val mapping by option("--mapping", "-m", help = "The translation mapping JSON file").path().required()
-        val output by option("--output", "-o", help = "The output path for the replacement groups JSON").path().required()
+        val output by option("--output", "-o", help = "The output path for the replacement groups JSON").path()
+            .required()
 
         context(_: Raise<MCTError>)
         override suspend fun App() {
@@ -142,9 +145,23 @@ private class AITranslate : BaseCommand(
     val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
     val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
     val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
-    val useStreamApi by option("--use-stream-api", envvar = "OPENAI_STREAM_API", help = "Using streaming API can solve some api empty response, but maybe will slow down translation.").flag(default = false)
-    val literatureStyle by option("--literature-style", envvar = "LITERATURE_STYLE", help = "Custom literature style prompt for translation").default(
-        CustomizedPrompts.literatureStyle)
+    val useStreamApi by option(
+        "--use-stream-api",
+        envvar = "OPENAI_STREAM_API",
+        help = "Using streaming API can solve some api empty response, but maybe will slow down translation."
+    ).flag(default = false)
+    val tokenThreshold by option(
+        "--token-treshold",
+        envvar = "OPENAI_TOKEN_THRESHOLD",
+        help = "The token threshold amount per request."
+    ).int().default(TOKEN_COUNT_THRESHOLD)
+    val literatureStyle by option(
+        "--literature-style",
+        envvar = "LITERATURE_STYLE",
+        help = "Custom literature style prompt for translation"
+    ).default(
+        CustomizedPrompts.literatureStyle
+    )
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -154,15 +171,17 @@ private class AITranslate : BaseCommand(
         logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
 
         val translator = context(env) {
-             val call = ChatCompletionCall(
+            val call = ChatCompletionCall(
                 apiUrl = apiUrl,
                 token = token,
                 model = model,
+                useStreamApi = useStreamApi,
             )
             OpenAITranslator(
                 call = call,
                 customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
                 defaultTerms = terms,
+                tokenThreshold = tokenThreshold
             )
         }
 

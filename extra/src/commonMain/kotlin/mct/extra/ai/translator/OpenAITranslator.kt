@@ -150,21 +150,24 @@ class OpenAITranslator internal constructor(
     private val call: ChatCompletionCall,
     private val chatCompletion: suspend (Int, String) -> Pair<TermTable, List<String?>>,
     defaultTerms: TermTable,
-    private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
+    private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
+    private val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD
 ) : Translator {
     companion object {
         context(env: Env, _: Raise<ChatCompletionCallError>)
         operator fun invoke(
             call: ChatCompletionCall,
             defaultTerms: TermTable = emptySet(),
-            customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
+            customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
+            tokenThreshold: Int = TOKEN_COUNT_THRESHOLD
         ): OpenAITranslator {
             val chatCompletion = suspend { expectedSize: Int, message: String ->
                 call.translate(customizedPrompts, message, expectedSize)
             }
-            return OpenAITranslator(call, chatCompletion, defaultTerms, customizedPrompts)
+            return OpenAITranslator(call, chatCompletion, defaultTerms, customizedPrompts, tokenThreshold)
         }
     }
+
     override val env get() = call.env
 
     override val terms: MutableSet<Term> = defaultTerms.toMutableSet()
@@ -172,7 +175,7 @@ class OpenAITranslator internal constructor(
     private val mutex = Mutex()
 
     override suspend fun translate(kind: FormatKind, sources: List<String>): List<String> {
-        val chunks = sources.chunkedByToken(TOKEN_COUNT_THRESHOLD).toList()
+        val chunks = sources.chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
         logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms" }
         val translated = chunks.withIndex().fold(mutableListOf<String>()) { translated, (index, chunk) ->
