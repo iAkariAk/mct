@@ -2,7 +2,7 @@ package mct.text
 
 import net.benwoodworth.knbt.NbtString
 
-private val MAYBE_FIELDS = listOf(
+private val MAYBE_MAJOR_FIELDS = listOf(
     "text",
     "translate",
     "selector",
@@ -11,10 +11,32 @@ private val MAYBE_FIELDS = listOf(
     "keybind",
 )
 
-private val MAYBE_FIELDS_AS_KEY = MAYBE_FIELDS.map { """"$it"\s*:\s*""".toRegex() }
+private val ALL_FIELD = listOf(
+    // Content
+    "text", "translate", "with", "fallback",
+    "score", "selector", "keybind",
+    // NBT
+    "nbt", "block", "entity", "storage",
+    "interpret", "plain", "separator", "source",
+    // Sprite / Object
+    "object", "sprite", "atlas", "player",
+    // Children & type
+    "extra", "type",
+    // Formatting
+    "color", "font",
+    "bold", "italic", "underlined", "strikethrough", "obfuscated",
+    "shadow_color", "insertion",
+    // Events
+    "click_event", "hover_event",
+)
+
+private val MAYBE_FIELDS_AS_KEY = MAYBE_MAJOR_FIELDS.map { """"$it"\s*:\s*""".toRegex() }
+
 internal fun String.isTextComponent() = MAYBE_FIELDS_AS_KEY.any { it.containsMatchIn(this) }
 
-internal fun Map<String, *>.isTextCompound() = MAYBE_FIELDS.any(this::containsKey)
+internal fun Map<String, *>.isTextCompound() =
+    keys.all { ALL_FIELD.contains(it) } // to avoid misidentifying some compound including `text` or whatever, e.g. Display Entities includes `text`
+
 // "minecraft:lore": [
 //  {
 //    "": " " // Here are a shorthand for "text"

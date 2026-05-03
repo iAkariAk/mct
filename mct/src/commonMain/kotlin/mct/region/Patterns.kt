@@ -22,6 +22,8 @@ val BuiltinRegionPatterns = PatternSet {
     +RegexPattern("""#components>#minecraft:writable_book_content>#pages>\d+(?:>#(?:raw|filtered))?$""")
     +RegexPattern("""#components>#minecraft:custom_name(>#raw)?$""")
 
+    // Display entities (refer to https://zh.minecraft.wiki/w/%E5%B1%95%E7%A4%BA%E5%AE%9E%E4%BD%93#%E5%AE%9E%E4%BD%93%E6%95%B0%E6%8D%AE)
+    +RegexPattern("""^>#>#Entities>\d+>#text$""")
 
 
     // --- Written Books (Nested in Item Tags) ---
