@@ -13,6 +13,7 @@ knbt = "0.11.9"
 korlibs = "6.0.2"
 kotest = "6.1.11"
 kotlin = "2.3.21"
+koin = "4.2.1"
 kotlinx-io = "0.9.0"
 ksp = "2.3.7"
 ktor = "3.4.3"
@@ -52,6 +53,8 @@ kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.re
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collections-immutable" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.ref = "kotlinx-io" }

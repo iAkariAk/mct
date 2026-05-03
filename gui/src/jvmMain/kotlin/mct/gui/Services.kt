@@ -182,6 +182,7 @@ suspend fun runExtraction(
  */
 context(env: Env, _: Raise<ChatCompletionCallError>)
 suspend fun runTranslation(
+    clientManager: ClientManager,
     input: String,
     output: String,
     mappingOutput: String,
@@ -210,7 +211,7 @@ suspend fun runTranslation(
         groups to terms
     }
 
-    val call = chatCompletionCall
+    val call = clientManager.chatCompletionCall
     if (call == null) {
         onFailure?.invoke(ChatCompletionCallError.UnvalidatedApi("没有 API 连接，请先在设置中配置"))
         return
