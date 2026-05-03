@@ -1,6 +1,5 @@
 package mct.gui
 
-import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.either
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +12,11 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.ExtractPattern
-import mct.extra.translator.*
+import mct.extra.ai.ChatCompletionCallError
+import mct.extra.ai.translator.CustomizedPrompts
+import mct.extra.ai.translator.OpenAITranslator
+import mct.extra.ai.translator.TermTable
+import mct.extra.ai.translator.translate
 import mct.kit.replace
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
@@ -94,8 +97,8 @@ fun saveSettings(apiUrl: String, model: String, apiToken: String): Boolean {
  * All I/O uses [env.fs] (Okio). All status messages go through [env.logger].
  * Progress/signals are emitted via `env.logger.sign<>` and handled upstream by `onSign<>`.
  */
+context(env: Env)
 suspend fun runExtraction(
-    env: Env,
     input: String,
     output: String,
     mode: String,
@@ -177,9 +180,8 @@ suspend fun runExtraction(
  * TranslateSign signals (progress) are emitted via `env.logger.sign<>` and
  * handled by the `onSign<>` wrapper created at App level.
  */
-context(_: Raise<TranslateError>)
+context(env: Env, _: Raise<ChatCompletionCallError>)
 suspend fun runTranslation(
-    env: Env,
     input: String,
     output: String,
     mappingOutput: String,
@@ -188,53 +190,41 @@ suspend fun runTranslation(
     token: String,
     model: String,
     termPath: String?,
-    useStreamApi: Boolean = false,
     literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
-    onFailure: ((TranslateError) -> Unit)? = null
+    onFailure: ((ChatCompletionCallError) -> Unit)? = null
 ) {
-    withContext(Dispatchers.IO) {
-        env.logger.info { "正在加载提取结果: $input" }
-        val json = env.fs.read(input.toPath()) { readUtf8() }
-        val extractionGroups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
-        env.logger.info { "已加载 ${extractionGroups.size} 个提取分组" }
+    env.logger.info { "正在加载提取结果: $input" }
 
-        val existingTerms: TermTable = if (termPath != null && env.fs.exists(termPath.toPath())) {
+    val (extractionGroups, existingTerms) = withContext(Dispatchers.IO) {
+        val json = env.fs.read(input.toPath()) { readUtf8() }
+        val groups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
+        env.logger.info { "已加载 ${groups.size} 个提取分组" }
+
+        val terms: TermTable = if (termPath != null && env.fs.exists(termPath.toPath())) {
             val termJson = env.fs.read(termPath.toPath()) { readUtf8() }
             MCTJson.decodeFromString<TermTable>(termJson).also {
                 env.logger.info { "已加载 ${it.size} 个已有术语" }
             }
         } else emptySet()
 
-        val translator = either {
-            val cl = openAIClient
-            if (cl != null) {
-                OpenAITranslator(
-                    client = cl,
-                    model = model.trim(),
-                    defaultTerms = existingTerms,
-                    env = env,
-                    useStreamApi = useStreamApi,
-                    customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle)
-                )
-            } else {
-                OpenAITranslator(
-                    customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
-                    apiUrl = apiUrl?.trim()?.ifBlank { null },
-                    token = token.trim(),
-                    model = model.trim(),
-                    defaultTerms = existingTerms,
-                    env = env,
-                    useStreamApi = useStreamApi
-                )
-            }
-        }.getOrElse {
-            onFailure?.invoke(it)
-            return@withContext
-        }
+        groups to terms
+    }
 
+    val call = chatCompletionCall
+    if (call == null) {
+        onFailure?.invoke(ChatCompletionCallError.UnvalidatedApi("没有 API 连接，请先在设置中配置"))
+        return
+    }
+
+    val translator = OpenAITranslator(
+        call = call,
+        defaultTerms = existingTerms,
+        customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle)
+    )
+
+    withContext(Dispatchers.IO) {
         try {
             val mapping = translator.translate(extractionGroups)
-
             val replacements = extractionGroups.replace(mapping)
 
             env.fs.write(output.toPath()) { writeUtf8(MCTJson.encodeToString(replacements)) }
@@ -243,7 +233,7 @@ suspend fun runTranslation(
 
             env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
             env.logger.info { "替换文件已写入: $output" }
-            env.logger.info { "映射文件已写入: $mapping" }
+            env.logger.info { "映射文件已写入: $mappingOutput" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
             saveSettings(apiUrl ?: "", model, token)

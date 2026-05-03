@@ -41,7 +41,7 @@ import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.WindowState
 import kotlinx.coroutines.launch
 import mct.LoggerLevel
-import mct.extra.translator.CustomizedPrompts
+import mct.extra.ai.translator.CustomizedPrompts
 
 // ── 可复用组件 ───────────────────────────────────────────────
 

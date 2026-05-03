@@ -1,4 +1,4 @@
-package mct.extra.translator
+package mct.extra.ai
 
 import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.EncodingType

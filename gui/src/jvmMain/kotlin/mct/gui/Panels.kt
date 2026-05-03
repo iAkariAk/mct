@@ -129,7 +129,7 @@ fun TranslatePanel(
     isRunning: Boolean,
     onRun: () -> Unit,
     onSaveSettings: () -> Unit,
-    onOptimizePrompt: suspend (String, useStreamApi: Boolean) -> String? = { _, _ -> null },
+    onOptimizePrompt: suspend (String) -> String? = { _ -> null },
 ) {
     var showToken by remember { mutableStateOf(false) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
@@ -264,13 +264,13 @@ fun TranslatePanel(
                     optimizeJob = scope.launch {
                         onStateChange(state.copy(isOptimizing = true))
                         try {
-                            val improved = onOptimizePrompt(state.literatureStyle, state.useStreamApi)
+                            val improved = onOptimizePrompt(state.literatureStyle)
                             if (improved != null) {
                                 onStateChange(state.copy(literatureStyle = improved, isOptimizing = false))
                             } else {
                                 onStateChange(state.copy(isOptimizing = false))
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             onStateChange(state.copy(isOptimizing = false))
                         } finally {
                             optimizeJob = null

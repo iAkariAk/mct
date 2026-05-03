@@ -1,4 +1,4 @@
-package mct.extra.translator
+package mct.extra.ai
 
 import korlibs.math.toIntFloor
 

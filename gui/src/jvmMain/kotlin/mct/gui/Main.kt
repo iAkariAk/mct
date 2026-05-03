@@ -19,13 +19,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import arrow.core.getOrElse
 import arrow.core.raise.either
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mct.Env
 import mct.LoggerLevel
-import mct.extra.translator.TranslateSign
-import mct.extra.translator.optimizePrompt
+import mct.extra.ai.ChatCompletionCall
+import mct.extra.ai.ChatCompletionCallError
+import mct.extra.ai.createOpenAIClient
+import mct.extra.ai.translator.TranslateSign
+import mct.extra.ai.translator.optimizePrompt
 import mct.on
 import mct.onSign
 import okio.FileSystem
@@ -59,11 +63,10 @@ fun main() = application {
 @Composable
 fun App(modifier: Modifier = Modifier) {
     var selectedTab by remember { mutableStateOf(Tab.Extract) }
-    var logLines = remember { mutableStateListOf(LogEntry(null, "就绪。")) }
+    val logLines = remember { mutableStateListOf(LogEntry(null, "就绪。")) }
     var isRunning by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // 提取
     var extractState by remember { mutableStateOf(ExtractState()) }
     var translateState by remember { mutableStateOf(TranslateState()) }
     var backfillState by remember { mutableStateOf(BackfillState()) }
@@ -71,7 +74,6 @@ fun App(modifier: Modifier = Modifier) {
     var translateProgress by remember { mutableFloatStateOf(0f) }
     var translateStatus by remember { mutableStateOf("") }
 
-    // 日志过滤
     var logLevelFilter by remember {
         mutableStateOf(setOf(LoggerLevel.Info, LoggerLevel.Warning, LoggerLevel.Error, LoggerLevel.Debug))
     }
@@ -90,319 +92,316 @@ fun App(modifier: Modifier = Modifier) {
         }
     }
     val env = remember {
-        Env(
-            fs = FileSystem.SYSTEM,
-            logger = guiLogger
-        )
+        Env(fs = FileSystem.SYSTEM, logger = guiLogger)
     }
 
-    // 启动时同步加载 API 设置
-    val savedSettings = remember { loadSettings() }
-    LaunchedEffect(Unit) {
-        translateState = translateState.copy(
-            apiUrl = savedSettings.apiUrl,
-            model = savedSettings.model,
-            apiToken = savedSettings.apiToken
-        )
-        if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank()) {
-            logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
-            try {
-                openAIClient = createOpenAIClient(savedSettings.apiUrl.ifBlank { null }, savedSettings.apiToken)
-                logLines.add(LogEntry(LoggerLevel.Debug, "正在请求可用模型列表..."))
-                val models = listModels(openAIClient!!)
-                translateState = translateState.copy(availableModels = models)
-                logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
-                logLines.add(LogEntry(null, "已获取 ${models.size} 个可用模型"))
-            } catch (e: Exception) {
-                logLines.add(LogEntry(LoggerLevel.Warning, "获取模型列表失败: ${e.message}"))
+    context(env) {
+        val savedSettings = remember { loadSettings() }
+        LaunchedEffect(Unit) {
+            translateState = translateState.copy(
+                apiUrl = savedSettings.apiUrl, model = savedSettings.model, apiToken = savedSettings.apiToken
+            )
+            if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank()) {
+                logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
+                try {
+                    openAIClient = createOpenAIClient(savedSettings.apiUrl.ifBlank { null }, savedSettings.apiToken)
+                    logLines.add(LogEntry(LoggerLevel.Debug, "正在请求可用模型列表..."))
+                    val models = openAIClient!!.listModels()
+                    translateState = translateState.copy(availableModels = models)
+                    logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
+                    logLines.add(LogEntry(null, "已获取 ${models.size} 个可用模型"))
+
+                    if (savedSettings.model in models) {
+                        either<ChatCompletionCallError, Unit> {
+                            chatCompletionCall = ChatCompletionCall(
+                                client = openAIClient!!,
+                                model = savedSettings.model,
+                            )
+                        }.onLeft {
+                            logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}"))
+                        }
+                    }
+                } catch (e: Exception) {
+                    logLines.add(LogEntry(LoggerLevel.Warning, "获取模型列表失败: ${e.message}"))
+                }
             }
         }
-    }
-    // API 设置变更时刷新模型列表
-    LaunchedEffect(translateState.apiUrl, translateState.apiToken) {
-        if (translateState.apiUrl.isNotBlank() && translateState.apiToken.isNotBlank()) {
-            translateState = translateState.copy(isModelsLoading = true)
-            try {
-                openAIClient = createOpenAIClient(translateState.apiUrl.ifBlank { null }, translateState.apiToken)
-                logLines.add(LogEntry(LoggerLevel.Debug, "正在刷新模型列表..."))
-                val models = listModels(openAIClient!!)
-                translateState = translateState.copy(availableModels = models, isModelsLoading = false)
-                logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
-            } catch (e: Exception) {
-                translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
+
+        LaunchedEffect(translateState.apiUrl, translateState.apiToken) {
+            chatCompletionCall = null
+            if (translateState.apiUrl.isNotBlank() && translateState.apiToken.isNotBlank()) {
+                translateState = translateState.copy(isModelsLoading = true)
+                try {
+                    openAIClient = createOpenAIClient(translateState.apiUrl.ifBlank { null }, translateState.apiToken)
+                    logLines.add(LogEntry(LoggerLevel.Debug, "正在刷新模型列表..."))
+                    val models = openAIClient!!.listModels()
+                    translateState = translateState.copy(availableModels = models, isModelsLoading = false)
+                    logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
+
+                    if (translateState.model in models) {
+                        either<ChatCompletionCallError, Unit> {
+                            chatCompletionCall = ChatCompletionCall(
+                                client = openAIClient!!,
+                                model = translateState.model,
+                            )
+                        }.onLeft {
+                            logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}"))
+                        }
+                    }
+                } catch (_: Exception) {
+                    translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
+                }
             }
         }
-    }
 
-    val scope = rememberCoroutineScope()
-
-    fun launchOp(
-        prelude: () -> Unit,
-        block: suspend CoroutineScope.() -> Unit
-    ) {
-        prelude()
-        scope.launch {
-            try {
-                block()
-            } catch (e: Exception) {
-                logLines.add(LogEntry(LoggerLevel.Error, e.stackTraceToString()))
-                snackbarHostState.showSnackbar(e.message ?: "未知错误")
-            } finally {
-                isRunning = false
+        LaunchedEffect(translateState.model) {
+            if (openAIClient != null && translateState.model.isNotBlank()) {
+                val models = translateState.availableModels
+                if (models.isEmpty() || translateState.model in models) {
+                    either<ChatCompletionCallError, Unit> {
+                        chatCompletionCall = ChatCompletionCall(
+                            client = openAIClient!!,
+                            model = translateState.model,
+                        )
+                    }.onLeft {
+                        logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}"))
+                    }
+                }
             }
         }
-    }
 
-    Box(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            NavigationRail(
-                header = {
-                    Spacer(Modifier.height(8.dp))
-                    Icon(
-                        Icons.Outlined.Translate, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                },
-                modifier = Modifier.padding(end = 4.dp),
-                containerColor = Color.Transparent,
-            ) {
-                NavigationRailItem(
-                    selected = selectedTab == Tab.Extract,
-                    onClick = { selectedTab = Tab.Extract },
-                    icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    label = { Text(Tab.Extract.label, style = MaterialTheme.typography.labelSmall) },
-                )
-                NavigationRailItem(
-                    selected = selectedTab == Tab.Translate,
-                    onClick = { selectedTab = Tab.Translate },
-                    icon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
-                    label = { Text(Tab.Translate.label, style = MaterialTheme.typography.labelSmall) },
-                )
-                NavigationRailItem(
-                    selected = selectedTab == Tab.Backfill,
-                    onClick = { selectedTab = Tab.Backfill },
-                    icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
-                    label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) },
-                )
+        val scope = rememberCoroutineScope()
+
+        fun launchOp(prelude: () -> Unit, block: suspend CoroutineScope.() -> Unit) {
+            prelude()
+            scope.launch {
+                try {
+                    block()
+                } catch (e: Exception) {
+                    logLines.add(LogEntry(LoggerLevel.Error, e.stackTraceToString()))
+                    snackbarHostState.showSnackbar(e.message ?: "未知错误")
+                } finally {
+                    isRunning = false
+                }
             }
+        }
 
-            // 可拖拽分割区
-            DraggableSplitPane(modifier = Modifier.weight(1f), top = { // 内容区
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ),
-                    shape = MaterialTheme.shapes.large,
+        Box(modifier = modifier.fillMaxSize().padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                NavigationRail(
+                    header = {
+                        Spacer(Modifier.height(8.dp))
+                        Icon(
+                            Icons.Outlined.Translate,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    },
+                    modifier = Modifier.padding(end = 4.dp),
+                    containerColor = Color.Transparent,
                 ) {
-                    AnimatedContent(
-                        targetState = selectedTab,
-                        modifier = Modifier.fillMaxSize(),
-                        transitionSpec = {
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Extract,
+                        onClick = { selectedTab = Tab.Extract },
+                        icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        label = { Text(Tab.Extract.label, style = MaterialTheme.typography.labelSmall) })
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Translate,
+                        onClick = { selectedTab = Tab.Translate },
+                        icon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
+                        label = { Text(Tab.Translate.label, style = MaterialTheme.typography.labelSmall) })
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Backfill,
+                        onClick = { selectedTab = Tab.Backfill },
+                        icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
+                        label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) })
+                }
+
+                DraggableSplitPane(modifier = Modifier.weight(1f), top = {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                        shape = MaterialTheme.shapes.large,
+                    ) {
+                        AnimatedContent(targetState = selectedTab, modifier = Modifier.fillMaxSize(), transitionSpec = {
                             val dir = if (targetState > initialState) 1 else -1
-                            (slideInHorizontally { w -> dir * w / 4 } + fadeIn()) togetherWith
-                                    (slideOutHorizontally { w -> -dir * w / 4 } + fadeOut())
-                        },
-                        label = "tab-content"
-                    ) { tab ->
-                        val contentScroll = rememberScrollState()
-                        Column(modifier = Modifier.fillMaxSize().verticalScroll(contentScroll)) {
-                            when (tab) {
-                                Tab.Extract -> ExtractPanel(
-                                    state = extractState,
-                                    onStateChange = { extractState = it },
-                                    isRunning = isRunning,
-                                    onRun = {
-                                        launchOp(prelude = { isRunning = true; logLines.clear() }) {
-                                            runExtraction(
-                                                env, extractState.input, extractState.output, extractState.mode.key,
-                                                extractState.disableFilter,
-                                                extractState.regionPatternPath, extractState.mcfPatternPath,
-                                                extractState.mcjPatternPath
-                                            )
-                                        }
-                                    }
-                                )
-
-                                Tab.Translate -> TranslatePanel(
-                                    state = translateState,
-                                    onStateChange = { translateState = it },
-                                    translationProgress = translateProgress,
-                                    translationStatus = translateStatus,
-                                    isRunning = isRunning,
-                                    onRun = {
-                                        launchOp(prelude = {
-                                            isRunning = true; logLines.clear(); translateProgress =
-                                            0f; translateStatus = ""
-                                        }) {
-                                            either {
-                                                runTranslation(
-                                                    env = env,
-                                                    input = translateState.input,
-                                                    output = translateState.output,
-                                                    mappingOutput = translateState.mappingOutput,
-                                                    termOutput = translateState.termOutput,
-                                                    apiUrl = translateState.apiUrl.ifBlank { null },
-                                                    token = translateState.apiToken,
-                                                    model = translateState.model,
-                                                    termPath = translateState.existingTermPath.ifBlank { null },
-                                                    useStreamApi = translateState.useStreamApi,
-                                                    literatureStyle = translateState.literatureStyle,
-                                                    onFailure = {
-                                                        scope.launch { snackbarHostState.showSnackbar(it.message) }
-                                                    }
+                            (slideInHorizontally { w -> dir * w / 4 } + fadeIn()) togetherWith (slideOutHorizontally { w -> -dir * w / 4 } + fadeOut())
+                        }, label = "tab-content") { tab ->
+                            val contentScroll = rememberScrollState()
+                            Column(modifier = Modifier.fillMaxSize().verticalScroll(contentScroll)) {
+                                when (tab) {
+                                    Tab.Extract -> ExtractPanel(
+                                        state = extractState,
+                                        onStateChange = { extractState = it },
+                                        isRunning = isRunning,
+                                        onRun = {
+                                            launchOp(prelude = { isRunning = true; logLines.clear() }) {
+                                                runExtraction(
+                                                    extractState.input,
+                                                    extractState.output,
+                                                    extractState.mode.key,
+                                                    extractState.disableFilter,
+                                                    extractState.regionPatternPath,
+                                                    extractState.mcfPatternPath,
+                                                    extractState.mcjPatternPath
                                                 )
-                                            }.onLeft { snackbarHostState.showSnackbar(it.message) }
-                                        }
-                                    },
-                                    onSaveSettings = {
-                                        logLines.add(
-                                            LogEntry(
-                                                null,
-                                                if (saveSettings(
-                                                        translateState.apiUrl,
-                                                        translateState.model,
-                                                        translateState.apiToken
-                                                    )
-                                                )
-                                                    "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"
-                                            )
-                                        )
-                                    },
-                                    onOptimizePrompt = { current, streamApi ->
-                                        val cl = openAIClient
-                                        if (cl == null) {
-                                            logLines.add(LogEntry(LoggerLevel.Error, "请先在 API 设置中连接"))
-                                            null
-                                        } else {
-                                            logLines.add(LogEntry(null, "正在优化翻译风格提示词..."))
-                                            try {
-                                                context(env) {
-                                                    val result =
-                                                        cl.optimizePrompt(translateState.model, current, streamApi)
-                                                    logLines.add(LogEntry(null, "优化完成"))
-                                                    result
-                                                }
-                                            } catch (e: Exception) {
-                                                env.logger.error { "优化失败: ${e.stackTraceToString()}" }
-                                                snackbarHostState.showSnackbar("优化失败: ${e.message?.take(100)}")
-                                                null
                                             }
-                                        }
-                                    }
-                                )
+                                        })
 
-                                Tab.Backfill -> BackfillPanel(
-                                    state = backfillState,
-                                    onStateChange = { backfillState = it },
-                                    isRunning = isRunning,
-                                    onRun = {
-                                        launchOp(prelude = { isRunning = true; logLines.clear() }) {
-                                            runBackfill(
-                                                env,
-                                                backfillState.input,
-                                                backfillState.replacements,
-                                                backfillState.mode.key
+                                    Tab.Translate -> TranslatePanel(
+                                        state = translateState,
+                                        onStateChange = { translateState = it },
+                                        translationProgress = translateProgress,
+                                        translationStatus = translateStatus,
+                                        isRunning = isRunning,
+                                        onRun = {
+                                            launchOp(prelude = {
+                                                isRunning = true; logLines.clear(); translateProgress =
+                                                0f; translateStatus = ""
+                                            }) {
+                                                either {
+                                                    runTranslation(
+                                                        input = translateState.input,
+                                                        output = translateState.output,
+                                                        mappingOutput = translateState.mappingOutput,
+                                                        termOutput = translateState.termOutput,
+                                                        apiUrl = translateState.apiUrl.ifBlank { null },
+                                                        token = translateState.apiToken,
+                                                        model = translateState.model,
+                                                        termPath = translateState.existingTermPath.ifBlank { null },
+                                                        literatureStyle = translateState.literatureStyle,
+                                                        onFailure = { scope.launch { snackbarHostState.showSnackbar(it.message) } })
+                                                }.onLeft { snackbarHostState.showSnackbar(it.message) }
+                                            }
+                                        },
+                                        onSaveSettings = {
+                                            logLines.add(
+                                                LogEntry(
+                                                    null, if (saveSettings(
+                                                            translateState.apiUrl,
+                                                            translateState.model,
+                                                            translateState.apiToken
+                                                        )
+                                                    ) "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"
+                                                )
                                             )
-                                        }
-                                    }
-                                )
+                                        },
+                                        onOptimizePrompt = { current ->
+                                            val cl = chatCompletionCall
+                                            if (cl == null) {
+                                                logLines.add(LogEntry(LoggerLevel.Error, "请先在 API 设置中连接"))
+                                                null
+                                            } else {
+                                                logLines.add(LogEntry(null, "正在优化翻译风格提示词..."))
+                                                either {
+                                                    cl.optimizePrompt(current)
+                                                }.getOrElse {
+                                                    env.logger.error { "优化失败: ${it.message}" }
+                                                    snackbarHostState.showSnackbar("优化失败: ${it.message}")
+                                                    null
+                                                }
+                                            }
+                                        })
+
+                                    Tab.Backfill -> BackfillPanel(
+                                        state = backfillState,
+                                        onStateChange = { backfillState = it },
+                                        isRunning = isRunning,
+                                        onRun = {
+                                            launchOp(prelude = { isRunning = true; logLines.clear() }) {
+                                                runBackfill(
+                                                    env,
+                                                    backfillState.input,
+                                                    backfillState.replacements,
+                                                    backfillState.mode.key
+                                                )
+                                            }
+                                        })
+                                }
                             }
                         }
                     }
-                }
-            }, bottom = { // 日志面板
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Terminal,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "运行日志",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Box {
-                            IconButton(onClick = { showLogSettings = true }) {
-                                Icon(
-                                    Icons.Outlined.Settings,
-                                    contentDescription = "日志过滤",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (logLevelFilter.size < 4) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showLogSettings,
-                                onDismissRequest = { showLogSettings = false }
-                            ) {
-                                listOf(
-                                    LoggerLevel.Info,
-                                    LoggerLevel.Warning,
-                                    LoggerLevel.Error,
-                                    LoggerLevel.Debug
-                                ).forEach { level ->
-                                    val checked = level in logLevelFilter
-                                    DropdownMenuItem(
-                                        text = { Text(level.name) },
-                                        onClick = {
-                                            logLevelFilter = if (checked) logLevelFilter - level
-                                            else logLevelFilter + level
-                                        },
-                                        leadingIcon = {
+                }, bottom = {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Terminal,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "运行日志",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Box {
+                                IconButton(onClick = { showLogSettings = true }) {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = "日志过滤",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (logLevelFilter.size < 4) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showLogSettings,
+                                    onDismissRequest = { showLogSettings = false }
+                                ) {
+                                    listOf(
+                                        LoggerLevel.Info, LoggerLevel.Warning, LoggerLevel.Error, LoggerLevel.Debug
+                                    ).forEach { level ->
+                                        val checked = level in logLevelFilter
+                                        DropdownMenuItem(text = { Text(level.name) }, onClick = {
+                                            logLevelFilter =
+                                                if (checked) logLevelFilter - level else logLevelFilter + level
+                                        }, leadingIcon = {
                                             if (checked) Icon(
                                                 Icons.Outlined.Check,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(18.dp)
                                             )
-                                        }
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        val logScroll = rememberScrollState()
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            tonalElevation = 2.dp
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                SelectionContainer {
+                                    Text(
+                                        text = coloredLogAnnotatedString(logLines.filter { it.level == null || it.level in logLevelFilter }),
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)
+                                            .verticalScroll(logScroll),
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
                                     )
+                                }
+                                TextButton(
+                                    modifier = Modifier.align(Alignment.TopEnd),
+                                    onClick = { scope.launch { logScroll.animateScrollTo(logScroll.maxValue) } }) {
+                                    Text("↓")
                                 }
                             }
                         }
                     }
+                })
+            }
 
-                    Spacer(Modifier.height(4.dp))
-
-                    val logScroll = rememberScrollState()
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        tonalElevation = 2.dp
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            SelectionContainer {
-                                Text(
-                                    text = coloredLogAnnotatedString(
-                                        logLines.filter { it.level == null || it.level in logLevelFilter }
-                                    ),
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)
-                                        .verticalScroll(logScroll),
-                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                )
-                            }
-                            TextButton(
-                                modifier = Modifier.align(Alignment.TopEnd),
-                                onClick = { scope.launch { logScroll.animateScrollTo(logScroll.maxValue) } }
-                            ) { Text("↓") }
-                        }
-                    }
-                }
-            })
+            SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }

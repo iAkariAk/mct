@@ -1,4 +1,4 @@
-package mct.extra.translator
+package mct.extra.ai.translator
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

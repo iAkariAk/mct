@@ -1,16 +1,7 @@
-package mct.extra.translator
+package mct.extra.ai.translator
 
 import arrow.core.Option
 import arrow.core.raise.Raise
-import arrow.core.raise.context.ensure
-import arrow.core.raise.context.raise
-import com.aallam.openai.api.logging.LogLevel
-import com.aallam.openai.client.LoggingConfig
-import com.aallam.openai.client.OpenAI
-import com.aallam.openai.client.OpenAIHost
-import io.ktor.client.plugins.logging.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
@@ -20,6 +11,10 @@ import kotlinx.serialization.json.JsonElement
 import mct.Env
 import mct.EnvHolder
 import mct.FormatKind
+import mct.extra.ai.ChatCompletionCall
+import mct.extra.ai.ChatCompletionCallError
+import mct.extra.ai.TOKEN_COUNT_THRESHOLD
+import mct.extra.ai.chunkedByToken
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
@@ -33,7 +28,6 @@ import mct.util.formatir.toNbt
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
-import io.ktor.client.plugins.logging.Logger as KtorLogger
 
 data class CustomizedPrompts(
     val literatureStyle: String = Defaults.literatureStyle
@@ -139,97 +133,39 @@ private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) -
 private val REGEX_LLM_OUTPUT =
     """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
 
-context(env: Env)
-private suspend fun OpenAI.translate(
+context(_: Env, _: Raise<ChatCompletionCallError>)
+private suspend fun ChatCompletionCall.translate(
     customizePrompts: CustomizedPrompts = CustomizedPrompts.Default,
-    model: String,
     message: String,
     expectedSize: Int,
-    useStreamApi: Boolean = false
-): Pair<TermTable, List<String?>> =
-    chat(model, prompt(customizePrompts), message, useStreamApi = useStreamApi, parseLLM = {
+): Pair<TermTable, List<String?>> = chat(
+    prompt = prompt(customizePrompts),
+    message = message,
+    parseLLM = {
         parseLLMResponse(it, expectedSize)
-    })
+    }
+)
 
 class OpenAITranslator internal constructor(
+    private val call: ChatCompletionCall,
     private val chatCompletion: suspend (Int, String) -> Pair<TermTable, List<String?>>,
-    private val model: String,
     defaultTerms: TermTable,
-    override val env: Env,
     private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
 ) : Translator {
     companion object {
-        context(_: Raise<TranslateError>)
-        suspend operator fun invoke(
-            apiUrl: String?,
-            token: String,
-            model: String,
-            defaultTerms: TermTable,
-            useStreamApi: Boolean = false,
-            env: Env = Env.Default,
+        context(env: Env, _: Raise<ChatCompletionCallError>)
+        operator fun invoke(
+            call: ChatCompletionCall,
+            defaultTerms: TermTable = emptySet(),
             customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
         ): OpenAITranslator {
-            val host = apiUrl?.let {
-                val url = StringBuilder(apiUrl)
-                if (!url.endsWith("/")) url.append("/")
-                if (!url.endsWith("v1/")) url.append("v1/")
-                OpenAIHost(url.toString())
-            } ?: OpenAIHost.OpenAI
-            val client = OpenAI(
-                token,
-                host = host,
-                logging = LoggingConfig(
-                    logLevel = LogLevel.Info,
-                ),
-                httpClientConfig = {
-                    engine {
-                        dispatcher = Dispatchers.IO // https://github.com/aallam/openai-kotlin/issues/461
-                    }
-                    install(Logging) {
-                        logger = object : KtorLogger {
-                            override fun log(message: String) {
-                                env.logger.debug { message }
-                            }
-                        }
-                    }
-                }
-            )
-            return OpenAITranslator(
-                client = client,
-                model = model,
-                defaultTerms = defaultTerms,
-                customizedPrompts = customizedPrompts,
-                useStreamApi = useStreamApi,
-                env = env
-            )
-        }
-
-        context(_: Raise<TranslateError>)
-        suspend operator fun invoke(
-            client: OpenAI,
-            model: String,
-            defaultTerms: TermTable,
-            useStreamApi: Boolean = false,
-            env: Env = Env.Default,
-            customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default
-        ): OpenAITranslator = context(env) {
-            val models = runCatching {
-                client.models()
-            }.getOrElse {
-                raise(TranslateError.IllegalUrl("Try request models, but it cannot respond correctly."))
-            }
-            ensure(model in models.map { it.id.id }) {
-                TranslateError.ModelNotFound(model)
-            }
-
             val chatCompletion = suspend { expectedSize: Int, message: String ->
-                client.translate(customizedPrompts, model, message, expectedSize, useStreamApi)
+                call.translate(customizedPrompts, message, expectedSize)
             }
-
-            return OpenAITranslator(chatCompletion, model, defaultTerms, env, customizedPrompts)
+            return OpenAITranslator(call, chatCompletion, defaultTerms, customizedPrompts)
         }
     }
-
+    override val env get() = call.env
 
     override val terms: MutableSet<Term> = defaultTerms.toMutableSet()
 
@@ -277,7 +213,7 @@ class OpenAITranslator internal constructor(
         return translated
     }
 
-    override fun toString() = "OpenAITranslator($model, $customizedPrompts)"
+    override fun toString() = "OpenAITranslator($call, $customizedPrompts)"
 }
 
 internal sealed interface CompoundStrip {

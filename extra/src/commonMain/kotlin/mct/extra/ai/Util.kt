@@ -1,4 +1,4 @@
-package mct.extra.translator
+package mct.extra.ai
 
 internal const val TOKEN_COUNT_THRESHOLD = 1 shl 10 // n k
 
