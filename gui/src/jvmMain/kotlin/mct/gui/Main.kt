@@ -116,7 +116,9 @@ fun App(modifier: Modifier = Modifier) {
         val savedSettings = remember { loadSettings() }
         LaunchedEffect(Unit) {
             translateState = translateState.copy(
-                apiUrl = savedSettings.apiUrl, model = savedSettings.model, apiToken = savedSettings.apiToken
+                apiUrl = savedSettings.apiUrl,
+                model = savedSettings.model,
+                apiToken = savedSettings.apiToken
             )
             if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank()) {
                 logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
@@ -134,6 +136,7 @@ fun App(modifier: Modifier = Modifier) {
                             clientManager.chatCompletionCall = ChatCompletionCall(
                                 client = clientManager.openAIClient!!,
                                 model = savedSettings.model,
+                                strict = false,
                             )
                         }.onLeft {
                             logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}"))
@@ -162,6 +165,7 @@ fun App(modifier: Modifier = Modifier) {
                             clientManager.chatCompletionCall = ChatCompletionCall(
                                 client = clientManager.openAIClient!!,
                                 model = translateState.model,
+                                strict = false,
                             )
                         }.onLeft {
                             logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}"))
@@ -181,6 +185,7 @@ fun App(modifier: Modifier = Modifier) {
                         clientManager.chatCompletionCall = ChatCompletionCall(
                             client = clientManager.openAIClient!!,
                             model = translateState.model,
+                            strict = false,
                         )
                     }.onLeft {
                         logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}"))

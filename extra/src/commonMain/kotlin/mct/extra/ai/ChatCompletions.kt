@@ -95,9 +95,16 @@ suspend fun ChatCompletionCall(
     model: String,
     useStreamApi: Boolean = false,
     maxRetry: Int = MAX_RETRY,
+    strict: Boolean = false, // if validate model exists
 ): ChatCompletionCall {
     val client = createOpenAIClient(apiUrl, token)
-    return ChatCompletionCall(client = client, model = model, useStreamApi = useStreamApi, maxRetry = maxRetry)
+    return ChatCompletionCall(
+        client = client,
+        model = model,
+        useStreamApi = useStreamApi,
+        maxRetry = maxRetry,
+        strict = strict,
+    )
 }
 
 context(env: Env, _: Raise<ChatCompletionCallError>)
@@ -106,12 +113,15 @@ suspend fun ChatCompletionCall(
     model: String,
     useStreamApi: Boolean = false,
     maxRetry: Int = MAX_RETRY,
+    strict: Boolean = true, // if validate model exists
 ): ChatCompletionCall {
-    val models = runCatching { client.models() }.getOrElse {
-        raise(ChatCompletionCallError.UnvalidatedApi("Try request models, but it cannot respond correctly."))
-    }
-    ensure(model in models.map { it.id.id }) {
-        ChatCompletionCallError.ModelNotFound(model)
+    if (strict) {
+        val models = runCatching { client.models() }.getOrElse {
+            raise(ChatCompletionCallError.UnvalidatedApi("Try request models, but it cannot respond correctly."))
+        }
+        ensure(model in models.map { it.id.id }) {
+            ChatCompletionCallError.ModelNotFound(model)
+        }
     }
     return ChatCompletionCallImpl(
         client = client,
