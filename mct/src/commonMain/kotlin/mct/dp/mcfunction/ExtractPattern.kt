@@ -82,6 +82,7 @@ sealed interface IndexSelector {
     fun interface NonGreedy : IndexSelector {
         // 1-based index
         fun matches(index: Int): Boolean
+        fun select(index: Int, str: String): MatchResult? = null // null ia select the entire arg
 
         companion object {
             @Serializable
@@ -110,14 +111,26 @@ sealed interface IndexSelector {
 
             @Serializable
             @SerialName("range")
-            data class Range(val range: IntRangeSerializable) : NonGreedy {
+            data class Range(val range: IntRangeSerializable, val regexes: List<String>? = null) : NonGreedy {
+                private val _regexes by lazy { regexes?.map(::Regex) }
+
                 override fun matches(index: Int) = index in range
+
+                override fun select(index: Int, str: String): MatchResult? = _regexes?.let {
+                    it[index].matchEntire(str)
+                }
             }
 
             @Serializable
             @SerialName("index")
-            data class Special(val specials: List<Int>) : NonGreedy {
+            data class Special(val specials: List<Int>, val regexes: List<String>? = null) : NonGreedy {
+                private val _regexes by lazy { regexes?.map(::Regex) }
+
                 override fun matches(index: Int) = index in specials
+
+                override fun select(index: Int, str: String): MatchResult? = _regexes?.let {
+                    it[index].matchEntire(str)
+                }
             }
         }
     }
@@ -194,14 +207,12 @@ val extractPatternModule = SerializersModule {
 
     polymorphic(IndexSelector::class) {
         subclass(IndexSelector.Greedy::class)
-        polymorphic(IndexSelector.Greedy::class) {
-            subclass(IndexSelector.NonGreedy.Companion.Any::class)
-            subclass(IndexSelector.NonGreedy.Companion.And::class)
-            subclass(IndexSelector.NonGreedy.Companion.Or::class)
-            subclass(IndexSelector.NonGreedy.Companion.None::class)
-            subclass(IndexSelector.NonGreedy.Companion.Range::class)
-            subclass(IndexSelector.NonGreedy.Companion.Special::class)
-        }
+        subclass(IndexSelector.NonGreedy.Companion.Any::class)
+        subclass(IndexSelector.NonGreedy.Companion.And::class)
+        subclass(IndexSelector.NonGreedy.Companion.Or::class)
+        subclass(IndexSelector.NonGreedy.Companion.None::class)
+        subclass(IndexSelector.NonGreedy.Companion.Range::class)
+        subclass(IndexSelector.NonGreedy.Companion.Special::class)
     }
 
 

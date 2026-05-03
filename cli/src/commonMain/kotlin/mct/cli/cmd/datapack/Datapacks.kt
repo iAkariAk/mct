@@ -16,11 +16,11 @@ import mct.cli.*
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
+import mct.dp.mcfunction.BuiltinMCFPatterns
 import mct.dp.mcfunction.ExtractPattern
+import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson
-import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
-import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
 class Datapack : SuspendingCliktCommand(name = "datapack") {
     override suspend fun run() = Unit
@@ -58,13 +58,13 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         }
         val mcjPatterns = when {
             disableMCJFilter -> null
-            userMcjPatterns != null -> MCJBuiltinPatterns + userMcjPatterns
-            else -> MCJBuiltinPatterns
+            userMcjPatterns != null -> BuiltinMCJPatterns + userMcjPatterns
+            else -> BuiltinMCJPatterns
         }
 
         logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
-            workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: MCFBuiltinPatterns, mcjPatterns).toList()
+            workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: BuiltinMCFPatterns, mcjPatterns).toList()
         logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)
     }

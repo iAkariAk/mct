@@ -1,0 +1,247 @@
+{
+  "// PreCondition 类型": {
+    "any":        "始终匹配",
+    "with_size":  "参数数量约束。size: 阈值; strict=true 严格等于, false(默认) 表示 >= size",
+    "regex":      "命令原始字符串正则匹配 (regx.containsMatchIn(command.raw))",
+    "and":        "所有条件都满足",
+    "or":         "任一条件满足",
+    "none":       "所有条件都不满足"
+  },
+
+  "// IndexSelector 类型": {
+    "greedy": "贪婪选择: position 0=全部, 1=从第一个参数到行尾, n=从第n个参数到行尾",
+    "index":  "指定位置列表: specials 为 1-based 位置数组, regexes 可选 (select 阶段按 index 取正则匹配)",
+    "range":  "范围选择: range { startInclusive, endInclusive } 1-based, regexes 可选",
+    "any":    "匹配所有位置",
+    "and/or/none": "组合条件"
+  },
+
+  "// PostCondition 类型": {
+    "any":      "始终匹配",
+    "regex":    "参数内容正则匹配 (arg.content.containsMatchIn(regex))",
+    "contain":  "参数内容包含指定字符串",
+    "equal":    "参数内容完全等于指定字符串",
+    "at":       "检查命令的指定位置参数 (1-based), 而非当前选中的参数。如选中 arg[5] 但 at(2, ...) 检查 cmd[2]",
+    "and/or/none": "组合条件"
+  },
+
+  "say": [
+    {
+      "command": "say",
+      "preCondition": { "type": "any" },
+      "selected": { "type": "greedy", "position": 0 },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "me": [
+    {
+      "command": "me",
+      "preCondition": { "type": "any" },
+      "selected": { "type": "greedy", "position": 0 },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "teammsg": [
+    {
+      "command": "teammsg",
+      "preCondition": { "type": "any" },
+      "selected": { "type": "greedy", "position": 0 },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "msg": [
+    {
+      "command": "msg",
+      "preCondition": { "type": "with_size", "size": 2 },
+      "selected": { "type": "greedy", "position": 2 },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "w": [
+    {
+      "command": "w",
+      "preCondition": { "type": "with_size", "size": 2 },
+      "selected": { "type": "greedy", "position": 2 },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "tellraw": [
+    {
+      "command": "tellraw",
+      "preCondition": { "type": "with_size", "size": 2, "strict": true },
+      "selected": { "type": "index", "specials": [2] },
+      "postCondition": { "type": "regex", "regex": "\\{.*}" }
+    }
+  ],
+
+  "title": [
+    {
+      "command": "title",
+      "preCondition": {
+        "type": "and",
+        "conditions": [
+          { "type": "with_size", "size": 3, "strict": true },
+          { "type": "none", "conditions": [{ "type": "equal", "content": "times" }] }
+        ]
+      },
+      "selected": { "type": "index", "specials": [3] },
+      "postCondition": {
+        "type": "at",
+        "position": 2,
+        "condition": { "type": "regex", "regex": "title|subtitle|actionbar" }
+      }
+    }
+  ],
+
+  "bossbar": [
+    {
+      "command": "bossbar",
+      "preCondition": {
+        "type": "and",
+        "conditions": [
+          { "type": "with_size", "size": 4 },
+          { "type": "contain", "content": "name" }
+        ]
+      },
+      "selected": { "type": "index", "specials": [4] },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "scoreboard": [
+    {
+      "command": "scoreboard",
+      "preCondition": { "type": "with_size", "size": 5, "strict": true },
+      "selected": { "type": "index", "specials": [5] },
+      "postCondition": {
+        "type": "at",
+        "position": 1,
+        "condition": { "type": "equal", "content": "objectives" }
+      }
+    },
+    {
+      "command": "scoreboard",
+      "preCondition": { "type": "with_size", "size": 7, "strict": true },
+      "selected": { "type": "index", "specials": [7] },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+  "team": [
+    {
+      "command": "team",
+      "preCondition": { "type": "with_size", "size": 4, "strict": true },
+      "selected": { "type": "index", "specials": [4] },
+      "postCondition": {
+        "type": "or",
+        "conditions": [
+          { "type": "equal", "content": "prefix" },
+          { "type": "equal", "content": "suffix" }
+        ]
+      }
+    }
+  ],
+
+  "data": [
+    {
+      "command": "data",
+      "preCondition": { "type": "with_size", "size": 6, "strict": true },
+      "selected": { "type": "index", "specials": [6] },
+      "postCondition": { "type": "regex", "regex": "\\{.*text.*}" }
+    },
+    {
+      "command": "data",
+      "preCondition": { "type": "with_size", "size": 7, "strict": true },
+      "selected": { "type": "index", "specials": [7] },
+      "postCondition": { "type": "regex", "regex": "\\{.*text.*}" }
+    }
+  ],
+
+  "give": [
+    {
+      "command": "give",
+      "preCondition": { "type": "with_size", "size": 3 },
+      "selected": { "type": "index", "specials": [2] },
+      "postCondition": {
+        "type": "or",
+        "conditions": [
+          { "type": "contain", "content": "\"text\"" },
+          { "type": "contain", "content": "'text'" }
+        ]
+      }
+    }
+  ],
+
+  "item": [
+    {
+      "command": "item",
+      "preCondition": { "type": "with_size", "size": 5 },
+      "selected": { "type": "index", "specials": [5] },
+      "postCondition": { "type": "regex", "regex": "\\{.*}" }
+    },
+    {
+      "command": "item",
+      "preCondition": { "type": "with_size", "size": 6 },
+      "selected": { "type": "index", "specials": [6] },
+      "postCondition": { "type": "regex", "regex": "\\{.*text.*}" }
+    }
+  ],
+
+  "execute": [
+    {
+      "command": "execute",
+      "preCondition": { "type": "any" },
+      "selected": { "type": "greedy", "position": 0 },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+
+  "// 高级示例 — 多条件组合 (range + regexes)": {},
+  "test_cmd": [
+    {
+      "command": "test_cmd",
+      "preCondition": { "type": "any" },
+      "selected": {
+        "type": "range",
+        "range": { "startInclusive": 2, "endInclusive": 4 },
+        "regexes": [null, "\\{.*text.*}", "\\{.*translate.*}"]
+      },
+      "postCondition": { "type": "any" }
+    }
+  ],
+
+
+  "// 高级示例 — 非贪婪组合条件 (and/or/none)": {},
+  "complex_cmd": [
+    {
+      "command": "complex_cmd",
+      "preCondition": {
+        "type": "and",
+        "conditions": [
+          { "type": "with_size", "size": 3, "strict": true },
+          { "type": "regex", "regex": "complex" }
+        ]
+      },
+      "selected": {
+        "type": "and",
+        "conditions": [
+          { "type": "range", "range": { "startInclusive": 2, "endInclusive": 5 } },
+          { "type": "none", "conditions": [{ "type": "index", "specials": [3] }] }
+        ]
+      },
+      "postCondition": {
+        "type": "and",
+        "conditions": [
+          { "type": "regex", "regex": "\\{.*}" },
+          { "type": "none", "conditions": [{ "type": "equal", "content": "plain" }] }
+        ]
+      }
+    }
+  ]
+}
