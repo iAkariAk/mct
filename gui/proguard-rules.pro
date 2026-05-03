@@ -1,0 +1,2 @@
+-dontwarn korlibs.ffi.FFILib_jvmKt
+-dontwarn mct.util.io.RelativeFileSystem

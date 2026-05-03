@@ -14,6 +14,8 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(21)
+
     jvm {
         mainRun {
             mainClass.set("mct.gui.MainKt")
@@ -53,6 +55,14 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.AppImage)
+            packageVersion = "0.0.1"
+        }
+
+        buildTypes.release {
+            proguard {
+                version.set("7.9.1")
+                configurationFiles.from(project.file("proguard-rules.pro"))
+            }
         }
     }
 }
