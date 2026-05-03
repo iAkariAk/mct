@@ -59,23 +59,27 @@ fun main() = application {
                 modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.background
             ) {
-                Box(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize()) {
-                        WindowTitleBar(
-                            state,
-                            onCloseRequest = ::exitApplication,
-                            onOpenSettings = { settingsVisible = true }
-                        )
-                        App(Modifier.weight(1f), tokenThreshold = tokenThreshold, onTokenThresholdChange = { tokenThreshold = it })
-                    }
-                    SettingsSheet(
-                        visible = settingsVisible,
-                        tokenThreshold = tokenThreshold,
-                        onTokenThresholdChange = { tokenThreshold = it },
-                        onDismiss = { settingsVisible = false }
+                Column(Modifier.fillMaxSize()) {
+                    WindowTitleBar(
+                        state,
+                        onCloseRequest = ::exitApplication,
+                        onOpenSettings = { settingsVisible = !settingsVisible }
                     )
+                    Box(Modifier.weight(1f)) {
+                        App(
+                            Modifier.fillMaxSize(),
+                            tokenThreshold = tokenThreshold,
+                            onTokenThresholdChange = { tokenThreshold = it })
+                        SettingsSheet(
+                            visible = settingsVisible,
+                            tokenThreshold = tokenThreshold,
+                            onTokenThresholdChange = { tokenThreshold = it },
+                            onDismiss = { settingsVisible = false }
+                        )
+                    }
                 }
             }
+
         }
     }
 }
@@ -265,10 +269,15 @@ fun App(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                         shape = MaterialTheme.shapes.large,
                     ) {
-                        AnimatedContent(targetState = selectedTab, modifier = Modifier.fillMaxSize(), transitionSpec = {
-                            val dir = if (targetState > initialState) 1 else -1
-                            (slideInHorizontally { w -> dir * w / 4 } + fadeIn()) togetherWith (slideOutHorizontally { w -> -dir * w / 4 } + fadeOut())
-                        }, label = "tab-content") { tab ->
+                        AnimatedContent(
+                            targetState = selectedTab,
+                            modifier = Modifier.fillMaxSize(),
+                            transitionSpec = {
+                                val dir = if (targetState > initialState) 1 else -1
+                                (slideInHorizontally { w -> dir * w / 4 } + fadeIn()) togetherWith (slideOutHorizontally { w -> -dir * w / 4 } + fadeOut())
+                            },
+                            label = "tab-content"
+                        ) { tab ->
                             val contentScroll = rememberScrollState()
                             Column(modifier = Modifier.fillMaxSize().verticalScroll(contentScroll)) {
                                 when (tab) {
@@ -313,7 +322,13 @@ fun App(
                                                         termPath = translateState.existingTermPath.ifBlank { null },
                                                         tokenThreshold = tokenThreshold,
                                                         literatureStyle = translateState.literatureStyle,
-                                                        onFailure = { scope.launch { snackbarHostState.showSnackbar(it.message) } },
+                                                        onFailure = {
+                                                            scope.launch {
+                                                                snackbarHostState.showSnackbar(
+                                                                    it.message
+                                                                )
+                                                            }
+                                                        },
                                                         clientManager = clientManager
                                                     )
                                                 }.onLeft { snackbarHostState.showSnackbar(it.message) }
@@ -427,7 +442,8 @@ fun App(
                                 SelectionContainer {
                                     Text(
                                         text = coloredLogAnnotatedString(logLines.filter { it.level == null || it.level in logLevelFilter }),
-                                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)
+                                        modifier = Modifier.fillMaxSize()
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
                                             .verticalScroll(logScroll),
                                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
                                     )
