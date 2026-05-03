@@ -3,10 +3,8 @@ package mct.extra.ai
 import arrow.core.raise.context.Raise
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.raise
-import com.aallam.openai.api.chat.ChatCompletionRequest
-import com.aallam.openai.api.chat.ChatMessage
-import com.aallam.openai.api.chat.ChatResponseFormat
-import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.chat.*
+import com.aallam.openai.api.core.Usage
 import com.aallam.openai.api.exception.OpenAIHttpException
 import com.aallam.openai.api.exception.OpenAITimeoutException
 import com.aallam.openai.api.logging.LogLevel
@@ -19,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.fold
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
 import mct.Env
 import mct.EnvHolder
 import mct.MCTError
@@ -143,16 +142,22 @@ class ChatCompletionCallImpl internal constructor(
                 ChatMessage(role = ChatRole.System, content = prompt),
                 ChatMessage(role = ChatRole.User, content = message)
             ),
+            streamOptions = if (useStreamApi) StreamOptions(true) else null
         )
         var llmRetry = 0
         while (llmRetry < maxRetry) {
             val llmResult = runCatching {
                 if (useStreamApi) client.chatCompletions(request)
+                    .onEach {
+                        noticeTokenConsume(it.usage)
+                    }
                     .mapNotNull { it.choices.firstOrNull() }
                     .mapNotNull { it.delta }
                     .fold(StringBuilder()) { acc, e -> e.content?.let { acc.append(it) } ?: acc }
                     .toString()
-                else client.chatCompletion(request).choices.first().message.content!!
+                else client.chatCompletion(request).also {
+                    noticeTokenConsume(it.usage)
+                }.choices.first().message.content!!
             }.getOrElse { e ->
                 if (e is OpenAIHttpException || e is OpenAITimeoutException) {
                     env.logger.error { "API error: ${e.message}. Retry ${llmRetry + 1}/$MAX_RETRY." }
@@ -170,4 +175,11 @@ class ChatCompletionCallImpl internal constructor(
     }
 
     override fun toString() = "OpenAICall($model)"
+}
+
+
+private fun EnvHolder.noticeTokenConsume(usage: Usage?) {
+    usage?.totalTokens?.let { tc ->
+        logger.sign<AiSign>({ AiSign.ConsumeToken(tc) })
+    }
 }

@@ -25,8 +25,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mct.Env
 import mct.LoggerLevel
+import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
-import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.createOpenAIClient
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
@@ -80,6 +80,8 @@ fun App(modifier: Modifier = Modifier) {
 
     var translateProgress by remember { mutableFloatStateOf(0f) }
     var translateStatus by remember { mutableStateOf("") }
+    var lastTokenConsume by remember { mutableIntStateOf(0) }
+    var totalTokenConsume by remember { mutableIntStateOf(0) }
 
     var logLevelFilter by remember {
         mutableStateOf(setOf(LoggerLevel.Info, LoggerLevel.Warning, LoggerLevel.Error, LoggerLevel.Debug))
@@ -93,6 +95,14 @@ fun App(modifier: Modifier = Modifier) {
                     is TranslateSign.Progress -> {
                         translateProgress = sign.progress
                         translateStatus = if (sign.progress >= 1f) "完成" else "翻译中..."
+                    }
+                }
+            }
+            on<AiSign> { sign ->
+                when (sign) {
+                    is AiSign.ConsumeToken -> {
+                        lastTokenConsume = sign.count
+                        totalTokenConsume += sign.count
                     }
                 }
             }
@@ -111,7 +121,8 @@ fun App(modifier: Modifier = Modifier) {
             if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank()) {
                 logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
                 try {
-                    clientManager.openAIClient = createOpenAIClient(savedSettings.apiUrl.ifBlank { null }, savedSettings.apiToken)
+                    clientManager.openAIClient =
+                        createOpenAIClient(savedSettings.apiUrl.ifBlank { null }, savedSettings.apiToken)
                     logLines.add(LogEntry(LoggerLevel.Debug, "正在请求可用模型列表..."))
                     val models = clientManager.openAIClient!!.listModels()
                     translateState = translateState.copy(availableModels = models)
@@ -119,7 +130,7 @@ fun App(modifier: Modifier = Modifier) {
                     logLines.add(LogEntry(null, "已获取 ${models.size} 个可用模型"))
 
                     if (savedSettings.model in models) {
-                        either<ChatCompletionCallError, Unit> {
+                        either {
                             clientManager.chatCompletionCall = ChatCompletionCall(
                                 client = clientManager.openAIClient!!,
                                 model = savedSettings.model,
@@ -139,14 +150,15 @@ fun App(modifier: Modifier = Modifier) {
             if (translateState.apiUrl.isNotBlank() && translateState.apiToken.isNotBlank()) {
                 translateState = translateState.copy(isModelsLoading = true)
                 try {
-                    clientManager.openAIClient = createOpenAIClient(translateState.apiUrl.ifBlank { null }, translateState.apiToken)
+                    clientManager.openAIClient =
+                        createOpenAIClient(translateState.apiUrl.ifBlank { null }, translateState.apiToken)
                     logLines.add(LogEntry(LoggerLevel.Debug, "正在刷新模型列表..."))
                     val models = clientManager.openAIClient!!.listModels()
                     translateState = translateState.copy(availableModels = models, isModelsLoading = false)
                     logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
 
                     if (translateState.model in models) {
-                        either<ChatCompletionCallError, Unit> {
+                        either {
                             clientManager.chatCompletionCall = ChatCompletionCall(
                                 client = clientManager.openAIClient!!,
                                 model = translateState.model,
@@ -165,7 +177,7 @@ fun App(modifier: Modifier = Modifier) {
             if (clientManager.openAIClient != null && translateState.model.isNotBlank()) {
                 val models = translateState.availableModels
                 if (models.isEmpty() || translateState.model in models) {
-                    either<ChatCompletionCallError, Unit> {
+                    either {
                         clientManager.chatCompletionCall = ChatCompletionCall(
                             client = clientManager.openAIClient!!,
                             model = translateState.model,
@@ -198,22 +210,48 @@ fun App(modifier: Modifier = Modifier) {
                 NavigationRail(
                     header = {
                         Spacer(Modifier.height(8.dp))
-                        Icon(Icons.Outlined.Translate, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        Icon(
+                            Icons.Outlined.Translate,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
                         Spacer(Modifier.height(8.dp))
                     },
                     modifier = Modifier.padding(end = 4.dp),
                     containerColor = Color.Transparent,
                 ) {
-                    NavigationRailItem(selected = selectedTab == Tab.Extract, onClick = { selectedTab = Tab.Extract },
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Extract,
+                        onClick = { selectedTab = Tab.Extract },
                         icon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                         label = { Text(Tab.Extract.label, style = MaterialTheme.typography.labelSmall) })
-                    NavigationRailItem(selected = selectedTab == Tab.Translate, onClick = { selectedTab = Tab.Translate },
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Translate,
+                        onClick = { selectedTab = Tab.Translate },
                         icon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
                         label = { Text(Tab.Translate.label, style = MaterialTheme.typography.labelSmall) })
-                    NavigationRailItem(selected = selectedTab == Tab.Backfill, onClick = { selectedTab = Tab.Backfill },
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Backfill,
+                        onClick = { selectedTab = Tab.Backfill },
                         icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
                         label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) })
+                    Spacer(Modifier.weight(1f))
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            "本次 +${lastTokenConsume.renderWithUnit()} t",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "总计 ${totalTokenConsume.renderWithUnit()} t",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 DraggableSplitPane(modifier = Modifier.weight(1f), top = {
@@ -223,42 +261,68 @@ fun App(modifier: Modifier = Modifier) {
                     ) {
                         AnimatedContent(targetState = selectedTab, modifier = Modifier.fillMaxSize(), transitionSpec = {
                             val dir = if (targetState > initialState) 1 else -1
-                            (slideInHorizontally { w -> dir * w / 4 } + fadeIn()) togetherWith
-                                    (slideOutHorizontally { w -> -dir * w / 4 } + fadeOut())
+                            (slideInHorizontally { w -> dir * w / 4 } + fadeIn()) togetherWith (slideOutHorizontally { w -> -dir * w / 4 } + fadeOut())
                         }, label = "tab-content") { tab ->
                             val contentScroll = rememberScrollState()
                             Column(modifier = Modifier.fillMaxSize().verticalScroll(contentScroll)) {
                                 when (tab) {
-                                    Tab.Extract -> ExtractPanel(state = extractState, onStateChange = { extractState = it },
-                                        isRunning = isRunning, onRun = {
+                                    Tab.Extract -> ExtractPanel(
+                                        state = extractState,
+                                        onStateChange = { extractState = it },
+                                        isRunning = isRunning,
+                                        onRun = {
                                             launchOp(prelude = { isRunning = true; logLines.clear() }) {
-                                                runExtraction(extractState.input, extractState.output, extractState.mode.key,
-                                                    extractState.disableFilter, extractState.regionPatternPath,
-                                                    extractState.mcfPatternPath, extractState.mcjPatternPath)
+                                                runExtraction(
+                                                    extractState.input,
+                                                    extractState.output,
+                                                    extractState.mode.key,
+                                                    extractState.disableFilter,
+                                                    extractState.regionPatternPath,
+                                                    extractState.mcfPatternPath,
+                                                    extractState.mcjPatternPath
+                                                )
                                             }
                                         })
-                                    Tab.Translate -> TranslatePanel(state = translateState,
+
+                                    Tab.Translate -> TranslatePanel(
+                                        state = translateState,
                                         onStateChange = { translateState = it },
-                                        translationProgress = translateProgress, translationStatus = translateStatus,
-                                        isRunning = isRunning, onRun = {
-                                            launchOp(prelude = { isRunning = true; logLines.clear(); translateProgress = 0f; translateStatus = "" }) {
+                                        translationProgress = translateProgress,
+                                        translationStatus = translateStatus,
+                                        isRunning = isRunning,
+                                        onRun = {
+                                            launchOp(prelude = {
+                                                isRunning = true; logLines.clear(); translateProgress =
+                                                0f; translateStatus = ""
+                                            }) {
                                                 either {
                                                     runTranslation(
-                                                        input = translateState.input, output = translateState.output,
-                                                        mappingOutput = translateState.mappingOutput, termOutput = translateState.termOutput,
+                                                        input = translateState.input,
+                                                        output = translateState.output,
+                                                        mappingOutput = translateState.mappingOutput,
+                                                        termOutput = translateState.termOutput,
                                                         apiUrl = translateState.apiUrl.ifBlank { null },
-                                                        token = translateState.apiToken, model = translateState.model,
+                                                        token = translateState.apiToken,
+                                                        model = translateState.model,
                                                         termPath = translateState.existingTermPath.ifBlank { null },
                                                         literatureStyle = translateState.literatureStyle,
                                                         onFailure = { scope.launch { snackbarHostState.showSnackbar(it.message) } },
-                                                        clientManager = clientManager)
+                                                        clientManager = clientManager
+                                                    )
                                                 }.onLeft { snackbarHostState.showSnackbar(it.message) }
                                             }
                                         },
                                         onSaveSettings = {
-                                            logLines.add(LogEntry(null,
-                                                if (saveSettings(translateState.apiUrl, translateState.model, translateState.apiToken))
-                                                    "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"))
+                                            logLines.add(
+                                                LogEntry(
+                                                    null, if (saveSettings(
+                                                            translateState.apiUrl,
+                                                            translateState.model,
+                                                            translateState.apiToken
+                                                        )
+                                                    ) "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"
+                                                )
+                                            )
                                         },
                                         onOptimizePrompt = { current ->
                                             val cl = clientManager.chatCompletionCall
@@ -276,10 +340,19 @@ fun App(modifier: Modifier = Modifier) {
                                                 }
                                             }
                                         })
-                                    Tab.Backfill -> BackfillPanel(state = backfillState,
-                                        onStateChange = { backfillState = it }, isRunning = isRunning, onRun = {
+
+                                    Tab.Backfill -> BackfillPanel(
+                                        state = backfillState,
+                                        onStateChange = { backfillState = it },
+                                        isRunning = isRunning,
+                                        onRun = {
                                             launchOp(prelude = { isRunning = true; logLines.clear() }) {
-                                                runBackfill(env, backfillState.input, backfillState.replacements, backfillState.mode.key)
+                                                runBackfill(
+                                                    env,
+                                                    backfillState.input,
+                                                    backfillState.replacements,
+                                                    backfillState.mode.key
+                                                )
                                             }
                                         })
                                 }
@@ -288,26 +361,48 @@ fun App(modifier: Modifier = Modifier) {
                     }
                 }, bottom = {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Outlined.Terminal, contentDescription = null, modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("运行日志", style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Terminal,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "运行日志",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(Modifier.weight(1f))
                             Box {
                                 IconButton(onClick = { showLogSettings = true }) {
-                                    Icon(Icons.Outlined.Settings, contentDescription = "日志过滤", modifier = Modifier.size(18.dp),
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = "日志过滤",
+                                        modifier = Modifier.size(18.dp),
                                         tint = if (logLevelFilter.size < 4) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                DropdownMenu(expanded = showLogSettings, onDismissRequest = { showLogSettings = false }) {
-                                    listOf(LoggerLevel.Info, LoggerLevel.Warning, LoggerLevel.Error, LoggerLevel.Debug).forEach { level ->
+                                DropdownMenu(
+                                    expanded = showLogSettings, onDismissRequest = { showLogSettings = false }) {
+                                    listOf(
+                                        LoggerLevel.Info, LoggerLevel.Warning, LoggerLevel.Error, LoggerLevel.Debug
+                                    ).forEach { level ->
                                         val checked = level in logLevelFilter
                                         DropdownMenuItem(text = { Text(level.name) }, onClick = {
-                                            logLevelFilter = if (checked) logLevelFilter - level else logLevelFilter + level
+                                            logLevelFilter =
+                                                if (checked) logLevelFilter - level else logLevelFilter + level
                                         }, leadingIcon = {
-                                            if (checked) Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            if (checked) Icon(
+                                                Icons.Outlined.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
                                         })
                                     }
                                 }
@@ -315,16 +410,23 @@ fun App(modifier: Modifier = Modifier) {
                         }
                         Spacer(Modifier.height(4.dp))
                         val logScroll = rememberScrollState()
-                        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().weight(1f), tonalElevation = 2.dp) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            tonalElevation = 2.dp
+                        ) {
                             Box(modifier = Modifier.fillMaxSize()) {
                                 SelectionContainer {
-                                    Text(text = coloredLogAnnotatedString(logLines.filter { it.level == null || it.level in logLevelFilter }),
+                                    Text(
+                                        text = coloredLogAnnotatedString(logLines.filter { it.level == null || it.level in logLevelFilter }),
                                         modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)
                                             .verticalScroll(logScroll),
-                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                                    )
                                 }
-                                TextButton(modifier = Modifier.align(Alignment.TopEnd),
+                                TextButton(
+                                    modifier = Modifier.align(Alignment.TopEnd),
                                     onClick = { scope.launch { logScroll.animateScrollTo(logScroll.maxValue) } }) {
                                     Text("↓")
                                 }
