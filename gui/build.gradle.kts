@@ -1,4 +1,9 @@
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class)
+
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.fus.internal.isCiBuild
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -9,8 +14,6 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(21)
-
     jvm {
         mainRun {
             mainClass.set("mct.gui.MainKt")
@@ -19,7 +22,19 @@ kotlin {
 
     sourceSets {
         jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
+            if (!isCiBuild()) {
+                implementation(compose.desktop.currentOs)
+            } else {
+                val composeVersion = libs.versions.compose.get()
+                listOf(
+                    "windows-x64",
+                    "linux-arm64",
+                    "linux-x64",
+                    "macos-arm64",
+                ).forEach { platform ->
+                    implementation("org.jetbrains.compose.desktop:desktop-jvm-$platform:$composeVersion")
+                }
+            }
             implementation(project(":mct"))
             implementation(project(":extra"))
             implementation(libs.compose.material3)
@@ -30,12 +45,16 @@ kotlin {
     }
 }
 
-tasks.named<ShadowJar>("shadowJar") {
-    mergeServiceFiles()
+compose.desktop {
+    application {
+        mainClass = "mct.gui.MainKt"
+
+        nativeDistributions {
+            targetFormats(TargetFormat.AppImage)
+        }
+    }
 }
 
-tasks.named<Jar>("jvmJar") {
-    manifest {
-        attributes["Main-Class"] = "mct.gui.MainKt"
-    }
+tasks.named<ShadowJar>("shadowJar") {
+    mergeServiceFiles()
 }

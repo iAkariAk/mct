@@ -1,6 +1,6 @@
 package mct
 
-import kotlinx.serialization.InternalSerializationApi
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import mct.util.BuilderMaker
@@ -69,7 +69,6 @@ data class RegistryItem<T : Any>(
 
     val key = clazz.qualifiedName ?: clazz.toString()
 
-    @OptIn(InternalSerializationApi::class)
     val serializer = clazz.serializer()
 }
 

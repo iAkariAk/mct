@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package mct.gui
 
 import androidx.compose.animation.*

@@ -1,95 +1,95 @@
 [versions]
-kotlin = "2.3.20"
-ksp = "2.3.6"
-korlibs = "6.0.2"
-okio = "3.16.2"
-kotlinx-io = "0.9.0"
-serialization = "1.11.0"
-collections-immutable = "0.4.0"
-arrow = "2.2.2.1"
-coroutines = "1.10.2"
-knbt = "0.11.9"
-kotest = "6.1.10"
-jetbrains-annotations = "26.1.0"
-clikt = "5.1.0"
-shadow = "9.4.0"
-compose = "1.10.3"
-material3 = "1.10.0-alpha05"
-material-icons-extended = "1.7.3"
 androidx-lifecycle = "2.10.0"
-resources = "0.15.0"
-ktor = "3.4.2"
-openai-client = "4.1.0"
+arrow = "2.2.2.1"
+catelog-update = "1.1.0"
+clikt = "5.1.0"
+collections-immutable = "0.4.0"
+compose = "1.10.3"
+coroutines = "1.10.2"
+filekit = "0.14.0"
+jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
-filekit = "0.13.0"
+knbt = "0.11.9"
+korlibs = "6.0.2"
+kotest = "6.1.11"
+kotlin = "2.3.21"
+kotlinx-io = "0.9.0"
+ksp = "2.3.7"
+ktor = "3.4.3"
+material-icons-extended = "1.7.3"
+material3 = "1.11.0-alpha07"
+okio = "3.17.0"
+openai-client = "4.1.0"
+resources = "0.15.0"
+serialization = "1.11.0"
+shadow = "9.4.1"
 
 [libraries]
-knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
-
-korlibs-io = { module = "com.soywiz:korlibs-io", version.ref = "korlibs" }
-
-okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
-okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
-
-kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref="kotlinx-io" }
-kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.ref="kotlinx-io" }
-kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
-kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
-kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collections-immutable" }
-
-arrow-stack = { module = "io.arrow-kt:arrow-stack", version.ref = "arrow" }
+androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
+androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
 arrow-core = { module = "io.arrow-kt:arrow-core" }
 arrow-functions = { module = "io.arrow-kt:arrow-functions" }
 arrow-fx-coroutines = { module = "io.arrow-kt:arrow-fx-coroutines" }
 arrow-optics = { module = "io.arrow-kt:arrow-optics" }
 arrow-optics-ksp = { module = "io.arrow-kt:arrow-optics-ksp-plugin", version.ref = "arrow" }
-
-kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
-kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
-kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
-kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.ref = "kotest" }
-
+arrow-stack = { module = "io.arrow-kt:arrow-stack", version.ref = "arrow" }
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
+compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose" }
+compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose" }
+filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
-
-goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources" }
-
-clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
-ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
+korlibs-io = { module = "com.soywiz:korlibs-io", version.ref = "korlibs" }
+kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.ref = "kotest" }
+kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collections-immutable" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
+kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.ref = "kotlinx-io" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
-ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor" }
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
 openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
-compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
-filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
-
-
-androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
-androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
-
-compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose" }
-compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
-compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose" }
 
 [bundles]
-okio = ["okio", "okio-fakefilesystem"]
-arrow = ["arrow-core", "arrow-fx-coroutines", "arrow-functions"]
-kotest = ["kotest-framework-engine", "kotest-asserter-core", "kotest-asserter-arrow"]
-
+arrow = [
+    "arrow-core",
+    "arrow-functions",
+    "arrow-fx-coroutines",
+]
+kotest = [
+    "kotest-asserter-arrow",
+    "kotest-asserter-core",
+    "kotest-framework-engine",
+]
+okio = [
+    "okio",
+    "okio-fakefilesystem",
+]
 
 [plugins]
+catelog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "catelog-update" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
+goncalossilva-resources = { id = "com.goncalossilva.resources", version.ref = "resources" }
+kotest = { id = "io.kotest", version.ref = "kotest" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-kotest = { id = "io.kotest", version.ref = "kotest" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
-goncalossilva-resources = { id = "com.goncalossilva.resources", version.ref = "resources" }
-
-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }

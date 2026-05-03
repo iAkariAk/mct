@@ -1,10 +1,11 @@
-@file:OptIn(ExperimentalNbtApi::class)
-
 package mct.serializer
 
 import kotlinx.serialization.json.Json
 import mct.dp.mcfunction.extractPatternModule
-import net.benwoodworth.knbt.*
+import net.benwoodworth.knbt.Nbt
+import net.benwoodworth.knbt.NbtCompression
+import net.benwoodworth.knbt.NbtVariant
+import net.benwoodworth.knbt.StringifiedNbt
 
 val MCTJson = Json {
     ignoreUnknownKeys = true

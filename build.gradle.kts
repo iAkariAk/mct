@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
@@ -8,6 +9,7 @@ plugins {
     alias(libs.plugins.kotest) apply false
     alias(libs.plugins.shadow) apply false
     alias(libs.plugins.goncalossilva.resources) apply false
+    alias(libs.plugins.catelog.update)
 }
 
 subprojects {
@@ -16,7 +18,7 @@ subprojects {
 
     plugins.withId("org.jetbrains.kotlin.multiplatform") {
         val kotlin = extensions.getByType<KotlinMultiplatformExtension>()
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        @OptIn(ExperimentalKotlinGradlePluginApi::class, KotlinNativeCacheApi::class)
         kotlin.compilerOptions {
             freeCompilerArgs.addAll(
                 "-Xcontext-parameters",
@@ -26,7 +28,10 @@ subprojects {
                 "kotlinx.coroutines.ExperimentalCoroutinesApi",
                 "arrow.core.raise.ExperimentalRaiseAccumulateApi",
                 "kotlin.contracts.ExperimentalContracts",
-                "net.benwoodworth.knbt.OkioApi"
+                "net.benwoodworth.knbt.OkioApi",
+                "net.benwoodworth.knbt.ExperimentalNbtApi",
+                "androidx.compose.material3.ExperimentalMaterial3Api",
+                "kotlinx.serialization.InternalSerializationApi"
             )
         }
     }
