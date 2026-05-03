@@ -12,6 +12,7 @@ import mct.pointer.*
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.text.isTextCompound
+import mct.text.isTextCompoundShorthanded
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
@@ -83,12 +84,20 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
     is NbtCompound -> {
         if (isTextCompound()) {
             sequenceOf(PointerWithExtension(DataPointer.Terminator, toSnbt(), FormatKind.Snbt))
-        } else
+        } else if (isTextCompoundShorthanded()) {
+            val map = toMutableMap()
+            val text = map.remove("")
+            map["text"] = text!!
+            val expanded = NbtCompound(map)
+
+            sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Snbt))
+        } else {
             asSequence().flatMap { (key, value) ->
                 value.extractTexts().map {
                     it.copy(pointer = it.pointer.markMap(key))
                 }
             } // wrap inner pointer
+        }
     }
 
     is NbtString -> {

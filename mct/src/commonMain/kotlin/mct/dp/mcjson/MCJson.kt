@@ -92,6 +92,7 @@ internal fun standardizeMCJson(mcjson: String): String {
                     result.append("\"")
                     inDoubleQuote = !inDoubleQuote
                 }
+
                 else -> result.append("\"")
             }
 

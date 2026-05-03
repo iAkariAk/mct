@@ -8,6 +8,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
+import mct.FormatKind
 import mct.MCTWorkspace
 import mct.RegionReplacementGroup
 import mct.pointer.DataPointerReplacementGroup
@@ -44,9 +45,12 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
                     group.replacements.groupBy { it.index }
                         .forEach { (index, replacements) ->
                             val replacementGroups =
-                                replacements.map { DataPointerWithValue(it.pointer,  it.replacement, it.kind) }.toReplacementGroups()
+                                replacements.map { DataPointerWithValue(it.pointer, it.replacement, it.kind) }
+                                    .toReplacementGroups()
                             val chunk = chunks[index] ?: return@forEach
-                            chunks[index] = chunk.modify { it.transform(replacementGroups) }
+                            chunks[index] = chunk.modify {
+                                it.transform(replacementGroups)
+                            }
                         }
                     region.modifyChunks(chunks)
                 }
@@ -73,11 +77,11 @@ private fun NbtTag.transform(
 
     is NbtCompound -> {
         pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>().firstOrNull()?.let { terminator ->
+            require(terminator.kind == FormatKind.Snbt)
             return Snbt.decodeFromString(terminator.replacement)
         }
 
         val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
-
         val transformed = toMutableMap()
         pointers.forEach { pointer ->
             transformed[pointer.point]?.let {
