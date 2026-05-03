@@ -54,7 +54,7 @@ compose.desktop {
         mainClass = "mct.gui.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.AppImage)
+            targetFormats(TargetFormat.AppImage, TargetFormat.Msi)
             packageVersion = "0.0.1"
         }
 
