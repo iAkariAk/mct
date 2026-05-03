@@ -16,7 +16,9 @@ import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.Snbt
-import mct.serializer.toNbtListUnsafe
+import mct.text.TextCompound
+import mct.text.encodeToIR
+import mct.util.formatir.toNbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
@@ -61,6 +63,14 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
     }
 }
 
+private fun List<NbtTag>.toTCListStandardized() = map {
+    when (it) {
+        is NbtString -> TextCompound.Plain(it.value).encodeToIR(false).toNbt() as NbtCompound
+        is NbtCompound -> it
+        else -> error("Unexpected tag type $it")
+    }
+}.let { NbtList(it) }
+
 private fun NbtTag.transform(
     pointers: List<DataPointerReplacementGroup>,
 ): NbtTag = when (this) {
@@ -72,7 +82,7 @@ private fun NbtTag.transform(
         pointers.forEach { pointer ->
             transformed[pointer.point] = transformed[pointer.point].transform(pointer.values)
         }
-        transformed.toNbtListUnsafe()
+        transformed.toTCListStandardized()
     }
 
     is NbtCompound -> {

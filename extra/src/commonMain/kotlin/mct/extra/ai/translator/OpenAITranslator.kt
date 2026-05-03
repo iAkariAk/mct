@@ -50,7 +50,7 @@ private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft
 - 输入采用 MCT-CLI 协议格式。
 - "-- MCT-CLI:START --" 之前是术语表（JSON 格式），必须严格遵循其中的翻译映射，且术语表本身不要翻译。
 - "-- MCT-CLI:START --" 之后是待翻译内容，每行以 "[N] " 开头（N 是行号），后跟该行的文本内容。
-- 行内的 "\n" 是转义换行符，不要还原为真实换行。
+- 行内的 "\n"和"↠mctnl↠" 是转义换行符，不要还原为真实换行，也不要删去、插字。
 - 行号 [N] 是该行的唯一标识，你输出的每行译文也必须以相同的 "[N] " 开头。
 
 示例：
@@ -190,7 +190,7 @@ class OpenAITranslator internal constructor(
                 appendLine("-- MCT-CLI:START --")
                 strips.map { strip ->
                     val str = strip.stripOrOriginal()
-                    str.replace("\n", "\\n")
+                    str.replace("\n", "↠mctnl↠")
                 }.forEachIndexed { i, text ->
                     appendLine("[${i}] $text")
                 }
@@ -303,7 +303,7 @@ internal fun parseLLMResponse(content: String, expectedSize: Int): Pair<TermTabl
         .mapNotNull { line ->
             val num = LINE_PREFIX.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
             val text = line.replaceFirst(LINE_PREFIX, "")
-                .replace("\\n", "\n")
+                .replace("↠mctnl↠", "\n")
             IndexedValue(num, text)
         }
         .pad(expectedSize)

@@ -37,7 +37,7 @@ fun TextCompound.encodeToIR(simplify: Boolean = true): IRElement {
 
     return when (this) {
         is TextCompound.Plain -> {
-            if (isPlainStyle()) {
+            if (isPlainStyle() && simplify) {
                 val self = IRString(text)
                 if (extra.isEmpty()) self else {
                     extra.simplify(self)!!

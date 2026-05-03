@@ -2,7 +2,7 @@ package mct.util.formatir
 
 import kotlinx.serialization.json.*
 import kotlinx.serialization.json.JsonNull.isString
-import mct.serializer.toNbtListUnsafe
+import mct.serializer.asNbtListUnsafe
 import net.benwoodworth.knbt.*
 
 sealed interface IRConverter<T> {
@@ -105,7 +105,7 @@ object NbtTagIRConverter : IRConverter<NbtTag> {
         is IRInt -> NbtInt(element.value)
         is IRLong -> NbtLong(element.value)
         is IRString -> NbtString(element.value)
-        is IRList -> element.value.map(::decodeFromIR).toNbtListUnsafe()
+        is IRList -> element.value.map(::decodeFromIR).asNbtListUnsafe()
         is IRObject -> NbtCompound(element.value.mapValues { decodeFromIR(it.value) })
         IRNull -> error("null is not allowed in NBT")
     }

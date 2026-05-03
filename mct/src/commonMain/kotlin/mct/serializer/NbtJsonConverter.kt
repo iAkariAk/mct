@@ -20,7 +20,7 @@ fun NbtTag.toJsonElement(): JsonElement = when (this) {
 }
 
 fun JsonElement.toNbtCompound(): NbtTag = when (this) {
-    is JsonArray -> map { it.toNbtCompound() }.toNbtListUnsafe()
+    is JsonArray -> map { it.toNbtCompound() }.asNbtListUnsafe()
     is JsonObject -> NbtCompound(mapValues { it.value.toNbtCompound() })
     is JsonPrimitive -> if (isString) NbtString(content) else
         (intOrNull?.let(::NbtInt)
@@ -33,7 +33,7 @@ fun JsonElement.toNbtCompound(): NbtTag = when (this) {
     JsonNull -> unreachable
 }
 
-internal fun List<NbtTag>.toNbtListUnsafe(): NbtList<NbtTag> {
+internal fun List<NbtTag>.asNbtListUnsafe(): NbtList<NbtTag> {
     val first = first()
 
     @Suppress(
