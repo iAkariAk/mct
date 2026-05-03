@@ -10,18 +10,20 @@ data class MCCommand(
     val raw: String,
     val name: String,
     val indices: IntRange,
-    val args: List<Arg>
+    val args: List<Arg>,
+    val isMarco: Boolean = false, // begin with `$`
 ) {
     /**
      * 1-based index
      */
     operator fun get(position: Int): Arg {
         val index = position - 1
-        require (index < args.size) {
+        require(index < args.size) {
             "Position $position out of bounds for length ${args.size}"
         }
         return args[index]
     }
+
     operator fun contains(arg: String) = args.any { it.content == arg }
 
     data class Arg(val relativeIndices: IntRange, val indices: IntRange, val content: String)
@@ -40,10 +42,12 @@ fun parseMCFunction(
         val chars = line.toCharArray()
         val buffer = StringBuilder()
 
-        var trimMode = true
+        var lineBeginMode = true
+        var isMarco = false
         var commandName: String? = null
         val args = mutableListOf<MCCommand.Arg>()
         val stateStack = ArrayDeque<State>().apply { push(RootState) }
+
         fun bindBufferIntoCmd(endCol: Int) {
             val str = buffer.toString()
             buffer.clear()
@@ -55,7 +59,7 @@ fun parseMCFunction(
 
             val startCol = endCol - str.length + 1 // adding to point the start of str
             args += MCCommand.Arg(
-                 relativeIndices =  startCol..endCol,
+                relativeIndices = startCol..endCol,
                 indices = (lineStartLine + startCol)..lineStartLine + endCol,
                 content = str
             )
@@ -67,10 +71,29 @@ fun parseMCFunction(
                 "Fatal error due to the RootState being replaced."
             }
 
-            if (trimMode) {
-                if (c == '#') return@line // skip comments
-                if (c == ' ') continue
-                trimMode = false
+            if (lineBeginMode) {
+                fun invaliChar() = logger.error {
+                    "Invali $c is found at $line, in that what is after the marco should be letter"
+                }
+                when (c) {
+                    '#' -> {
+                        if (isMarco) {
+                            invaliChar()
+                            return@line
+                        } else return@line // skip comments
+                    }
+
+                    ' ' -> if (isMarco) {
+                        invaliChar()
+                        return@line
+                    } else continue
+
+                    '$' -> {
+                        isMarco = true
+                        continue
+                    }
+                }
+                lineBeginMode = false
 
                 if (commandName == null) {
                     if (!c.isLetter()) {
@@ -146,7 +169,8 @@ fun parseMCFunction(
             line.trimStart(),
             commandName,
             lineStartLine..(lineStartLine + line.length),
-            args
+            args,
+            isMarco
         )
         mcfunctions += mcfunction
     }

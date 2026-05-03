@@ -95,7 +95,9 @@ internal fun extractTextFromCommand(
                     val beginIndexRelative =
                         if (selector.position == 0) {
                             if (command.name.length == command.raw.length) command.name.length
-                            else command.name.length + 1
+                            else command.args.firstOrNull()?.relativeIndices?.first
+                                ?: (command.name.length + command.raw.removePrefix(command.name)
+                                    .indexOfFirst { it != ' ' })
                         } else command[selector.position].relativeIndices.first
                     val endIndexRelative = command.raw.length - 1
                     val relRange = beginIndexRelative..endIndexRelative

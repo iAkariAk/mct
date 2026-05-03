@@ -3,6 +3,7 @@ package mct.dp
 import io.kotest.assertions.fail
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.shouldBe
 import mct.DatapackExtraction
@@ -28,7 +29,7 @@ class MCFunctionTest : StringSpec({
     }
 
 
-    val TEST_MCF = """
+    val TEST_MCF = $$"""
                 tellraw @a [{"storage":"global","nbt":"Prefix.ERROR"},{"text":"飛距離が設定されていない！"}]
                 
                 # ignore "Ciallo"
@@ -43,14 +44,17 @@ class MCFunctionTest : StringSpec({
                 say a greedy string
                 
                 execute as @p run say iroha kaguya 99
+                
+                $say $(s) No any one
               """.trimIndent()
 
     "test parser" {
         val mcfunctions = parseMCFunction(TEST_MCF)
         withClue(mcfunctions) {
             mcfunctions.map { it.name } shouldBeEqual listOf(
-                "tellraw", "tellraw", "complex", "tell", "say", "execute"
+                "tellraw", "tellraw", "complex", "tell", "say", "execute", "say"
             )
+            mcfunctions.last().isMarco.shouldBeTrue()
         }
         mcfunctions.forEach {
             println(it)
@@ -71,7 +75,7 @@ class MCFunctionTest : StringSpec({
             }
         }
         val backfilled = TEST_MCF.backfill(replacements)
-        backfilled shouldBe """
+        backfilled shouldBe $$"""
                 tellraw @a {CIALLO}
                 
                 # ignore "Ciallo"
@@ -86,6 +90,8 @@ class MCFunctionTest : StringSpec({
                 say {CIALLO}
                 
                 execute as @p run say {CIALLO}
+                
+                $say {CIALLO}
               """.trimIndent()
     }
 

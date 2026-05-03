@@ -76,7 +76,7 @@ fun interface PreCondition {
 sealed interface IndexSelector {
     @Serializable
     @SerialName("greedy")
-    data class Greedy(val position: Int) : IndexSelector
+    data class Greedy(val position: Int) : IndexSelector // when position is 0, select all args
 
     @SerialName("non_greedy")
     fun interface NonGreedy : IndexSelector {
