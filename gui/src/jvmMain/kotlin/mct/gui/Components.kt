@@ -230,6 +230,7 @@ fun ConfigTextField(
     singleLine: Boolean = true,
     modifier: Modifier = Modifier.fillMaxWidth(),
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    readOnly: Boolean = false,
     trailingIcon: @Composable (() -> Unit)? = null,
 ) {
     OutlinedTextField(
@@ -241,6 +242,7 @@ fun ConfigTextField(
         modifier = modifier,
         visualTransformation = visualTransformation,
         trailingIcon = trailingIcon,
+        readOnly = readOnly,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant

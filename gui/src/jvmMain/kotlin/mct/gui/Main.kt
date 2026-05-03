@@ -114,84 +114,56 @@ fun App(modifier: Modifier = Modifier) {
 
     context(env) {
         val savedSettings = remember { loadSettings() }
+
+        suspend fun setupCompletion(model: String, stream: Boolean) = either {
+            clientManager.chatCompletionCall = ChatCompletionCall(
+                client = clientManager.openAIClient!!,
+                model = model,
+                useStreamApi = stream,
+                strict = false,
+            )
+        }
+
         LaunchedEffect(Unit) {
             translateState = translateState.copy(
                 apiUrl = savedSettings.apiUrl,
                 model = savedSettings.model,
                 apiToken = savedSettings.apiToken
             )
-            if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank()) {
+            if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank())
                 logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
-                try {
-                    clientManager.openAIClient =
-                        createOpenAIClient(savedSettings.apiUrl.ifBlank { null }, savedSettings.apiToken)
-                    logLines.add(LogEntry(LoggerLevel.Debug, "正在请求可用模型列表..."))
-                    val models = clientManager.openAIClient!!.listModels()
-                    translateState = translateState.copy(availableModels = models)
-                    logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
-                    logLines.add(LogEntry(null, "已获取 ${models.size} 个可用模型"))
-
-                    if (savedSettings.model in models) {
-                        either {
-                            clientManager.chatCompletionCall = ChatCompletionCall(
-                                client = clientManager.openAIClient!!,
-                                model = savedSettings.model,
-                                strict = false,
-                            )
-                        }.onLeft {
-                            logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}"))
-                        }
-                    }
-                } catch (e: Exception) {
-                    logLines.add(LogEntry(LoggerLevel.Warning, "获取模型列表失败: ${e.message}"))
-                }
-            }
         }
 
         LaunchedEffect(translateState.apiUrl, translateState.apiToken) {
             clientManager.chatCompletionCall = null
-            if (translateState.apiUrl.isNotBlank() && translateState.apiToken.isNotBlank()) {
-                translateState = translateState.copy(isModelsLoading = true)
-                try {
-                    clientManager.openAIClient =
-                        createOpenAIClient(translateState.apiUrl.ifBlank { null }, translateState.apiToken)
-                    logLines.add(LogEntry(LoggerLevel.Debug, "正在刷新模型列表..."))
-                    val models = clientManager.openAIClient!!.listModels()
-                    translateState = translateState.copy(availableModels = models, isModelsLoading = false)
-                    logLines.add(LogEntry(LoggerLevel.Debug, "可用模型: ${models.joinToString(", ")}"))
+            val url = translateState.apiUrl.ifBlank { null }
+            val token = translateState.apiToken
+            if (url == null || token.isBlank()) return@LaunchedEffect
 
-                    if (translateState.model in models) {
-                        either {
-                            clientManager.chatCompletionCall = ChatCompletionCall(
-                                client = clientManager.openAIClient!!,
-                                model = translateState.model,
-                                strict = false,
-                            )
-                        }.onLeft {
-                            logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}"))
-                        }
-                    }
-                } catch (_: Exception) {
-                    translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
+            translateState = translateState.copy(isModelsLoading = true)
+            runCatching {
+                clientManager.openAIClient = createOpenAIClient(url, token)
+                clientManager.openAIClient!!.listModels()
+            }.onSuccess { models ->
+                translateState = translateState.copy(availableModels = models, isModelsLoading = false)
+                if (translateState.model in models) {
+                    setupCompletion(translateState.model, translateState.useStreamApi)
+                        .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}")) }
                 }
+            }.onFailure {
+                translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
             }
         }
 
-        LaunchedEffect(translateState.model) {
-            if (clientManager.openAIClient != null && translateState.model.isNotBlank()) {
-                val models = translateState.availableModels
-                if (models.isEmpty() || translateState.model in models) {
-                    either {
-                        clientManager.chatCompletionCall = ChatCompletionCall(
-                            client = clientManager.openAIClient!!,
-                            model = translateState.model,
-                            strict = false,
-                        )
-                    }.onLeft {
-                        logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}"))
-                    }
-                }
-            }
+        LaunchedEffect(translateState.model, translateState.useStreamApi) {
+            if (clientManager.openAIClient == null) return@LaunchedEffect
+            val model = translateState.model
+            if (model.isBlank()) return@LaunchedEffect
+            val models = translateState.availableModels
+            if (models.isNotEmpty() && model !in models) return@LaunchedEffect
+
+            setupCompletion(model, translateState.useStreamApi)
+                .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}")) }
         }
 
         val scope = rememberCoroutineScope()
@@ -242,20 +214,29 @@ fun App(modifier: Modifier = Modifier) {
                         icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
                         label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) })
                     Spacer(Modifier.weight(1f))
-                    Column(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            "本次 +${lastTokenConsume.renderWithUnit()} t",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "总计 ${totalTokenConsume.renderWithUnit()} t",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    if (totalTokenConsume > 0) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                "Total",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                totalTokenConsume.renderWithUnit(),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            if (lastTokenConsume > 0) {
+                                Text(
+                                    "+${lastTokenConsume.renderWithUnit()}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = .6f),
+                                )
+                            }
+                        }
                     }
                 }
 

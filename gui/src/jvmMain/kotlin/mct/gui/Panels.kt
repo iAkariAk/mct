@@ -57,7 +57,7 @@ fun ExtractPanel(
             dirPicker.launch()
         }
         PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
-            fileSaver.launch(suggestedName = "extractions", extension = "json")
+            fileSaver.launch(suggestedName = "extractions", defaultExtension = "json")
         }
 
         HorizontalDivider(
@@ -157,13 +157,13 @@ fun TranslatePanel(
             inputPicker.launch()
         }
         PathRow("输出替换Mapping JSON", "选择保存位置...", state.mappingOutput, { onStateChange(state.copy(mappingOutput = it)) }) {
-            outputSaver.launch(suggestedName = "mappings", extension = "json")
+            outputSaver.launch(suggestedName = "mappings", defaultExtension = "json")
         }
         PathRow("输出替换文件 JSON", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
-            outputSaver.launch(suggestedName = "replacements", extension = "json")
+            outputSaver.launch(suggestedName = "replacements", defaultExtension = "json")
         }
         PathRow("输出术语表 JSON", "选择保存位置...", state.termOutput, { onStateChange(state.copy(termOutput = it)) }) {
-            termSaver.launch(suggestedName = "terms", extension = "json")
+            termSaver.launch(suggestedName = "terms", defaultExtension = "json")
         }
 
         HorizontalDivider(
@@ -190,6 +190,7 @@ fun TranslatePanel(
                 value = state.model,
                 onValueChange = { onStateChange(state.copy(model = it)) },
                 label = { Text("模型名称") },
+                readOnly = true,
                 placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-chat...") },
                 trailingIcon = if (state.availableModels.isNotEmpty()) {
                     {
