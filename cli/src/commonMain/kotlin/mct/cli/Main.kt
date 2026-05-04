@@ -11,6 +11,7 @@ import mct.MCTError
 import mct.cli.cmd.datapack.Datapack
 import mct.cli.cmd.kits.Kit
 import mct.cli.cmd.region.Region
+import mct.cli.cmd.test.Test
 
 fun main(args: Array<String>) = runBlocking {
     MCT().main(args)
@@ -19,7 +20,7 @@ fun main(args: Array<String>) = runBlocking {
 class MCT : SuspendingCliktCommand("MCT") {
     init {
         versionOption("SNAPSHOT")
-        subcommands(Datapack(), Region(), Kit())
+        subcommands(Datapack(), Region(), Kit(), Test())
     }
 
     override suspend fun run() = Unit
