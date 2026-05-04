@@ -10,6 +10,10 @@ data class MCCommand(
     val args: List<Arg>,
     val isMarco: Boolean = false, // begin with `$`
 ) {
+    /** Leading whitespace trimmed from the original line to obtain [raw]. */
+    val trimOffset: Int
+        get() = (indices.last - indices.first) - raw.length
+
     /**
      * 1-based index
      */

@@ -71,7 +71,7 @@ internal fun extractTextFromCommand(
         val subBeginIndexRel = subName.relativeIndices.first
         val subBeginIndexAbs = command.indices.first + subBeginIndexRel
         val subIndicesAbs = subBeginIndexAbs..command.indices.last
-        val subRaw = command.raw.substring(subBeginIndexRel)
+        val subRaw = command.raw.substring(subBeginIndexRel - command.trimOffset)
         val subArgs = rawSubcommand.subList(1, rawSubcommand.size).map { arg ->
             MCCommand.Arg(
                 relativeIndices = (arg.relativeIndices.first - subBeginIndexRel)..(arg.relativeIndices.last - subBeginIndexRel),
@@ -91,13 +91,14 @@ internal fun extractTextFromCommand(
                     val beginIndexRelative =
                         if (selector.position == 0) {
                             if (command.name.length == command.raw.length) command.name.length
-                            else command.args.firstOrNull()?.relativeIndices?.first
+                            else command.args.firstOrNull()?.relativeIndices?.first?.minus(command.trimOffset)
                                 ?: (command.name.length + command.raw.removePrefix(command.name)
                                     .indexOfFirst { it != ' ' })
-                        } else command[selector.position].relativeIndices.first
+                        } else command[selector.position].relativeIndices.first - command.trimOffset
                     val endIndexRelative = command.raw.length - 1
                     val relRange = beginIndexRelative..endIndexRelative
-                    val absRange = (commandBeginIndex + beginIndexRelative)..(commandBeginIndex + endIndexRelative)
+                    val absRange = (commandBeginIndex + command.trimOffset + beginIndexRelative)..
+                        (commandBeginIndex + command.trimOffset + endIndexRelative)
                     StringIndices(absRange, command.raw.substring(relRange)).let(::sequenceOf)
                 }
 
