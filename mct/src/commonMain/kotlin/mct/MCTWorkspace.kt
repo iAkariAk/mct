@@ -3,9 +3,11 @@ package mct
 import arrow.core.raise.context.Raise
 import arrow.core.raise.context.either
 import arrow.core.raise.context.ensure
+import mct.model.DataVersions
 import mct.model.LevelRoot
 import mct.region.anvil.*
 import mct.serializer.NbtGzip
+import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.decodeFromNbtTag
 import net.benwoodworth.knbt.decodeFromSource
@@ -37,15 +39,27 @@ class MCTWorkspace private constructor(
             val rootTag = NbtGzip.decodeFromSource<NbtCompound>(this)
             rootTag
         }
-    val level = runCatching {
+    val level: LevelRoot? = runCatching {
         NbtGzip.decodeFromNbtTag<LevelRoot>(levelRaw)
     }.getOrElse {
         logger.warning { "Cannot parse level root: $it" }
+        null
     }
 
     val datapackDir = rootDir / "datapacks"
 
-    val dimensions: DimensionProvider = DimensionProviderV1(this)
+    val dimensions: DimensionProvider = run {
+        logger.info { "Minecraft version ${level?.data?.versionInfo?.toSnbt()}(${level?.data?.dataVersion})" }
+
+        if ((level?.data?.dataVersion ?: -1) < DataVersions.`26_1-snapshot-6`) {
+            logger.info { "Use DimensionProviderV1"}
+            DimensionProviderV1(this)
+        } else {
+            logger.info { "Use DimensionProviderV2"}
+            DimensionProviderV2(this)
+        }
+    }
+
 }
 
 interface DimensionProvider : Map<String, Dimension>
@@ -81,4 +95,16 @@ private class DimensionProviderV1(workspace: MCTWorkspace) : DimensionProvider, 
     "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", workspace.rootDir / "DIM1"),
 ) {
     override fun toString() = "DimensionProviderV1"
+}
+
+
+private fun dim(rootDir: Path, name: String) = rootDir / "dimensions" / "minecraft" / name
+
+// before 26.1-snapshot-6
+private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by mapOf(
+    "minecraft:nether" to Dimension(workspace, "minecraft:nether", dim(workspace.rootDir, "nether")),
+    "minecraft:overworld" to Dimension(workspace, "minecraft:overworld", dim(workspace.rootDir, "overworld")),
+    "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", dim(workspace.rootDir, "the_end")),
+) {
+    override fun toString() = "DimensionProviderV2"
 }
