@@ -2,6 +2,7 @@
 
 package mct.dp.mcfunction
 
+import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
@@ -19,7 +20,7 @@ class ExtractPatternTest : FreeSpec({
         vararg args: String,
         raw: String = args.joinToString(" ", prefix = "$name "),
     ): MCCommand {
-        val argList = args.mapIndexed { i, content ->
+        val argList = args.mapIndexed { _, content ->
             val start = raw.indexOf(content)
             val end = start + content.length - 1
             MCCommand.Arg(
@@ -111,252 +112,210 @@ class ExtractPatternTest : FreeSpec({
         }
 
         "NonGreedy Special matches specific indices" {
-            val selector = IndexSelector.NonGreedy.Companion.Special(listOf(1, 3))
+            val selector = IndexSelector.NonGreedy(mapOf(1 to null, 3 to null))
             selector.matches(1) shouldBe true
             selector.matches(2) shouldBe false
             selector.matches(3) shouldBe true
         }
 
-        "NonGreedy Range matches within range" {
-            val selector = IndexSelector.NonGreedy.Companion.Range(2..4)
-            selector.matches(1) shouldBe false
-            selector.matches(2) shouldBe true
-            selector.matches(3) shouldBe true
-            selector.matches(4) shouldBe true
-            selector.matches(5) shouldBe false
-        }
+        "PostCondition" - {
+            fun mockCmd() = cmd(
+                "tellraw", "@a",
+                """{"text":"Hello world","color":"red"}""",
+                """{"text":"extra text"}""",
+            )
 
-        "NonGreedy Any matches all" {
-            IndexSelector.NonGreedy.Companion.Any.matches(1) shouldBe true
-            IndexSelector.NonGreedy.Companion.Any.matches(100) shouldBe true
-        }
+            "Any matches everything" {
+                PostCondition.Companion.Any.matches(mockCmd(), mockCmd().args[0]) shouldBe true
+            }
 
-        "NonGreedy And requires all" {
-            val selector = IndexSelector.NonGreedy.Companion.And(
-                listOf(
-                    IndexSelector.NonGreedy.Companion.Range(2..5),
-                    IndexSelector.NonGreedy.Companion.Special(listOf(3)),
+            "MatchRegex checks arg content" {
+                val cond = PostCondition.Companion.MatchRegex("""\{.*text.*}""")
+                cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true   // JSON arg
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false  // "@a"
+            }
+
+            "Contain checks substring" {
+                val cond = PostCondition.Companion.Contain("text")
+                cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false
+            }
+
+            "Equal checks exact match" {
+                val cond = PostCondition.Companion.Equal("@a")
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe true
+                cond.matches(mockCmd(), mockCmd().args[1]) shouldBe false
+            }
+
+            "At delegates to nested PostCondition at position" {
+                val cond = PostCondition.Companion.At(2, PostCondition.Companion.MatchRegex("""\{.*text.*}"""))
+                // At(2, regex) checks command[2] (1-based). In this cmd, command[2] = {"text":"Hello world","color":"red"}
+                // which matches the regex. But the 2nd arg passed to matches() is irrelevant for At.
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe true  // At checks cmd[2], not the passed arg
+            }
+
+            "And requires all PostConditions" {
+                val cond = PostCondition.Companion.And(
+                    listOf(
+                        PostCondition.Companion.Contain("text"),
+                        PostCondition.Companion.MatchRegex("""\{.*}""")
+                    )
                 )
-            )
-            selector.matches(3) shouldBe true   // in range AND in special
-            selector.matches(4) shouldBe false  // in range but NOT in special
-        }
+                cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true   // contains "text" AND matches regex
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false  // "@a"
+            }
 
-        "NonGreedy Or requires any" {
-            val selector = IndexSelector.NonGreedy.Companion.Or(
-                listOf(
-                    IndexSelector.NonGreedy.Companion.Special(listOf(1)),
-                    IndexSelector.NonGreedy.Companion.Range(4..5),
+            "Or requires any PostCondition" {
+                val cond = PostCondition.Companion.Or(
+                    listOf(
+                        PostCondition.Companion.Equal("@a"),
+                        PostCondition.Companion.Contain("text"),
+                    )
                 )
-            )
-            selector.matches(1) shouldBe true
-            selector.matches(4) shouldBe true
-            selector.matches(2) shouldBe false
-        }
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe true   // equal "@a"
+                cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true   // contains "text"
+            }
 
-        "NonGreedy None requires zero" {
-            val selector = IndexSelector.NonGreedy.Companion.None(
-                listOf(
-                    IndexSelector.NonGreedy.Companion.Range(1..3),
-                    IndexSelector.NonGreedy.Companion.Special(listOf(5)),
+            "None requires zero PostConditions match" {
+                val cond = PostCondition.Companion.None(
+                    listOf(
+                        PostCondition.Companion.Contain("text"),
+                        PostCondition.Companion.Equal("@a"),
+                    )
                 )
-            )
-            selector.matches(4) shouldBe true
-            selector.matches(1) shouldBe false
-            selector.matches(5) shouldBe false
-        }
-    }
-
-    "PostCondition" - {
-        fun mockCmd() = cmd(
-            "tellraw", "@a",
-            """{"text":"Hello world","color":"red"}""",
-            """{"text":"extra text"}""",
-        )
-
-        "Any matches everything" {
-            PostCondition.Companion.Any.matches(mockCmd(), mockCmd().args[0]) shouldBe true
-        }
-
-        "MatchRegex checks arg content" {
-            val cond = PostCondition.Companion.MatchRegex("""\{.*text.*}""")
-            cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true   // JSON arg
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false  // "@a"
-        }
-
-        "Contain checks substring" {
-            val cond = PostCondition.Companion.Contain("text")
-            cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false
-        }
-
-        "Equal checks exact match" {
-            val cond = PostCondition.Companion.Equal("@a")
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe true
-            cond.matches(mockCmd(), mockCmd().args[1]) shouldBe false
-        }
-
-        "At delegates to nested PostCondition at position" {
-            val cond = PostCondition.Companion.At(2, PostCondition.Companion.MatchRegex("""\{.*text.*}"""))
-            // At(2, regex) checks command[2] (1-based). In this cmd, command[2] = {"text":"Hello world","color":"red"}
-            // which matches the regex. But the 2nd arg passed to matches() is irrelevant for At.
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe true  // At checks cmd[2], not the passed arg
-        }
-
-        "And requires all PostConditions" {
-            val cond = PostCondition.Companion.And(
-                listOf(
-                    PostCondition.Companion.Contain("text"),
-                    PostCondition.Companion.MatchRegex("""\{.*}""")
-                )
-            )
-            cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true   // contains "text" AND matches regex
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false  // "@a"
-        }
-
-        "Or requires any PostCondition" {
-            val cond = PostCondition.Companion.Or(
-                listOf(
-                    PostCondition.Companion.Equal("@a"),
-                    PostCondition.Companion.Contain("text"),
-                )
-            )
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe true   // equal "@a"
-            cond.matches(mockCmd(), mockCmd().args[1]) shouldBe true   // contains "text"
-        }
-
-        "None requires zero PostConditions match" {
-            val cond = PostCondition.Companion.None(
-                listOf(
-                    PostCondition.Companion.Contain("text"),
-                    PostCondition.Companion.Equal("@a"),
-                )
-            )
-            cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false  // equal "@a"
-            cond.matches(mockCmd(), mockCmd().args[1]) shouldBe false  // contains "text"
-        }
-    }
-
-    "ExtractPattern" - {
-        "Greedy pattern with pre and post conditions" {
-            val pattern = ExtractPattern(
-                command = "say",
-                preCondition = PreCondition.Companion.Any,
-                selected = IndexSelector.Greedy(0),
-                postCondition = PostCondition.Companion.Any,
-            )
-            pattern.command shouldBe "say"
-            pattern.preCondition.matches(cmd("say", "hi")) shouldBe true
-            // Greedy selector is handled via when-branch, not via .matches()
-            when (pattern.selected) {
-                is IndexSelector.Greedy -> pattern.selected.position shouldBe 0
-                is IndexSelector.NonGreedy -> error("Expected Greedy")
+                cond.matches(mockCmd(), mockCmd().args[0]) shouldBe false  // equal "@a"
+                cond.matches(mockCmd(), mockCmd().args[1]) shouldBe false  // contains "text"
             }
         }
 
-        "NonGreedy Special + MatchRegex combination" {
-            val pattern = ExtractPattern(
-                command = "tellraw",
-                preCondition = PreCondition.Companion.WithSize(2),
-                selected = IndexSelector.NonGreedy.Companion.Special(listOf(2)),
-                postCondition = PostCondition.Companion.MatchRegex("""\{.*text.*}"""),
-            )
+        "ExtractPattern" - {
+            "Greedy pattern with pre and post conditions" {
+                val pattern = ExtractPattern(
+                    command = "say",
+                    preCondition = PreCondition.Companion.Any,
+                    selected = IndexSelector.Greedy(0),
+                    postCondition = PostCondition.Companion.Any,
+                )
+                pattern.command shouldBe "say"
+                pattern.preCondition.matches(cmd("say", "hi")) shouldBe true
+                // Greedy selector is handled via when-branch, not via .matches()
+                when (pattern.selected) {
+                    is IndexSelector.Greedy -> pattern.selected.position shouldBe 0
+                    is IndexSelector.NonGreedy -> error("Expected Greedy")
+                }
+            }
 
-            val validCmd = cmd(
-                "tellraw", "@a",
-                """{"text":"hello","color":"red"}"""
-            )
-            val tooManyArgsCmd = cmd("tellraw", "@a", "one", "two", "three")
-            val wrongContentCmd = cmd("tellraw", "@a", "plain text")
+            "NonGreedy Special + MatchRegex combination" {
+                val pattern = ExtractPattern(
+                    command = "tellraw",
+                    preCondition = PreCondition.Companion.WithSize(2),
+                    selected = IndexSelector.NonGreedy(mapOf(2 to null)),
+                    postCondition = PostCondition.Companion.MatchRegex("""\{.*text.*}"""),
+                )
 
-            pattern.preCondition.matches(validCmd) shouldBe true
-            pattern.preCondition.matches(tooManyArgsCmd) shouldBe false  // 4 args > WithSize(2)
+                val validCmd = cmd(
+                    "tellraw", "@a",
+                    """{"text":"hello","color":"red"}"""
+                )
+                val tooManyArgsCmd = cmd("tellraw", "@a", "one", "two", "three")
+                val wrongContentCmd = cmd("tellraw", "@a", "plain text")
 
-            val selector = pattern.selected as IndexSelector.NonGreedy
-            selector.matches(2) shouldBe true
-            selector.matches(1) shouldBe false
+                pattern.preCondition.matches(validCmd) shouldBe true
+                pattern.preCondition.matches(tooManyArgsCmd) shouldBe false  // 4 args > WithSize(2)
 
-            pattern.postCondition.matches(validCmd, validCmd.args[1]) shouldBe true
-            pattern.postCondition.matches(wrongContentCmd, wrongContentCmd.args[1]) shouldBe false
-        }
-    }
+                val selector = pattern.selected as IndexSelector.NonGreedy
+                selector.matches(2) shouldBe true
+                selector.matches(1) shouldBe false
 
-    "BuiltinMCFPatterns" - {
-        fun matchCmd(cmd: MCCommand) = extractTextFromCommand(BuiltinMCFPatterns, cmd)
-
-
-        fun shouldMatches(mcf: String) {
-            val cmds = parseMCFunction(mcf)
-            val matches = cmds.flatMap(::matchCmd)
-            if (matches.isEmpty())
-                fail("No patterns matched for: $mcf")
-        }
-
-        "match say command" {
-            shouldMatches("say Hello world everyone")
-        }
-
-        "match tellraw command" {
-            shouldMatches("""tellraw @a {"text":"Hello","color":"red"}""")
+                pattern.postCondition.matches(validCmd, validCmd.args[1]) shouldBe true
+                pattern.postCondition.matches(wrongContentCmd, wrongContentCmd.args[1]) shouldBe false
+            }
         }
 
-        "match title command" {
-            shouldMatches("""title @a actionbar {"text":"Boss HP: 100"}""")
-        }
+        "BuiltinMCFPatterns" - {
+            fun matchCmd(cmd: MCCommand) = shouldNotRaise { extractTextFromCommand(cmd) }
 
-        "match bossbar set name" {
-            shouldMatches("""bossbar set mybar name {"text":"My Boss Bar"}""")
-        }
 
-        "match scoreboard objectives add" {
-            shouldMatches("""scoreboard objectives add myobj dummy {"text":"My Objective"}""")
-        }
+            fun shouldMatches(mcf: String, vararg expectedContents: String) {
+                val cmds = parseMCFunction(mcf)
+                val matches = cmds.flatMap(::matchCmd)
+                if (matches.isEmpty())
+                    fail("No patterns matched for: $mcf")
+                if (expectedContents.isNotEmpty()) {
+                    val actualContents = matches.map { it.content }
+                    actualContents shouldBe expectedContents.toList()
+                }
+            }
 
-        "match team modify prefix" {
-            shouldMatches("""team modify myteam prefix {"text":"[VIP]"}""")
-        }
+            "match say command" {
+                shouldMatches("say Hello world everyone", "Hello world everyone")
+            }
 
-        "match data modify set value" {
-            // data modify entity @s <path> set value <json> (6 args, WithSize(6))
-            val cmd = cmd(
-                "data",
-                "modify", "entity", "@s", "set", "value",
-                """{"text":"Named Entity"}""",
-            )
-            val patterns = BuiltinMCFPatterns["data"].orEmpty()
-            val p0 = patterns.first { (it.preCondition as? PreCondition.Companion.WithSize)?.size == 6 }
-            p0.preCondition.matches(cmd) shouldBe true
-            (p0.selected as IndexSelector.NonGreedy).matches(6) shouldBe true
-            // Position 6 is the last arg: the JSON text component
-            p0.postCondition.matches(cmd, cmd.args[5]) shouldBe true
-        }
+            "match tellraw command" {
+                shouldMatches("""tellraw @a {"text":"Hello","color":"red"}""", """{"text":"Hello","color":"red"}""")
+            }
 
-        "match give with text component" {
-            // give <targets> <item> (2 args, WithSize(3), Positions(2))
-            val cmd = cmd(
-                "give",
-                "@p",
-                """stick{display:{Name:"text"}}""",
-            )
-            val patterns = BuiltinMCFPatterns["give"].orEmpty()
-            patterns.isNotEmpty() shouldBe true
-            val p = patterns.first()
-            p.preCondition.matches(cmd) shouldBe true  // WithSize(3) >= 2
-            (p.selected as IndexSelector.NonGreedy).matches(2) shouldBe true
-        }
+            "match title command" {
+                shouldMatches("""title @a actionbar {"text":"Boss HP: 100"}""", """{"text":"Boss HP: 100"}""")
+            }
 
-        "match item modify" {
-            // item modify entity <target> <slot> <modifier> (5 args, WithSize(5))
-            val cmd = cmd(
-                "item",
-                "modify", "entity", "@p", "weapon.mainhand",
-                """{"function":"minecraft:set_name","name":"text"}""",
-            )
-            val patterns = BuiltinMCFPatterns["item"].orEmpty()
-            patterns.isNotEmpty() shouldBe true
-            val p = patterns.first()
-            p.preCondition.matches(cmd) shouldBe true  // WithSize(5) >= 5
-            (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
+            "match bossbar set name" {
+                shouldMatches("""bossbar set mybar name {"text":"My Boss Bar"}""", """{"text":"My Boss Bar"}""")
+            }
+
+            "match scoreboard objectives add" {
+                shouldMatches(
+                    """scoreboard objectives add myobj dummy {"text":"My Objective"}""",
+                    """{"text":"My Objective"}"""
+                )
+            }
+
+            "match team modify prefix" {
+                shouldMatches("""team modify myteam prefix {"text":"[VIP]"}""", """{"text":"[VIP]"}""")
+            }
+
+            "match data modify set value" {
+                // data modify entity @s <path> set value <json> (6 args, WithSize(6))
+                val cmd = cmd(
+                    "data",
+                    "modify", "entity", "@s", "set", "value",
+                    """{"text":"Named Entity"}""",
+                )
+                val patterns = BuiltinMCFPatterns["data"].orEmpty()
+                val p0 = patterns.first { (it.preCondition as? PreCondition.Companion.WithSize)?.size == 6 }
+                p0.preCondition.matches(cmd) shouldBe true
+                (p0.selected as IndexSelector.NonGreedy).matches(6) shouldBe true
+                // Position 6 is the last arg: the JSON text component
+                p0.postCondition.matches(cmd, cmd.args[5]) shouldBe true
+            }
+
+            "match give with text component" {
+                // give <targets> <item> (2 args, WithSize(3), Positions(2))
+                val cmd = cmd(
+                    "give",
+                    "@p",
+                    """stick{display:{Name:"text"}}""",
+                )
+                val patterns = BuiltinMCFPatterns["give"].orEmpty()
+                patterns.isNotEmpty() shouldBe true
+                val p = patterns.first()
+                p.preCondition.matches(cmd) shouldBe true  // WithSize(3) >= 2
+                (p.selected as IndexSelector.NonGreedy).matches(2) shouldBe true
+            }
+
+            "match item modify" {
+                // item modify entity <target> <slot> <modifier> (5 args, WithSize(5))
+                val cmd = cmd(
+                    "item",
+                    "modify", "entity", "@p", "weapon.mainhand",
+                    """{"function":"minecraft:set_name","name":"text"}""",
+                )
+                val patterns = BuiltinMCFPatterns["item"].orEmpty()
+                patterns.isNotEmpty() shouldBe true
+                val p = patterns.first()
+                p.preCondition.matches(cmd) shouldBe true  // WithSize(5) >= 5
+                (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
+            }
         }
     }
 })

@@ -91,7 +91,7 @@ val BuiltinMCFPatterns = PatternSet {
                 Matches("objective add/modify displayname") { cmd, _ ->
                     cmd[1].content == "objectives" && (
                             cmd[2].content == "add" ||
-                            (cmd[2].content == "modify" && cmd[4].content == "displayname")
+                                    (cmd[2].content == "modify" && cmd[4].content == "displayname")
                             )
                 }
             }
@@ -279,10 +279,10 @@ val BuiltinMCFPatterns = PatternSet {
     }
 
 
-    // ── execute (recursive: subcommand after `run`) ─────────────
-    command("execute") {
-        Any() then {
-            +GreedyPositions()
+    // summon <entity> <pos> [<nbt>]
+    command("summon") {
+        WithSize(5, strict = true) then {
+            Positions(5).withAry() // AI can handle it directly (maybe)
         }
     }
 }

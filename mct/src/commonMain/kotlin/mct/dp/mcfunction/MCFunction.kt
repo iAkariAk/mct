@@ -1,9 +1,13 @@
 package mct.dp.mcfunction
 
+import arrow.core.getOrElse
+import arrow.core.raise.context.Raise
+import arrow.core.raise.context.either
 import mct.DatapackExtraction
 import mct.DatapackExtractionGroup
 import mct.Logger
 import mct.dp.Extractor
+import mct.util.StringIndices
 
 
 internal fun MCFunctionExtractor(
@@ -20,10 +24,6 @@ internal fun MCFunctionExtractor(
     }
 }
 
-internal sealed interface Extracted {
-    data class Arg(val arg: MCCommand.Arg) : Extracted
-    data class GreedyString(val indices: IntRange, val content: String) : Extracted
-}
 
 context(logger: Logger)
 internal fun extractTextMCF(
@@ -35,23 +35,18 @@ internal fun extractTextMCF(
     val mcfunctions = parseMCFunction(mcf)
     logger.debug { "Parsed ${mcfunctions.size} commands in $path" }
     val extractedArgs = mcfunctions.asSequence().flatMap { command ->
-        extractTextFromCommand(patterns, command)
+        either {
+            extractTextFromCommand(command, patterns)
+        }.getOrElse {
+            logger.error { "Skip $command due to ${it.message}" }
+            emptyList()
+        }
     }
     val extractions = extractedArgs.map { extracted ->
-        when (extracted) {
-            is Extracted.Arg -> {
-                val arg = extracted.arg
-                DatapackExtraction.MCFunction(
-                    indices = arg.indices,
-                    content = arg.content
-                )
-            }
-
-            is Extracted.GreedyString -> DatapackExtraction.MCFunction(
-                indices = extracted.indices,
-                content = extracted.content
-            )
-        }
+        DatapackExtraction.MCFunction(
+            indices = extracted.indices,
+            content = extracted.content
+        )
     }.toList()
     logger.debug { "Extracted ${extractions.size} texts from $path" }
     return DatapackExtractionGroup(
@@ -62,14 +57,15 @@ internal fun extractTextMCF(
 }
 
 
+context(_: Raise<IndexSelectError>)
 internal fun extractTextFromCommand(
-    patterns: ExtractPatternSet,
-    command: MCCommand
-): Sequence<Extracted> {
+    command: MCCommand,
+    patterns: ExtractPatternSet = BuiltinMCFPatterns
+): List<StringIndices> {
     if (command.name == "execute") { // handle nested subcommand after `run`
         val index = command.args.indexOfFirst { it.content == "run" }
         val subBeginPos = index + 1
-        if (subBeginPos == command.args.size) return emptySequence()
+        if (subBeginPos == command.args.size) return emptyList()
         val rawSubcommand = command.args.subList(subBeginPos, command.args.size)
         val subName = rawSubcommand.first()
         val subBeginIndexRel = subName.relativeIndices.first
@@ -84,7 +80,8 @@ internal fun extractTextFromCommand(
             )
         }
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
-        return extractTextFromCommand(patterns, subCommand)
+        println(subCommand)
+        return extractTextFromCommand(subCommand, patterns)
     }
     return (patterns[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
@@ -102,16 +99,24 @@ internal fun extractTextFromCommand(
                     val endIndexRelative = command.raw.length - 1
                     val relRange = beginIndexRelative..endIndexRelative
                     val absRange = (commandBeginIndex + beginIndexRelative)..(commandBeginIndex + endIndexRelative)
-                    Extracted.GreedyString(absRange, command.raw.substring(relRange)).let(::sequenceOf)
+                    StringIndices(absRange, command.raw.substring(relRange)).let(::sequenceOf)
                 }
 
                 is IndexSelector.NonGreedy ->
                     command.args.asSequence()
                         .withIndex()
                         .filter { (index, _) -> selector.matches(index + 1) }
-                        .filter { pattern.postCondition.matches(command, it.value) }
-                        .map { Extracted.Arg(it.value) }
-
+                        .filter { (_, arg) -> pattern.postCondition.matches(command, arg) }
+                        .flatMap { (index, arg) ->
+                            val selections =
+                                selector.select(index + 1, arg.content) ?: return@flatMap sequenceOf(arg)
+                            selections.map {
+                                val entire = arg.indices
+                                val part = it.indices
+                                val indices = (entire.first + part.first)..(entire.first + part.last)
+                                StringIndices(indices, it.content)
+                            }
+                        }
             }
-        }
+        }.toList()
 }

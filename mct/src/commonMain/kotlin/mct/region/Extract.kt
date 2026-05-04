@@ -71,7 +71,7 @@ internal data class PointerWithExtension(
     val kind: FormatKind = FormatKind.Json,
 )
 
-private inline fun Sequence<PointerWithExtension>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
+internal inline fun Sequence<PointerWithExtension>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
     filter { (ptr, _, _) -> ptr.matches(patterns) }
 
 internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this) {

@@ -51,14 +51,8 @@ class CommandBuilderIndexSelectorScope {
     operator fun IndexSelector.unaryPlus() = withAry()
 
     fun GreedyPositions(beginArgPosition: Int = 0) = IndexSelector.Greedy(beginArgPosition)
-    fun Positions(vararg positions: Int) = IndexSelector.NonGreedy.Companion.Special(positions.asList())
-    fun Range(range: IntRange) = IndexSelector.NonGreedy.Companion.Range(range)
-
-    fun Any() = IndexSelector.NonGreedy.Companion.Any
-    fun And(vararg selector: IndexSelector.NonGreedy) = IndexSelector.NonGreedy.Companion.And(selector.asList())
-    fun Or(vararg selector: IndexSelector.NonGreedy) = IndexSelector.NonGreedy.Companion.Or(selector.asList())
-    fun None(vararg selector: IndexSelector.NonGreedy) = IndexSelector.NonGreedy.Companion.None(selector.asList())
-
+    fun Positions(vararg positions: Int) = IndexSelector.NonGreedy(positions.asList().associateWith { null })
+    fun Positions(vararg positionsWithSelections: Pair<Int, IndexSelection>) = IndexSelector.NonGreedy(positionsWithSelections.toMap())
 }
 
 @BuilderMaker

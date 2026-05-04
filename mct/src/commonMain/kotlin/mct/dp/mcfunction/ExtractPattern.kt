@@ -1,11 +1,23 @@
 package mct.dp.mcfunction
 
+import arrow.core.raise.context.Raise
+import arrow.core.raise.context.raise
+import arrow.core.raise.recover
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
-import mct.serializer.IntRangeSerializable
+import mct.FormatKind
+import mct.MCTError
+import mct.region.BuiltinRegionPatterns
+import mct.region.extractTexts
+import mct.region.filterPointer
+import mct.serializer.Snbt
+import mct.util.StringIndices
+import mct.util.findAll
+import net.benwoodworth.knbt.NbtTag
 import org.intellij.lang.annotations.Language
 
 typealias ExtractPatternSet = Map<String, List<ExtractPattern>>
@@ -73,68 +85,82 @@ fun interface PreCondition {
     }
 }
 
+sealed interface IndexSelectError : MCTError {
+    data class Parse(
+        val raw: String,
+        val reason: Throwable
+    ) : IndexSelectError {
+        override val message = "When parsing $raw, get ${reason.message}"
+    }
+}
+
+private const val ANYWAY_PLACEHOLDER = "😭NEWLINE😭"
+
+context(_: Raise<IndexSelectError>)
+private fun selectSnbt(content: String): Sequence<StringIndices> {
+    val hacky = content.replace("\\n", ANYWAY_PLACEHOLDER)
+    val tag = runCatching {
+        // Anyhow, knbt cannot handle inconsistent List,
+        // which signifies complex TextCompounds including String and Compound causes ParseError.
+        Snbt.decodeFromString<NbtTag>(hacky)
+    }.getOrElse {
+        raise(IndexSelectError.Parse(hacky, it))
+    }
+    return tag.extractTexts()
+        .filterPointer(BuiltinRegionPatterns)
+        .filter { it.kind == FormatKind.Json } // TODO: perhaps should support NBT
+        .flatMap { pwe ->
+            val raw = pwe.content
+                .replace(ANYWAY_PLACEHOLDER, "\\n")
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+            content.findAll(raw).map {
+                StringIndices(it, pwe.content)
+            }
+        }
+}
+
+@Serializable
+sealed interface IndexSelection {
+    context(_: Raise<IndexSelectError>)
+    fun select(content: String): Sequence<StringIndices>?
+
+    @Serializable
+    data object PlainEntire : IndexSelection {
+        context(_: Raise<IndexSelectError>)
+        override fun select(content: String): Sequence<StringIndices>? = null
+    }
+
+    @Serializable
+    data object SnbtEntire : IndexSelection {
+        context(_: Raise<IndexSelectError>)
+        override fun select(content: String): Sequence<StringIndices>? =
+            recover({ selectSnbt(content) }, { PlainEntire.select(content) })
+    }
+}
+
+@Serializable
 sealed interface IndexSelector {
     @Serializable
     @SerialName("greedy")
     data class Greedy(val position: Int) : IndexSelector // when position is 0, select all args
 
+    @Serializable
     @SerialName("non_greedy")
-    fun interface NonGreedy : IndexSelector {
+    data class NonGreedy(
+        val indexes: Map<Int, IndexSelection?>,
+    ) : IndexSelector {
         // 1-based index
-        fun matches(index: Int): Boolean
-        fun select(index: Int, str: String): MatchResult? = null // null ia select the entire arg
+        fun matches(pos: Int) = pos in indexes
 
-        companion object {
-            @Serializable
-            @SerialName("any")
-            data object Any : NonGreedy {
-                override fun matches(index: Int) = true
-            }
-
-            @Serializable
-            @SerialName("and")
-            data class And(val conditions: List<NonGreedy>) : NonGreedy {
-                override fun matches(index: Int) = conditions.all { it.matches(index) }
-            }
-
-            @Serializable
-            @SerialName("or")
-            data class Or(val conditions: List<NonGreedy>) : NonGreedy {
-                override fun matches(index: Int) = conditions.any { it.matches(index) }
-            }
-
-            @Serializable
-            @SerialName("none")
-            data class None(val conditions: List<NonGreedy>) : NonGreedy {
-                override fun matches(index: Int) = conditions.none { it.matches(index) }
-            }
-
-            @Serializable
-            @SerialName("range")
-            data class Range(val range: IntRangeSerializable, val regexes: List<String>? = null) : NonGreedy {
-                private val _regexes by lazy { regexes?.map(::Regex) }
-
-                override fun matches(index: Int) = index in range
-
-                override fun select(index: Int, str: String): MatchResult? = _regexes?.let {
-                    it[index].matchEntire(str)
-                }
-            }
-
-            @Serializable
-            @SerialName("index")
-            data class Special(val specials: List<Int>, val regexes: List<String>? = null) : NonGreedy {
-                private val _regexes by lazy { regexes?.map(::Regex) }
-
-                override fun matches(index: Int) = index in specials
-
-                override fun select(index: Int, str: String): MatchResult? = _regexes?.let {
-                    it[index].matchEntire(str)
-                }
-            }
-        }
+        // select parts of the entire arg, and extract field if selection is as to snbt
+        context(_: Raise<IndexSelectError>)
+        fun select(pos: Int, str: String): Sequence<StringIndices>? =
+            indexes[pos]?.select(str) ?: return null
     }
 }
+
 
 fun interface PostCondition {
     fun matches(command: MCCommand, arg: MCCommand.Arg): Boolean
@@ -207,12 +233,7 @@ val extractPatternModule = SerializersModule {
 
     polymorphic(IndexSelector::class) {
         subclass(IndexSelector.Greedy::class)
-        subclass(IndexSelector.NonGreedy.Companion.Any::class)
-        subclass(IndexSelector.NonGreedy.Companion.And::class)
-        subclass(IndexSelector.NonGreedy.Companion.Or::class)
-        subclass(IndexSelector.NonGreedy.Companion.None::class)
-        subclass(IndexSelector.NonGreedy.Companion.Range::class)
-        subclass(IndexSelector.NonGreedy.Companion.Special::class)
+        subclass(IndexSelector.NonGreedy::class)
     }
 
 

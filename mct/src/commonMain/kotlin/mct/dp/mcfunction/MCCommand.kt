@@ -1,10 +1,7 @@
 package mct.dp.mcfunction
 
 import mct.Logger
-import mct.util.bottom
-import mct.util.peek
-import mct.util.pop
-import mct.util.push
+import mct.util.*
 
 data class MCCommand(
     val raw: String,
@@ -26,7 +23,11 @@ data class MCCommand(
 
     operator fun contains(arg: String) = args.any { it.content == arg }
 
-    data class Arg(val relativeIndices: IntRange, val indices: IntRange, val content: String)
+    data class Arg(
+        val relativeIndices: IntRange,
+        override val indices: IntRange,
+        override val content: String
+    ) : StringIndices
 
     companion object
 }
