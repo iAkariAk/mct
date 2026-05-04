@@ -80,7 +80,6 @@ internal fun extractTextFromCommand(
             )
         }
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
-        println(subCommand)
         return extractTextFromCommand(subCommand, patterns)
     }
     return (patterns[command.name]?.asSequence() ?: emptySequence())
