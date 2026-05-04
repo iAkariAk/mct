@@ -52,7 +52,7 @@ fun MCTWorkspace.extractFromDatapackRaw(
                 val sfs = if (metadata.isDirectory) {
                     fs.newRelativeFS(it)
                 } else if (it.endsWith(".zip")) {
-                    fs.openZipReadWrite(it)
+                    fs.openZipReadOnly(it)
                 } else null
                 sfs.bind() to it
             }

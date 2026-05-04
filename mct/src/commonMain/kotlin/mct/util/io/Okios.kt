@@ -44,6 +44,17 @@ inline fun Path.writeText(content: String, fs: FileSystem) = fs.write(this) {
 context(fs: FileSystem)
 inline fun Path.writeText(content: String) = writeText(content, fs)
 
+suspend fun FileSystem.openZipReadOnly(path: Path): ZipFileSystem {
+    val tfs = FakeFileSystem()
+    val handle = openReadOnly(path)
+    val astream = handle.asAsyncStreamBase().toAsyncStream()
+    val zipVfs = astream.openAsZip()
+    zipVfs.copyToRecursively(tfs, Path.ROOT)
+
+    return object : ZipFileSystem(tfs) {
+        override suspend fun closeAsync() {}
+    }
+}
 
 suspend fun FileSystem.openZipReadWrite(path: Path): ZipFileSystem {
     val rfs = this
