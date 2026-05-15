@@ -51,12 +51,19 @@ class MCTWorkspace private constructor(
     val dimensions: DimensionProvider = run {
         logger.info { "Minecraft version ${level?.data?.versionInfo?.toSnbt()}(${level?.data?.dataVersion})" }
 
-        if ((level?.data?.dataVersion ?: -1) < DataVersions.`26_1-snapshot-6`) {
-            logger.info { "Use DimensionProviderV1"}
-            DimensionProviderV1(this)
+        val dataVersion = level?.data?.dataVersion
+        val useV2 = if (dataVersion != null) {
+            dataVersion >= DataVersions.`26_1-snapshot-6`
         } else {
-            logger.info { "Use DimensionProviderV2"}
+            fs.exists(rootDir / "dimensions")
+        }
+
+        if (useV2) {
+            logger.info { "Use DimensionProviderV2" }
             DimensionProviderV2(this)
+        } else {
+            logger.info { "Use DimensionProviderV1" }
+            DimensionProviderV1(this)
         }
     }
 
@@ -102,7 +109,7 @@ private fun dim(rootDir: Path, name: String) = rootDir / "dimensions" / "minecra
 
 // before 26.1-snapshot-6
 private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by mapOf(
-    "minecraft:nether" to Dimension(workspace, "minecraft:nether", dim(workspace.rootDir, "nether")),
+    "minecraft:nether" to Dimension(workspace, "minecraft:nether", dim(workspace.rootDir, "the_nether")),
     "minecraft:overworld" to Dimension(workspace, "minecraft:overworld", dim(workspace.rootDir, "overworld")),
     "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", dim(workspace.rootDir, "the_end")),
 ) {

@@ -45,11 +45,11 @@ data class LevelData(
     /** 存档的默认游戏模式 (0:生存, 1:创造, 2:冒险, 3:旁观) */
     @SerialName("GameType") val gameType: Int,
     /** 存档是否为极限模式 */
-    @SerialName("hardcore") val hardcore: Boolean,
+    @SerialName("hardcore") val hardcore: Boolean = false,
     /** 存档的游戏难度 (0-3) */
-    @SerialName("Difficulty") val difficulty: Byte,
+    @SerialName("Difficulty") val difficulty: Byte = 1,
     /** 此存档难度是否被锁定 */
-    @SerialName("DifficultyLocked") val difficultyLocked: Boolean,
+    @SerialName("DifficultyLocked") val difficultyLocked: Boolean = false,
     /** 存档的游戏规则列表 (注意：Key 为 GameRules 而非 game_rules) */
-    @SerialName("GameRules") val gameRules: Map<String, String>,
+    @SerialName("GameRules") val gameRules: Map<String, String> = emptyMap(),
 )
