@@ -5,19 +5,16 @@ import arrow.core.raise.context.raise
 import arrow.core.raise.recover
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import mct.FormatKind
 import mct.MCTError
-import mct.region.BuiltinRegionPatterns
-import mct.region.extractTexts
+import mct.pointer.DataPointerPattern
+import mct.region.extractTextsForSnbt
 import mct.region.filterPointer
-import mct.serializer.Snbt
 import mct.util.StringIndices
-import mct.util.findAll
-import net.benwoodworth.knbt.NbtTag
+import mct.util.snbt.SnbtTag
 import org.intellij.lang.annotations.Language
 
 typealias ExtractPatternSet = Map<String, List<ExtractPattern>>
@@ -94,49 +91,34 @@ sealed interface IndexSelectError : MCTError {
     }
 }
 
-private const val ANYWAY_PLACEHOLDER = "😭NEWLINE😭"
-
 context(_: Raise<IndexSelectError>)
-private fun selectSnbt(content: String): Sequence<StringIndices> {
-    val hacky = content.replace("\\n", ANYWAY_PLACEHOLDER)
+private fun selectSnbt(patterns: List<DataPointerPattern>?, content: String): Sequence<StringIndices> {
     val tag = runCatching {
-        // Anyhow, knbt cannot handle inconsistent List,
-        // which signifies complex TextCompounds including String and Compound causes ParseError.
-        Snbt.decodeFromString<NbtTag>(hacky)
+        SnbtTag.decodeFromString(content)
     }.getOrElse {
-        raise(IndexSelectError.Parse(hacky, it))
+        raise(IndexSelectError.Parse(content, it))
     }
-    return tag.extractTexts()
-        .filterPointer(BuiltinRegionPatterns)
-        .filter { it.kind == FormatKind.Json } // TODO: perhaps should support NBT
-        .flatMap { pwe ->
-            val raw = pwe.content
-                .replace(ANYWAY_PLACEHOLDER, "\\n")
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-            content.findAll(raw).map {
-                StringIndices(it, pwe.content)
-            }
-        }
+    return tag.extractTextsForSnbt(content)
+        .filterPointer(patterns)
+        .filter { it.kind == FormatKind.Snbt }
 }
 
 @Serializable
 sealed interface IndexSelection {
     context(_: Raise<IndexSelectError>)
-    fun select(content: String): Sequence<StringIndices>?
+    fun select(patterns: List<DataPointerPattern>?, content: String): Sequence<StringIndices>?
 
     @Serializable
     data object PlainEntire : IndexSelection {
         context(_: Raise<IndexSelectError>)
-        override fun select(content: String): Sequence<StringIndices>? = null
+        override fun select(patterns: List<DataPointerPattern>?, content: String): Sequence<StringIndices>? = null
     }
 
     @Serializable
     data object SnbtEntire : IndexSelection {
         context(_: Raise<IndexSelectError>)
-        override fun select(content: String): Sequence<StringIndices>? =
-            recover({ selectSnbt(content) }, { PlainEntire.select(content) })
+        override fun select(patterns: List<DataPointerPattern>?, content: String): Sequence<StringIndices>? =
+            recover({ selectSnbt(patterns, content) }, { PlainEntire.select(patterns, content) })
     }
 }
 
@@ -156,8 +138,8 @@ sealed interface IndexSelector {
 
         // select parts of the entire arg, and extract field if selection is as to snbt
         context(_: Raise<IndexSelectError>)
-        fun select(pos: Int, str: String): Sequence<StringIndices>? =
-            indexes[pos]?.select(str) ?: return null
+        fun select(pos: Int, patterns: List<DataPointerPattern>?, str: String): Sequence<StringIndices>? =
+            indexes[pos]?.select(patterns, str) ?: return null
     }
 }
 

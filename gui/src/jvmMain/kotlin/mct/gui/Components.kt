@@ -190,6 +190,7 @@ data class ExtractState(
     val disableFilter: Boolean = false,
     val regionPatternPath: String = "",
     val mcfPatternPath: String = "",
+    val mcfDataPatternPath: String = "",
     val mcjPatternPath: String = "",
 )
 

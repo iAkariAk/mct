@@ -6,10 +6,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.shouldBe
-import mct.DatapackExtraction
-import mct.DatapackExtractionGroup
-import mct.DatapackReplacement
-import mct.Logger
+import mct.*
 import mct.dp.mcfunction.MCCommand
 import mct.dp.mcfunction.extractTextMCF
 
@@ -95,4 +92,11 @@ class MCFunctionTest : StringSpec({
               """.trimIndent()
     }
 
+    "test snbt selecting" {
+        val extraction = extractTextMCF(TestFunctions.update_billboard)
+        extraction.extractions.size shouldBe 11
+        extraction.extractions.forEach {
+            println(it)
+        }
+    }
 })

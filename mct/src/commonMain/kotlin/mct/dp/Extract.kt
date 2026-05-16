@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.*
 import mct.DatapackExtractionGroup
 import mct.Env
 import mct.MCTWorkspace
+import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.ExtractPattern
 import mct.dp.mcfunction.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
@@ -23,9 +24,11 @@ import mct.dp.mcjson.BuiltinMCJPatterns as MCJsonBuiltinPatterns
 
 fun MCTWorkspace.extractFromDatapack(
     mcfPatterns: List<ExtractPattern> = emptyList(),
+    mcfDataPatterns: List<DataPointerPattern>? = emptyList(),
     mcjPatterns: List<DataPointerPattern>? = emptyList()
 ) = extractFromDatapackRaw(
     mcfPatterns.compile(),
+    mcfDataPatterns?.let { BuiltinMCFunctionDataPatterns + mcfDataPatterns },
     mcjPatterns?.let { MCJsonBuiltinPatterns + mcjPatterns },
 )
 
@@ -34,13 +37,14 @@ fun List<ExtractPattern>.compile(): Map<String, List<ExtractPattern>> =
 
 fun MCTWorkspace.extractFromDatapackRaw(
     mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
     mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
 ): Flow<DatapackExtractionGroup> {
     if (mcjPatterns == null) logger.warning { "The filter was disabled, which causes export all string from the datapack" }
     logger.info { "Scanning datapacks in $datapackDir" }
 
     val extractors = listOf(
-        MCFunctionExtractor(mcfPatterns),
+        MCFunctionExtractor(mcfPatterns, mcfDataPatterns),
         MCJsonExtractor(mcjPatterns),
     )
 

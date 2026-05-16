@@ -13,11 +13,17 @@ import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
+import mct.util.StringIndices
+import mct.util.snbt.SnbtCompound
+import mct.util.snbt.SnbtList
+import mct.util.snbt.SnbtString
+import mct.util.snbt.SnbtTag
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 import net.benwoodworth.knbt.NbtTag
+import kotlin.jvm.JvmName
 
 
 context(_: Raise<ExtractError>)
@@ -39,7 +45,7 @@ fun MCTWorkspace.extractFromRegion(
                     val extractions = region.chunks.asSequence()
                         .filterNotNull()
                         .flatMap { chunk ->
-                            chunk.data.extractTexts()
+                            chunk.data.extractTextsForSnbt()
                                 .filterPointer(patterns)
                                 .map { (pointer, content, kind) ->
                                     RegionExtraction(
@@ -74,9 +80,9 @@ internal data class PointerWithExtension(
 internal inline fun Sequence<PointerWithExtension>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
     filter { (ptr, _, _) -> ptr.matches(patterns) }
 
-internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this) {
+internal fun NbtTag.extractTextsForSnbt(): Sequence<PointerWithExtension> = when (this) {
     is NbtList<*> -> asSequence().withIndex().flatMap { (index, tag) ->
-        tag.extractTexts().map {
+        tag.extractTextsForSnbt().map {
             it.copy(pointer = it.pointer.markArray(index))
         }
     } // wrap inner pointer
@@ -93,7 +99,7 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
             sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Snbt))
         } else {
             asSequence().flatMap { (key, value) ->
-                value.extractTexts().map {
+                value.extractTextsForSnbt().map {
                     it.copy(pointer = it.pointer.markMap(key))
                 }
             } // wrap inner pointer
@@ -102,6 +108,53 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
 
     is NbtString -> {
         sequenceOf(PointerWithExtension(DataPointer.Terminator, value))
+    }
+
+    else -> emptySequence()
+}
+
+// Cope from the above
+// due to using IR dragging slow performance
+
+internal data class PointerWithExtensionForSnbt(
+    val pointer: DataPointer,
+    override val indices: IntRange,
+    override val content: String,
+    val kind: FormatKind = FormatKind.Json,
+) : StringIndices
+
+@JvmName($$"filterPointer$snbt")
+internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
+    filter { (ptr, _, _) -> ptr.matches(patterns) }
+
+internal fun SnbtTag.extractTextsForSnbt(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
+    is SnbtList -> asSequence().withIndex().flatMap { (index, tag) ->
+        tag.extractTextsForSnbt(snbt).map {
+            it.copy(pointer = it.pointer.markArray(index))
+        }
+    } // wrap inner pointer
+
+    is SnbtCompound -> {
+        if (isTextCompound()) {
+            sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, snbt.substring(indices), FormatKind.Snbt))
+        } else if (isTextCompoundShorthanded()) {
+            val map = toMutableMap()
+            val text = map.remove("")
+            map["text"] = text!!
+            val expanded = SnbtCompound(indices, map)
+
+            sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, snbt.substring(indices), FormatKind.Snbt))
+        } else {
+            asSequence().flatMap { (key, value) ->
+                value.extractTextsForSnbt(snbt).map {
+                    it.copy(pointer = it.pointer.markMap(key))
+                }
+            } // wrap inner pointer
+        }
+    }
+
+    is SnbtString -> {
+        sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, rawContent))
     }
 
     else -> emptySequence()

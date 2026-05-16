@@ -7,11 +7,13 @@ import mct.DatapackExtraction
 import mct.DatapackExtractionGroup
 import mct.Logger
 import mct.dp.Extractor
+import mct.pointer.DataPointerPattern
 import mct.util.StringIndices
 
 
 internal fun MCFunctionExtractor(
-    patterns: ExtractPatternSet = BuiltinMCFPatterns
+    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
 ) = Extractor("MCFunction", ".mcfunction") { env, zfs, zpath, path ->
     val text = zfs.read(zpath) { readUtf8() }
     context(env.logger) {
@@ -19,7 +21,8 @@ internal fun MCFunctionExtractor(
             text,
             source = path.name,
             path = zpath.normalized().toString(),
-            patterns = patterns,
+            mcfPatterns = mcfPatterns,
+            mcfDataPatterns = mcfDataPatterns
         )
     }
 }
@@ -30,13 +33,14 @@ internal fun extractTextMCF(
     mcf: String,
     source: String,
     path: String,
-    patterns: ExtractPatternSet = BuiltinMCFPatterns
+    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
 ): DatapackExtractionGroup {
     val mcfunctions = parseMCFunction(mcf)
     logger.debug { "Parsed ${mcfunctions.size} commands in $path" }
     val extractedArgs = mcfunctions.asSequence().flatMap { command ->
         either {
-            extractTextFromCommand(command, patterns)
+            extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
         }.getOrElse {
             logger.error { "Skip $command due to ${it.message}" }
             emptyList()
@@ -60,7 +64,8 @@ internal fun extractTextMCF(
 context(_: Raise<IndexSelectError>)
 internal fun extractTextFromCommand(
     command: MCCommand,
-    patterns: ExtractPatternSet = BuiltinMCFPatterns
+    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
 ): List<StringIndices> {
     if (command.name == "execute") { // handle nested subcommand after `run`
         val index = command.args.indexOfFirst { it.content == "run" }
@@ -80,9 +85,9 @@ internal fun extractTextFromCommand(
             )
         }
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
-        return extractTextFromCommand(subCommand, patterns)
+        return extractTextFromCommand(subCommand, mcfPatterns)
     }
-    return (patterns[command.name]?.asSequence() ?: emptySequence())
+    return (mcfPatterns[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
             when (val selector = pattern.selected) {
@@ -98,7 +103,7 @@ internal fun extractTextFromCommand(
                     val endIndexRelative = command.raw.length - 1
                     val relRange = beginIndexRelative..endIndexRelative
                     val absRange = (commandBeginIndex + command.trimOffset + beginIndexRelative)..
-                        (commandBeginIndex + command.trimOffset + endIndexRelative)
+                            (commandBeginIndex + command.trimOffset + endIndexRelative)
                     StringIndices(absRange, command.raw.substring(relRange)).let(::sequenceOf)
                 }
 
@@ -109,7 +114,9 @@ internal fun extractTextFromCommand(
                         .filter { (_, arg) -> pattern.postCondition.matches(command, arg) }
                         .flatMap { (index, arg) ->
                             val selections =
-                                selector.select(index + 1, arg.content) ?: return@flatMap sequenceOf(arg)
+                                selector.select(index + 1, mcfDataPatterns, arg.content) ?: return@flatMap sequenceOf(
+                                    arg
+                                )
                             selections.map {
                                 val entire = arg.indices
                                 val part = it.indices

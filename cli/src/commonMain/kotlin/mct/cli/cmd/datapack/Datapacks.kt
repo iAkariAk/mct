@@ -17,6 +17,7 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.BuiltinMCFPatterns
+import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.ExtractPattern
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.pointer.CustomizedDataPointerPattern
@@ -48,6 +49,10 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         "--disable-mcjson-filter",
         help = "Disable mcjson filter, extract all strings from JSON files"
     ).flag()
+    val disableMCFDFilter by option(
+        "--disable-mcfunction-data-filter",
+        help = "Disable mcfunction snbt arg filter, extract all strings from JSON files"
+    ).flag()
 
 
     context(_: Raise<MCTError>)
@@ -56,15 +61,24 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         val userMcjPatterns = mcjPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }
+        val userMcfDataPatterns = mcjPatternsPath?.readText()?.let {
+            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+        }
         val mcjPatterns = when {
             disableMCJFilter -> null
             userMcjPatterns != null -> BuiltinMCJPatterns + userMcjPatterns
             else -> BuiltinMCJPatterns
         }
+        val mcfDataPatterns = when {
+            disableMCFDFilter -> null
+            userMcfDataPatterns != null -> BuiltinMCFunctionDataPatterns + userMcfDataPatterns
+            else -> BuiltinMCFunctionDataPatterns
+        }
 
         logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
-            workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: BuiltinMCFPatterns, mcjPatterns).toList()
+            workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: BuiltinMCFPatterns, mcfDataPatterns, mcjPatterns)
+                .toList()
         logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)
     }

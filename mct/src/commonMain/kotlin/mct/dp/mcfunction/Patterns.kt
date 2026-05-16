@@ -1,5 +1,6 @@
 package mct.dp.mcfunction
 
+import mct.pointer.RightPattern
 import mct.text.isTextComponent
 
 val BuiltinMCFPatterns = PatternSet {
@@ -282,7 +283,13 @@ val BuiltinMCFPatterns = PatternSet {
     // summon <entity> <pos> [<nbt>]
     command("summon") {
         WithSize(5, strict = true) then {
-            Positions(5).withAry() // AI can handle it directly (maybe)
+            Positions(5 to IndexSelection.SnbtEntire).withAry()
         }
     }
+}
+
+
+val BuiltinMCFunctionDataPatterns = mct.pointer.PatternSet {
+    // Display entities (refer to https://zh.minecraft.wiki/w/%E5%B1%95%E7%A4%BA%E5%AE%9E%E4%BD%93#%E5%AE%9E%E4%BD%93%E6%95%B0%E6%8D%AE)
+    +RightPattern(">#text")
 }

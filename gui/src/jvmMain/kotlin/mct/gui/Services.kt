@@ -11,6 +11,7 @@ import mct.*
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
+import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.ExtractPattern
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
@@ -106,6 +107,7 @@ suspend fun runExtraction(
     disableFilter: Boolean,
     regionPatternPath: String = "",
     mcfPatternPath: String = "",
+    mcfDataPatternPath: String = "",
     mcjPatternPath: String = "",
 ) {
     withContext(Dispatchers.IO) {
@@ -140,6 +142,20 @@ suspend fun runExtraction(
                                 .compile()
                         } ?: MCFBuiltinPatterns
 
+                    val mcfDataPatterns: List<mct.pointer.DataPointerPattern>? =
+                        if (disableFilter) {
+                            null
+                        } else {
+                            val userPatterns = mcfDataPatternPath.takeIf { it.isNotBlank() }
+                                ?.let { p ->
+                                    env.fs.read(p.toPath()) { readUtf8() }
+                                        .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
+                                        .map { it.compile() }
+                                }
+                            if (userPatterns != null) BuiltinMCFunctionDataPatterns + userPatterns
+                            else BuiltinMCFunctionDataPatterns
+                        }
+
                     val mcjPatterns: List<mct.pointer.DataPointerPattern>? =
                         if (disableFilter) {
                             null
@@ -153,7 +169,7 @@ suspend fun runExtraction(
                             if (userPatterns != null) MCJBuiltinPatterns + userPatterns
                             else MCJBuiltinPatterns
                         }
-                    workspace.extractFromDatapackRaw(mcfPatterns, mcjPatterns).toList() as List<ExtractionGroup>
+                    workspace.extractFromDatapackRaw(mcfPatterns, mcfDataPatterns, mcjPatterns).toList() as List<ExtractionGroup>
                 }
 
                 else -> error("未知模式: $mode")

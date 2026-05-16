@@ -294,6 +294,7 @@ fun App(
                                                     extractState.disableFilter,
                                                     extractState.regionPatternPath,
                                                     extractState.mcfPatternPath,
+                                                    extractState.mcfDataPatternPath,
                                                     extractState.mcjPatternPath
                                                 )
                                             }

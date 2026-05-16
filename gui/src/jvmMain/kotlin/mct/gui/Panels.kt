@@ -46,6 +46,9 @@ fun ExtractPanel(
     val mcfPatternPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(mcfPatternPath = it.absolutePath())) } }
+    val mcfDataPatternPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(), mode = FileKitMode.Single
+    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(mcfDataPatternPath = it.absolutePath())) } }
     val mcjPatternPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(mcjPatternPath = it.absolutePath())) } }
@@ -103,6 +106,11 @@ fun ExtractPanel(
                         "留空则使用内置规则...",
                         state.mcfPatternPath, { onStateChange(state.copy(mcfPatternPath = it)) }
                     ) { mcfPatternPicker.launch() }
+                    PathRow(
+                        "MCFunction Data 过滤规则 JSON",
+                        "留空则使用内置规则...",
+                        state.mcfDataPatternPath, { onStateChange(state.copy(mcfDataPatternPath = it)) }
+                    ) { mcfDataPatternPicker.launch() }
                     PathRow(
                         "MCJson 过滤规则 JSON",
                         "留空则使用内置规则...",
