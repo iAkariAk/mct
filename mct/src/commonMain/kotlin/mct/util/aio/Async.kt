@@ -8,8 +8,12 @@ import okio.FileHandle
 import okio.FileSystem
 import okio.Sink
 import okio.Source
+import kotlin.Suppress
+import kotlin.Throwable
+import kotlin.addSuppressed
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
+import kotlin.invoke
 
 /** Default buffer size used by adapters when bridging between stream APIs. */
 internal const val DEFAULT_BUFFER_SIZE = 8192
@@ -39,10 +43,10 @@ fun FileHandle.zio(): AsyncFileHandle = AsyncFileHandle(BlockingFileHandleDelega
 fun FileSystem.zio(): AsyncFileSystem = BlockingFileSystemAsAsyncFileSystem(this)
 
 /** Wraps this blocking [BufferedSource] into an [AsyncBufferedSource]. */
-fun BufferedSource.zio(): AsyncBufferedSource = AsyncBuffer(this as okio.Buffer)
+fun BufferedSource.zio(): AsyncBufferedSource = AsyncBuffer(buffer() as okio.Buffer)
 
 /** Wraps this blocking [BufferedSink] into an [AsyncBufferedSink]. */
-fun BufferedSink.zio(): AsyncBufferedSink = AsyncBuffer(this as okio.Buffer)
+fun BufferedSink.zio(): AsyncBufferedSink = AsyncBuffer(buffer() as okio.Buffer)
 
 // ── use() extension ──────────────────────────────────────────────
 
