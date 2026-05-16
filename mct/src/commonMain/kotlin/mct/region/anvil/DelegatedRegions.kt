@@ -79,5 +79,5 @@ fun PoiRegionManager(raw: RawRegionManager): PoiRegionManager {
     ensure(raw.fs.exists(raw.path)) {
         ConstructionError.DirNotFound(raw.path)
     }
-    return PoiRegionManager(BaseRegionManager(raw, ChunkDataKind.Terrain))
+    return PoiRegionManager(BaseRegionManager(raw, ChunkDataKind.Poi))
 }

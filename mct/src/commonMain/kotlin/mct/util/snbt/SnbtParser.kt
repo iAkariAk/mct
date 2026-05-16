@@ -111,7 +111,7 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
         val num = when (suffix.firstOrNull()) {
             'b' -> SnbtByte(currentToken!!.indices, dropLast.toByte())
             's' -> SnbtShort(currentToken!!.indices, dropLast.toShort())
-            null -> SnbtInt(currentToken!!.indices, raw.toInt())
+            null -> SnbtInt(currentToken!!.indices, raw.replace("_", "").toInt())
             'i' -> SnbtInt(currentToken!!.indices, dropLast.toInt())
             'l' -> SnbtLong(currentToken!!.indices, dropLast.toLong())
             'f' -> SnbtFloat(currentToken!!.indices, dropLast.toFloat())

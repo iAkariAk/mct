@@ -16,7 +16,7 @@ fun List<TextCompound>.multi() = when {
 
 @Suppress("UNCHECKED_CAST")
 inline operator fun <TC:TextCompound> TC.plus(extras: List<TextCompound>): TC =
-    plus(extra) as TC
+    plus(extras) as TC
 
 inline fun TextCompound.replaceText(text: String): TextCompound = when(this) {
     is TextCompound.Plain -> copy(text = text)
@@ -166,7 +166,7 @@ sealed interface TextCompound {
     }
 
     @Serializable
-    @SerialName("object")
+    @SerialName("sprite")
     data class Sprite(
         val sprite: String,
         override val extra: List<TextCompound> = emptyList(),

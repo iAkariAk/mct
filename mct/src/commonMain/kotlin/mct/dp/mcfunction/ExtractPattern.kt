@@ -22,9 +22,7 @@ typealias ExtractPatternSet = Map<String, List<ExtractPattern>>
 operator fun ExtractPatternSet.plus(other: ExtractPatternSet): ExtractPatternSet {
     val result = this.toMutableMap()
     for ((key, value) in other) {
-        result[key]?.let {
-            value + it
-        } ?: value
+        result[key] = result[key]?.let { value + it } ?: value
     }
     return result
 }

@@ -88,8 +88,8 @@ class Dimension(
     val poiRawMgr = raiseAsNull { RawRegionManager(workspace.env, poiDir) }
     val entitiesRawMgr = raiseAsNull { RawRegionManager(workspace.env, entitiesDir) }
     val regionMgr = raiseAsNull { regionRawMgr?.let { TerrainRegionManager(it) } }
-    val poiMgr = raiseAsNull { regionRawMgr?.let { PoiRegionManager(it) } }
-    val entitiesMgr = raiseAsNull { regionRawMgr?.let { EntitiesRegionManager(it) } }
+    val poiMgr = raiseAsNull { poiRawMgr?.let { PoiRegionManager(it) } }
+    val entitiesMgr = raiseAsNull { entitiesRawMgr?.let { EntitiesRegionManager(it) } }
 
     override fun toString(): String {
         return "Dimension(path=$path, id='$id')"

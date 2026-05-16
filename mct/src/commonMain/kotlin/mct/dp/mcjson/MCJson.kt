@@ -98,6 +98,7 @@ internal fun standardizeMCJson(mcjson: String): String {
 
             '\\' if inSingleQuote && i + 1 < mcjson.length && chars[i + 1] == '\'' -> {
                 result.append('\'')
+                i++
             }
 
             else -> result.append(c)
