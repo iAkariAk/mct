@@ -27,7 +27,6 @@ import mct.Env
 import mct.LoggerLevel
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
-import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.createOpenAIClient
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
@@ -44,7 +43,6 @@ fun main() = application {
 
     val state = rememberWindowState(size = DpSize(820.dp, 760.dp))
     var settingsVisible by remember { mutableStateOf(false) }
-    var tokenThreshold by remember { mutableIntStateOf(TOKEN_COUNT_THRESHOLD) }
 
     Window(
         onCloseRequest = ::exitApplication,
@@ -66,14 +64,9 @@ fun main() = application {
                         onOpenSettings = { settingsVisible = !settingsVisible }
                     )
                     Box(Modifier.weight(1f)) {
-                        App(
-                            Modifier.fillMaxSize(),
-                            tokenThreshold = tokenThreshold,
-                            onTokenThresholdChange = { tokenThreshold = it })
+                        App(Modifier.fillMaxSize())
                         SettingsSheet(
                             visible = settingsVisible,
-                            tokenThreshold = tokenThreshold,
-                            onTokenThresholdChange = { tokenThreshold = it },
                             onDismiss = { settingsVisible = false }
                         )
                     }
@@ -89,8 +82,6 @@ fun main() = application {
 @Composable
 fun App(
     modifier: Modifier = Modifier,
-    tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
-    onTokenThresholdChange: (Int) -> Unit = {},
 ) {
     val clientManager = koinInject<ClientManager>()
     var selectedTab by remember { mutableStateOf(Tab.Extract) }
@@ -321,7 +312,7 @@ fun App(
                                                         token = translateState.apiToken,
                                                         model = translateState.model,
                                                         termPath = translateState.existingTermPath.ifBlank { null },
-                                                        tokenThreshold = tokenThreshold,
+                                                        cachesPath = translateState.cachesPath.ifBlank { null },
                                                         literatureStyle = translateState.literatureStyle,
                                                         onFailure = {
                                                             scope.launch {

@@ -11,7 +11,10 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.int
 import mct.*
-import mct.cli.*
+import mct.cli.BaseCommand
+import mct.cli.WorkspaceCommand
+import mct.cli.jsonFile
+import mct.cli.path
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
@@ -19,6 +22,7 @@ import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
 import mct.extra.ai.translator.translate
 import mct.kit.*
+import mct.util.io.writeJson
 import mct.util.unreachable
 
 
@@ -139,6 +143,7 @@ private class AITranslate : BaseCommand(
     help = "Translate via OpenAI api"
 ) {
     val input by option("--input", "-i", help = "The extraction JSON file to translate").path().required()
+    val caches by option("--cache-mapping", "-cm", help = "The cache mapping file exported by the follow `--mapping`. By default").path()
     val output by option("--output", "-o", help = "The output path for the replacements JSON").path().required()
     val termOutput by option("--output-term", "-ot", help = "The output path for the term table JSON").path().required()
     val term by option("--term", help = "Path to an existing term table JSON file").path()
@@ -168,6 +173,7 @@ private class AITranslate : BaseCommand(
         logger.info { "Loading extractions from $input" }
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
         val terms = term.jsonFile<TermTable>(emptySet())
+        val caches = caches.jsonFile<Map<String, String>>(emptyMap())
         logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
 
         val translator = context(env) {
@@ -187,7 +193,7 @@ private class AITranslate : BaseCommand(
 
 
         logger.info { "Starting translation..." }
-        val translated = translator.translate(extractionGroups)
+        val translated = translator.translate(extractionGroups, caches)
         logger.info { "Translation done, ${translated.size} replacement groups" }
 
         logger.info { "Writing replacements to $output" }

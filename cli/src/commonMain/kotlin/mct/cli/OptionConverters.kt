@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.parameters.options.NullableOption
 import com.github.ajalt.clikt.parameters.options.convert
 import mct.FSHolder
 import mct.serializer.MCTJson
+import mct.util.io.readJson
 import mct.util.io.readText
 import okio.Path
 import okio.Path.Companion.toPath

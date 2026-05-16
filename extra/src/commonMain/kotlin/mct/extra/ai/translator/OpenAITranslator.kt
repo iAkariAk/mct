@@ -151,7 +151,7 @@ class OpenAITranslator internal constructor(
     private val chatCompletion: suspend (Int, String) -> Pair<TermTable, List<String?>>,
     defaultTerms: TermTable,
     private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
-    private val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD
+    private val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
 ) : Translator {
     companion object {
         context(env: Env, _: Raise<ChatCompletionCallError>)

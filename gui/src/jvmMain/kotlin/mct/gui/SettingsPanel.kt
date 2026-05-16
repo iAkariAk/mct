@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,8 +22,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsSheet(
     visible: Boolean,
-    tokenThreshold: Int,
-    onTokenThresholdChange: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     AnimatedVisibility(
@@ -57,6 +56,23 @@ fun SettingsSheet(
                     )
                     Spacer(Modifier.height(24.dp))
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "JSON 美化输出",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Switch(
+                            checked = GuiSettings.prettyOutput,
+                            onCheckedChange = { GuiSettings.prettyOutput = it }
+                        )
+                    }
+                    Spacer(Modifier.height(24.dp))
+
                     Text(
                         "Token 分块阈值",
                         style = MaterialTheme.typography.labelLarge,
@@ -71,12 +87,12 @@ fun SettingsSheet(
                     Spacer(Modifier.height(12.dp))
 
                     val sliderRange = 256f..8192f
-                    var sliderValue by remember(tokenThreshold) { mutableFloatStateOf(tokenThreshold.toFloat().coerceIn(sliderRange)) }
+                    var sliderValue by remember { mutableFloatStateOf(GuiSettings.tokenThreshold.toFloat().coerceIn(sliderRange)) }
 
                     Slider(
                         value = sliderValue,
                         onValueChange = { sliderValue = it },
-                        onValueChangeFinished = { onTokenThresholdChange(sliderValue.toInt()) },
+                        onValueChangeFinished = { GuiSettings.tokenThreshold = sliderValue.toInt() },
                         valueRange = sliderRange,
                         steps = 15,
                     )

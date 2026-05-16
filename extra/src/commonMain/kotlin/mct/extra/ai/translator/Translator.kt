@@ -26,7 +26,10 @@ interface Translator : EnvHolder {
     suspend fun translate(kind: FormatKind, sources: List<String>): List<String>
 }
 
-suspend fun Translator.translate(groups: List<ExtractionGroup>): Map<String, String> {
+suspend fun Translator.translate(
+    groups: List<ExtractionGroup>,
+    caches: Map<String, String> = emptyMap()
+): Map<String, String> {
     if (groups.isEmpty()) {
         logger.debug { "Skipping empty group" }
         return emptyMap()
@@ -38,13 +41,14 @@ suspend fun Translator.translate(groups: List<ExtractionGroup>): Map<String, Str
         }
     }
     val mapping = extractions.flatMap { (kind, extractions) ->
-        val sources = extractions.asSequence().mapNotNull { it.content.takeIf(String::isNotBlank) }.distinct().toList()
+        val sources = extractions.asSequence().mapNotNull { it.content.takeIf(String::isNotBlank) }.distinct().filter { it !in caches }.toList()
         val translated = translate(
             kind,
             sources
         )
         sources.zip(translated)
     }.toMap()
+    mapping.toMutableMap().putAll(caches)
     logger.sign<TranslateSign> { TranslateSign.Progress(1f) }
     env.logger.info { "Built mapping with ${mapping.size} entries" }
     return mapping

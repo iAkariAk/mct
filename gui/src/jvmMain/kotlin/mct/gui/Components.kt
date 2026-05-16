@@ -37,6 +37,7 @@ import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.WindowState
 import kotlinx.coroutines.launch
 import mct.LoggerLevel
+import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
 
 // ── 可复用组件 ───────────────────────────────────────────────
@@ -199,6 +200,7 @@ data class TranslateState(
     val output: String = "replacements.json",
     val mappingOutput: String = "mappings.json",
     val termOutput: String = "terms.json",
+    val cachesPath: String = "",
     val apiUrl: String = "",
     val apiToken: String = "",
     val model: String = "gpt-4o",
@@ -215,6 +217,13 @@ data class BackfillState(
     val replacements: String = "replacements.json",
     val mode: RunMode = RunMode.Region,
 )
+
+// ---- 全局设置 -----------------------------------------------------------
+
+object GuiSettings {
+    var prettyOutput by mutableStateOf(false)
+    var tokenThreshold by mutableIntStateOf(TOKEN_COUNT_THRESHOLD)
+}
 
 // ── 通用组件 ─────────────────────────────────────────────────
 

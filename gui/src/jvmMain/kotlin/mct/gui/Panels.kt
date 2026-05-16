@@ -157,6 +157,9 @@ fun TranslatePanel(
     val termPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(existingTermPath = it.absolutePath())) } }
+    val cachesPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(), mode = FileKitMode.Single
+    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(cachesPath = it.absolutePath())) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -254,6 +257,9 @@ fun TranslatePanel(
 
         PathRow("已有术语表 JSON（可选）", "留空则从头翻译...", state.existingTermPath, { onStateChange(state.copy(existingTermPath = it)) }) {
             termPicker.launch()
+        }
+        PathRow("翻译缓存 JSON（可选）", "留空则无缓存...", state.cachesPath, { onStateChange(state.copy(cachesPath = it)) }) {
+            cachesPicker.launch()
         }
 
         // 翻译风格自定义

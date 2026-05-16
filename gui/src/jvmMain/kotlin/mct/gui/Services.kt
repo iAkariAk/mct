@@ -14,7 +14,6 @@ import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.ExtractPattern
 import mct.extra.ai.ChatCompletionCallError
-import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
@@ -25,13 +24,14 @@ import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
+import mct.util.io.writeJson
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
-// ── API 设置持久化 ──────────────────────────────────────────────
+// ---- API 设置持久化 -----------------------------------------------------
 
 private val settingsJson = Json { ignoreUnknownKeys = true; encodeDefaults = false }
 private val settingsPath: Path =
@@ -47,7 +47,7 @@ data class ApiSettings(
     val apiToken: String = "",
 )
 
-// ── 统一日志器 ──────────────────────────────────────────────────
+// ---- 统一日志器 ---------------------------------------------------------
 
 /**
  * A [Logger] implementation for the GUI layer.
@@ -64,7 +64,7 @@ class GuiLogger(
     }
 }
 
-// ── 设置读写 ──────────────────────────────────────────────────
+// ---- 设置读写 -----------------------------------------------------------
 
 fun loadSettings(): ApiSettings {
     return try {
@@ -91,7 +91,7 @@ fun saveSettings(apiUrl: String, model: String, apiToken: String): Boolean {
     }
 }
 
-// ── 后台任务 ─────────────────────────────────────────────────
+// ---- 后台任务 -----------------------------------------------------------
 
 /**
  * Run extraction in the background.
@@ -169,7 +169,8 @@ suspend fun runExtraction(
                             if (userPatterns != null) MCJBuiltinPatterns + userPatterns
                             else MCJBuiltinPatterns
                         }
-                    workspace.extractFromDatapackRaw(mcfPatterns, mcfDataPatterns, mcjPatterns).toList() as List<ExtractionGroup>
+                    workspace.extractFromDatapackRaw(mcfPatterns, mcfDataPatterns, mcjPatterns)
+                        .toList() as List<ExtractionGroup>
                 }
 
                 else -> error("未知模式: $mode")
@@ -181,8 +182,7 @@ suspend fun runExtraction(
             ifRight = { groups ->
                 val total = groups.sumOf { it.extractions.size }
                 env.logger.info { "提取了 ${groups.size} 个分组, 共 $total 条文本" }
-                val json = MCTJson.encodeToString(groups)
-                env.fs.write(output.toPath()) { writeUtf8(json) }
+                output.toPath().writeJson(groups, pretty = GuiSettings.prettyOutput)
                 env.logger.info { "已写入: $output" }
                 env.logger.info { "完成。" }
             }
@@ -201,6 +201,7 @@ context(env: Env, _: Raise<ChatCompletionCallError>)
 suspend fun runTranslation(
     clientManager: ClientManager,
     input: String,
+    cachesPath: String?,
     output: String,
     mappingOutput: String,
     termOutput: String,
@@ -208,13 +209,12 @@ suspend fun runTranslation(
     token: String,
     model: String,
     termPath: String?,
-    tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
-    val (extractionGroups, existingTerms) = withContext(Dispatchers.IO) {
+    val (extractionGroups, existingTerms, caches) = withContext(Dispatchers.IO) {
         val json = env.fs.read(input.toPath()) { readUtf8() }
         val groups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
         env.logger.info { "已加载 ${groups.size} 个提取分组" }
@@ -226,8 +226,17 @@ suspend fun runTranslation(
             }
         } else emptySet()
 
-        groups to terms
+        val caches = if (cachesPath != null && env.fs.exists(cachesPath.toPath())) {
+            val cacheJson = env.fs.read(cachesPath.toPath()) { readUtf8() }
+            MCTJson.decodeFromString<Map<String, String>>(cacheJson).also {
+                env.logger.info { "已加载 ${it.size} 个已有术语" }
+            }
+        } else emptyMap()
+
+
+        Triple(groups, terms, caches)
     }
+
 
     val call = clientManager.chatCompletionCall
     if (call == null) {
@@ -239,17 +248,17 @@ suspend fun runTranslation(
         call = call,
         defaultTerms = existingTerms,
         customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
-        tokenThreshold = tokenThreshold,
+        tokenThreshold = GuiSettings.tokenThreshold
     )
 
     withContext(Dispatchers.IO) {
         try {
-            val mapping = translator.translate(extractionGroups)
+            val mapping = translator.translate(extractionGroups, caches)
             val replacements = extractionGroups.replace(mapping)
 
-            env.fs.write(output.toPath()) { writeUtf8(MCTJson.encodeToString(replacements)) }
-            env.fs.write(mappingOutput.toPath()) { writeUtf8(MCTJson.encodeToString(mapping)) }
-            env.fs.write(termOutput.toPath()) { writeUtf8(MCTJson.encodeToString(translator.terms)) }
+            output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
+            mappingOutput.toPath().writeJson(mapping, pretty = GuiSettings.prettyOutput)
+            termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
 
             env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
             env.logger.info { "替换文件已写入: $output" }

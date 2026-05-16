@@ -13,12 +13,16 @@ import mct.ExtractionGroup
 import mct.MCTError
 import mct.RegionReplacementGroup
 import mct.ReplacementGroup
-import mct.cli.*
+import mct.cli.WorkspaceCommand
+import mct.cli.jsonFile
+import mct.cli.path
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
+import mct.util.io.readText
+import mct.util.io.writeJson
 
 class Region : SuspendingCliktCommand(name = "region") {
     init {
