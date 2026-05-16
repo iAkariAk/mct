@@ -35,7 +35,7 @@ class DataPointerTest : BaseCommand(name = "pointer") {
 
     val kind by option("--kind", "-k", help = "The kind of inputted pointer").choice("mcjson", "region").required()
     val pattern by option("--pattern", "-p", help = "The file of pattern to match the test").path()
-    val noBuiltin = option("--no-builtin", help = "Disable builtin pattern").flag()
+    val noBuiltin by option("--no-builtin", help = "Disable builtin pattern").flag()
     val pointer by argument()
 
     context(_: Raise<MCTError>)
