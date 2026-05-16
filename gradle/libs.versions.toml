@@ -4,19 +4,19 @@ arrow = "2.2.2.1"
 catelog-update = "1.1.0"
 clikt = "5.1.0"
 collections-immutable = "0.4.0"
-compose = "1.10.3"
-coroutines = "1.10.2"
-filekit = "0.14.0"
+compose = "1.11.0"
+coroutines = "1.11.0"
+filekit = "0.14.1"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
 knbt = "0.11.9"
+koin = "4.2.1"
 korlibs = "6.0.2"
 kotest = "6.1.11"
 kotlin = "2.3.21"
-koin = "4.2.1"
 kotlinx-io = "0.9.0"
-ksp = "2.3.7"
-ktor = "3.4.3"
+ksp = "2.3.8"
+ktor = "3.5.0"
 material-icons-extended = "1.7.3"
 material3 = "1.11.0-alpha07"
 okio = "3.17.0"
@@ -47,15 +47,15 @@ goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref 
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
+koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 korlibs-io = { module = "com.soywiz:korlibs-io", version.ref = "korlibs" }
-kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.ref = "kotest" }
 kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collections-immutable" }
-koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
-koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.ref = "kotlinx-io" }
