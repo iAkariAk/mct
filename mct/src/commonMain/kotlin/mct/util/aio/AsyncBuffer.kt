@@ -28,6 +28,40 @@ class AsyncBuffer internal constructor(
     /** Returns a copy of the first [byteCount] bytes as a [ByteString]. */
     fun snapshot(byteCount: Int): ByteString = okioBuffer.snapshot(byteCount)
 
+    /** Returns the byte at [pos]. */
+    operator fun get(pos: Long): Byte = okioBuffer[pos]
+
+    /** Copy [byteCount] bytes from this, starting at [offset], to [out]. */
+    fun copyTo(out: AsyncBuffer, offset: Long = 0, byteCount: Long): AsyncBuffer {
+        okioBuffer.copyTo(out.okioBuffer, offset, byteCount)
+        return this
+    }
+
+    /** Overload of [copyTo] with byteCount = size - offset. */
+    fun copyTo(out: AsyncBuffer, offset: Long = 0): AsyncBuffer {
+        okioBuffer.copyTo(out.okioBuffer, offset)
+        return this
+    }
+
+    /**
+     * Returns the number of bytes in segments that are not writable. This is the number of bytes that
+     * can be flushed immediately to an underlying sink without harming throughput.
+     */
+    fun completeSegmentByteCount(): Long = okioBuffer.completeSegmentByteCount()
+
+    /** Returns a deep copy of this buffer. */
+    fun copy(): AsyncBuffer = AsyncBuffer(okioBuffer.copy())
+
+    // ---- hashing ----------------------------------------------------------
+
+    fun md5(): ByteString = okioBuffer.md5()
+    fun sha1(): ByteString = okioBuffer.sha1()
+    fun sha256(): ByteString = okioBuffer.sha256()
+    fun sha512(): ByteString = okioBuffer.sha512()
+    fun hmacSha1(key: ByteString): ByteString = okioBuffer.hmacSha1(key)
+    fun hmacSha256(key: ByteString): ByteString = okioBuffer.hmacSha256(key)
+    fun hmacSha512(key: ByteString): ByteString = okioBuffer.hmacSha512(key)
+
     // ═══════════════════════════════════════════════════════════════════
     // AsyncBufferedSource
     // ═══════════════════════════════════════════════════════════════════
@@ -51,6 +85,10 @@ class AsyncBuffer internal constructor(
     override suspend fun readDecimalLong(): Long = okioBuffer.readDecimalLong()
     override suspend fun readHexadecimalUnsignedLong(): Long = okioBuffer.readHexadecimalUnsignedLong()
 
+    // ---- skip -------------------------------------------------------------
+
+    override suspend fun skip(byteCount: Long) = okioBuffer.skip(byteCount)
+
     // ---- read strings -----------------------------------------------------
 
     override suspend fun readUtf8(): String = okioBuffer.readUtf8()
@@ -58,6 +96,7 @@ class AsyncBuffer internal constructor(
     override suspend fun readUtf8Line(): String? = okioBuffer.readUtf8Line()
     override suspend fun readUtf8LineStrict(): String = okioBuffer.readUtf8LineStrict()
     override suspend fun readUtf8LineStrict(limit: Long): String = okioBuffer.readUtf8LineStrict(limit)
+    override suspend fun readUtf8CodePoint(): Int = okioBuffer.readUtf8CodePoint()
 
     // ---- read ByteString --------------------------------------------------
 
@@ -66,6 +105,9 @@ class AsyncBuffer internal constructor(
 
     // ---- bulk reads -------------------------------------------------------
 
+    override suspend fun readByteArray(): ByteArray = okioBuffer.readByteArray()
+    override suspend fun readByteArray(byteCount: Long): ByteArray = okioBuffer.readByteArray(byteCount)
+    override suspend fun read(sink: ByteArray): Int = okioBuffer.read(sink)
     override suspend fun readFully(sink: AsyncBuffer, byteCount: Long) =
         okioBuffer.readFully(sink.okioBuffer, byteCount)
     override suspend fun readFully(sink: ByteArray) = okioBuffer.readFully(sink)
@@ -74,7 +116,6 @@ class AsyncBuffer internal constructor(
 
     override suspend fun readAll(sink: AsyncSink): Long {
         if (sink is AsyncBuffer) return okioBuffer.readAll(sink.okioBuffer)
-        // Bridge via Okio Buffer: drain this buffer into a temp, then push to sink.
         val total = okioBuffer.size
         writeToSink(okioBuffer, sink)
         return total
@@ -93,15 +134,19 @@ class AsyncBuffer internal constructor(
         okioBuffer.indexOf(byte, fromIndex, toIndex)
     override suspend fun indexOf(bytes: ByteString): Long = okioBuffer.indexOf(bytes)
     override suspend fun indexOf(bytes: ByteString, fromIndex: Long): Long = okioBuffer.indexOf(bytes, fromIndex)
+    override suspend fun indexOf(bytes: ByteString, fromIndex: Long, toIndex: Long): Long =
+        okioBuffer.indexOf(bytes, fromIndex, toIndex)
     override suspend fun indexOfElement(targetBytes: ByteString): Long = okioBuffer.indexOfElement(targetBytes)
     override suspend fun indexOfElement(targetBytes: ByteString, fromIndex: Long): Long =
         okioBuffer.indexOfElement(targetBytes, fromIndex)
 
     // ---- rangeEquals / peek -----------------------------------------------
 
-    override fun rangeEquals(byteCount: Long, bytes: ByteString): Boolean =
-        okioBuffer.rangeEquals(byteCount, bytes)
-    override fun peek(): AsyncBufferedSource = AsyncBuffer(okioBuffer.peek() as okio.Buffer)
+    override fun rangeEquals(offset: Long, bytes: ByteString): Boolean =
+        okioBuffer.rangeEquals(offset, bytes)
+    override fun rangeEquals(offset: Long, bytes: ByteString, bytesOffset: Int, byteCount: Int): Boolean =
+        okioBuffer.rangeEquals(offset, bytes, bytesOffset, byteCount)
+    override fun peek(): AsyncBufferedSource = AsyncBuffer(okioBuffer.copy())
 
     // ---- AsyncSource --------------------------------------------------------
 
@@ -138,17 +183,29 @@ class AsyncBuffer internal constructor(
     override suspend fun writeByteString(byteString: ByteString): AsyncBufferedSink {
         okioBuffer.write(byteString); return this
     }
+
     override suspend fun write(source: okio.ByteString): AsyncBufferedSink { okioBuffer.write(source); return this }
-    override suspend fun write(source: ByteArray): AsyncBufferedSink { okioBuffer.write(source); return this }
-    override suspend fun write(source: ByteArray, offset: Int, byteCount: Int): AsyncBufferedSink {
+    override suspend fun write(source: okio.ByteString, offset: Int, byteCount: Int): AsyncBufferedSink {
         okioBuffer.write(source, offset, byteCount); return this
     }
-
+    override suspend fun write(source: AsyncSource, byteCount: Long): AsyncBufferedSink {
+        if (source is AsyncBuffer) {
+            okioBuffer.write(source.okioBuffer, byteCount)
+        } else {
+            readFromSourceWithLimit(okioBuffer, source, byteCount)
+        }
+        return this
+    }
     override suspend fun writeAll(source: AsyncSource): Long {
         if (source is AsyncBuffer) return okioBuffer.writeAll(source.okioBuffer)
         val before = okioBuffer.size
         readFromSource(okioBuffer, source)
         return okioBuffer.size - before
+    }
+
+    override suspend fun write(source: ByteArray): AsyncBufferedSink { okioBuffer.write(source); return this }
+    override suspend fun write(source: ByteArray, offset: Int, byteCount: Int): AsyncBufferedSink {
+        okioBuffer.write(source, offset, byteCount); return this
     }
 
     // ---- AsyncSink ---------------------------------------------------------
@@ -166,6 +223,21 @@ private suspend fun readFromSource(sink: okio.Buffer, source: AsyncSource) {
         val bytesRead = source.read(temp, 8192L)
         if (bytesRead == -1L) break
         sink.write(temp, bytesRead)
+    }
+}
+
+/**
+ * Reads up to [byteCount] bytes from [source] into [sink].
+ */
+private suspend fun readFromSourceWithLimit(sink: okio.Buffer, source: AsyncSource, byteCount: Long) {
+    val temp = okio.Buffer()
+    var remaining = byteCount
+    while (remaining > 0) {
+        val toRead = minOf(remaining, 8192L)
+        val bytesRead = source.read(temp, toRead)
+        if (bytesRead == -1L) break
+        sink.write(temp, bytesRead)
+        remaining -= bytesRead
     }
 }
 

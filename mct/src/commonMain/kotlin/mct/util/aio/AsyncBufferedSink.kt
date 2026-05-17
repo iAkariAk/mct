@@ -49,7 +49,9 @@ interface AsyncBufferedSink : AsyncSink {
     // ---- bulk writes ------------------------------------------------------
 
     suspend fun write(source: okio.ByteString): AsyncBufferedSink
+    suspend fun write(source: okio.ByteString, offset: Int, byteCount: Int): AsyncBufferedSink
     suspend fun writeAll(source: AsyncSource): Long
+    suspend fun write(source: AsyncSource, byteCount: Long): AsyncBufferedSink
     suspend fun write(source: ByteArray): AsyncBufferedSink
     suspend fun write(source: ByteArray, offset: Int = 0, byteCount: Int = source.size - offset): AsyncBufferedSink
 

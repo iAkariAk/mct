@@ -41,6 +41,11 @@ interface AsyncBufferedSource : AsyncSource {
     suspend fun readDecimalLong(): Long
     suspend fun readHexadecimalUnsignedLong(): Long
 
+    // ---- skip -------------------------------------------------------------
+
+    /** Reads and discards [byteCount] bytes. Throws EOFException if exhausted before [byteCount] bytes. */
+    suspend fun skip(byteCount: Long)
+
     // ---- read strings -----------------------------------------------------
 
     suspend fun readUtf8(): String
@@ -49,12 +54,24 @@ interface AsyncBufferedSource : AsyncSource {
     suspend fun readUtf8LineStrict(): String
     suspend fun readUtf8LineStrict(limit: Long): String
 
+    /** Removes and returns a single UTF-8 code point, reading between 1 and 4 bytes. */
+    suspend fun readUtf8CodePoint(): Int
+
     // ---- read ByteString --------------------------------------------------
 
     suspend fun readByteString(): ByteString
     suspend fun readByteString(byteCount: Long): ByteString
 
     // ---- bulk reads -------------------------------------------------------
+
+    /** Removes all bytes from this source and returns them as a byte array. */
+    suspend fun readByteArray(): ByteArray
+
+    /** Removes [byteCount] bytes from this source and returns them as a byte array. */
+    suspend fun readByteArray(byteCount: Long): ByteArray
+
+    /** Removes up to [sink].size bytes from this and copies them into [sink]. Returns bytes read, or -1 if exhausted. */
+    suspend fun read(sink: ByteArray): Int
 
     suspend fun readFully(sink: AsyncBuffer, byteCount: Long)
     suspend fun readFully(sink: ByteArray)
@@ -73,12 +90,14 @@ interface AsyncBufferedSource : AsyncSource {
     suspend fun indexOf(byte: Byte, fromIndex: Long, toIndex: Long): Long
     suspend fun indexOf(bytes: ByteString): Long
     suspend fun indexOf(bytes: ByteString, fromIndex: Long): Long
+    suspend fun indexOf(bytes: ByteString, fromIndex: Long, toIndex: Long): Long
     suspend fun indexOfElement(targetBytes: ByteString): Long
     suspend fun indexOfElement(targetBytes: ByteString, fromIndex: Long): Long
 
     // ---- rangeEquals ------------------------------------------------------
 
-    fun rangeEquals(byteCount: Long, bytes: ByteString): Boolean
+    fun rangeEquals(offset: Long, bytes: ByteString): Boolean
+    fun rangeEquals(offset: Long, bytes: ByteString, bytesOffset: Int, byteCount: Int): Boolean
 
     // ---- peek -------------------------------------------------------------
 

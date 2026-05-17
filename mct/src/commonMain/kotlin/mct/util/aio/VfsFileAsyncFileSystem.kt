@@ -77,14 +77,16 @@ class VfsFileAsyncFileSystem(
 
     override suspend fun list(dir: Path): List<Path> {
         val items = mutableSetOf<Path>()
-        // List from overlay first
+        // List from overlay first — p is already a full path
         for (p in dirty.keys + dirs) {
-            if (p.parent == dir) items.add(p.name.toPath())
+            if (p.parent == dir) items.add(p)
         }
-        // Then from the zip root
+        // Then from the VFS root
         val vf = resolve(dir)
         if (vf != null && vf.isDirectory()) {
-            vf.list().toList().map { it.baseName.toPath() }.let(items::addAll)
+            vf.list().toList()
+                .map { (dir / it.baseName.toPath()) }
+                .let(items::addAll)
         }
         return items.toList()
     }
@@ -199,10 +201,11 @@ class VfsFileAsyncFileSystem(
             data.copyInto(array, offset, position.toInt(), position.toInt() + count)
             return count
         }
-        override suspend fun write(pos: Long, arr: ByteArray, off: Int, len: Int) =
+        override suspend fun write(position: Long, array: ByteArray, offset: Int, byteCount: Int) =
             throw IOException("read-only")
         override suspend fun size(): Long = data.size.toLong()
         override suspend fun resize(length: Long) = throw IOException("read-only")
+        override suspend fun flush() = Unit
         override suspend fun close() = Unit
     })
 
@@ -226,6 +229,7 @@ class VfsFileAsyncFileSystem(
             val data = dirty[file]!!
             dirty[file] = data.copyOf(length.toInt())
         }
+        override suspend fun flush() = Unit
         override suspend fun close() = Unit
     })
 
@@ -253,10 +257,11 @@ class VfsFileAsyncFileSystem(
                 data.copyInto(array, offset, position.toInt(), position.toInt() + count)
                 return count
             }
-            override suspend fun write(pos: Long, arr: ByteArray, off: Int, len: Int) =
+            override suspend fun write(position: Long, array: ByteArray, offset: Int, byteCount: Int) =
                 throw IOException("read-only overlay entry")
             override suspend fun size(): Long = data.size.toLong()
             override suspend fun resize(length: Long) = throw IOException("read-only overlay entry")
+            override suspend fun flush() = Unit
             override suspend fun close() = Unit
         })
     }
