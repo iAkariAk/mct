@@ -187,7 +187,6 @@ private fun IRObject.decodeAsSprite() = decodeCommon().let {
 }
 
 
-
 private inline fun <reified T : IRElement> IRElement.requireTypeOf(field: String) =
     this as? T ?: error("Expected ${T::class} but found ${this::class} in $field")
 

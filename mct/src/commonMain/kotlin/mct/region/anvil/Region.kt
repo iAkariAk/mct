@@ -2,8 +2,8 @@
 
 package mct.region.anvil
 
-import okio.BufferedSink
-import okio.BufferedSource
+import mct.util.aio.AsyncBufferedSink
+import mct.util.aio.AsyncBufferedSource
 import kotlin.jvm.JvmInline
 
 sealed interface Region {
@@ -22,7 +22,7 @@ value class ChunkOffsetTable(
     val offsets: Array<ChunkOffset>
 ) {
     companion object {
-        fun fromSource(source: BufferedSource): ChunkOffsetTable {
+        suspend fun fromSource(source: AsyncBufferedSource): ChunkOffsetTable {
             val raw = Array(Region.Companion.CHUNK_COUNT) {
                 val raw = source.readInt().toUInt()
                 ChunkOffset(raw)
@@ -35,7 +35,7 @@ value class ChunkOffsetTable(
         require(offsets.size == Region.CHUNK_COUNT)
     }
 
-    fun writeTo(sink: BufferedSink) {
+    suspend fun writeTo(sink: AsyncBufferedSink) {
         offsets.forEach {
             it.writeTo(sink)
         }
@@ -70,7 +70,7 @@ value class ChunkOffset(
      */
     fun isEmpty() = raw == 0u
 
-    fun writeTo(sink: BufferedSink) {
+    suspend fun writeTo(sink: AsyncBufferedSink) {
         sink.writeInt(raw.toInt())
     }
 }
@@ -80,7 +80,7 @@ value class TimestampTable(
     internal val raw: UIntArray
 ) {
     companion object {
-        fun fromSource(source: BufferedSource): TimestampTable {
+        suspend fun fromSource(source: AsyncBufferedSource): TimestampTable {
             val raw = UIntArray(Region.Companion.CHUNK_COUNT) {
                 source.readInt().toUInt()
             }
@@ -92,7 +92,7 @@ value class TimestampTable(
         require(raw.size == Region.Companion.CHUNK_COUNT)
     }
 
-    fun writeTo(sink: BufferedSink) {
+    suspend fun writeTo(sink: AsyncBufferedSink) {
         raw.forEach {
             sink.writeInt(it.toInt())
         }

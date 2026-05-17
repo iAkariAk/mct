@@ -1,4 +1,3 @@
-
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.compose.compiler)
@@ -9,16 +8,16 @@ plugins {
 
 
 kotlin {
-        js(IR) {
-            browser {
-                testTask {
-                    useKarma {
-                        useChromeHeadless()
-                    }
+    js(IR) {
+        browser {
+            testTask {
+                useKarma {
+                    useChromeHeadless()
                 }
-                binaries.executable()
             }
+            binaries.executable()
         }
+    }
 
 
     sourceSets {

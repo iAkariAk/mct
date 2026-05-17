@@ -3,8 +3,6 @@ package mct.region
 import arrow.core.raise.Raise
 import arrow.core.raise.context.raise
 import arrow.core.raise.recover
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -18,6 +16,7 @@ import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.Snbt
 import mct.text.TextCompound
 import mct.text.encodeToIR
+import mct.util.DispatcherOrIO
 import mct.util.formatir.toNbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
@@ -31,16 +30,16 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
         val dimension = dimensions[group.dimension]
             ?: raise(BackfillError.DimensionNotFound(group.dimension))
         val mgr = when (group.kind) {
-            ChunkDataKind.Terrain -> dimension.regionRawMgr
-            ChunkDataKind.Entities -> dimension.entitiesRawMgr
-            ChunkDataKind.Poi -> dimension.poiRawMgr
+            ChunkDataKind.Terrain -> dimension.regionRawMgr()
+            ChunkDataKind.Entities -> dimension.entitiesRawMgr()
+            ChunkDataKind.Poi -> dimension.poiRawMgr()
         }
         if (mgr == null) {
             logger.debug { "Skip ${group.dimension}/${group.kind}: manager unavailable" }
             return@forEach
         }
         logger.debug { "Backfilling ${group.dimension}/${group.kind} at (${group.coord.x}, ${group.coord.z}) with ${group.replacements.size} replacements" }
-        launch(Dispatchers.IO) {
+        launch(DispatcherOrIO) {
             recover({
                 mgr.modify(group.coord) { region ->
                     val chunks = region.chunks.toMutableList()

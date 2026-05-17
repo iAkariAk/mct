@@ -176,7 +176,7 @@ class VfsFileAsyncFileSystem(
 
     override suspend fun copy(source: Path, target: Path) {
         val data = if (hasWrite(source)) dirty[source]!!
-                   else resolve(source)?.readBytes() ?: throw IOException("no such file: $source")
+        else resolve(source)?.readBytes() ?: throw IOException("no such file: $source")
         dirty[target] = data
     }
 
@@ -201,8 +201,10 @@ class VfsFileAsyncFileSystem(
             data.copyInto(array, offset, position.toInt(), position.toInt() + count)
             return count
         }
+
         override suspend fun write(position: Long, array: ByteArray, offset: Int, byteCount: Int) =
             throw IOException("read-only")
+
         override suspend fun size(): Long = data.size.toLong()
         override suspend fun resize(length: Long) = throw IOException("read-only")
         override suspend fun flush() = Unit
@@ -217,6 +219,7 @@ class VfsFileAsyncFileSystem(
             data.copyInto(array, offset, position.toInt(), position.toInt() + count)
             return count
         }
+
         override suspend fun write(position: Long, array: ByteArray, offset: Int, byteCount: Int) {
             val data = dirty[file]!!
             val newSize = maxOf(data.size.toLong(), position + byteCount.toLong())
@@ -224,11 +227,13 @@ class VfsFileAsyncFileSystem(
             array.copyInto(newData, position.toInt(), offset, offset + byteCount)
             dirty[file] = newData
         }
+
         override suspend fun size(): Long = dirty[file]!!.size.toLong()
         override suspend fun resize(length: Long) {
             val data = dirty[file]!!
             dirty[file] = data.copyOf(length.toInt())
         }
+
         override suspend fun flush() = Unit
         override suspend fun close() = Unit
     })
@@ -239,11 +244,13 @@ class VfsFileAsyncFileSystem(
         override suspend fun write(source: okio.Buffer, byteCount: Long) {
             buf.write(source, byteCount)
         }
+
         override suspend fun flush() {
             val existing = if (append) (dirty[file] ?: ByteArray(0)) else ByteArray(0)
             val newData = existing + buf.readByteArray()
             dirty[file] = newData
         }
+
         override fun timeout() = okio.Timeout.NONE
         override suspend fun close() = flush()
     }
@@ -257,8 +264,10 @@ class VfsFileAsyncFileSystem(
                 data.copyInto(array, offset, position.toInt(), position.toInt() + count)
                 return count
             }
+
             override suspend fun write(position: Long, array: ByteArray, offset: Int, byteCount: Int) =
                 throw IOException("read-only overlay entry")
+
             override suspend fun size(): Long = data.size.toLong()
             override suspend fun resize(length: Long) = throw IOException("read-only overlay entry")
             override suspend fun flush() = Unit
@@ -280,7 +289,7 @@ class VfsFileAsyncFileSystem(
                     collect(fullPath)
                 } else if (meta != null) {
                     val data = if (hasWrite(fullPath)) dirty[fullPath]!!
-                               else resolve(fullPath)?.readBytes() ?: return@forEach
+                    else resolve(fullPath)?.readBytes() ?: return@forEach
                     result[fullPath] = data
                 }
             }

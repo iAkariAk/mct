@@ -8,7 +8,7 @@ import okio.Path
 
 suspend fun MCTWorkspace.exportRegionSnbt(outputDir: Path) = coroutineScope {
     dimensions.forEach { (_, dimension) ->
-        listOfNotNull(dimension.regionRawMgr, dimension.poiRawMgr, dimension.entitiesRawMgr).forEach { mgr ->
+        listOfNotNull(dimension.regionRawMgr(), dimension.poiRawMgr(), dimension.entitiesRawMgr()).forEach { mgr ->
             launch {
                 val relative = mgr.path.relativeTo(rootDir)
                 val dir = outputDir / relative

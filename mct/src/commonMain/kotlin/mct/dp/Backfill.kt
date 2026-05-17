@@ -1,7 +1,5 @@
 package mct.dp
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
@@ -18,11 +16,11 @@ import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
+import mct.util.DispatcherOrIO
 import mct.util.io.newRelativeFS
 import mct.util.io.openZipReadWrite
 import mct.util.io.useAsync
 import mct.util.io.writeText
-import okio.BufferedSource
 import okio.Path.Companion.toPath
 import kotlin.jvm.JvmName
 
@@ -33,13 +31,13 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
         datapackDir / it.source
     }.forEach { (dbPath, replacementGroups) ->
         logger.debug { "Backfilling ${replacementGroups.size} replacements in $dbPath" }
-        launch(Dispatchers.IO) {
+        launch(DispatcherOrIO) {
             val m = fs.metadata(dbPath)
             val sfs = if (m.isDirectory) fs.newRelativeFS(dbPath) else fs.openZipReadWrite(dbPath)
             sfs.useAsync { sfs ->
                 replacementGroups.forEach { replacementGroup ->
                     val path = replacementGroup.path.toPath()
-                    val origin = sfs.read(path, BufferedSource::readUtf8)
+                    val origin = sfs.read(path) { readUtf8() }
                     val handled = origin.backfill(replacementGroup.replacements)
                     path.writeText(handled, sfs)
                 }

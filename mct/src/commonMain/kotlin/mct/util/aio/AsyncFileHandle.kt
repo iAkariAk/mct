@@ -1,5 +1,7 @@
 package mct.util.aio
 
+import okio.IOException
+
 /**
  * A suspend equivalent of Okio's [okio.FileHandle] — provides random-access
  * read/write over an open file.
@@ -24,6 +26,7 @@ class AsyncFileHandle internal constructor(
     }
 
     private var _closed = false
+    private var openStreamCount = 0
 
     /** Whether this handle is open and may be used for IO. */
     val isOpen: Boolean get() = !_closed
@@ -124,32 +127,147 @@ class AsyncFileHandle internal constructor(
      * Returns a source that reads from this starting at [fileOffset].
      * The returned source must be closed when it is no longer needed.
      */
-    suspend fun source(fileOffset: Long = 0L): AsyncSource {
+    fun source(fileOffset: Long = 0L): AsyncSource {
         check(!_closed) { "closed" }
+        openStreamCount++
         return FileHandleAsyncSource(this, fileOffset)
+    }
+
+    /**
+     * Returns the position of [source] in the file. The argument [source] must be either a source
+     * produced by this file handle, or a [RealAsyncBufferedSource] that directly wraps such a source.
+     * If the parameter is a [RealAsyncBufferedSource], it adjusts for buffered bytes.
+     */
+    @Throws(IOException::class)
+    fun position(source: AsyncSource): Long {
+        var src = source
+        var bufferSize = 0L
+
+        if (src is RealAsyncBufferedSource) {
+            bufferSize = src.buffer().size
+            src = src.source
+        }
+
+        require(src is FileHandleAsyncSource && src.fileHandle === this) {
+            "source was not created by this FileHandle"
+        }
+        check(!src.closed) { "closed" }
+
+        return src.position - bufferSize
+    }
+
+    /**
+     * Change the position of [source] in the file to [position]. The argument [source] must be
+     * either a source produced by this file handle, or a [RealAsyncBufferedSource] that directly
+     * wraps such a source. If the parameter is a [RealAsyncBufferedSource], it will skip or clear
+     * buffered bytes.
+     */
+    @Throws(IOException::class)
+    fun reposition(source: AsyncSource, position: Long) {
+        if (source is RealAsyncBufferedSource) {
+            val fileHandleSource = source.source
+            require(fileHandleSource is FileHandleAsyncSource && fileHandleSource.fileHandle === this) {
+                "source was not created by this FileHandle"
+            }
+            check(!fileHandleSource.closed) { "closed" }
+
+            val bufferSize = source.buffer().size
+            val toSkip = position - (fileHandleSource.position - bufferSize)
+            if (toSkip in 0L until bufferSize) {
+                // The new position requires only a buffer change — no IO needed.
+                source.buffer().okioBuffer.skip(toSkip)
+            } else {
+                // The new position doesn't share data with the current buffer.
+                source.buffer().clear()
+                fileHandleSource.position = position
+            }
+        } else {
+            require(source is FileHandleAsyncSource && source.fileHandle === this) {
+                "source was not created by this FileHandle"
+            }
+            check(!source.closed) { "closed" }
+            source.position = position
+        }
     }
 
     /**
      * Returns a sink that writes to this starting at [fileOffset].
      * The returned sink must be closed when it is no longer needed.
      */
-    suspend fun sink(fileOffset: Long = 0L): AsyncSink {
+    fun sink(fileOffset: Long = 0L): AsyncSink {
         check(!_closed) { "closed" }
         check(readWrite) { "file handle is read-only" }
+        openStreamCount++
         return FileHandleAsyncSink(this, fileOffset)
     }
 
     /**
      * Returns a sink that writes to this starting at the end.
+     * The returned sink must be closed when it is no longer needed.
      */
     suspend fun appendingSink(): AsyncSink {
         return sink(size())
     }
 
-    /** Closes this handle. Subsequent operations fail. */
+    /**
+     * Returns the position of [sink] in the file. The argument [sink] must be either a sink
+     * produced by this file handle, or a [RealAsyncBufferedSink] that directly wraps such a sink.
+     * If the parameter is a [RealAsyncBufferedSink], it adjusts for buffered bytes.
+     */
+    @Throws(IOException::class)
+    fun position(sink: AsyncSink): Long {
+        var snk = sink
+        var bufferSize = 0L
+
+        if (snk is RealAsyncBufferedSink) {
+            bufferSize = snk.buffer().size
+            snk = snk.sink
+        }
+
+        require(snk is FileHandleAsyncSink && snk.fileHandle === this) {
+            "sink was not created by this FileHandle"
+        }
+        check(!snk.closed) { "closed" }
+
+        return snk.position + bufferSize
+    }
+
+    /**
+     * Change the position of [sink] in the file to [position]. The argument [sink] must be either
+     * a sink produced by this file handle, or a [RealAsyncBufferedSink] that directly wraps such a
+     * sink. If the parameter is a [RealAsyncBufferedSink], it emits buffered bytes.
+     */
+    @Throws(IOException::class)
+    suspend fun reposition(sink: AsyncSink, position: Long) {
+        if (sink is RealAsyncBufferedSink) {
+            val fileHandleSink = sink.sink
+            require(fileHandleSink is FileHandleAsyncSink && fileHandleSink.fileHandle === this) {
+                "sink was not created by this FileHandle"
+            }
+            check(!fileHandleSink.closed) { "closed" }
+
+            sink.emit()
+            fileHandleSink.position = position
+        } else {
+            require(sink is FileHandleAsyncSink && sink.fileHandle === this) {
+                "sink was not created by this FileHandle"
+            }
+            check(!sink.closed) { "closed" }
+            sink.position = position
+        }
+    }
+
+    /** Closes this handle. If streams are still open, the actual close is deferred. */
     override suspend fun close() {
-        if (!_closed) {
-            _closed = true
+        if (_closed) return
+        _closed = true
+        if (openStreamCount != 0) return
+        delegate.close()
+    }
+
+    internal suspend fun streamClosed() {
+        openStreamCount--
+        if (_closed && openStreamCount == 0) {
             delegate.close()
         }
     }
@@ -157,13 +275,15 @@ class AsyncFileHandle internal constructor(
 
 // ── Stream helpers ────────────────────────────────────────────────
 
-private class FileHandleAsyncSource(
-    private val handle: AsyncFileHandle,
-    private var position: Long,
+internal class FileHandleAsyncSource(
+    internal val fileHandle: AsyncFileHandle,
+    internal var position: Long,
 ) : AsyncSource {
+    internal var closed = false
+
     override suspend fun read(sink: okio.Buffer, byteCount: Long): Long {
         val temp = ByteArray(minOf(byteCount, DEFAULT_BUFFER_SIZE.toLong()).toInt())
-        val bytesRead = handle.read(position, temp, 0, temp.size)
+        val bytesRead = fileHandle.read(position, temp, 0, temp.size)
         if (bytesRead == -1) return -1L
         sink.write(temp, 0, bytesRead)
         position += bytesRead
@@ -172,13 +292,19 @@ private class FileHandleAsyncSource(
 
     override fun timeout() = okio.Timeout.NONE
 
-    override suspend fun close() = Unit
+    override suspend fun close() {
+        if (closed) return
+        closed = true
+        fileHandle.streamClosed()
+    }
 }
 
-private class FileHandleAsyncSink(
-    private val handle: AsyncFileHandle,
-    private var position: Long,
+internal class FileHandleAsyncSink(
+    internal val fileHandle: AsyncFileHandle,
+    internal var position: Long,
 ) : AsyncSink {
+    internal var closed = false
+
     override suspend fun write(source: okio.Buffer, byteCount: Long) {
         val temp = ByteArray(minOf(byteCount, DEFAULT_BUFFER_SIZE.toLong()).toInt())
         var remaining = byteCount
@@ -186,17 +312,21 @@ private class FileHandleAsyncSink(
             val toRead = minOf(remaining, temp.size.toLong()).toInt()
             val bytesRead = source.read(temp, 0, toRead)
             if (bytesRead == -1) break
-            handle.write(position, temp, 0, bytesRead)
+            fileHandle.write(position, temp, 0, bytesRead)
             position += bytesRead
             remaining -= bytesRead
         }
     }
 
-    override suspend fun flush() = handle.flush()
+    override suspend fun flush() = fileHandle.flush()
 
     override fun timeout() = okio.Timeout.NONE
 
-    override suspend fun close() = Unit
+    override suspend fun close() {
+        if (closed) return
+        closed = true
+        fileHandle.streamClosed()
+    }
 }
 
 // ── Okio FileHandle → AsyncFileHandle adapter ─────────────────────

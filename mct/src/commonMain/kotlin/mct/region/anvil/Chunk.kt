@@ -7,8 +7,8 @@ import mct.region.anvil.model.ChunkData
 import mct.serializer.NbtGzip
 import mct.serializer.NbtNone
 import mct.serializer.NbtZlib
+import mct.util.aio.AsyncBufferedSink
 import net.benwoodworth.knbt.NbtTag
-import okio.BufferedSink
 
 
 sealed interface Chunk
@@ -53,7 +53,7 @@ class RawChunk(
         return RawChunk(index, compressKind, modified, nbtSerializer.encodeToByteArray(modified))
     }
 
-    fun writeTo(sink: BufferedSink): Long {
+    suspend fun writeTo(sink: AsyncBufferedSink): Long {
         sink.writeInt(1 + rawData.size)
         sink.writeByte(compressKind.toInt())
         sink.write(rawData)

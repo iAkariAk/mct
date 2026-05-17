@@ -56,7 +56,11 @@ fun ExtractPanel(
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
-        PathRow("Minecraft 存档目录", "选择包含 level.dat 的文件夹...", state.input, { onStateChange(state.copy(input = it)) }) {
+        PathRow(
+            "Minecraft 存档目录",
+            "选择包含 level.dat 的文件夹...",
+            state.input,
+            { onStateChange(state.copy(input = it)) }) {
             dirPicker.launch()
         }
         PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
@@ -71,8 +75,14 @@ fun ExtractPanel(
         SectionTitle("提取选项", Icons.Outlined.Tune)
 
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            ModeRadio(RunMode.Region.label, state.mode == RunMode.Region) { onStateChange(state.copy(mode = RunMode.Region)) }
-            ModeRadio(RunMode.Datapack.label, state.mode == RunMode.Datapack) { onStateChange(state.copy(mode = RunMode.Datapack)) }
+            ModeRadio(
+                RunMode.Region.label,
+                state.mode == RunMode.Region
+            ) { onStateChange(state.copy(mode = RunMode.Region)) }
+            ModeRadio(
+                RunMode.Datapack.label,
+                state.mode == RunMode.Datapack
+            ) { onStateChange(state.copy(mode = RunMode.Datapack)) }
         }
 
         TextSwitch(
@@ -164,16 +174,28 @@ fun TranslatePanel(
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
-        PathRow("提取结果 JSON（来自步骤①）", "选择 extractions.json...", state.input, { onStateChange(state.copy(input = it)) }) {
+        PathRow(
+            "提取结果 JSON（来自步骤①）",
+            "选择 extractions.json...",
+            state.input,
+            { onStateChange(state.copy(input = it)) }) {
             inputPicker.launch()
         }
-        PathRow("输出替换Mapping JSON", "选择保存位置...", state.mappingOutput, { onStateChange(state.copy(mappingOutput = it)) }) {
+        PathRow(
+            "输出替换Mapping JSON",
+            "选择保存位置...",
+            state.mappingOutput,
+            { onStateChange(state.copy(mappingOutput = it)) }) {
             outputSaver.launch(suggestedName = "mappings", defaultExtension = "json")
         }
         PathRow("输出替换文件 JSON", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
             outputSaver.launch(suggestedName = "replacements", defaultExtension = "json")
         }
-        PathRow("输出术语表 JSON", "选择保存位置...", state.termOutput, { onStateChange(state.copy(termOutput = it)) }) {
+        PathRow(
+            "输出术语表 JSON",
+            "选择保存位置...",
+            state.termOutput,
+            { onStateChange(state.copy(termOutput = it)) }) {
             termSaver.launch(suggestedName = "terms", defaultExtension = "json")
         }
 
@@ -255,10 +277,18 @@ fun TranslatePanel(
 
         SectionTitle("可选设置", Icons.Outlined.MoreHoriz)
 
-        PathRow("已有术语表 JSON（可选）", "留空则从头翻译...", state.existingTermPath, { onStateChange(state.copy(existingTermPath = it)) }) {
+        PathRow(
+            "已有术语表 JSON（可选）",
+            "留空则从头翻译...",
+            state.existingTermPath,
+            { onStateChange(state.copy(existingTermPath = it)) }) {
             termPicker.launch()
         }
-        PathRow("翻译缓存 JSON（可选）", "留空则无缓存...", state.cachesPath, { onStateChange(state.copy(cachesPath = it)) }) {
+        PathRow(
+            "翻译缓存 JSON（可选）",
+            "留空则无缓存...",
+            state.cachesPath,
+            { onStateChange(state.copy(cachesPath = it)) }) {
             cachesPicker.launch()
         }
 
@@ -296,7 +326,11 @@ fun TranslatePanel(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 if (state.isOptimizing) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 } else {
                     Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
@@ -401,10 +435,18 @@ fun BackfillPanel(
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
-        PathRow("Minecraft 存档目录", "选择包含 level.dat 的文件夹...", state.input, { onStateChange(state.copy(input = it)) }) {
+        PathRow(
+            "Minecraft 存档目录",
+            "选择包含 level.dat 的文件夹...",
+            state.input,
+            { onStateChange(state.copy(input = it)) }) {
             dirPicker.launch()
         }
-        PathRow("替换文件 JSON（来自步骤②）", "选择 replacements.json...", state.replacements, { onStateChange(state.copy(replacements = it)) }) {
+        PathRow(
+            "替换文件 JSON（来自步骤②）",
+            "选择 replacements.json...",
+            state.replacements,
+            { onStateChange(state.copy(replacements = it)) }) {
             filePicker.launch()
         }
 
@@ -416,8 +458,14 @@ fun BackfillPanel(
         SectionTitle("回填模式", Icons.Outlined.Tune)
 
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            ModeRadio(RunMode.Region.label, state.mode == RunMode.Region) { onStateChange(state.copy(mode = RunMode.Region)) }
-            ModeRadio(RunMode.Datapack.label, state.mode == RunMode.Datapack) { onStateChange(state.copy(mode = RunMode.Datapack)) }
+            ModeRadio(
+                RunMode.Region.label,
+                state.mode == RunMode.Region
+            ) { onStateChange(state.copy(mode = RunMode.Region)) }
+            ModeRadio(
+                RunMode.Datapack.label,
+                state.mode == RunMode.Datapack
+            ) { onStateChange(state.copy(mode = RunMode.Datapack)) }
         }
 
         Card(
@@ -445,7 +493,12 @@ fun BackfillPanel(
 
         Spacer(Modifier.height(4.dp))
 
-        ActionButton("开始回填", isRunning, onRun, enabled = state.input.isNotBlank() && state.replacements.isNotBlank())
+        ActionButton(
+            "开始回填",
+            isRunning,
+            onRun,
+            enabled = state.input.isNotBlank() && state.replacements.isNotBlank()
+        )
     }
 }
 

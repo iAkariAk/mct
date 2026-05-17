@@ -6,12 +6,12 @@ import kotlinx.serialization.decodeFromByteArray
 import mct.region.anvil.ChunkOffset.Companion.ChunkOffset
 import mct.region.anvil.RawRegion.Companion.SECTOR_SIZE
 import mct.region.anvil.Region.Companion.CHUNK_COUNT
+import mct.util.aio.AsyncFileHandle
+import mct.util.aio.buffer
+import mct.util.aio.use
 import mct.util.divCeil
 import net.benwoodworth.knbt.NbtTag
-import okio.FileHandle
 import okio.IOException
-import okio.buffer
-import okio.use
 import kotlin.math.min
 import kotlin.time.Clock
 
@@ -26,16 +26,13 @@ class RawRegion internal constructor(
         const val SECTOR_SIZE = 4096
         val EMTPY_SECTOR = ByteArray(SECTOR_SIZE)
 
-        fun fromHandle(
+        suspend fun fromHandle(
             regionX: Int,
             regionZ: Int,
-            handle: FileHandle
+            handle: AsyncFileHandle,
         ): RawRegion {
-            val offsets: ChunkOffsetTable
-            val timestamps: TimestampTable
-            handle.source(0).buffer().use { source ->
-                offsets = ChunkOffsetTable.fromSource(source)
-                timestamps = TimestampTable.fromSource(source)
+            val (offsets, timestamps) = handle.source(0).buffer().use { source ->
+                ChunkOffsetTable.fromSource(source) to TimestampTable.fromSource(source)
             }
             val chunks = List(CHUNK_COUNT) { index ->
                 val offset = offsets[index]
@@ -44,7 +41,8 @@ class RawRegion internal constructor(
                 if (fileOffset >= handle.size()) return@List null
 
                 handle.source(fileOffset).buffer().use { source ->
-                    val size = source.readInt() // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
+                    val size =
+                        source.readInt() // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
                     require(size >= 0) { "Illegal negative chunk size $size" }
                     val actualSectorByteCount = offset.sectorUsedCount.toLong() * SECTOR_SIZE
                     val usedSize = 4 + size.toLong()
@@ -85,7 +83,7 @@ class RawRegion internal constructor(
 
     fun inferFilename() = "r.$regionX.$regionZ.mca"
 
-    fun writeTo(handle: FileHandle) {
+    suspend fun writeTo(handle: AsyncFileHandle) {
         handle.sink().buffer().use { sink ->
             offsets.writeTo(sink)
             timestamps.writeTo(sink)

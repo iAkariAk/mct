@@ -7,10 +7,11 @@ import mct.model.DataVersions
 import mct.model.LevelRoot
 import mct.region.anvil.*
 import mct.serializer.NbtGzip
+import mct.util.aio.AsyncBuffer
+import mct.util.aio.SuspendLazy
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.decodeFromNbtTag
-import net.benwoodworth.knbt.decodeFromSource
 import okio.Path
 import okio.Path.Companion.toPath
 
@@ -22,57 +23,64 @@ sealed interface OpenError : MCTError {
 
 class MCTWorkspace private constructor(
     val rootDir: Path,
-    override val env: Env
+    override val env: Env,
+    val levelRaw: NbtCompound,
+    val level: LevelRoot?,
+    val datapackDir: Path,
+    val dimensions: DimensionProvider,
 ) : EnvHolder {
     companion object {
         context(_: Raise<OpenError>)
-        operator fun invoke(rootDir: Path, env: Env): MCTWorkspace {
+        suspend operator fun invoke(rootDir: Path, env: Env): MCTWorkspace {
             ensure(env.fs.exists(rootDir / "level.dat")) {
                 OpenError.UnvalidatedDir(rootDir)
             }
-            return MCTWorkspace(rootDir, env)
+
+            val levelRaw = env.fs.read(rootDir / "level.dat".toPath()) {
+                val buf = AsyncBuffer()
+                readAll(buf)
+                NbtGzip.decodeFromSource(NbtCompound.serializer(), buf.okioBuffer)
+            }
+
+            val level: LevelRoot? = runCatching {
+                NbtGzip.decodeFromNbtTag<LevelRoot>(levelRaw)
+            }.getOrElse {
+                env.logger.warning { "Cannot parse level root: $it" }
+                null
+            }
+
+            val datapackDir = rootDir / "datapacks"
+
+            val dimensions = buildDimensions(env, rootDir, level)
+
+            return MCTWorkspace(rootDir, env, levelRaw, level, datapackDir, dimensions)
+        }
+
+        private suspend fun buildDimensions(env: Env, rootDir: Path, level: LevelRoot?): DimensionProvider {
+            env.logger.info { "Minecraft version ${level?.data?.versionInfo?.toSnbt()}(${level?.data?.dataVersion})" }
+
+            val dataVersion = level?.data?.dataVersion
+            val useV2 = if (dataVersion != null) {
+                dataVersion >= DataVersions.`26_1-snapshot-6`
+            } else {
+                env.fs.exists(rootDir / "dimensions")
+            }
+
+            return if (useV2) {
+                env.logger.info { "Use DimensionProviderV2" }
+                DimensionProviderV2(env, rootDir)
+            } else {
+                env.logger.info { "Use DimensionProviderV1" }
+                DimensionProviderV1(env, rootDir)
+            }
         }
     }
-
-    val levelRaw =
-        fs.read(rootDir / "level.dat".toPath()) {
-            val rootTag = NbtGzip.decodeFromSource<NbtCompound>(this)
-            rootTag
-        }
-    val level: LevelRoot? = runCatching {
-        NbtGzip.decodeFromNbtTag<LevelRoot>(levelRaw)
-    }.getOrElse {
-        logger.warning { "Cannot parse level root: $it" }
-        null
-    }
-
-    val datapackDir = rootDir / "datapacks"
-
-    val dimensions: DimensionProvider = run {
-        logger.info { "Minecraft version ${level?.data?.versionInfo?.toSnbt()}(${level?.data?.dataVersion})" }
-
-        val dataVersion = level?.data?.dataVersion
-        val useV2 = if (dataVersion != null) {
-            dataVersion >= DataVersions.`26_1-snapshot-6`
-        } else {
-            fs.exists(rootDir / "dimensions")
-        }
-
-        if (useV2) {
-            logger.info { "Use DimensionProviderV2" }
-            DimensionProviderV2(this)
-        } else {
-            logger.info { "Use DimensionProviderV1" }
-            DimensionProviderV1(this)
-        }
-    }
-
 }
 
 interface DimensionProvider : Map<String, Dimension>
 
 class Dimension(
-    internal val workspace: MCTWorkspace,
+    internal val env: Env,
     val id: String,
     val path: Path
 ) {
@@ -80,38 +88,45 @@ class Dimension(
     val regionDir = path / "region"
     val entitiesDir = path / "entities"
 
-    private inline fun <T> raiseAsNull(
-        action: context(Raise<ConstructionError>) () -> T
+    private suspend inline fun <T> raiseAsNull(
+        action: suspend context(Raise<ConstructionError>) () -> T
     ) = either { action() }.getOrNull()
 
-    val regionRawMgr = raiseAsNull { RawRegionManager(workspace.env, regionDir) }
-    val poiRawMgr = raiseAsNull { RawRegionManager(workspace.env, poiDir) }
-    val entitiesRawMgr = raiseAsNull { RawRegionManager(workspace.env, entitiesDir) }
-    val regionMgr = raiseAsNull { regionRawMgr?.let { TerrainRegionManager(it) } }
-    val poiMgr = raiseAsNull { poiRawMgr?.let { PoiRegionManager(it) } }
-    val entitiesMgr = raiseAsNull { entitiesRawMgr?.let { EntitiesRegionManager(it) } }
+    private val _regionRawMgr = SuspendLazy { raiseAsNull { RawRegionManager(env, regionDir) } }
+    private val _poiRawMgr = SuspendLazy { raiseAsNull { RawRegionManager(env, poiDir) } }
+    private val _entitiesRawMgr = SuspendLazy { raiseAsNull { RawRegionManager(env, entitiesDir) } }
+    private val _regionMgr = SuspendLazy { regionRawMgr()?.let { raiseAsNull { TerrainRegionManager(it) } } }
+    private val _poiMgr = SuspendLazy { poiRawMgr()?.let { raiseAsNull { PoiRegionManager(it) } } }
+    private val _entitiesMgr = SuspendLazy { entitiesRawMgr()?.let { raiseAsNull { EntitiesRegionManager(it) } } }
+
+    suspend fun regionRawMgr() = _regionRawMgr()
+    suspend fun poiRawMgr() = _poiRawMgr()
+    suspend fun entitiesRawMgr() = _entitiesRawMgr()
+    suspend fun regionMgr() = _regionMgr()
+    suspend fun poiMgr() = _poiMgr()
+    suspend fun entitiesMgr() = _entitiesMgr()
 
     override fun toString(): String {
         return "Dimension(path=$path, id='$id')"
     }
 }
 
-private class DimensionProviderV1(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by mapOf(
-    "minecraft:nether" to Dimension(workspace, "minecraft:nether", workspace.rootDir / "DIM-1"),
-    "minecraft:overworld" to Dimension(workspace, "minecraft:overworld", workspace.rootDir),
-    "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", workspace.rootDir / "DIM1"),
-) {
-    override fun toString() = "DimensionProviderV1"
-}
-
+private class DimensionProviderV1(
+    env: Env,
+    rootDir: Path
+) : DimensionProvider, Map<String, Dimension> by mapOf(
+    "minecraft:nether" to Dimension(env, "minecraft:nether", rootDir / "DIM-1"),
+    "minecraft:overworld" to Dimension(env, "minecraft:overworld", rootDir),
+    "minecraft:the_end" to Dimension(env, "minecraft:the_end", rootDir / "DIM1"),
+)
 
 private fun dim(rootDir: Path, name: String) = rootDir / "dimensions" / "minecraft" / name
 
-// before 26.1-snapshot-6
-private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by mapOf(
-    "minecraft:nether" to Dimension(workspace, "minecraft:nether", dim(workspace.rootDir, "the_nether")),
-    "minecraft:overworld" to Dimension(workspace, "minecraft:overworld", dim(workspace.rootDir, "overworld")),
-    "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", dim(workspace.rootDir, "the_end")),
-) {
-    override fun toString() = "DimensionProviderV2"
-}
+private class DimensionProviderV2(
+    env: Env,
+    rootDir: Path
+) : DimensionProvider, Map<String, Dimension> by mapOf(
+    "minecraft:nether" to Dimension(env, "minecraft:nether", dim(rootDir, "the_nether")),
+    "minecraft:overworld" to Dimension(env, "minecraft:overworld", dim(rootDir, "overworld")),
+    "minecraft:the_end" to Dimension(env, "minecraft:the_end", dim(rootDir, "the_end")),
+)

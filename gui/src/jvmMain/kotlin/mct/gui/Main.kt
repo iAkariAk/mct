@@ -32,6 +32,7 @@ import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
 import mct.on
 import mct.onSign
+import mct.util.aio.zio
 import okio.FileSystem
 import org.koin.compose.koinInject
 import org.koin.core.context.startKoin
@@ -124,7 +125,7 @@ fun App(
         }
     }
     val env = remember {
-        Env(fs = FileSystem.SYSTEM, logger = guiLogger)
+        Env(fs = FileSystem.SYSTEM.zio(), logger = guiLogger)
     }
 
     context(env) {

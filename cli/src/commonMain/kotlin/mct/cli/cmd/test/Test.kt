@@ -41,7 +41,7 @@ class DataPointerTest : BaseCommand(name = "pointer") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val extra = pattern.jsonFile<List<DataPointerPattern>>(emptyList())
-        val builtin =  when (kind) {
+        val builtin = when (kind) {
             "mcjson" -> BuiltinMCJPatterns
             "region" -> BuiltinRegionPatterns
             else -> unreachable

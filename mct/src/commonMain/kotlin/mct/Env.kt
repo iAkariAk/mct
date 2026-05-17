@@ -1,14 +1,13 @@
 package mct
 
-import okio.FileSystem
-import okio.SYSTEM
+import mct.util.aio.AsyncFileSystem
 
 interface LoggerHolder {
     val logger: Logger
 }
 
 interface FSHolder {
-    val fs: FileSystem
+    val fs: AsyncFileSystem
 }
 
 interface EnvHolder : LoggerHolder, FSHolder {
@@ -19,14 +18,10 @@ interface EnvHolder : LoggerHolder, FSHolder {
 }
 
 data class Env(
-    override val fs: FileSystem = FileSystem.SYSTEM,
+    override val fs: AsyncFileSystem,
     override val logger: Logger = Logger.None
 ) : EnvHolder, LoggerHolder, FSHolder {
     override val env get() = this
-
-    companion object {
-        val Default = Env()
-    }
 }
 
 

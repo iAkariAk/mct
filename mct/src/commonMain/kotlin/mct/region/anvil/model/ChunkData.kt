@@ -18,8 +18,10 @@ enum class ChunkDataKind(
 ) {
     @SerialName("region")
     Terrain({ serializer<TerrainChunkData>() }),
+
     @SerialName("entities")
     Entities({ serializer<EntitiesChunkData>() }),
+
     @SerialName("poi")
     Poi({ serializer<PoiChunkData>() });
 

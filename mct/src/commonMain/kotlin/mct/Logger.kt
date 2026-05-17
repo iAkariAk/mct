@@ -54,7 +54,7 @@ abstract class Logger(
     inline fun warning(message: () -> String) = logFiltered(LoggerLevel.Warning, message)
 
     inline fun <reified T> sign(value: () -> T) = logFiltered(LoggerLevel.Sign) {
-        val key = T::class.qualifiedName ?: T::class.toString()
+        val key = T::class.simpleName ?: T::class.toString()
         val value = Json.encodeToString(value())
         "$key $value"
     }
@@ -67,7 +67,7 @@ data class RegistryItem<T : Any>(
     @Suppress("UNCHECKED_CAST")
     operator fun invoke(data: Any) = callback(data as T)
 
-    val key = clazz.qualifiedName ?: clazz.toString()
+    val key = clazz.simpleName ?: clazz.toString()
 
     val serializer = clazz.serializer()
 }
@@ -85,7 +85,7 @@ inline fun Logger.onSign(register: OnSignRegistry.() -> Unit): Logger {
     val registry = object : OnSignRegistry {
         @Suppress("UNCHECKED_CAST")
         override fun <T : Any> on(clazz: KClass<T>, callback: (T) -> Unit) {
-            hooks[clazz.qualifiedName ?: clazz.toString()] = RegistryItem(clazz, callback as (Any) -> Unit)
+            hooks[clazz.simpleName ?: clazz.toString()] = RegistryItem(clazz, callback as (Any) -> Unit)
         }
     }
     registry.register()

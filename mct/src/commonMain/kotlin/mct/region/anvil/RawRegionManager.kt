@@ -3,8 +3,8 @@ package mct.region.anvil
 import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import mct.Env
+import mct.util.aio.use
 import okio.Path
-import okio.use
 
 class RawRegionManager private constructor(
     env: Env,
@@ -12,7 +12,7 @@ class RawRegionManager private constructor(
 ) : RegionManager<RawRegion>(env, path) {
     companion object {
         context(_: Raise<ConstructionError>)
-        operator fun invoke(env: Env, path: Path): RawRegionManager {
+        suspend operator fun invoke(env: Env, path: Path): RawRegionManager {
             val fs = env.fs
             ensure(fs.exists(path)) {
                 ConstructionError.DirNotFound(path)
@@ -22,7 +22,7 @@ class RawRegionManager private constructor(
     }
 
     context(_: Raise<LoadError>)
-    override fun load(coord: Coord): RawRegion {
+    override suspend fun load(coord: Coord): RawRegion {
         val path = locate(coord)
         ensure(fs.exists(path)) {
             LoadError.FileNotFound(path)
@@ -40,7 +40,7 @@ class RawRegionManager private constructor(
     }
 
     context(_: Raise<SaveError>)
-    override fun save(coord: Coord, region: RawRegion) {
+    override suspend fun save(coord: Coord, region: RawRegion) {
         val path = locate(coord)
         ensure(fs.exists(path)) {
             SaveError.FileNotFound(path)

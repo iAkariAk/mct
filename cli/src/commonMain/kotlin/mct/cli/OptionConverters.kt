@@ -14,15 +14,14 @@ typealias NO = NullableOption<String, String>
 fun NO.path() = convert { it.toPath() }
 
 context(env: FSHolder)
-fun Path?.fileText(default: String) = this?.readText(env.fs) ?: default
+suspend fun Path?.fileText(default: String) = this?.readText(env.fs) ?: default
 
 context(env: FSHolder)
-inline fun <reified T : Any> Path?.jsonFile(default: T) = this?.readJson<T>() ?: default
+suspend inline fun <reified T : Any> Path?.jsonFile(default: T) = this?.readJson<T>() ?: default
 
 
 context(env: FSHolder)
-fun Path.fileText() = readText(env.fs)
+suspend fun Path.fileText() = readText(env.fs)
 
 context(env: FSHolder)
-inline fun <reified T : Any> Path.jsonFile() = MCTJson.decodeFromString<T>(readText(env.fs))
-
+suspend inline fun <reified T : Any> Path.jsonFile() = MCTJson.decodeFromString<T>(readText(env.fs))

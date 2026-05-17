@@ -13,14 +13,16 @@ import okio.TypedOptions
  * method ensures API consistency with other Async types.
  */
 class AsyncBuffer internal constructor(
-    internal val okioBuffer: okio.Buffer = okio.Buffer(),
+    val okioBuffer: okio.Buffer = okio.Buffer(),
 ) : AsyncBufferedSource, AsyncBufferedSink {
 
     /** Returns the number of bytes currently in this buffer. */
     val size: Long get() = okioBuffer.size
 
     /** Discards all bytes in this buffer. */
-    fun clear() { okioBuffer.clear() }
+    fun clear() {
+        okioBuffer.clear()
+    }
 
     /** Returns a copy of this buffer's content as a [ByteString]. */
     fun snapshot(): ByteString = okioBuffer.snapshot()
@@ -110,6 +112,7 @@ class AsyncBuffer internal constructor(
     override suspend fun read(sink: ByteArray): Int = okioBuffer.read(sink)
     override suspend fun readFully(sink: AsyncBuffer, byteCount: Long) =
         okioBuffer.readFully(sink.okioBuffer, byteCount)
+
     override suspend fun readFully(sink: ByteArray) = okioBuffer.readFully(sink)
     override suspend fun readInto(array: ByteArray, offset: Int, byteCount: Int): Int =
         okioBuffer.read(array, offset, byteCount)
@@ -132,10 +135,12 @@ class AsyncBuffer internal constructor(
     override suspend fun indexOf(byte: Byte, fromIndex: Long): Long = okioBuffer.indexOf(byte, fromIndex)
     override suspend fun indexOf(byte: Byte, fromIndex: Long, toIndex: Long): Long =
         okioBuffer.indexOf(byte, fromIndex, toIndex)
+
     override suspend fun indexOf(bytes: ByteString): Long = okioBuffer.indexOf(bytes)
     override suspend fun indexOf(bytes: ByteString, fromIndex: Long): Long = okioBuffer.indexOf(bytes, fromIndex)
     override suspend fun indexOf(bytes: ByteString, fromIndex: Long, toIndex: Long): Long =
         okioBuffer.indexOf(bytes, fromIndex, toIndex)
+
     override suspend fun indexOfElement(targetBytes: ByteString): Long = okioBuffer.indexOfElement(targetBytes)
     override suspend fun indexOfElement(targetBytes: ByteString, fromIndex: Long): Long =
         okioBuffer.indexOfElement(targetBytes, fromIndex)
@@ -144,8 +149,10 @@ class AsyncBuffer internal constructor(
 
     override fun rangeEquals(offset: Long, bytes: ByteString): Boolean =
         okioBuffer.rangeEquals(offset, bytes)
+
     override fun rangeEquals(offset: Long, bytes: ByteString, bytesOffset: Int, byteCount: Int): Boolean =
         okioBuffer.rangeEquals(offset, bytes, bytesOffset, byteCount)
+
     override fun peek(): AsyncBufferedSource = AsyncBuffer(okioBuffer.copy())
 
     // ---- AsyncSource --------------------------------------------------------
@@ -153,29 +160,65 @@ class AsyncBuffer internal constructor(
     override fun timeout() = okioBuffer.timeout()
     override suspend fun read(sink: okio.Buffer, byteCount: Long): Long =
         okioBuffer.read(sink, byteCount)
+
     override suspend fun close() = okioBuffer.close()
 
     // ═══════════════════════════════════════════════════════════════════
     // AsyncBufferedSink
     // ═══════════════════════════════════════════════════════════════════
 
-    override suspend fun emit(): AsyncBufferedSink { okioBuffer.emit(); return this }
-    override suspend fun emitCompleteSegments(): AsyncBufferedSink { okioBuffer.emitCompleteSegments(); return this }
+    override suspend fun emit(): AsyncBufferedSink {
+        okioBuffer.emit(); return this
+    }
 
-    override suspend fun writeByte(b: Int): AsyncBufferedSink { okioBuffer.writeByte(b); return this }
-    override suspend fun writeShort(s: Int): AsyncBufferedSink { okioBuffer.writeShort(s); return this }
-    override suspend fun writeShortLe(s: Int): AsyncBufferedSink { okioBuffer.writeShortLe(s); return this }
-    override suspend fun writeInt(i: Int): AsyncBufferedSink { okioBuffer.writeInt(i); return this }
-    override suspend fun writeIntLe(i: Int): AsyncBufferedSink { okioBuffer.writeIntLe(i); return this }
-    override suspend fun writeLong(l: Long): AsyncBufferedSink { okioBuffer.writeLong(l); return this }
-    override suspend fun writeLongLe(l: Long): AsyncBufferedSink { okioBuffer.writeLongLe(l); return this }
-    override suspend fun writeDecimalLong(v: Long): AsyncBufferedSink { okioBuffer.writeDecimalLong(v); return this }
-    override suspend fun writeHexadecimalUnsignedLong(v: Long): AsyncBufferedSink { okioBuffer.writeHexadecimalUnsignedLong(v); return this }
+    override suspend fun emitCompleteSegments(): AsyncBufferedSink {
+        okioBuffer.emitCompleteSegments(); return this
+    }
 
-    override suspend fun writeUtf8(string: String): AsyncBufferedSink { okioBuffer.writeUtf8(string); return this }
+    override suspend fun writeByte(b: Int): AsyncBufferedSink {
+        okioBuffer.writeByte(b); return this
+    }
+
+    override suspend fun writeShort(s: Int): AsyncBufferedSink {
+        okioBuffer.writeShort(s); return this
+    }
+
+    override suspend fun writeShortLe(s: Int): AsyncBufferedSink {
+        okioBuffer.writeShortLe(s); return this
+    }
+
+    override suspend fun writeInt(i: Int): AsyncBufferedSink {
+        okioBuffer.writeInt(i); return this
+    }
+
+    override suspend fun writeIntLe(i: Int): AsyncBufferedSink {
+        okioBuffer.writeIntLe(i); return this
+    }
+
+    override suspend fun writeLong(l: Long): AsyncBufferedSink {
+        okioBuffer.writeLong(l); return this
+    }
+
+    override suspend fun writeLongLe(l: Long): AsyncBufferedSink {
+        okioBuffer.writeLongLe(l); return this
+    }
+
+    override suspend fun writeDecimalLong(v: Long): AsyncBufferedSink {
+        okioBuffer.writeDecimalLong(v); return this
+    }
+
+    override suspend fun writeHexadecimalUnsignedLong(v: Long): AsyncBufferedSink {
+        okioBuffer.writeHexadecimalUnsignedLong(v); return this
+    }
+
+    override suspend fun writeUtf8(string: String): AsyncBufferedSink {
+        okioBuffer.writeUtf8(string); return this
+    }
+
     override suspend fun writeUtf8(string: String, beginIndex: Int, endIndex: Int): AsyncBufferedSink {
         okioBuffer.writeUtf8(string, beginIndex, endIndex); return this
     }
+
     override suspend fun writeUtf8CodePoint(codePoint: Int): AsyncBufferedSink {
         okioBuffer.writeUtf8CodePoint(codePoint); return this
     }
@@ -184,10 +227,14 @@ class AsyncBuffer internal constructor(
         okioBuffer.write(byteString); return this
     }
 
-    override suspend fun write(source: okio.ByteString): AsyncBufferedSink { okioBuffer.write(source); return this }
+    override suspend fun write(source: okio.ByteString): AsyncBufferedSink {
+        okioBuffer.write(source); return this
+    }
+
     override suspend fun write(source: okio.ByteString, offset: Int, byteCount: Int): AsyncBufferedSink {
         okioBuffer.write(source, offset, byteCount); return this
     }
+
     override suspend fun write(source: AsyncSource, byteCount: Long): AsyncBufferedSink {
         if (source is AsyncBuffer) {
             okioBuffer.write(source.okioBuffer, byteCount)
@@ -196,6 +243,7 @@ class AsyncBuffer internal constructor(
         }
         return this
     }
+
     override suspend fun writeAll(source: AsyncSource): Long {
         if (source is AsyncBuffer) return okioBuffer.writeAll(source.okioBuffer)
         val before = okioBuffer.size
@@ -203,7 +251,10 @@ class AsyncBuffer internal constructor(
         return okioBuffer.size - before
     }
 
-    override suspend fun write(source: ByteArray): AsyncBufferedSink { okioBuffer.write(source); return this }
+    override suspend fun write(source: ByteArray): AsyncBufferedSink {
+        okioBuffer.write(source); return this
+    }
+
     override suspend fun write(source: ByteArray, offset: Int, byteCount: Int): AsyncBufferedSink {
         okioBuffer.write(source, offset, byteCount); return this
     }

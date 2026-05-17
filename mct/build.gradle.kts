@@ -1,4 +1,3 @@
-
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
@@ -9,31 +8,31 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
-        jvm {
-            testRuns.named("test") {
-                executionTask.configure {
-                    useJUnitPlatform()
+    jvm {
+        testRuns.named("test") {
+            executionTask.configure {
+                useJUnitPlatform()
+            }
+        }
+    }
+
+    js(IR) {
+        browser {
+            testTask {
+                useKarma {
+                    useChromeHeadless()
                 }
             }
         }
+        nodejs { testTask { useMocha() } }
 
-//        js(IR) {
-//            browser {
-//                testTask {
-//                    useKarma {
-//                        useChromeHeadless()
-//                    }
-//                }
-//            }
-//            nodejs { testTask { useMocha() } }
-//
-//        }
+    }
 //        wasmJs {
 //            browser()
 //            nodejs()
 //        }
-        mingwX64()
-        linuxX64()
+    mingwX64()
+    linuxX64()
 
     sourceSets {
         commonMain.dependencies {

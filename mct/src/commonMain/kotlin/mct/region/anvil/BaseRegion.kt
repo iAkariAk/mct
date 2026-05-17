@@ -61,7 +61,7 @@ class BaseRegionManager<T : ChunkData> private constructor(
 ) : RegionManager<BaseRegion<T>>(raw.env, raw.path) {
     companion object {
         context(_: Raise<ConstructionError>)
-        operator fun <T : ChunkData> invoke(
+        suspend operator fun <T : ChunkData> invoke(
             env: Env,
             path: Path,
             kind: ChunkDataKind,
@@ -72,7 +72,7 @@ class BaseRegionManager<T : ChunkData> private constructor(
 
 
         context(_: Raise<ConstructionError>)
-        operator fun <T : ChunkData> invoke(
+        suspend operator fun <T : ChunkData> invoke(
             raw: RawRegionManager,
             kind: ChunkDataKind,
             identifier: KType
@@ -85,14 +85,14 @@ class BaseRegionManager<T : ChunkData> private constructor(
 
 
         context(_: Raise<ConstructionError>)
-        inline operator fun <reified T : ChunkData> invoke(
+        suspend inline operator fun <reified T : ChunkData> invoke(
             raw: RawRegionManager,
             kind: ChunkDataKind = ChunkDataKind.of<T>()
         ): BaseRegionManager<T> =
             invoke(raw, kind = kind, typeOf<T>())
 
         context(_: Raise<ConstructionError>)
-        inline operator fun <reified T : ChunkData> invoke(
+        suspend inline operator fun <reified T : ChunkData> invoke(
             env: Env,
             path: Path,
             kind: ChunkDataKind = ChunkDataKind.of<T>()
@@ -101,10 +101,10 @@ class BaseRegionManager<T : ChunkData> private constructor(
     }
 
     context(_: Raise<LoadError>)
-    override fun load(coord: Coord): BaseRegion<T> =
+    override suspend fun load(coord: Coord): BaseRegion<T> =
         BaseRegion(raw.load(coord), kind, identifier)
 
     context(_: Raise<SaveError>)
-    override fun save(coord: Coord, region: BaseRegion<T>) =
+    override suspend fun save(coord: Coord, region: BaseRegion<T>) =
         raw.save(coord, region.raw)
 }

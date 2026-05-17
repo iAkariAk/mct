@@ -21,15 +21,19 @@ abstract class AsyncForwardingFileSystem(
     override suspend fun openReadOnly(file: Path): AsyncFileHandle = delegate.openReadOnly(file)
     override suspend fun openReadWrite(file: Path, mustCreate: Boolean, mustExist: Boolean): AsyncFileHandle =
         delegate.openReadWrite(file, mustCreate, mustExist)
+
     override suspend fun source(file: Path): AsyncSource = delegate.source(file)
     override suspend fun sink(file: Path, mustCreate: Boolean): AsyncSink = delegate.sink(file, mustCreate)
     override suspend fun appendingSink(file: Path, mustExist: Boolean): AsyncSink =
         delegate.appendingSink(file, mustExist)
+
     override suspend fun createDirectory(dir: Path, mustCreate: Boolean) =
         delegate.createDirectory(dir, mustCreate)
+
     override suspend fun delete(path: Path, mustExist: Boolean) = delegate.delete(path, mustExist)
     override suspend fun deleteRecursively(fileOrDirectory: Path, mustExist: Boolean) =
         delegate.deleteRecursively(fileOrDirectory, mustExist)
+
     override suspend fun copy(source: Path, target: Path) = delegate.copy(source, target)
     override suspend fun atomicMove(source: Path, target: Path) = delegate.atomicMove(source, target)
     override suspend fun createSymlink(source: Path, target: Path) = delegate.createSymlink(source, target)

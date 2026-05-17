@@ -4,8 +4,6 @@ import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.context.either
 import arrow.core.raise.nullable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
 import mct.DatapackExtractionGroup
 import mct.Env
@@ -16,13 +14,14 @@ import mct.dp.mcfunction.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
 import mct.pointer.DataPointerPattern
+import mct.util.DispatcherOrIO
+import mct.util.aio.AsyncFileSystem
 import mct.util.io.*
-import okio.FileSystem
 import okio.Path
 import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJsonBuiltinPatterns
 
-fun MCTWorkspace.extractFromDatapack(
+suspend fun MCTWorkspace.extractFromDatapack(
     mcfPatterns: List<ExtractPattern> = emptyList(),
     mcfDataPatterns: List<DataPointerPattern>? = emptyList(),
     mcjPatterns: List<DataPointerPattern>? = emptyList()
@@ -35,7 +34,7 @@ fun MCTWorkspace.extractFromDatapack(
 fun List<ExtractPattern>.compile(): Map<String, List<ExtractPattern>> =
     MCFBuiltinPatterns + groupBy { it.command }.toMap()
 
-fun MCTWorkspace.extractFromDatapackRaw(
+suspend fun MCTWorkspace.extractFromDatapackRaw(
     mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
     mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
     mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
@@ -85,7 +84,7 @@ fun MCTWorkspace.extractFromDatapackRaw(
                         .collect { emit(it) }
                 }
             }
-        }.flowOn(Dispatchers.IO)
+        }.flowOn(DispatcherOrIO)
 }
 
 
@@ -93,9 +92,9 @@ internal interface Extractor {
     val targetExtension: String
 
     context(_: Raise<ExtractError>)
-    fun extract(
+    suspend fun extract(
         env: Env,
-        zfs: FileSystem,
+        zfs: AsyncFileSystem,
         zpath: Path,
         path: Path
     ): DatapackExtractionGroup
@@ -104,9 +103,9 @@ internal interface Extractor {
 internal fun Extractor(
     name: String,
     targetExtension: String,
-    extract: context(Raise<ExtractError>) (
+    extract: suspend context(Raise<ExtractError>) (
         env: Env,
-        zfs: FileSystem,
+        zfs: AsyncFileSystem,
         zpath: Path,
         path: Path
     ) -> DatapackExtractionGroup
@@ -114,9 +113,9 @@ internal fun Extractor(
     override val targetExtension = targetExtension
 
     context(_: Raise<ExtractError>)
-    override fun extract(
+    override suspend fun extract(
         env: Env,
-        zfs: FileSystem,
+        zfs: AsyncFileSystem,
         zpath: Path,
         path: Path
     ): DatapackExtractionGroup = extract(env, zfs, zpath, path)

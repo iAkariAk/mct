@@ -41,7 +41,8 @@ suspend fun Translator.translate(
         }
     }
     val mapping = extractions.flatMap { (kind, extractions) ->
-        val sources = extractions.asSequence().mapNotNull { it.content.takeIf(String::isNotBlank) }.distinct().filter { it !in caches }.toList()
+        val sources = extractions.asSequence().mapNotNull { it.content.takeIf(String::isNotBlank) }.distinct()
+            .filter { it !in caches }.toList()
         val translated = translate(
             kind,
             sources

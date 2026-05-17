@@ -4,6 +4,7 @@ import arrow.core.raise.Raise
 import arrow.core.raise.either
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -24,6 +25,8 @@ import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
+import mct.util.aio.AsyncFileSystem
+import mct.util.aio.zio
 import mct.util.io.writeJson
 import okio.FileSystem
 import okio.Path
@@ -66,12 +69,16 @@ class GuiLogger(
 
 // ---- 设置读写 -----------------------------------------------------------
 
+private val settingsFs: AsyncFileSystem = FileSystem.SYSTEM.zio()
+
 fun loadSettings(): ApiSettings {
     return try {
-        if (FileSystem.SYSTEM.exists(settingsPath)) {
-            val text = FileSystem.SYSTEM.read(settingsPath) { readUtf8() }
-            settingsJson.decodeFromString(text)
-        } else ApiSettings()
+        runBlocking {
+            if (settingsFs.exists(settingsPath)) {
+                val text = settingsFs.read(settingsPath) { readUtf8() }
+                settingsJson.decodeFromString(text)
+            } else ApiSettings()
+        }
     } catch (e: Exception) {
         println("[MCT] 加载API设置失败: ${e.message}")
         ApiSettings()
@@ -80,9 +87,11 @@ fun loadSettings(): ApiSettings {
 
 fun saveSettings(apiUrl: String, model: String, apiToken: String): Boolean {
     return try {
-        FileSystem.SYSTEM.createDirectories(settingsPath.parent!!)
-        FileSystem.SYSTEM.write(settingsPath) {
-            writeUtf8(settingsJson.encodeToString(ApiSettings(apiUrl, model, apiToken)))
+        runBlocking {
+            settingsFs.createDirectories(settingsPath.parent!!)
+            settingsFs.write(settingsPath) {
+                writeUtf8(settingsJson.encodeToString(ApiSettings(apiUrl, model, apiToken)))
+            }
         }
         true
     } catch (e: Exception) {
@@ -96,7 +105,7 @@ fun saveSettings(apiUrl: String, model: String, apiToken: String): Boolean {
 /**
  * Run extraction in the background.
  *
- * All I/O uses [env.fs] (Okio). All status messages go through [env.logger].
+ * All I/O uses [env.fs]. All status messages go through [env.logger].
  * Progress/signals are emitted via `env.logger.sign<>` and handled upstream by `onSign<>`.
  */
 context(env: Env)
@@ -193,7 +202,7 @@ suspend fun runExtraction(
 /**
  * Run AI translation in the background.
  *
- * All I/O uses [env.fs] (Okio). Status messages use [env.logger].
+ * All I/O uses [env.fs]. Status messages use [env.logger].
  * TranslateSign signals (progress) are emitted via `env.logger.sign<>` and
  * handled by the `onSign<>` wrapper created at App level.
  */
@@ -275,7 +284,7 @@ suspend fun runTranslation(
 /**
  * Run backfill in the background.
  *
- * All I/O uses [env.fs] (Okio). All status messages go through [env.logger].
+ * All I/O uses [env.fs]. All status messages go through [env.logger].
  */
 suspend fun runBackfill(
     env: Env,

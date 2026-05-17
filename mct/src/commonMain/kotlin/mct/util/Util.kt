@@ -31,7 +31,7 @@ inline fun String.findAll(str: String): Sequence<IntRange> = sequence {
     var index = 0
     while (index < length) {
         index = indexOf(str, index)
-        if (index  == -1) break
+        if (index == -1) break
         val end = index + str.length
         yield(index until end)
         index = end

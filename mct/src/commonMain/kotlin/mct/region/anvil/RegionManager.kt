@@ -18,15 +18,11 @@ data class Coord(
 abstract class RegionManager<T : Region>(
     override val env: Env,
     internal val path: Path
-) : EnvHolder{
-
-    init {
-        require(fs.exists(path))
-    }
+) : EnvHolder {
 
     fun locate(coord: Coord): Path = path / "r.${coord.x}.${coord.z}.mca"
 
-    fun coords(): Sequence<Coord> = fs.list(path).asSequence()
+    suspend fun coords(): Sequence<Coord> = fs.list(path).asSequence()
         .mapNotNull { it.filename }
         .filter { it.endsWith(".mca") && it.startsWith("r.") }
         .map { it.removeSurrounding("r.", ".mca") }
@@ -40,22 +36,22 @@ abstract class RegionManager<T : Region>(
     /**
      * Note: the region will be skipped if the load fails
      */
-    fun regions(): Sequence<T> = coords().mapNotNull { coord ->
+    suspend fun regions(): List<T> = coords().toList().mapNotNull { coord ->
         either { load(coord) }.onLeft {
-            logger.info { "(${path}) Skip region(${coord.x}, ${coord.z}) due to load error: ${it.message}" }
+            logger.info { "($path) Skip region(${coord.x}, ${coord.z}) due to load error: ${it.message}" }
         }.getOrNull()
     }
 
     context(_: Raise<AnvilError>)
-    fun modify(coord: Coord, modify: (T) -> T) {
+    suspend fun modify(coord: Coord, modify: (T) -> T) {
         logger.debug { "Modify region(${coord.x}, ${coord.z})" }
         val data = load(coord)
         save(coord, modify(data))
     }
 
     context(_: Raise<AnvilError>)
-    fun modifyRegions(modify: (T) -> T) {
-        val list = regions().toList()
+    suspend fun modifyRegions(modify: (T) -> T) {
+        val list = regions()
         logger.info { "Modifying ${list.size} regions" }
         list.forEach {
             logger.debug { "Save region(${it.regionX}, ${it.regionZ})" }
@@ -64,9 +60,8 @@ abstract class RegionManager<T : Region>(
     }
 
     context(_: Raise<LoadError>)
-    abstract fun load(coord: Coord): T
+    abstract suspend fun load(coord: Coord): T
 
     context(_: Raise<SaveError>)
-    abstract fun save(coord: Coord, region: T)
+    abstract suspend fun save(coord: Coord, region: T)
 }
-

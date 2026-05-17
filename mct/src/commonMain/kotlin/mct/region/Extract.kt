@@ -1,8 +1,6 @@
 package mct.region
 
 import arrow.core.raise.Raise
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
 import mct.FormatKind
 import mct.MCTWorkspace
@@ -13,6 +11,7 @@ import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
+import mct.util.DispatcherOrIO
 import mct.util.StringIndices
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
@@ -35,9 +34,9 @@ fun MCTWorkspace.extractFromRegion(
 
     return dimensions.values.asFlow().flatMapMerge { dimension ->
         flowOf(
-            dimension.regionRawMgr to ChunkDataKind.Terrain,
-            dimension.poiRawMgr to ChunkDataKind.Poi,
-            dimension.entitiesRawMgr to ChunkDataKind.Entities
+            dimension.regionRawMgr() to ChunkDataKind.Terrain,
+            dimension.poiRawMgr() to ChunkDataKind.Poi,
+            dimension.entitiesRawMgr() to ChunkDataKind.Entities
         )
             .filter { (manager, _) -> manager != null }
             .flatMapMerge { (manager, kind) ->
@@ -65,10 +64,10 @@ fun MCTWorkspace.extractFromRegion(
                                 ?: return@flatMapMerge emptyFlow()
                         )
                     )
-                }.flowOn(Dispatchers.IO)
+                }.flowOn(DispatcherOrIO)
             }
-            .flowOn(Dispatchers.IO)
-    }.flowOn(Dispatchers.IO)
+            .flowOn(DispatcherOrIO)
+    }.flowOn(DispatcherOrIO)
 }
 
 internal data class PointerWithExtension(
@@ -136,14 +135,28 @@ internal fun SnbtTag.extractTextsForSnbt(snbt: String): Sequence<PointerWithExte
 
     is SnbtCompound -> {
         if (isTextCompound()) {
-            sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, snbt.substring(indices), FormatKind.Snbt))
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.Snbt
+                )
+            )
         } else if (isTextCompoundShorthanded()) {
             val map = toMutableMap()
             val text = map.remove("")
             map["text"] = text!!
             val expanded = SnbtCompound(indices, map)
 
-            sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, snbt.substring(indices), FormatKind.Snbt))
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.Snbt
+                )
+            )
         } else {
             asSequence().flatMap { (key, value) ->
                 value.extractTextsForSnbt(snbt).map {

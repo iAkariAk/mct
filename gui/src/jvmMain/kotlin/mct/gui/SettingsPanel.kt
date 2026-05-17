@@ -87,7 +87,11 @@ fun SettingsSheet(
                     Spacer(Modifier.height(12.dp))
 
                     val sliderRange = 256f..8192f
-                    var sliderValue by remember { mutableFloatStateOf(GuiSettings.tokenThreshold.toFloat().coerceIn(sliderRange)) }
+                    var sliderValue by remember {
+                        mutableFloatStateOf(
+                            GuiSettings.tokenThreshold.toFloat().coerceIn(sliderRange)
+                        )
+                    }
 
                     Slider(
                         value = sliderValue,

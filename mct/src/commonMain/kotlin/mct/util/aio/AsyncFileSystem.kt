@@ -1,12 +1,6 @@
 package mct.util.aio
 
-import okio.ByteString
-import okio.FileMetadata
-import okio.IOException
-import okio.Options
-import okio.Path
-import okio.Timeout
-import okio.TypedOptions
+import okio.*
 
 /**
  * A suspend equivalent of Okio's [okio.FileSystem].
@@ -138,7 +132,7 @@ fun AsyncSink.buffer(): AsyncBufferedSink = RealAsyncBufferedSink(this)
 // ═════════════════════════════════════════════════════════════════════
 
 internal class RealAsyncBufferedSource(
-    private val source: AsyncSource,
+    internal val source: AsyncSource,
 ) : AsyncBufferedSource {
 
     internal val buf = AsyncBuffer()
@@ -163,13 +157,33 @@ internal class RealAsyncBufferedSource(
         return true
     }
 
-    override suspend fun readByte(): Byte { require(1); return buf.readByte() }
-    override suspend fun readShort(): Short { require(2); return buf.readShort() }
-    override suspend fun readShortLe(): Short { require(2); return buf.readShortLe() }
-    override suspend fun readInt(): Int { require(4); return buf.readInt() }
-    override suspend fun readIntLe(): Int { require(4); return buf.readIntLe() }
-    override suspend fun readLong(): Long { require(8); return buf.readLong() }
-    override suspend fun readLongLe(): Long { require(8); return buf.readLongLe() }
+    override suspend fun readByte(): Byte {
+        require(1); return buf.readByte()
+    }
+
+    override suspend fun readShort(): Short {
+        require(2); return buf.readShort()
+    }
+
+    override suspend fun readShortLe(): Short {
+        require(2); return buf.readShortLe()
+    }
+
+    override suspend fun readInt(): Int {
+        require(4); return buf.readInt()
+    }
+
+    override suspend fun readIntLe(): Int {
+        require(4); return buf.readIntLe()
+    }
+
+    override suspend fun readLong(): Long {
+        require(8); return buf.readLong()
+    }
+
+    override suspend fun readLongLe(): Long {
+        require(8); return buf.readLongLe()
+    }
 
     override suspend fun readDecimalLong(): Long {
         require(1)
@@ -194,7 +208,13 @@ internal class RealAsyncBufferedSource(
                 (b < 'a'.code.toByte() || b > 'f'.code.toByte()) &&
                 (b < 'A'.code.toByte() || b > 'F'.code.toByte())
             ) {
-                if (pos == 0) throw NumberFormatException("Expected leading [0-9a-fA-F] character but was 0x${b.toString(16)}")
+                if (pos == 0) throw NumberFormatException(
+                    "Expected leading [0-9a-fA-F] character but was 0x${
+                        b.toString(
+                            16
+                        )
+                    }"
+                )
                 break
             }
             pos++
@@ -220,7 +240,9 @@ internal class RealAsyncBufferedSource(
         return buf.readUtf8()
     }
 
-    override suspend fun readUtf8(byteCount: Long): String { require(byteCount); return buf.readUtf8(byteCount) }
+    override suspend fun readUtf8(byteCount: Long): String {
+        require(byteCount); return buf.readUtf8(byteCount)
+    }
 
     override suspend fun readUtf8Line(): String? {
         val newline = indexOf('\n'.code.toByte())
@@ -259,7 +281,7 @@ internal class RealAsyncBufferedSource(
         buf.okioBuffer.copyTo(data, 0, minOf(32, buf.size))
         throw okio.EOFException(
             "\\n not found: limit=" + minOf(buf.size, limit) +
-                " content=" + data.readByteString().hex() + '…'.toString(),
+                    " content=" + data.readByteString().hex() + '…'.toString(),
         )
     }
 
@@ -279,7 +301,9 @@ internal class RealAsyncBufferedSource(
         return buf.readByteString()
     }
 
-    override suspend fun readByteString(byteCount: Long): ByteString { require(byteCount); return buf.readByteString(byteCount) }
+    override suspend fun readByteString(byteCount: Long): ByteString {
+        require(byteCount); return buf.readByteString(byteCount)
+    }
 
     override suspend fun readByteArray(): ByteArray {
         drainSourceToBuffer()
@@ -295,7 +319,9 @@ internal class RealAsyncBufferedSource(
         }
     }
 
-    override suspend fun readByteArray(byteCount: Long): ByteArray { require(byteCount); return buf.readByteArray(byteCount) }
+    override suspend fun readByteArray(byteCount: Long): ByteArray {
+        require(byteCount); return buf.readByteArray(byteCount)
+    }
 
     override suspend fun read(sink: ByteArray): Int {
         if (buf.size == 0L) {
@@ -489,7 +515,7 @@ private class PeekAsyncSource(
 // ═════════════════════════════════════════════════════════════════════
 
 internal class RealAsyncBufferedSink(
-    private val sink: AsyncSink,
+    internal val sink: AsyncSink,
 ) : AsyncBufferedSink {
 
     internal val buf = AsyncBuffer()

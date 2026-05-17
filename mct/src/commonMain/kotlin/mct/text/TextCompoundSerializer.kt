@@ -45,7 +45,8 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
     }
 
 
-    private fun deserializeJson(decoder: JsonDecoder): TextCompound = decoder.decodeJsonElement().toIR().decodeToCompound()
+    private fun deserializeJson(decoder: JsonDecoder): TextCompound =
+        decoder.decodeJsonElement().toIR().decodeToCompound()
 
     private fun deserializeNbt(decoder: NbtDecoder): TextCompound = decoder.decodeNbtTag().toIR().decodeToCompound()
 }
