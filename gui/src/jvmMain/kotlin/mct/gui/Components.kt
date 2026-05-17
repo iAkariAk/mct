@@ -31,6 +31,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.FrameWindowScope
@@ -158,13 +159,21 @@ fun TextSwitch(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-        Spacer(Modifier.width(16.dp))
         Text(
             text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 16.dp),
+            maxLines = Int.MAX_VALUE,
+            overflow = TextOverflow.Visible
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
         )
     }
 }
@@ -206,7 +215,6 @@ data class TranslateState(
     val model: String = "gpt-4o",
     val availableModels: List<String> = emptyList(),
     val isModelsLoading: Boolean = false,
-    val useStreamApi: Boolean = false,
     val existingTermPath: String = "",
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
     val isOptimizing: Boolean = false,
@@ -223,6 +231,7 @@ data class BackfillState(
 object GuiSettings {
     var prettyOutput by mutableStateOf(false)
     var tokenThreshold by mutableIntStateOf(TOKEN_COUNT_THRESHOLD)
+    var useStreamApi by mutableStateOf(false)
 }
 
 // ── 通用组件 ─────────────────────────────────────────────────

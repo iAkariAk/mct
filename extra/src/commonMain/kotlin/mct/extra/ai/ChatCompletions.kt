@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.onEach
 import mct.Env
 import mct.EnvHolder
 import mct.MCTError
+import kotlin.time.Clock
 
 private const val MAX_RETRY = 20
 
@@ -158,17 +159,21 @@ class ChatCompletionCallImpl internal constructor(
         var llmRetry = 0
         while (llmRetry < maxRetry) {
             val llmResult = runCatching {
+                val callId = Clock.System.now().nanosecondsOfSecond
                 if (useStreamApi) client.chatCompletions(request)
                     .onEach {
                         noticeTokenConsume(it.usage)
                     }
                     .mapNotNull { it.choices.firstOrNull() }
                     .mapNotNull { it.delta }
+                    .onEach { postReasoning(it.reasoningContent, callId) }
                     .fold(StringBuilder()) { acc, e -> e.content?.let { acc.append(it) } ?: acc }
                     .toString()
                 else client.chatCompletion(request).also {
                     noticeTokenConsume(it.usage)
-                }.choices.first().message.content!!
+                }.choices.first().message.also {
+                    postReasoning(it.reasoningContent, callId)
+                }.content!!
             }.getOrElse { e ->
                 if (e is OpenAIHttpException || e is OpenAITimeoutException || e is GenericIOException) {
                     env.logger.error { "API error: ${e.message}. Retry ${llmRetry + 1}/$MAX_RETRY." }
@@ -192,5 +197,11 @@ class ChatCompletionCallImpl internal constructor(
 private fun EnvHolder.noticeTokenConsume(usage: Usage?) {
     usage?.totalTokens?.let { tc ->
         logger.sign<AiSign>({ AiSign.ConsumeToken(tc) })
+    }
+}
+
+private fun EnvHolder.postReasoning(reasoningContent: String?, id: Int) {
+    reasoningContent?.let {
+        logger.sign<AiSign>({ AiSign.Reasoning(reasoningContent, id) })
     }
 }

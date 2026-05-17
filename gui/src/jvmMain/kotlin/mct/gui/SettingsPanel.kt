@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,21 +55,21 @@ fun SettingsSheet(
                     )
                     Spacer(Modifier.height(24.dp))
 
-                    Row(
+                    TextSwitch(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "JSON 美化输出",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Switch(
-                            checked = GuiSettings.prettyOutput,
-                            onCheckedChange = { GuiSettings.prettyOutput = it }
-                        )
-                    }
+                        checked = GuiSettings.prettyOutput,
+                        onCheckedChange = { GuiSettings.prettyOutput = it },
+                        text = "JSON 美化输出",
+                    )
+                    Spacer(Modifier.height(24.dp))
+
+                    TextSwitch(
+                        modifier = Modifier.fillMaxWidth(),
+                        checked = GuiSettings.useStreamApi,
+                        onCheckedChange = { GuiSettings.useStreamApi = it },
+                        text = "使用流式API（可解决持续空行的过多重试，但可能导致返回变慢）",
+                    )
+
                     Spacer(Modifier.height(24.dp))
 
                     Text(

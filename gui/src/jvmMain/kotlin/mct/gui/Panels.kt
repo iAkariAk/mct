@@ -242,12 +242,6 @@ fun TranslatePanel(
             }
         )
 
-        TextSwitch(
-            checked = state.useStreamApi,
-            onCheckedChange = { onStateChange(state.copy(useStreamApi = it)) },
-            text = "使用流式API(可以解决持续空行的过多重试, 但是可能导致返回变慢)",
-        )
-
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 4.dp),
             color = MaterialTheme.colorScheme.outlineVariant

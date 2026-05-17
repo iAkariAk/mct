@@ -97,11 +97,14 @@ fun App(
     var translateStatus by remember { mutableStateOf("") }
     var lastTokenConsume by remember { mutableIntStateOf(0) }
     var totalTokenConsume by remember { mutableIntStateOf(0) }
+    val reasoningContents = remember { mutableStateMapOf<Int, StringBuilder>() }
+    var reasoningContentVersion by remember { mutableIntStateOf(0) }
 
     var logLevelFilter by remember {
         mutableStateOf(setOf(LoggerLevel.Info, LoggerLevel.Warning, LoggerLevel.Error, LoggerLevel.Debug))
     }
     var showLogSettings by remember { mutableStateOf(false) }
+    var showReasoning by remember { mutableStateOf(false) }
 
     val guiLogger = remember {
         GuiLogger { entry -> logLines.add(entry) }.onSign {
@@ -118,6 +121,14 @@ fun App(
                     is AiSign.ConsumeToken -> {
                         lastTokenConsume = sign.count
                         totalTokenConsume += sign.count
+                    }
+
+                    is AiSign.Reasoning -> {
+                        val reasoningContent = reasoningContents.getOrPut(sign.id, ::StringBuilder)
+                        if (!GuiSettings.useStreamApi)
+                            reasoningContent.clear()
+                        reasoningContent.append(sign.reasoningContent)
+                        reasoningContentVersion++
                     }
                 }
             }
@@ -162,7 +173,7 @@ fun App(
             }.onSuccess { models ->
                 translateState = translateState.copy(availableModels = models, isModelsLoading = false)
                 if (translateState.model in models) {
-                    setupCompletion(translateState.model, translateState.useStreamApi)
+                    setupCompletion(translateState.model, GuiSettings.useStreamApi)
                         .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}")) }
                 }
             }.onFailure {
@@ -170,14 +181,14 @@ fun App(
             }
         }
 
-        LaunchedEffect(translateState.model, translateState.useStreamApi) {
+        LaunchedEffect(translateState.model, GuiSettings.useStreamApi) {
             if (clientManager.openAIClient == null) return@LaunchedEffect
             val model = translateState.model
             if (model.isBlank()) return@LaunchedEffect
             val models = translateState.availableModels
             if (models.isNotEmpty() && model !in models) return@LaunchedEffect
 
-            setupCompletion(model, translateState.useStreamApi)
+            setupCompletion(model, GuiSettings.useStreamApi)
                 .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}")) }
         }
 
@@ -392,6 +403,13 @@ fun App(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { showReasoning = true }) {
+                                Icon(
+                                    Icons.Outlined.Psychology,
+                                    contentDescription = "推理过程",
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                             Box {
                                 IconButton(onClick = { showLogSettings = true }) {
                                     Icon(
@@ -452,6 +470,13 @@ fun App(
             }
 
             SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+            if (showReasoning) {
+                ReasoningSheet(
+                    reasoningContents = reasoningContents,
+                    reasoningContentVersion = reasoningContentVersion,
+                    onDismiss = { showReasoning = false }
+                )
+            }
         }
     }
 }
