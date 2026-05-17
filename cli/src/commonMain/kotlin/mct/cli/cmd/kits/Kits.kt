@@ -145,6 +145,7 @@ private class AITranslate : BaseCommand(
     val input by option("--input", "-i", help = "The extraction JSON file to translate").path().required()
     val caches by option("--cache-mapping", "-cm", help = "The cache mapping file exported by the follow `--mapping`. By default").path()
     val output by option("--output", "-o", help = "The output path for the replacements JSON").path().required()
+    val mappingOutput by option("--output-mapping", "-om", help = "The output path for the mapping JSON").path().required()
     val termOutput by option("--output-term", "-ot", help = "The output path for the term table JSON").path().required()
     val term by option("--term", help = "Path to an existing term table JSON file").path()
     val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
@@ -193,11 +194,15 @@ private class AITranslate : BaseCommand(
 
 
         logger.info { "Starting translation..." }
-        val translated = translator.translate(extractionGroups, caches)
-        logger.info { "Translation done, ${translated.size} replacement groups" }
+        val mapping = translator.translate(extractionGroups, caches)
+        val replacements = extractionGroups.replace(mapping)
 
+        logger.info { "Translation done, ${replacements.size} replacement groups" }
+
+        logger.info { "Writing mapping to $mappingOutput" }
+        mappingOutput.writeJson(mapping)
         logger.info { "Writing replacements to $output" }
-        output.writeJson(translated)
+        output.writeJson(replacements)
         logger.info { "Writing ${translator.terms.size} terms to $termOutput" }
         termOutput.writeJson(translator.terms)
         logger.info { "Done." }
