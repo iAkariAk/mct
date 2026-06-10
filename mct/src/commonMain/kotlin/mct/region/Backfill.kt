@@ -88,10 +88,12 @@ private fun NbtTag.transform(
     }
 
     is NbtCompound -> {
-        pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>().firstOrNull()?.let { terminator ->
-            require(terminator.kind == FormatKind.Nbt)
-            return Snbt.decodeFromString(terminator.replacement)
-        }
+        pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.Nbt }
+            ?.let { terminator ->
+                terminator as DataPointerReplacementGroup.Terminator
+
+                return Snbt.decodeFromString(terminator.replacement)
+            }
 
         val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
         val transformed = toMutableMap()
@@ -104,9 +106,8 @@ private fun NbtTag.transform(
     }
 
     is NbtString -> {
-        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>()
-
-        val pointer = pointers.firstOrNull() ?: return this
+        val pointer = pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.Str } ?: return this
+        pointer as DataPointerReplacementGroup.Terminator
 
         NbtString(pointer.replacement)
     }
