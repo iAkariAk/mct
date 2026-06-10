@@ -192,6 +192,18 @@ class DataPointerPatternTest : FreeSpec({
             ptr(">#>#block_entities>3>#CustomName").matches(BuiltinRegionPatterns) shouldBe true
         }
 
+        "match beehive bee entity CustomName" {
+            ptr(">#>#block_entities>0>#Bees>1>#EntityData>#CustomName").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
+        "match trial spawner normal_config entity CustomName" {
+            ptr(">#>#block_entities>0>#normal_config>#spawn_data>#entity>#CustomName").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
+        "match trial spawner ominous_config entity CustomName" {
+            ptr(">#>#block_entities>0>#ominous_config>#spawn_data>#entity>#CustomName").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
         "match book title in tag" {
             ptr(">#Book>#tag>#title").matches(BuiltinRegionPatterns) shouldBe true
         }
@@ -202,6 +214,26 @@ class DataPointerPatternTest : FreeSpec({
 
         "not match unrelated path" {
             ptr(">#unrelated>#path>#here").matches(BuiltinRegionPatterns) shouldBe false
+        }
+
+        "match entity raw_text" {
+            ptr(">#>#Entities>0>#raw_text").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
+        "match block entity component custom_name" {
+            ptr(">#>#block_entities>0>#components>#minecraft:custom_name").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
+        "match block entity component custom_name with raw" {
+            ptr(">#>#block_entities>0>#components>#minecraft:custom_name>#raw").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
+        "match block entity component item_name" {
+            ptr(">#>#block_entities>0>#components>#minecraft:item_name").matches(BuiltinRegionPatterns) shouldBe true
+        }
+
+        "match block entity component item_name with raw" {
+            ptr(">#>#block_entities>0>#components>#minecraft:item_name>#raw").matches(BuiltinRegionPatterns) shouldBe true
         }
     }
 
@@ -260,12 +292,100 @@ class DataPointerPatternTest : FreeSpec({
             ptr(">#functions>0>#name>#text").matches(BuiltinMCJPatterns) shouldBe true
         }
 
+        "match loot table set_name translate" {
+            ptr(">#functions>0>#name>#translate").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_name fallback" {
+            ptr(">#functions>0>#name>#fallback").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_lore text" {
+            ptr(">#functions>0>#lore>0>#text").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_lore translate" {
+            ptr(">#functions>0>#lore>0>#translate").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
         "match loot table set_lore fallback" {
             ptr(">#functions>0>#lore>0>#fallback").matches(BuiltinMCJPatterns) shouldBe true
         }
 
+        "match loot table set_attributes entity name translate" {
+            ptr(">#functions>0>#entity>#name>#translate").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_attributes entity name fallback" {
+            ptr(">#functions>0>#entity>#name>#fallback").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_attributes modifier name text" {
+            ptr(">#functions>0>#modifiers>0>#name>#text").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_attributes modifier name translate" {
+            ptr(">#functions>0>#modifiers>0>#name>#translate").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match loot table set_attributes modifier name fallback" {
+            ptr(">#functions>0>#modifiers>0>#name>#fallback").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match painting variant title text component" {
+            ptr(">#title>#text").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match painting variant title translate" {
+            ptr(">#title>#translate").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match painting variant title fallback" {
+            ptr(">#title>#fallback").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match painting variant author text component" {
+            ptr(">#author>#text").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "not match painting variant title color leaf" {
+            ptr(">#title>#color").matches(BuiltinMCJPatterns) shouldBe false
+        }
+
+        "not match painting variant author color leaf" {
+            ptr(">#author>#color").matches(BuiltinMCJPatterns) shouldBe false
+        }
+
+        "not match unrelated path under title" {
+            ptr(">#title>#extra").matches(BuiltinMCJPatterns) shouldBe false
+        }
+
         "not match unrelated path" {
             ptr(">#random>#key").matches(BuiltinMCJPatterns) shouldBe false
+        }
+
+        "match description as plain string" {
+            ptr(">#description").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match description as text component" {
+            ptr(">#description>#text").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match description translate" {
+            ptr(">#description>#translate").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "match description fallback" {
+            ptr(">#description>#fallback").matches(BuiltinMCJPatterns) shouldBe true
+        }
+
+        "not match description color leaf" {
+            ptr(">#description>#color").matches(BuiltinMCJPatterns) shouldBe false
+        }
+
+        "not match description color under display" {
+            ptr(">#display>#description").matches(BuiltinMCJPatterns) shouldBe true
         }
     }
 })

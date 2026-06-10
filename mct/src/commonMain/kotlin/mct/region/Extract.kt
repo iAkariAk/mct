@@ -50,7 +50,6 @@ fun MCTWorkspace.extractFromRegion(
                         .filterNotNull()
                         .flatMap { chunk ->
                             chunk.data.extractTexts()
-                                .filterPointer(patterns)
                                 .mapNotNull { (pointer, content, kind, type) ->
                                     when (type) {
                                         PointerWithExtension.Type.Command -> either {
@@ -61,7 +60,13 @@ fun MCTWorkspace.extractFromRegion(
                                                 index = chunk.index,
                                                 pointer = pointer,
                                                 raw = content,
-                                                locations = cmds.flatMap { extractTextFromCommand(it, mcfPatterns, mcfDataPatterns) }.map {
+                                                locations = cmds.flatMap {
+                                                    extractTextFromCommand(
+                                                        it,
+                                                        mcfPatterns,
+                                                        mcfDataPatterns
+                                                    )
+                                                }.map {
                                                     RegionExtraction.Command.Location(it.indices, it.content)
                                                 },
                                             )
@@ -72,7 +77,7 @@ fun MCTWorkspace.extractFromRegion(
                                             pointer = pointer,
                                             kind = kind,
                                             content = content
-                                        )
+                                        ).takeIf { it.pointer.matches(patterns) }
                                     }
                                 }
                         }

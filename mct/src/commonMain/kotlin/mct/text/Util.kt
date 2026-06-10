@@ -34,8 +34,21 @@ private val MAYBE_FIELDS_AS_KEY = MAYBE_MAJOR_FIELDS.map { """"$it"\s*:\s*""".to
 
 internal fun String.isTextComponent() = MAYBE_FIELDS_AS_KEY.any { it.containsMatchIn(this) }
 
+private val STRUCTURAL_FIELDS = listOf(
+    // Fields that legitimately hold compound/list values in text components
+    "extra", "with",
+    "hover_event", "click_event",
+    "score", "separator",
+)
+
 internal fun Map<String, *>.isTextCompound() =
-    keys.all { ALL_FIELD.contains(it) } // to avoid misidentifying some compound including `text` or whatever, e.g. Display Entities includes `text`
+    keys.all { ALL_FIELD.contains(it) } &&
+            entries.all { (key, value) ->
+                // Structural fields can have compound/list values
+                if (key in STRUCTURAL_FIELDS) true
+                // All other fields must be primitive leaf types (esp. text)
+                else value !is Map<*, *> && value !is Collection<*>
+            }
 
 // "minecraft:lore": [
 //  {

@@ -94,9 +94,10 @@ class MCFunctionTest : StringSpec({
 
     "test snbt selecting" {
         val extraction = extractTextMCF(TestFunctions.update_billboard)
-        extraction.extractions.size shouldBe 11
+        extraction.extractions.size shouldBe 77
         extraction.extractions.forEach {
             println(it)
         }
     }
+
 })

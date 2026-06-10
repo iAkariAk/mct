@@ -6,6 +6,7 @@ import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import mct.Logger
 
 class ExtractPatternTest : FreeSpec({
@@ -315,6 +316,80 @@ class ExtractPatternTest : FreeSpec({
                 val p = patterns.first()
                 p.preCondition.matches(cmd) shouldBe true  // WithSize(5) >= 5
                 (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
+            }
+
+            "match spreadplayers description" {
+                val cmd = cmd(
+                    "spreadplayers",
+                    "0", "0", "5", "10", "true", "@a",
+                    """{"text":"Spreading players..."}""",
+                )
+                val patterns = BuiltinMCFPatterns["spreadplayers"].orEmpty()
+                patterns.isNotEmpty() shouldBe true
+                val p = patterns.first()
+                p.preCondition.matches(cmd) shouldBe true  // WithSize(7, strict=true)
+                (p.selected as IndexSelector.NonGreedy).matches(7) shouldBe true
+                // Position 7 is the JSON text component description
+                p.postCondition.matches(cmd, cmd.args[6]) shouldBe true
+            }
+
+            "match team add displayName" {
+                val cmd = cmd(
+                    "team",
+                    "add", "myteam",
+                    """{"text":"My Team"}""",
+                )
+                val patterns = BuiltinMCFPatterns["team"].orEmpty()
+                val p = patterns.find { it.preCondition is PreCondition.Companion.WithSize &&
+                    (it.preCondition as PreCondition.Companion.WithSize).size == 3 &&
+                    it.selected is IndexSelector.NonGreedy &&
+                    (it.selected as IndexSelector.NonGreedy).matches(3) }
+                p shouldNotBe null
+                p!!.preCondition.matches(cmd) shouldBe true
+                p.postCondition.matches(cmd, cmd.args[2]) shouldBe true
+            }
+
+            "match setblock with NBT data" {
+                val cmd = cmd(
+                    "setblock",
+                    "~", "~", "~", "minecraft:chest",
+                    """{CustomName:'{"text":"Treasure","color":"gold"}'}""",
+                )
+                val patterns = BuiltinMCFPatterns["setblock"].orEmpty()
+                patterns.isNotEmpty() shouldBe true
+                val p = patterns.first()
+                p.preCondition.matches(cmd) shouldBe true  // WithSize(5)
+                (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
+                p.postCondition.matches(cmd, cmd.args[4]) shouldBe true
+            }
+
+            "match data merge entity NBT" {
+                val cmd = cmd(
+                    "data",
+                    "merge", "entity", "@s",
+                    """{CustomName:'{"text":"Named Entity"}'}""",
+                )
+                val patterns = BuiltinMCFPatterns["data"].orEmpty()
+                val p = patterns.find { it.preCondition is PreCondition.Companion.And &&
+                    it.selected is IndexSelector.NonGreedy &&
+                    (it.selected as IndexSelector.NonGreedy).matches(4) }
+                p shouldNotBe null
+                p!!.preCondition.matches(cmd) shouldBe true
+                p.postCondition.matches(cmd, cmd.args[3]) shouldBe true
+            }
+
+            "match data merge block NBT" {
+                val cmd = cmd(
+                    "data",
+                    "merge", "block", "~", "~", "~",
+                    """{CustomName:'{"text":"Block Name"}'}""",
+                )
+                val patterns = BuiltinMCFPatterns["data"].orEmpty()
+                val p = patterns.find { it.preCondition is PreCondition.Companion.And &&
+                    (it.selected as IndexSelector.NonGreedy).matches(6) }
+                p shouldNotBe null
+                p!!.preCondition.matches(cmd) shouldBe true
+                p.postCondition.matches(cmd, cmd.args[5]) shouldBe true
             }
         }
     }

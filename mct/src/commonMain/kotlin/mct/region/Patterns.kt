@@ -36,7 +36,8 @@ val BuiltinRegionPatterns = PatternSet {
     }
     // --- Entities (Mobs, Armor Stands, etc.) ---
     // Matches CustomName for all entities stored in the chunk
-    +RegexPattern("""(^>#>#Entities>\d+|(>#SpawnData|>#SpawnPotentials>\d+>#data)>#entity)>#CustomName$""")
+    // Also matches spawner entities (SpawnData / SpawnPotentials) and trial spawner configs
+    +RegexPattern("""(?:^>#>#Entities>\d+|(?:>#SpawnData|>#SpawnPotentials>\d+>#data|(?:>#normal_config|>#ominous_config)>#spawn_data)>#entity)>#CustomName$""")
 
     // --- Block Entities (Signs, Containers, Spawners) ---
     // 1. Signs (Front & Back)
@@ -56,7 +57,22 @@ val BuiltinRegionPatterns = PatternSet {
     // Potential custom names for spawned entities inside a spawner
     +RegexPattern("""^>#>#block_entities>\d+>#SpawnData>#entity>#CustomName$""")
 
+    // 5. Beehives / Bee Nests
+    // CustomName for bees (or other mobs) stored inside a beehive block entity
+    +RegexPattern("""^>#>#block_entities>\d+>#Bees>\d+>#EntityData>#CustomName$""")
+
     // --- Map Data ---
     // If scanning 'data/map_xxx.dat' files (though usually in separate folder)
     +RightPattern("#banners>#name")                   // Names of marked banners on maps
+
+    // --- Text Display Entity Fields ---
+    // raw_text is the rendered plain-text form of a text display's JSON component
+    +RegexPattern("""^>#>#Entities>\d+>#raw_text$""")
+
+    // --- Block Entity Data Components (1.20.5+) ---
+    // Modern component-based custom names on block entities
+    // Note: entity-level components are covered by the existing #minecraft:custom_name pattern
+    // which doesn't have ^ anchor and matches anywhere in the path
+    +RegexPattern("""^>#>#block_entities>\d+>#components>#minecraft:custom_name(?:>#raw)?$""")
+    +RegexPattern("""^>#>#block_entities>\d+>#components>#minecraft:item_name(?:>#raw)?$""")
 }

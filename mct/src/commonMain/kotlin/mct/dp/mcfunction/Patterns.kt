@@ -1,5 +1,6 @@
 package mct.dp.mcfunction
 
+import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 import mct.text.isTextComponent
 
@@ -280,6 +281,69 @@ val BuiltinMCFPatterns = PatternSet {
     }
 
 
+    // ── spreadplayers ─────────────────────────────────────────────
+    // spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams> <targets> [<description>]
+    // Description is a JSON text component at position 7
+    command("spreadplayers") {
+        WithSize(7, strict = true) then {
+            +Positions(7)
+        }
+    }
+
+
+    // ── team add ─────────────────────────────────────────────────
+    // team add <team> [<displayName>]
+    // displayName is a JSON text component at position 3
+    command("team") {
+        WithSize(3, strict = true) then {
+            Positions(3) then {
+                Matches("team add") { cmd, _ ->
+                    cmd[1].content == "add"
+                }
+            }
+        }
+    }
+
+
+    // ── setblock (NBT data with text components) ─────────────────
+    // setblock <pos> <block> [<state>] [<data>]
+    // The NBT data at position 5 may contain text components like CustomName
+    command("setblock") {
+        WithSize(5) then {
+            Positions(5 to IndexSelection.SnbtEntire) then {
+                Matches("setblock nbt") { _, arg ->
+                    arg.content.startsWith("{")
+                }
+            }
+        }
+    }
+
+
+    // ── data merge (NBT with text components) ────────────────────
+    // data merge entity <target> <nbt>
+    // data merge storage <source> <nbt>
+    command("data") {
+        And(WithSize(4), Regex("merge (entity|storage)")) then {
+            Positions(4 to IndexSelection.SnbtEntire) then {
+                Matches("data merge nbt") { _, arg ->
+                    arg.content.startsWith("{")
+                }
+            }
+        }
+    }
+
+    // data merge block <pos> <nbt>
+    command("data") {
+        And(WithSize(6), Regex("merge block")) then {
+            Positions(6 to IndexSelection.SnbtEntire) then {
+                Matches("data merge block nbt") { _, arg ->
+                    arg.content.startsWith("{")
+                }
+            }
+        }
+    }
+
+
     // summon <entity> <pos> [<nbt>]
     command("summon") {
         WithSize(5, strict = true) then {
@@ -290,6 +354,12 @@ val BuiltinMCFPatterns = PatternSet {
 
 
 val BuiltinMCFunctionDataPatterns = mct.pointer.PatternSet {
-    // Display entities (refer to https://zh.minecraft.wiki/w/%E5%B1%95%E7%A4%BA%E5%AE%9E%E4%BD%93#%E5%AE%9E%E4%BD%93%E6%95%B0%E6%8D%AE)
-    +RightPattern(">#text")
+    // Display entity text content (text display entities)
+    // Matches `>#text` (single text component) and `>#text>0` etc. (array elements)
+    // Also matches nested text leaves within array element compounds: `>#text>0>#text`
+    +RegexPattern("""^>#text(?:>\d+(?:>#(?:text|translate))?)?$""")
+
+    // CustomName text components in NBT structures (entities, block entities, etc.)
+    +RightPattern(">#CustomName")
+    +RegexPattern("""^>#CustomName>#(?:text|translate|fallback)$""")
 }

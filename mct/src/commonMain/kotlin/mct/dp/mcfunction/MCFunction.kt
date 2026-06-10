@@ -67,7 +67,8 @@ internal fun extractTextFromCommand(
     mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
     mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
 ): List<StringIndices> {
-    if (command.name == "execute") { // handle nested subcommand after `run`
+    // return run <command> (1.21+) — similar recursive subcommand extraction
+    if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`
         val index = command.args.indexOfFirst { it.content == "run" }
         val subBeginPos = index + 1
         if (subBeginPos == command.args.size) return emptyList()
