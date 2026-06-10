@@ -131,7 +131,33 @@ suspend fun runExtraction(
                         if (userPatterns != null) BuiltinRegionPatterns.toList() + userPatterns
                         else BuiltinRegionPatterns.toList()
                     }
-                    workspace.extractFromRegion(patterns = patterns).toList() as List<ExtractionGroup>
+
+                    val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
+                        ?.let { p ->
+                            env.fs.read(p.toPath()) { readUtf8() }
+                                .let { MCTJson.decodeFromString<List<ExtractPattern>>(it) }
+                                .compile()
+                        } ?: MCFBuiltinPatterns
+
+                    val mcfDataPatterns: List<mct.pointer.DataPointerPattern>? =
+                        if (disableFilter) {
+                            null
+                        } else {
+                            val userPatterns = mcfDataPatternPath.takeIf { it.isNotBlank() }
+                                ?.let { p ->
+                                    env.fs.read(p.toPath()) { readUtf8() }
+                                        .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
+                                        .map { it.compile() }
+                                }
+                            if (userPatterns != null) BuiltinMCFunctionDataPatterns + userPatterns
+                            else BuiltinMCFunctionDataPatterns
+                        }
+
+                    workspace.extractFromRegion(
+                        patterns = patterns,
+                        mcfPatterns = mcfPatterns,
+                        mcfDataPatterns = mcfDataPatterns
+                    ).toList() as List<ExtractionGroup>
                 }
 
                 "datapack" -> {

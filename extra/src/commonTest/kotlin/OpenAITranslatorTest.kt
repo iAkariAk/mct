@@ -49,7 +49,7 @@ class OpenAITranslatorTest : FreeSpec({
 
         "translate test".config(enabled = testEnabled) {
             val translator = translator()
-            val result = translator.translate(FormatKind.Json, TEST_TEXT.lines())
+            val result = translator.translate(FormatKind.Str, TEST_TEXT.lines())
             println("translated: $result")
             println("terms: ${translator.terms}")
         }
@@ -60,7 +60,7 @@ class OpenAITranslatorTest : FreeSpec({
                 """{"color":"red","text":"ILLEGAL BUCKET USE DETECTED"}"""
             )
             context(Env()) {
-                val result = raws.strip(FormatKind.Json)
+                val result = raws.strip(FormatKind.Str)
 
                 val failures = result.filterIsInstance<CompoundStrip.Failure>()
 
@@ -101,7 +101,7 @@ class OpenAITranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val result = translator.translate(FormatKind.Json, listOf("Hello world", "This is a test"))
+                val result = translator.translate(FormatKind.Str, listOf("Hello world", "This is a test"))
                 result shouldBe listOf("你好世界", "这是测试")
             }
 
@@ -122,7 +122,7 @@ class OpenAITranslatorTest : FreeSpec({
                     defaultTerms = existingTerms,
                 )
 
-                val result = translator.translate(FormatKind.Json, listOf("Kaguya is beautiful"))
+                val result = translator.translate(FormatKind.Str, listOf("Kaguya is beautiful"))
                 result shouldBe listOf("辉夜姬很漂亮")
                 translator.terms shouldBe existingTerms
             }
@@ -143,7 +143,7 @@ class OpenAITranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val result = translator.translate(FormatKind.Json, listOf("Iroha is walking"))
+                val result = translator.translate(FormatKind.Str, listOf("Iroha is walking"))
                 result shouldBe listOf("彩叶在散步")
                 translator.terms shouldBe setOf(Term("Iroha", "彩叶", TermType.Name))
             }
@@ -165,7 +165,7 @@ class OpenAITranslatorTest : FreeSpec({
                 )
 
                 val jsonInput = """{"text":"Hello","color":"red"}"""
-                val result = translator.translate(FormatKind.Json, listOf(jsonInput))
+                val result = translator.translate(FormatKind.Str, listOf(jsonInput))
                 result[0] shouldBe """{"text":"你好","color":"red"}"""
             }
 
@@ -195,7 +195,7 @@ class OpenAITranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val result = translator.translate(FormatKind.Json, sources)
+                val result = translator.translate(FormatKind.Str, sources)
 
                 result.size shouldBe sources.size
                 callChunkSizes.sum() shouldBe sources.size

@@ -67,7 +67,7 @@ internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when
         }
     }
 
-    is JsonPrimitive if isString -> sequenceOf(DataPointerWithValue(DataPointer.Terminator, content, FormatKind.Json))
+    is JsonPrimitive if isString -> sequenceOf(DataPointerWithValue(DataPointer.Terminator, content, FormatKind.Str))
     JsonNull -> emptySequence()
     else -> emptySequence()
 }

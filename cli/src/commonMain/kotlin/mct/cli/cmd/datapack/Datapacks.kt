@@ -49,6 +49,11 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         help = "Append patterns to filter specified text for mcjson"
     ).path()
 
+    val mcfDataPatternsPath by option(
+        "--mcfunction-data-patterns",
+        "-pD",
+        help = "Append patterns to filter mcfunction snbt args"
+    ).path()
     val disableMCJFilter by option(
         "--disable-mcjson-filter",
         help = "Disable mcjson filter, extract all strings from JSON files"
@@ -65,7 +70,7 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         val userMcjPatterns = mcjPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }
-        val userMcfDataPatterns = mcjPatternsPath?.readText()?.let {
+        val userMcfDataPatterns = mcfDataPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }
         val mcjPatterns = when {

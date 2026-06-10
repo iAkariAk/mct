@@ -25,30 +25,37 @@ private fun trySimply(text: String): String = runCatching {
 
 
 fun List<ExtractionGroup>.exportIntoPool(simply: Boolean): TranslationPool =
-    flatMapTo(mutableSetOf()) { it.extractions.map { if (!simply) it.content else trySimply(it.content) } }
+    flatMapTo(mutableSetOf()) {
+        it.extractions.flatMap { extraction ->
+            val contents = extraction.contents()
+            if (!simply) contents else contents.map(::trySimply)
+        }
+    }
 
 
 inline fun List<ExtractionGroup>.replaceSimply(mapping: TranslationMapping): List<ReplacementGroup> =
     replaceSimply { mapping.entries.fold(it) { ace, (k, v) -> ace.replace(k, v) } }
 
-inline fun List<ExtractionGroup>.replaceSimply(replace: (String) -> String?): List<ReplacementGroup> =
-    replace(
-        mcfReplace = { replace(it.content) },
-        mcjReplace = { replace(it.content) },
-        regionReplace = { replace(it.content) }
-    )
+inline fun List<ExtractionGroup>.replaceSimply(replace: (String) -> String?): List<ReplacementGroup> = replace(
+    mcfReplace = replace,
+    mcjReplace = replace,
+    regionTextReplace = replace,
+    regionCommandReplace = { it.map { replace(it) } },
+)
 
 
 fun List<ExtractionGroup>.replace(mapping: TranslationMapping) = replace(
-    mcfReplace = { mapping[it.content] },
-    mcjReplace = { mapping[it.content] },
-    regionReplace = { mapping[it.content] }
+    mcfReplace = { mapping[it] },
+    mcjReplace = { mapping[it] },
+    regionTextReplace = { mapping[it] },
+    regionCommandReplace = { it.map { mapping[it] } }
 )
 
 inline fun List<ExtractionGroup>.replace(
-    mcfReplace: (DatapackExtraction.MCFunction) -> String?,
-    mcjReplace: (DatapackExtraction.MCJson) -> String?,
-    regionReplace: (RegionExtraction) -> String?,
+    mcfReplace: (String) -> String?,
+    mcjReplace: (String) -> String?,
+    regionTextReplace: (String) -> String?,
+    regionCommandReplace: (List<String>) -> List<String?>,
 ) =
     map {
         when (it) {
@@ -57,30 +64,25 @@ inline fun List<ExtractionGroup>.replace(
                 path = it.path,
                 replacements = it.extractions.mapNotNull { extraction ->
                     when (extraction) {
-                        is DatapackExtraction.MCFunction -> DatapackReplacement.MCFunction(
-                            indices = extraction.indices,
-                            replacement = mcfReplace(extraction) ?: return@mapNotNull null,
-                        )
+                        is DatapackExtraction.MCFunction -> extraction.replace {
+                            mcfReplace(it) ?: return@mapNotNull null
+                        }
 
-                        is DatapackExtraction.MCJson -> DatapackReplacement.MCJson(
-                            pointer = extraction.pointer,
-                            replacement = mcjReplace(extraction) ?: return@mapNotNull null
-                        )
+                        is DatapackExtraction.MCJson -> extraction.replace { mcjReplace(it) ?: return@mapNotNull null }
                     }
-
                 })
 
             is RegionExtractionGroup -> RegionReplacementGroup(
                 dimension = it.dimension,
                 kind = it.kind,
                 coord = it.coord,
-                replacements = it.extractions.mapNotNull {
-                    RegionReplacement(
-                        index = it.index,
-                        pointer = it.pointer,
-                        kind = it.kind,
-                        replacement = regionReplace(it) ?: return@mapNotNull null
-                    )
+                replacements = it.extractions.mapNotNull { extraction ->
+                    when (extraction) {
+                        is RegionExtraction.Command -> extraction.replace { regionCommandReplace(it) }
+                        is RegionExtraction.Text -> extraction.replace {
+                            regionTextReplace(it) ?: return@mapNotNull null
+                        }
+                    }
                 }
             )
         }

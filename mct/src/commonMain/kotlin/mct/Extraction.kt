@@ -6,6 +6,7 @@ import mct.pointer.DataPointer
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.IntRangeSerializable
+import mct.util.StringIndices
 
 @Serializable
 sealed interface ExtractionGroup {
@@ -15,11 +16,7 @@ sealed interface ExtractionGroup {
 }
 
 @Serializable
-sealed interface Extraction {
-    val content: String
-
-    fun replace(replacement: String): Replacement
-}
+sealed interface Extraction
 
 @Serializable
 sealed interface ReplacementGroup {
@@ -31,13 +28,14 @@ sealed interface Replacement {
     val replacement: String
 }
 
+// Used for representing which form a data was stored
 @Serializable
 enum class FormatKind {
-    @SerialName("json")
-    Json, // includes plain text without quote
+    @SerialName("str")
+    Str, // includes plain text without quote; (json, and command)
 
-    @SerialName("snbt")
-    Snbt
+    @SerialName("nbt")
+    Nbt // save via snbt
 }
 
 /**
@@ -97,9 +95,9 @@ sealed interface DatapackExtraction : Extraction {
     @SerialName("MCJson")
     data class MCJson(
         val pointer: DataPointer,
-        override val content: String,
+        val content: String,
     ) : DatapackExtraction {
-        override fun replace(replacement: String) = DatapackReplacement.MCJson(pointer, replacement)
+        inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content))
     }
 
     /**
@@ -110,9 +108,10 @@ sealed interface DatapackExtraction : Extraction {
     @SerialName("MCFunction")
     data class MCFunction(
         val indices: IntRangeSerializable,
-        override val content: String,
+        val content: String,
     ) : DatapackExtraction {
-        override fun replace(replacement: String) = DatapackReplacement.MCFunction(indices, replacement)
+        inline fun replace(replacement: (String) -> String) =
+            DatapackReplacement.MCFunction(indices, replacement(content))
     }
 
 }
@@ -122,18 +121,59 @@ sealed interface DatapackExtraction : Extraction {
  * @property index The linear index of the chunk within the region (0-1023).
  * @property pointer The NBT path/pointer to the specific tag.
  * @property kind which kind format the content was stored via
- * @property content The extracted NBT pointer represented as an SNBT string if [kind] is snbt; otherwise as JSON.
  */
 
 @Serializable
 @SerialName("Region")
-data class RegionExtraction(
-    val index: Int,
-    val pointer: DataPointer,
-    val kind: FormatKind = FormatKind.Json,
-    override val content: String,
-) : Extraction {
-    override fun replace(replacement: String) = RegionReplacement(index, pointer, kind, replacement)
+sealed interface RegionExtraction : Extraction {
+    val index: Int
+    val pointer: DataPointer
+    val kind: FormatKind
+
+
+    @Serializable
+    @SerialName("Text")
+    data class Text(
+        override val index: Int,
+        override val pointer: DataPointer,
+        override val kind: FormatKind = FormatKind.Str,
+        val content: String,
+    ) : RegionExtraction {
+        inline fun replace(replacement: (String) -> String) =
+            RegionReplacement.Text(index, pointer, kind, replacement(content))
+    }
+
+    @Serializable
+    @SerialName("Command")
+    data class Command(
+        override val index: Int,
+        override val pointer: DataPointer,
+        val raw: String,
+        val locations: List<Location>, // must be ordered ascendingly based on indices
+    ) : RegionExtraction {
+        override val kind: FormatKind = FormatKind.Str
+
+        @Serializable
+        data class Location(
+            override val indices: IntRangeSerializable,
+            override val content: String
+        ) : StringIndices
+
+        inline fun replace(replacements: (List<String>) -> List<String?>): RegionReplacement.Command {
+            val r = replacements(locations.map { it.content })
+            return RegionReplacement.Command(
+                index,
+                pointer,
+                locations.asSequence()
+                    .sortedByDescending { it.indices.first }
+                    .zip(r.asSequence())
+                    .fold(raw) { acc, (loc, r) ->
+                        acc.replaceRange(loc.indices, r ?: return@fold acc)
+                    }
+            )
+        }
+    }
+
 }
 
 /**
@@ -197,15 +237,43 @@ sealed interface DatapackReplacement : Replacement {
 
 /**
  * An NBT replacement for a region file.
+ * `Command` represents it from command block; `Text` from TextCompound
+ *
  * @property index The linear index of the chunk (0-1023).
  * @property pointer The NBT path/pointer identifying the tag to replace.
- * @property replacement The new NBT pointer in SNBT format.
+ * @property kind which kind format the replacement was stored via
  */
 @Serializable
 @SerialName("Region")
-data class RegionReplacement(
-    val index: Int,
-    val pointer: DataPointer,
-    val kind: FormatKind = FormatKind.Json,
-    override val replacement: String,
-) : Replacement
+sealed interface RegionReplacement : Replacement {
+    val index: Int
+    val pointer: DataPointer
+    val kind: FormatKind
+
+    @Serializable
+    @SerialName("Text")
+    data class Text(
+        override val index: Int,
+        override val pointer: DataPointer,
+        override val kind: FormatKind = FormatKind.Str,
+        override val replacement: String,
+    ) : RegionReplacement
+
+    @Serializable
+    @SerialName("Command")
+    data class Command(
+        override val index: Int,
+        override val pointer: DataPointer,
+        override val replacement: String,
+    ) : RegionReplacement {
+        override val kind: FormatKind get() = FormatKind.Str
+    }
+}
+
+
+inline fun Extraction.contents() = when (this) {
+    is DatapackExtraction.MCFunction -> sequenceOf(content)
+    is DatapackExtraction.MCJson -> sequenceOf(content)
+    is RegionExtraction.Command -> locations.asSequence().map { it.content }
+    is RegionExtraction.Text -> sequenceOf(content)
+}

@@ -28,7 +28,7 @@ sealed interface DataPointer : Comparable<DataPointer> {
     companion object
 }
 
-data class DataPointerWithValue(val pointer: DataPointer, val value: String, val kind: FormatKind = FormatKind.Json)
+data class DataPointerWithValue(val pointer: DataPointer, val value: String, val kind: FormatKind = FormatKind.Str)
 
 inline fun Sequence<DataPointerWithValue>.filterPointer(pattern: DataPointerPattern) =
     filter { (ptr, _) -> pattern.match(ptr) }

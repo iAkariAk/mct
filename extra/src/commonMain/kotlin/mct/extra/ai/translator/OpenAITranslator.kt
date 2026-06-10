@@ -247,13 +247,13 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
     var isList = false
     val compound = Option.catch {
         when (kind) {
-            FormatKind.Json -> MCTJson.decodeFromString<JsonElement>(raw).let {
+            FormatKind.Str -> MCTJson.decodeFromString<JsonElement>(raw).let {
                 if (it is JsonArray) {
                     it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
                 } else it
             }.toIR()
 
-            FormatKind.Snbt -> Snbt.decodeFromString<NbtTag>(raw).let {
+            FormatKind.Nbt -> Snbt.decodeFromString<NbtTag>(raw).let {
                 if (it is NbtList<*>) {
                     it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
                 } else it
@@ -282,8 +282,8 @@ internal fun List<CompoundStrip>.destrip(response: List<String?>): List<String> 
                         if (cs.isSingleList) IRList(e) else e
                     }
                     when (cs.sourceFormat) {
-                        FormatKind.Json -> MCTJson.encodeToString<JsonElement>(ir.toJson())
-                        FormatKind.Snbt -> ir.toNbt().toSnbt(false)
+                        FormatKind.Str -> MCTJson.encodeToString<JsonElement>(ir.toJson())
+                        FormatKind.Nbt -> ir.toNbt().toSnbt(false)
                     }
                 }
 

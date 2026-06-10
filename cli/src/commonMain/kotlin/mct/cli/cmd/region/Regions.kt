@@ -16,6 +16,10 @@ import mct.ReplacementGroup
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
+import mct.dp.compile
+import mct.dp.mcfunction.BuiltinMCFPatterns
+import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
+import mct.dp.mcfunction.ExtractPattern
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
@@ -38,6 +42,20 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
     val patternsPath by option("--pattern", "-p", help = "Custom region filter patterns JSON file").path()
 
     val disableFilter by option("--disable-filter", help = "Disable built-in filter, extract all strings").flag()
+    val mcfPatternsPath by option(
+        "--mcfunction-patterns",
+        "-pF",
+        help = "Append patterns to filter specified text for mcfunction"
+    ).path()
+    val mcfDataPatternsPath by option(
+        "--mcfunction-data-patterns",
+        "-pD",
+        help = "Append patterns to filter mcfunction snbt args"
+    ).path()
+    val disableMCFDFilter by option(
+        "--disable-mcfunction-data-filter",
+        help = "Disable mcfunction snbt arg filter, extract all strings"
+    ).flag()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -49,8 +67,19 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
             userPatterns != null -> BuiltinRegionPatterns.toList() + userPatterns
             else -> BuiltinRegionPatterns.toList()
         }
+
+        val mcfPatterns = mcfPatternsPath?.jsonFile<List<ExtractPattern>>()
+        val userMcfDataPatterns = mcfDataPatternsPath?.readText()?.let {
+            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+        }
+        val mcfDataPatterns = when {
+            disableMCFDFilter -> null
+            userMcfDataPatterns != null -> BuiltinMCFunctionDataPatterns + userMcfDataPatterns
+            else -> BuiltinMCFunctionDataPatterns
+        }
+
         env.logger.info { "Extracting from region..." }
-        val extractions: List<ExtractionGroup> = workspace.extractFromRegion(patterns).toList()
+        val extractions: List<ExtractionGroup> = workspace.extractFromRegion(patterns, mcfPatterns?.compile() ?: BuiltinMCFPatterns, mcfDataPatterns).toList()
         env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
 
         output.writeJson(extractions)

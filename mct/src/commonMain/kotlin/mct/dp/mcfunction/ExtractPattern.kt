@@ -11,7 +11,7 @@ import kotlinx.serialization.modules.subclass
 import mct.FormatKind
 import mct.MCTError
 import mct.pointer.DataPointerPattern
-import mct.region.extractTextsForSnbt
+import mct.region.extractTexts
 import mct.region.filterPointer
 import mct.util.StringIndices
 import mct.util.snbt.SnbtTag
@@ -96,9 +96,9 @@ private fun selectSnbt(patterns: List<DataPointerPattern>?, content: String): Se
     }.getOrElse {
         raise(IndexSelectError.Parse(content, it))
     }
-    return tag.extractTextsForSnbt(content)
+    return tag.extractTexts(content)
         .filterPointer(patterns)
-        .filter { it.kind == FormatKind.Snbt }
+        .filter { it.kind == FormatKind.Nbt }
 }
 
 @Serializable

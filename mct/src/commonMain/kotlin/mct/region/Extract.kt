@@ -1,6 +1,7 @@
 package mct.region
 
 import arrow.core.raise.Raise
+import arrow.core.raise.context.either
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
@@ -8,6 +9,7 @@ import mct.FormatKind
 import mct.MCTWorkspace
 import mct.RegionExtraction
 import mct.RegionExtractionGroup
+import mct.dp.mcfunction.*
 import mct.pointer.*
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
@@ -28,7 +30,9 @@ import kotlin.jvm.JvmName
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
-    patterns: List<DataPointerPattern>? = BuiltinRegionPatterns
+    patterns: List<DataPointerPattern>? = BuiltinRegionPatterns,
+    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
 ): Flow<RegionExtractionGroup> {
     if (patterns == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
     logger.info { "Extracting from ${dimensions.size} dimensions" }
@@ -45,15 +49,31 @@ fun MCTWorkspace.extractFromRegion(
                     val extractions = region.chunks.asSequence()
                         .filterNotNull()
                         .flatMap { chunk ->
-                            chunk.data.extractTextsForSnbt()
+                            chunk.data.extractTexts()
                                 .filterPointer(patterns)
-                                .map { (pointer, content, kind) ->
-                                    RegionExtraction(
-                                        index = chunk.index,
-                                        pointer = pointer,
-                                        kind = kind,
-                                        content = content
-                                    )
+                                .mapNotNull { (pointer, content, kind, type) ->
+                                    when (type) {
+                                        PointerWithExtension.Type.Command -> either {
+                                            val cmds = context(logger) {
+                                                parseMCFunction(content)
+                                            }
+                                            RegionExtraction.Command(
+                                                index = chunk.index,
+                                                pointer = pointer,
+                                                raw = content,
+                                                locations = cmds.flatMap { extractTextFromCommand(it, mcfPatterns, mcfDataPatterns) }.map {
+                                                    RegionExtraction.Command.Location(it.indices, it.content)
+                                                },
+                                            )
+                                        }.getOrNull() ?: return@mapNotNull null
+
+                                        PointerWithExtension.Type.Text -> RegionExtraction.Text(
+                                            index = chunk.index,
+                                            pointer = pointer,
+                                            kind = kind,
+                                            content = content
+                                        )
+                                    }
                                 }
                         }
                     flowOf(
@@ -74,32 +94,46 @@ fun MCTWorkspace.extractFromRegion(
 internal data class PointerWithExtension(
     val pointer: DataPointer,
     val content: String,
-    val kind: FormatKind = FormatKind.Json,
-)
+    val kind: FormatKind = FormatKind.Str,
+    val type: Type = Type.Text,
+) {
+    enum class Type {
+        Command, Text
+    }
+}
 
 internal inline fun Sequence<PointerWithExtension>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
     filter { (ptr, _, _) -> ptr.matches(patterns) }
 
-internal fun NbtTag.extractTextsForSnbt(): Sequence<PointerWithExtension> = when (this) {
+internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this) {
     is NbtList<*> -> asSequence().withIndex().flatMap { (index, tag) ->
-        tag.extractTextsForSnbt().map {
+        tag.extractTexts().map {
             it.copy(pointer = it.pointer.markArray(index))
         }
     } // wrap inner pointer
 
     is NbtCompound -> {
         if (isTextCompound()) {
-            sequenceOf(PointerWithExtension(DataPointer.Terminator, toSnbt(), FormatKind.Snbt))
+            sequenceOf(PointerWithExtension(DataPointer.Terminator, toSnbt(), FormatKind.Nbt))
         } else if (isTextCompoundShorthanded()) {
             val map = toMutableMap()
             val text = map.remove("")
             map["text"] = text!!
             val expanded = NbtCompound(map)
 
-            sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Snbt))
+            sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Nbt))
         } else {
             asSequence().flatMap { (key, value) ->
-                value.extractTextsForSnbt().map {
+                if (key == "Command" && value is NbtString) {
+                    val pwe = PointerWithExtension(
+                        DataPointer.Terminator,
+                        value.value,
+                        FormatKind.Str,
+                        PointerWithExtension.Type.Command
+                    )
+                    return@flatMap sequenceOf(pwe)
+                }
+                value.extractTexts().map {
                     it.copy(pointer = it.pointer.markMap(key))
                 }
             } // wrap inner pointer
@@ -120,33 +154,47 @@ internal data class PointerWithExtensionForSnbt(
     val pointer: DataPointer,
     override val indices: IntRange,
     override val content: String,
-    val kind: FormatKind = FormatKind.Json,
+    val kind: FormatKind = FormatKind.Str,
 ) : StringIndices
 
 @JvmName($$"filterPointer$snbt")
 internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
     filter { (ptr, _, _) -> ptr.matches(patterns) }
 
-internal fun SnbtTag.extractTextsForSnbt(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
+internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
     is SnbtList -> asSequence().withIndex().flatMap { (index, tag) ->
-        tag.extractTextsForSnbt(snbt).map {
+        tag.extractTexts(snbt).map {
             it.copy(pointer = it.pointer.markArray(index))
         }
     } // wrap inner pointer
 
     is SnbtCompound -> {
         if (isTextCompound()) {
-            sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, snbt.substring(indices), FormatKind.Snbt))
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.Nbt
+                )
+            )
         } else if (isTextCompoundShorthanded()) {
             val map = toMutableMap()
             val text = map.remove("")
             map["text"] = text!!
             val expanded = SnbtCompound(indices, map)
 
-            sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, snbt.substring(indices), FormatKind.Snbt))
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.Nbt
+                )
+            )
         } else {
             asSequence().flatMap { (key, value) ->
-                value.extractTextsForSnbt(snbt).map {
+                value.extractTexts(snbt).map {
                     it.copy(pointer = it.pointer.markMap(key))
                 }
             } // wrap inner pointer

@@ -36,16 +36,15 @@ suspend fun Translator.translate(
     }
     val extractions = groups.flatMap { it.extractions }.groupBy {
         when (it) {
-            is DatapackExtraction -> FormatKind.Json
+            is DatapackExtraction -> FormatKind.Str
             is RegionExtraction -> it.kind
         }
     }
     val mapping = extractions.flatMap { (kind, extractions) ->
-        val sources = extractions.asSequence().mapNotNull { it.content.takeIf(String::isNotBlank) }.distinct().filter { it !in caches }.toList()
-        val translated = translate(
-            kind,
-            sources
-        )
+        val sources = extractions.asSequence().flatMap {
+            it.contents().filter(String::isNotBlank)
+        }.distinct().filter { it !in caches }.toList()
+        val translated = translate(kind, sources)
         sources.zip(translated)
     }.toMap()
     mapping.toMutableMap().putAll(caches)

@@ -47,7 +47,9 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
                     group.replacements.groupBy { it.index }
                         .forEach { (index, replacements) ->
                             val replacementGroups =
-                                replacements.map { DataPointerWithValue(it.pointer, it.replacement, it.kind) }
+                                replacements.map {
+                                    DataPointerWithValue(it.pointer, it.replacement, it.kind)
+                                }
                                     .toReplacementGroups()
                             val chunk = chunks[index] ?: return@forEach
                             chunks[index] = chunk.modify {
@@ -87,7 +89,7 @@ private fun NbtTag.transform(
 
     is NbtCompound -> {
         pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>().firstOrNull()?.let { terminator ->
-            require(terminator.kind == FormatKind.Snbt)
+            require(terminator.kind == FormatKind.Nbt)
             return Snbt.decodeFromString(terminator.replacement)
         }
 
