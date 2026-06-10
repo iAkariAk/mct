@@ -325,6 +325,7 @@ fun App(
                                                         termPath = translateState.existingTermPath.ifBlank { null },
                                                         cachesPath = translateState.cachesPath.ifBlank { null },
                                                         literatureStyle = translateState.literatureStyle,
+                                                        targetLanguage = translateState.targetLanguage,
                                                         onFailure = {
                                                             scope.launch {
                                                                 snackbarHostState.showSnackbar(

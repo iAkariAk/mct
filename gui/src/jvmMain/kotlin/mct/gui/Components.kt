@@ -217,6 +217,7 @@ data class TranslateState(
     val isModelsLoading: Boolean = false,
     val existingTermPath: String = "",
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
+    val targetLanguage: String = CustomizedPrompts.targetLanguage,
     val isOptimizing: Boolean = false,
 )
 

@@ -310,6 +310,15 @@ fun TranslatePanel(
             )
         )
 
+        // 目标语言
+        Spacer(Modifier.height(12.dp))
+        ConfigTextField(
+            value = state.targetLanguage,
+            onValueChange = { onStateChange(state.copy(targetLanguage = it)) },
+            label = { Text("目标语言") },
+            placeholder = { Text("简体中文") }
+        )
+
         // 翻译进度
         AnimatedVisibility(visible = isRunning || translationProgress > 0f) {
             Card(

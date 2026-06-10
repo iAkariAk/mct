@@ -30,21 +30,24 @@ import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
 
 data class CustomizedPrompts(
-    val literatureStyle: String = Defaults.literatureStyle
+    val literatureStyle: String = Defaults.literatureStyle,
+    val targetLanguage: String = Defaults.targetLanguage
 ) {
     companion object Defaults {
         val literatureStyle = """
-        - 使用简洁自然的简体中文，轻小说风格。
+        - 使用简洁自然的语言，轻小说风格。
         - 保持原文的情感色彩和语气。
         - 不要过度意译，忠实于原文含义。
         - 人名、地名使用日文汉字/中文习惯译名。
     """.trimIndent()
 
+        val targetLanguage = "简体中文"
+
         val Default = CustomizedPrompts() // Always at least to wait the above initialization
     }
 }
 
-private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为简体中文，同时严格保护数据结构的完整性。
+private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
 
 === 输入协议 ===
 - 输入采用 MCT-CLI 协议格式。

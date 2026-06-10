@@ -169,6 +169,14 @@ private class AITranslate : BaseCommand(
         CustomizedPrompts.literatureStyle
     )
 
+    val targetLanguage by option(
+        "--target-language",
+        envvar = "TARGET_LANGUAGE",
+        help = "Target language for translation (e.g. 简体中文, English, 日本語)"
+    ).default(
+        CustomizedPrompts.targetLanguage
+    )
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading extractions from $input" }
@@ -186,7 +194,10 @@ private class AITranslate : BaseCommand(
             )
             OpenAITranslator(
                 call = call,
-                customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
+                customizedPrompts = CustomizedPrompts(
+                    literatureStyle = literatureStyle,
+                    targetLanguage = targetLanguage
+                ),
                 defaultTerms = terms,
                 tokenThreshold = tokenThreshold
             )

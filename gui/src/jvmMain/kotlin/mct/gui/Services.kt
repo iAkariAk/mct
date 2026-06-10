@@ -236,6 +236,7 @@ suspend fun runTranslation(
     model: String,
     termPath: String?,
     literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
+    targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null
 ) {
     env.logger.info { "正在加载提取结果: $input" }
@@ -273,7 +274,10 @@ suspend fun runTranslation(
     val translator = OpenAITranslator(
         call = call,
         defaultTerms = existingTerms,
-        customizedPrompts = CustomizedPrompts(literatureStyle = literatureStyle),
+        customizedPrompts = CustomizedPrompts(
+            literatureStyle = literatureStyle,
+            targetLanguage = targetLanguage
+        ),
         tokenThreshold = GuiSettings.tokenThreshold
     )
 
