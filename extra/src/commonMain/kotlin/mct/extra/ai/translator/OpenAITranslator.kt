@@ -48,7 +48,7 @@ data class CustomizedPrompts(
     }
 }
 
-private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft 地图汉化的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
+private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft 地图的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
 
 === 输入协议 ===
 - 输入采用 MCT-CLI 协议格式。
@@ -57,7 +57,7 @@ private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft
 - 行内的 "\n"和"↠mctnl↠" 是转义换行符，不要还原为真实换行，也不要删去、插字。
 - 行号 [N] 是该行的唯一标识，你输出的每行译文也必须以相同的 "[N] " 开头。
 
-示例：
+示例（例句翻译不影响目标语言，请始终翻译成${prompts.targetLanguage}）：
 ```
 Kaguya => 辉夜姬
 -- MCT-CLI:START --
