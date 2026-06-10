@@ -19,7 +19,7 @@ private val ALL_FIELD = listOf(
     "nbt", "block", "entity", "storage",
     "interpret", "plain", "separator", "source",
     // Sprite / Object
-    "object", "sprite", "atlas", "player",
+    "object", "sprite", "atlas", "player", "hat",
     // Children & type
     "extra", "type",
     // Formatting
@@ -39,6 +39,10 @@ private val STRUCTURAL_FIELDS = listOf(
     "extra", "with",
     "hover_event", "click_event",
     "score", "separator",
+    // player can be a compound (profile data) in object type "player" (1.21.5+)
+    "player",
+    // shadow_color can be a list of 4 floats [R,G,B,Opacity] (1.21.5+)
+    "shadow_color",
 )
 
 internal fun Map<String, *>.isTextCompound() =

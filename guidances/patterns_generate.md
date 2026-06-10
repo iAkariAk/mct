@@ -1,5 +1,9 @@
 # Pattern Generation Guide
 
+**Process note:** After completing any task that adds, removes, or modifies patterns in ANY of the three files below, update this guidance file to reflect the new knowledge gained. This includes: findings from wiki audits, pitfalls discovered, DSL features used, pattern strategies that worked/didn't work, and changes to `isTextCompound()` / `ALL_FIELD` / `STRUCTURAL_FIELDS` in `Util.kt`.
+
+---
+
 Write more patterns for the following files. Each file uses a different pattern DSL — refer to the existing patterns in that file and the DSL definitions before adding new ones.
 
 ## Files
@@ -18,15 +22,10 @@ Write more patterns for the following files. Each file uses a different pattern 
 - A `RightPattern("#description")` matches root-level descriptions as plain strings
 - A `RegexPattern("""#description>#(?:text|translate|fallback)$""")` matches text component description leaves
 
-**Important: isTextCompound() pitfall for SNBT args**
-`isTextCompound()` in `Util.kt` checks both keys AND value types: a compound is only a text component if all keys are in `ALL_FIELD` AND non-structural fields (`text`, `translate`, `color`, etc.) have primitive values (string, boolean, number). Structural fields (`extra`, `with`, `hover_event`, `click_event`, `score`, `separator`) are allowed compound/list values.
-
-This means `{text:["hello","world"]}` is NOT a text component (because `text` value is a list), while `{"text":"hello","color":"red"}` IS. This directly affects what `SnbtEntire` selection extracts and what paths the data patterns receive.
-
 **References:**
 - https://datapack-wiki.pages.dev/
 - https://minecraft.wiki/w/Data_pack — overall structure, all registry JSON types
-- https://minecraft.wiki/w/Text_component_format — how text components work
+- https://minecraft.wiki/w/Text_component_format — how text components work (check for new fields)
 
 **Existing coverage:** Advancements (title/description), item components (custom_name/lore), signs, books, loot table functions, CustomName, jukebox description, trim/banner description, painting variant title/author, loot table translate variants, set_attributes modifier names
 
@@ -50,27 +49,40 @@ This means `{text:["hello","world"]}` is NOT a text component (because `text` va
 **SNBT selection (`IndexSelection.SnbtEntire`):**
 When `Positions(N to IndexSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTexts()` extracts text components and leaf strings from the NBT tree. Results are filtered through `BuiltinMCFunctionDataPatterns`. Only `FormatKind.Nbt` entries survive the final filter — plain strings (FormatKind.Str) from NBT are **excluded**.
 
-Use `withAry()` on the index selector to apply `BuiltinMCFunctionDataPatterns` (which currently matches `>#text` paths and `>#CustomName`). Without `withAry()`, use a `Matches` postCondition to filter manually.
+Use `withAry()` on the index selector to apply `BuiltinMCFunctionDataPatterns` (which has specific patterns for display entity text, CustomName, and dialog SNBT fields). Without `withAry()`, use a `Matches` postCondition to filter manually.
 
-**Common commands with text components:**
+**Common commands with text components (Java Edition):**
 
-| Command | Syntax | Text Position | Strategy |
-|---------|--------|---------------|----------|
-| `tellraw` | `<targets> <message>` | 2 | plain `Positions(2)` |
-| `title` | `<targets> <action> <component>` | 3 (action != "times") | `Positions(3)` + Matches |
-| `bossbar add` | `<id> <displayName>` | 3 | `Positions(3)` + Matches |
-| `bossbar set name` | `<id> name <component>` | 4 | `Positions(4)` + Matches |
-| `scoreboard objectives add` | `<objective> <criteria> [<displayName>]` | 4 | `Positions(4)` + Matches |
-| `team modify prefix/suffix` | `<team> prefix/suffix <component>` | 4 | `Positions(4)` + Matches |
-| `team add` | `<team> [<displayName>]` | 3 | `Positions(3)` + Matches |
-| `spreadplayers` | `<x> <z> <dist> <max> <respect> <targets> [<description>]` | 7 | `Positions(7)` |
+| Command | Wiki Syntax | Text Position | Strategy |
+|---------|-------------|---------------|----------|
+| `tellraw` | `<targets> <message>` | 2 | `Positions(2)` |
+| `title` | `<targets> (title\|subtitle\|actionbar) <component>` | 3 (action != "times") | `Positions(3)` + Matches { not times } |
+| `bossbar add` | `<id> <name>` | 3 | `Positions(3)` + Matches { subcmd=add } |
+| `bossbar set name` | `<id> name <component>` | 4 | `Positions(4)` + Matches { subcmd=set, field=name } |
+| `scoreboard objectives add` | `<objective> <criteria> [<displayName>]` | 4 | `Positions(4)` + Matches { objectives add } |
+| `scoreboard objectives modify ... displayname` | `<objective> displayname <component>` | 5 | `Positions(5)` + Matches |
+| `scoreboard ... numberformat fixed` | `<objective> numberformat fixed <component>` | 6 | `Positions(6)` + Matches |
+| `scoreboard players display name` | `<targets> <objective> <text>` | 6 | `Positions(6)` + Matches |
+| `scoreboard players display numberformat fixed` | `<targets> <objective> fixed <contents>` | 7 | `Positions(7)` + Matches |
+| `team add` | `<team> [<displayName>]` | 3 | `Positions(3)` + Matches { add } |
+| `team modify displayName` | `<team> displayName <component>` | 4 | `Positions(4)` + Matches { displayName } |
+| `team modify prefix/suffix` | `<team> (prefix\|suffix) <component>` | 4 | `Positions(4)` + Matches { prefix/suffix } |
 | `data modify ... set value` | `<target> [<path>] set value <json>` | 6-7 | `Positions(N)` + isTextComponent |
 | `data merge entity/storage` | `<target> <nbt>` | 4 (SnbtEntire) | `And(WithSize(4), Regex("merge (entity\|storage)"))` + `Positions(4 to SnbtEntire)` |
 | `data merge block` | `<pos> <nbt>` | 6 (SnbtEntire) | `And(WithSize(6), Regex("merge block"))` + `Positions(6 to SnbtEntire)` |
-| `summon` | `<entity> <pos> [<nbt>]` | 5 (SnbtEntire) | `Positions(5 to SnbtEntire).withAry()` |
-| `setblock` | `<pos> <block> [<state>] [<data>]` | 5 (SnbtEntire) | `WithSize(5)` + `Positions(5 to SnbtEntire)` + Matches { startsWith("{") } |
+| `summon` | `<entity> [<pos>] [<nbt>]` | 5 (SnbtEntire) | `Positions(5 to SnbtEntire).withAry()` |
+| `setblock` | `<pos> <block> [destroy\|keep\|replace]` | 5 (SnbtEntire) | `WithSize(5)` + `Positions(5 to SnbtEntire)` + Matches { startsWith("{") } |
 | `give` | `<targets> <item>` | 2 | `Positions(2)` + Matches { contains component markers } |
-| `kick` | `<targets> [<reason>]` | greedy 2 | `GreedyPositions(2)` + Matches { isTextComponent } |
+| `dialog show` | `<targets> <dialog>` | 3 (SnbtEntire, inline SNBT only) | `Positions(3 to SnbtEntire)` + Matches { show && startsWith("{") } |
+| `kick` | `<targets> [<reason>]` | greedy 2 | `GreedyPositions(2)` (message type, plain text) |
+| `say`, `me`, `teammsg` | `<message>` | greedy 0 | `GreedyPositions()` |
+| `msg`, `tell`, `w` | `<targets> <message>` | greedy 2 | `GreedyPositions(2)` |
+
+**Commands that do NOT accept text components (verified against wiki):**
+- `spreadplayers` — Only takes vec2, floats, bool, entities. No description/component arg.
+- `waypoint` — Only `list` and `modify color/style`. No `add` subcommand or displayComponent.
+- `fill` / `place` / `damage` / `kill` — None accept text components.
+- `execute run` / `return run` — Handled recursively, no direct pattern needed.
 
 **For commands that wrap subcommands** (`execute run <cmd>`, `return run <cmd>`), recursive extraction is handled in `MCFunction.kt`'s `extractTextFromCommand()` — the subcommand is re-parsed and patterns are applied recursively. No pattern for the wrapping command itself is needed.
 
@@ -81,15 +93,13 @@ If you use `Positions(N to SnbtEntire)` + a `Matches` postCondition (without `wi
 3. If SNBT parsing succeeds, text component leaves are extracted and filtered through `BuiltinMCFunctionDataPatterns`; the `filter { it.kind == FormatKind.Nbt }` step removes plain strings
 4. If SNBT parsing fails, falls back to `PlainEntire` which returns the whole arg (which then gets extracted as-is if Matches passed)
 
-This means: if you use `Positions(N to SnbtEntire)` with `Matches { startsWith("{") }`, a block state like `facing=north` at that position would fail SNBT parsing, fall back to the whole arg, and be extracted — but this rarely happens because args that start with `{` are usually valid NBT.
-
 **References:**
 - https://minecraft.wiki/w/Commands — full command reference
 - Pay attention to commands that accept JSON text components
 
-**Existing coverage:** say, me, teammsg, msg/tell/w, tellraw, title, dialog, bossbar, scoreboard, team, data, give, item, kick, waypoint, spreadplayers, setblock, data merge, summon (18 command groups)
+**Existing coverage:** say, me, teammsg, msg/tell/w, tellraw, title, dialog, bossbar, scoreboard, team, data, give, item, kick, summon, setblock, data merge (16 command groups; waypoint and spreadplayers removed per wiki audit — they have no text component args)
 
-**Look for:** Commands that accept JSON text components or NBT with text that aren't yet covered. New 1.21+ commands like `placeholder`, `overlay`, or `hud` might have text component arguments.
+**Look for:** Commands that accept JSON text components or NBT with text that aren't yet covered. Before adding a pattern, verify the exact wiki syntax at https://minecraft.wiki/w/Commands/<command> — many commands that "seem like" they accept text components actually don't (e.g. spreadplayers, waypoint, damage, kill, place, fill). Always check the wiki first.
 
 ---
 
@@ -108,7 +118,23 @@ This means: if you use `Positions(N to SnbtEntire)` with `Matches { startsWith("
 The function `isTextCompound()` in `Util.kt` requires:
 1. All keys are in `ALL_FIELD` (known text-component field names)
 2. For non-structural fields (`text`, `translate`, `color`, `bold`, etc.), the value must be a primitive type (string, boolean, number), NOT a compound or list
-3. Structural fields (`extra`, `with`, `hover_event`, `click_event`, `score`, `separator`) may hold compound/list values
+3. Structural fields (`extra`, `with`, `hover_event`, `click_event`, `score`, `separator`, `player`, `shadow_color`) may hold compound/list values
+
+Current `ALL_FIELD` fields (keep in sync with `Util.kt`):
+```
+text, translate, with, fallback,
+score, selector, keybind,
+nbt, block, entity, storage,
+interpret, plain, separator, source,
+object, sprite, atlas, player, hat,     // hat added in 1.21.5+ object:"player"
+extra, type,
+color, font,
+bold, italic, underlined, strikethrough, obfuscated,
+shadow_color, insertion,
+click_event, hover_event
+```
+
+Structural fields (allow compound/list values): `extra`, `with`, `hover_event`, `click_event`, `score`, `separator`, `player` (profile data), `shadow_color` (can be [R,G,B,Opacity]).
 
 This prevents `{text:["hello","world"]}` from being incorrectly treated as a text component (where `text` has a list value). Without this check, the entire root would be extracted at the empty root path (`DataPointer.Terminator`), discarding internal structure and never matching any `>#text`-based pattern.
 
@@ -119,25 +145,38 @@ This prevents `{text:["hello","world"]}` from being incorrectly treated as a tex
 - NBT key names are case-sensitive (PascalCase is common: `CustomName`, `SpawnData`, `EntityData`, etc.)
 
 **Pattern anchoring notes:**
-- Existing component patterns (`#components>#minecraft:custom_name`) don't have `^` anchors — they match anywhere in the path, so they work for both entity and block_entity paths
+- Existing component patterns (`#components>#minecraft:custom_name`) don't have `^` anchors — they match anywhere in the path, so they work for both entity and block_entity paths, and for deeply nested data components
 - New patterns with `^...$` anchors are more precise but need explicit entity/block_entity prefix
 
+**Data component patterns (non-anchored, match inside `#components>#minecraft:*`):**
+These patterns match text components nested within data components. The non-anchored approach lets them match at any depth:
+- `#components>#minecraft:custom_name` — display name (item/entity)
+- `#components>#minecraft:item_name` — default item name
+- `#components>#minecraft:text_display` — text display entity data
+- `#components>#minecraft:description` — 1.21.5+ entity/item description
+- `#components>#minecraft:lore>N` — item lore lines
+- `#components>#minecraft:written_book_content>#pages/N|title|author` — book content
+- `#components>#minecraft:writable_book_content>#pages/N` — writable book pages
+- `#instrument>#description` — instrument description (goat horns)
+- `#attribute_modifiers>#modifiers>N>#display>#value` — custom attribute display text
+
 **References:**
-- https://minecraft.wiki/w/Block_entity_format — NBT for all block entities
-- https://minecraft.wiki/w/Entity_format — NBT for all entities
+- https://minecraft.wiki/w/Block_entity_format — NBT for all block entities (checked: most CustomName via common pattern, signs, spawners, beehives, command blocks)
+- https://minecraft.wiki/w/Entity_format — NBT for all entities (checked: all have CustomName via entity regex)
 - https://minecraft.wiki/w/Item_format — item NBT (display, components)
-- https://minecraft.wiki/w/Data_component_format — modern component system (1.20.5+)
+- https://minecraft.wiki/w/Data_component_format — modern component system (1.20.5+; checked all text-bearing components)
+- https://minecraft.wiki/w/Text_component_format — ALL_FIELD reference for isTextCompound()
 
-**Existing coverage:** Item display (legacy + modern components), entity CustomName, spawner data, sign text, written books, container names, map banners, display entity text, beehive entity data, trial spawner configs, block entity data components, text display raw_text
+**Existing coverage:** Item display (legacy + modern components), entity CustomName (including spawn data / trial spawner configs), sign text (front+back, filtered), written books, container CustomName, map banners, display entity text+raw_text+description, beehive entity data, command block CustomName+LastOutput, block entity data components, instrument.description, attribute_modifiers display value
 
-**Look for any of these that aren't yet covered:**
-- Block entities with `CustomName` — mostly covered
-- Items within block entities (containers, furnaces, jukeboxes, chiseled bookshelves) — covered by recursive walk + item patterns
-- Entity equipment — recursive + item patterns
-- Villager trade offers — recursive + item patterns
-- Entities with `CustomName` — mostly covered by the entity regex
-- Entities in nested containers (minecarts with chests, boats with chests) — recursive + item patterns
-- Components inside items within any container — covered by `#components>#minecraft:*` patterns
+**Known covered by recursive item walk (no explicit patterns needed):**
+- Items within all containers (chests, barrels, shulker boxes, hoppers, dispensers, droppers, furnaces, smokers, blast furnaces, brew stands, campfires, chiseled bookshelves, crafter)
+- Entity equipment (armor, hands, inventory)
+- Villager/wandering trader trade offers
+- Minecart/boat with chest
+- Item frames, jukebox RecordItem, decorated pot item, brushable block item, vault key_item
+- Lectern Book
+- bundle_contents, container list, charged_projectiles
 
 **When adding a pattern, verify the exact NBT key casing** (Minecraft NBT typically uses PascalCase: `CustomName`, not `custom_name`). Signal-to-noise matters — avoid patterns so broad they'd match non-translatable strings.
 
@@ -185,4 +224,8 @@ When the SNBT selection test (`test snbt selecting`) counts change, investigate 
 
 **4. Greedy selectors ignore postConditions** — `GreedyPositions(N)` extracts from position N to end of command without checking the postCondition. Use `NonGreedy` (`Positions`) with `Matches` if you need conditional extraction.
 
-**5. FormatKind filter in SNBT selection** — `selectSnbt()` filters extracted texts with `filter { it.kind == FormatKind.Nbt }`, which removes plain strings (FormatKind.Str) from NBT. Only text compounds survive this filter.
+**5. FormatKind filter in SNBT selection** — `selectSnbt()` filters extracted texts with `filter { it.kind == FormatKind.Nbt }`, which removes plain strings (FormatKind.Str) from NBT. Only text compounds survive this filter. Notably, `FormatKind.Str` entries from `SnbtString` values (e.g. `CustomName:'{"text":"hello"}'` stored as JSON string) are killed — they must be NBT compounds (e.g. `CustomName:{"text":"hello"}`) to be extracted as Nbt.
+
+**6. Always check the wiki first before adding a command pattern** — Many commands that seem like they'd accept text components actually don't (waypoint, spreadplayers, damage, kill, fill, place). Verify at https://minecraft.wiki/w/Commands/<command>.
+
+**7. After completing any pattern task, update this guidance file** — Record new pitfalls discovered, changes to `Util.kt` ALL_FIELD/STRUCTURAL_FIELDS, new pattern strategies, wiki pages researched, and commands/entities/block-entities verified as not having text components (to avoid re-checking).

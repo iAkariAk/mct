@@ -31,13 +31,18 @@ val BuiltinMCFPatterns = PatternSet {
 
     // ── JSON text component commands ─────────────────────────────
     // tellraw <targets> <message>
+    // Wiki: /tellraw <targets> <message> — message is a raw JSON text component
     command("tellraw") {
         WithSize(2, strict = true) then {
             +Positions(2)
         }
     }
 
-    // title <targets> <action> <component>  (action != "times")
+    // title <targets> (title|subtitle|actionbar) <component>
+    // Wiki: /title <targets> (title|subtitle|actionbar) <title>
+    // <title> is a raw JSON text component.
+    // "times" subcommand has 5 args (fadeIn stay fadeOut) — excluded by Matches.
+    // "clear" and "reset" have 2 args — excluded by WithSize(3, strict).
     command("title") {
         WithSize(3, strict = true) then {
             Positions(3) then {
@@ -49,11 +54,16 @@ val BuiltinMCFPatterns = PatternSet {
     }
 
     // dialog show <targets> <dialog>
+    // Wiki: /dialog show <targets> <dialog>
+    // <dialog> is either a namespaced ID (e.g. minecraft:server_links)
+    //   or inline SNBT (e.g. {type:"minecraft:notice",title:"..."}).
+    // When SNBT, use SnbtEntire to extract text components within (title, label, etc.)
+    // "clear" subcommand has 2 args — excluded by WithSize(3, strict).
     command("dialog") {
         WithSize(3, strict = true) then {
-            Positions(3) then {
-                Matches("dialog show") { cmd, _ ->
-                    cmd[1].content == "show"
+            Positions(3 to IndexSelection.SnbtEntire) then {
+                Matches("dialog show") { cmd, arg ->
+                    cmd[1].content == "show" && arg.content.startsWith("{")
                 }
             }
         }
@@ -255,38 +265,13 @@ val BuiltinMCFPatterns = PatternSet {
     }
 
 
-    // ── kick (reason may contain translatable text) ──────────────
-    // kick <targets> [<reason>]
+    // ── kick — greedy plain text reason ─────────────────────────
+    // Wiki: /kick <targets> [<reason>]
+    // <reason> is a "message" type — greedy phrase string, NOT a JSON text component.
+    // Entity selectors in the message are substituted with player names.
     command("kick") {
         WithSize(2) then {
-            GreedyPositions(2) then {
-                Matches("kick reason with text") { _, arg ->
-                    arg.content.isTextComponent()
-                }
-            }
-        }
-    }
-
-
-    // ── waypoint (1.21.6+) ───────────────────────────────────────
-    // waypoint add <targets> <name> [<displayComponent>]
-    command("waypoint") {
-        WithSize(4) then {
-            Positions(4) then {
-                Matches("waypoint add") { cmd, _ ->
-                    cmd[1].content == "add"
-                }
-            }
-        }
-    }
-
-
-    // ── spreadplayers ─────────────────────────────────────────────
-    // spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams> <targets> [<description>]
-    // Description is a JSON text component at position 7
-    command("spreadplayers") {
-        WithSize(7, strict = true) then {
-            +Positions(7)
+            +GreedyPositions(2)
         }
     }
 
@@ -354,12 +339,30 @@ val BuiltinMCFPatterns = PatternSet {
 
 
 val BuiltinMCFunctionDataPatterns = mct.pointer.PatternSet {
-    // Display entity text content (text display entities)
-    // Matches `>#text` (single text component) and `>#text>0` etc. (array elements)
+    // ── Display entity text ──────────────────────────────────────
+    // Matches `>#text` (single text display compound) and `>#text>0` etc. (array elements)
     // Also matches nested text leaves within array element compounds: `>#text>0>#text`
     +RegexPattern("""^>#text(?:>\d+(?:>#(?:text|translate))?)?$""")
 
-    // CustomName text components in NBT structures (entities, block entities, etc.)
+    // ── CustomName ───────────────────────────────────────────────
+    // CustomName text components in NBT (entities, block entities, etc.)
     +RightPattern(">#CustomName")
     +RegexPattern("""^>#CustomName>#(?:text|translate|fallback)$""")
+
+    // ── Dialog SNBT fields ───────────────────────────────────────
+    // /dialog show <targets> {type:"...",title:{...},...}
+    // title and external_title are text components
+    +RegexPattern("""^>#(?:title|external_title)(?:>\d+(?:>#(?:text|translate))?)?$""")
+    // button labels and tooltips
+    +RegexPattern("""^>#(?:yes|no|exit_action)>#(?:label|tooltip)(?:>#(?:text|translate))?$""")
+    // action buttons
+    +RegexPattern("""^>#actions>\d+>#(?:label|tooltip)(?:>#(?:text|translate))?$""")
+    // body contents (plain_message)
+    +RegexPattern("""^>#body>\d+>#contents(?:>#(?:text|translate))?$""")
+    // dialogs list in dialog_list type
+    +RegexPattern("""^>#dialogs>\d+>#(?:title|external_title)(?:>\d+(?:>#(?:text|translate))?)?$""")
+    // input control labels
+    +RegexPattern("""^>#inputs>\d+>#label(?:>#(?:text|translate))?$""")
+    // item description in body items
+    +RegexPattern("""^>#body>\d+>#description(?:>\d+(?:>#(?:text|translate))?)?$""")
 }

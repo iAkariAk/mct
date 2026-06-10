@@ -318,21 +318,6 @@ class ExtractPatternTest : FreeSpec({
                 (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
             }
 
-            "match spreadplayers description" {
-                val cmd = cmd(
-                    "spreadplayers",
-                    "0", "0", "5", "10", "true", "@a",
-                    """{"text":"Spreading players..."}""",
-                )
-                val patterns = BuiltinMCFPatterns["spreadplayers"].orEmpty()
-                patterns.isNotEmpty() shouldBe true
-                val p = patterns.first()
-                p.preCondition.matches(cmd) shouldBe true  // WithSize(7, strict=true)
-                (p.selected as IndexSelector.NonGreedy).matches(7) shouldBe true
-                // Position 7 is the JSON text component description
-                p.postCondition.matches(cmd, cmd.args[6]) shouldBe true
-            }
-
             "match team add displayName" {
                 val cmd = cmd(
                     "team",

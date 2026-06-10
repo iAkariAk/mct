@@ -12,19 +12,25 @@ val BuiltinRegionPatterns = PatternSet {
     +RightPattern("#display>#Lore")                   // Item lore lines
 
 
-    // --- Modern Item Components (1.20.5+) ---
-    // In region files, these are often nested within an item's 'components' tag
+    // --- Modern Item/Entity Components (1.20.5+) ---
+    // In region files, these are often nested within an item's or entity's 'components' tag
+    // Entity data components also use the same #components>#minecraft:* path structure
     +RegexPattern("#components>#minecraft:custom_name(>#raw)?$")
     +RegexPattern("#components>#minecraft:item_name(>#raw)?$")
     +RegexPattern("#components>#minecraft:text_display(>#raw)?$")
+    +RegexPattern("#components>#minecraft:description(>#raw)?$")
     +RegexPattern("""#components>#minecraft:lore>\d+(>#raw)?$""")
     +RegexPattern("""#components>#minecraft:written_book_content>#(?:pages>\d+|title|author)(?:>#(?:raw|filtered))?$""")
     +RegexPattern("""#components>#minecraft:writable_book_content>#pages>\d+(?:>#(?:raw|filtered))?$""")
     +RegexPattern("""#components>#minecraft:custom_name(>#raw)?$""")
+    // Nested text in data components: instrument.description (text component)
+    +RegexPattern("""#instrument>#description(?:>#(?:text|translate|fallback))?$""")
+    // Nested text in data components: attribute_modifiers[].display.value (text component)
+    +RegexPattern("""#attribute_modifiers>#modifiers>\d+>#display>#value(?:>#(?:text|translate|fallback))?$""")
 
     // Display entities (refer to https://zh.minecraft.wiki/w/%E5%B1%95%E7%A4%BA%E5%AE%9E%E4%BD%93#%E5%AE%9E%E4%BD%93%E6%95%B0%E6%8D%AE)
     +RegexPattern("""^>#>#Entities>\d+>#text$""")
-    // description
+    // description (e.g. entity data component minecraft:description stored as direct field)
     +RegexPattern("""^>#>#Entities>\d+>#description$""")
 
     // --- Written Books (Nested in Item Tags) ---
@@ -52,6 +58,9 @@ val BuiltinRegionPatterns = PatternSet {
     // 3. Command Blocks
     // 'CustomName' is the name shown in chat, 'Command' is the actual logic
     +RegexPattern("""^>#>#block_entities>\d+>#CustomName$""")
+    // 'LastOutput' contains command feedback/error text (user-visible)
+    // Note: 'Command' field is handled separately as Type.Command in Extract.kt
+    +RegexPattern("""^>#>#block_entities>\d+>#LastOutput$""")
     // Note: Translating 'Command' is risky, but sometimes hoverEvent/show_text inside commands needs it
     // +RegexPattern("""^>#>#block_entities>\d+>#Command$""")
 
@@ -75,6 +84,8 @@ val BuiltinRegionPatterns = PatternSet {
     // Modern component-based custom names on block entities
     // Note: entity-level components are covered by the existing #minecraft:custom_name pattern
     // which doesn't have ^ anchor and matches anywhere in the path
+    // description on block entities (either direct field or component)
+    +RegexPattern("""^>#>#block_entities>\d+>#description$""")
     +RegexPattern("""^>#>#block_entities>\d+>#components>#minecraft:custom_name(?:>#raw)?$""")
     +RegexPattern("""^>#>#block_entities>\d+>#components>#minecraft:item_name(?:>#raw)?$""")
 }
