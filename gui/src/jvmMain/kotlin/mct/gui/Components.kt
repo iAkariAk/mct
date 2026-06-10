@@ -285,7 +285,6 @@ fun coloredLogAnnotatedString(logLines: List<LogEntry>) = buildAnnotatedString {
             LoggerLevel.Warning -> Color(0xFFFFA726)
             LoggerLevel.Error -> Color(0xFFEF5350)
             LoggerLevel.Debug -> Color(0xFF78909C)
-            LoggerLevel.Sign -> Color(0xFF9C27B0)
         }
         val badgeLetter = level.name.first().uppercase()
         val textColor = when (level) {
@@ -293,7 +292,6 @@ fun coloredLogAnnotatedString(logLines: List<LogEntry>) = buildAnnotatedString {
             LoggerLevel.Warning -> Color(0xFFFFF3E0)
             LoggerLevel.Error -> Color(0xFFFFCDD2)
             LoggerLevel.Debug -> Color(0xFFB0BEC5)
-            LoggerLevel.Sign -> Color(0xFFE1BEE7)
         }
         withStyle(SpanStyle(
             color = Color.White, background = badgeColor,

@@ -15,6 +15,7 @@ import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.chunkedByToken
+import mct.notify
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
@@ -41,7 +42,7 @@ data class CustomizedPrompts(
         - 人名、地名使用日文汉字/中文习惯译名。
     """.trimIndent()
 
-        val targetLanguage = "简体中文"
+        const val targetLanguage = "简体中文"
 
         val Default = CustomizedPrompts() // Always at least to wait the above initialization
     }
@@ -211,7 +212,7 @@ class OpenAITranslator internal constructor(
                 terms += appendTerms
             }
             val pct = (index + 1).toFloat() / totalChunkSize
-            logger.sign<TranslateSign> { TranslateSign.Progress(pct) }
+            notifier.notify<TranslateSign> { TranslateSign.Progress(pct) }
 
             translated
         }

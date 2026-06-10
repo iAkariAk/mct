@@ -48,7 +48,7 @@ suspend fun Translator.translate(
         sources.zip(translated)
     }.toMap()
     mapping.toMutableMap().putAll(caches)
-    logger.sign<TranslateSign> { TranslateSign.Progress(1f) }
+    notifier.notify<TranslateSign> { TranslateSign.Progress(1f) }
     env.logger.info { "Built mapping with ${mapping.size} entries" }
     return mapping
 }

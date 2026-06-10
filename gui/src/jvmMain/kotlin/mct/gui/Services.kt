@@ -59,7 +59,6 @@ class GuiLogger(
 ) : Logger(LoggerLevel.Verbose) {
     override fun log(level: LoggerLevel, message: String) {
         println(message)
-        if (level == LoggerLevel.Sign) return
         onLog(LogEntry(level, message))
     }
 }

@@ -25,13 +25,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mct.Env
 import mct.LoggerLevel
+import mct.Notifier
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.createOpenAIClient
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
 import mct.on
-import mct.onSign
 import okio.FileSystem
 import org.koin.compose.koinInject
 import org.koin.core.context.startKoin
@@ -106,8 +106,9 @@ fun App(
     var showLogSettings by remember { mutableStateOf(false) }
     var showReasoning by remember { mutableStateOf(false) }
 
-    val guiLogger = remember {
-        GuiLogger { entry -> logLines.add(entry) }.onSign {
+    val guiLogger = remember { GuiLogger { entry -> logLines.add(entry) } }
+    val notifier = remember {
+        Notifier {
             on<TranslateSign> { sign ->
                 when (sign) {
                     is TranslateSign.Progress -> {
@@ -135,7 +136,7 @@ fun App(
         }
     }
     val env = remember {
-        Env(fs = FileSystem.SYSTEM, logger = guiLogger)
+        Env(fs = FileSystem.SYSTEM, logger = guiLogger, notifier = notifier)
     }
 
     context(env) {

@@ -7,21 +7,27 @@ interface LoggerHolder {
     val logger: Logger
 }
 
+interface NotifierHolder {
+    val notifier: Notifier
+}
+
 interface FSHolder {
     val fs: FileSystem
 }
 
-interface EnvHolder : LoggerHolder, FSHolder {
+interface EnvHolder : LoggerHolder, NotifierHolder, FSHolder {
     val env: Env
 
     override val fs get() = env.fs
+    override val notifier get() = env.notifier
     override val logger get() = env.logger
 }
 
 data class Env(
     override val fs: FileSystem = FileSystem.SYSTEM,
-    override val logger: Logger = Logger.None
-) : EnvHolder, LoggerHolder, FSHolder {
+    override val logger: Logger = Logger.None,
+    override val notifier: Notifier = Notifier.None,
+) : EnvHolder, LoggerHolder, NotifierHolder, FSHolder {
     override val env get() = this
 
     companion object {

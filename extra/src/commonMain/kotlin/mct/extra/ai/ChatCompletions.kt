@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.onEach
 import mct.Env
 import mct.EnvHolder
 import mct.MCTError
+import mct.notify
 import kotlin.time.Clock
 
 private const val MAX_RETRY = 20
@@ -196,12 +197,12 @@ class ChatCompletionCallImpl internal constructor(
 
 private fun EnvHolder.noticeTokenConsume(usage: Usage?) {
     usage?.totalTokens?.let { tc ->
-        logger.sign<AiSign>({ AiSign.ConsumeToken(tc) })
+        notifier.notify<AiSign>({ AiSign.ConsumeToken(tc) })
     }
 }
 
 private fun EnvHolder.postReasoning(reasoningContent: String?, id: Int) {
     reasoningContent?.let {
-        logger.sign<AiSign>({ AiSign.Reasoning(reasoningContent, id) })
+        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent, id) })
     }
 }

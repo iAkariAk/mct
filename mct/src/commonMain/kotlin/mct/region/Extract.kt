@@ -51,7 +51,6 @@ fun MCTWorkspace.extractFromRegion(
                         .flatMap { chunk ->
                             chunk.data.extractTexts()
                                 .mapNotNull { (pointer, content, kind, type) ->
-
                                     when (type) {
                                         PointerWithExtension.Type.Command -> either {
                                             val cmds = context(logger) {
@@ -74,12 +73,14 @@ fun MCTWorkspace.extractFromRegion(
                                             )
                                         }.getOrNull()
 
-                                        PointerWithExtension.Type.Text -> RegionExtraction.Text(
+                                        PointerWithExtension.Type.Text if pointer.matches(patterns) -> RegionExtraction.Text(
                                             index = chunk.index,
                                             pointer = pointer,
                                             kind = kind,
                                             content = content
-                                        ).takeIf { it.pointer.matches(patterns) }
+                                        )
+
+                                        else -> null
                                     }
 
                                 }
