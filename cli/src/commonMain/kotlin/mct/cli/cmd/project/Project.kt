@@ -33,7 +33,7 @@ import mct.extra.ai.translator.translate
 import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
 import mct.kit.replace
-import mct.pointer.DataPointerPattern
+import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
@@ -116,10 +116,10 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
 private class Update : ProjectCommand("update", "Update extraction pool") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val regionPatterns = projectConfig.patterns.regions.map {
+        val regionPatterns = projectConfig.patterns.regions.flatMap {
             val p = it.toPath()
             if (!fs.exists(p)) throw PrintMessage("Region pattern file not found: $it")
-            p.readJson<DataPointerPattern>()
+            p.readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinRegionPatterns }
 
         val mcfPatterns = projectConfig.patterns.mcfunction.map {
@@ -128,16 +128,16 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             p.readJson<CommandExtractPattern>()
         }.let { if (it.isEmpty()) BuiltinMCFPatterns else it.compile() }
 
-        val mcfDataPatterns = projectConfig.patterns.mcfunctionData.map {
+        val mcfDataPatterns = projectConfig.patterns.mcfunctionData.flatMap {
             val p = it.toPath()
             if (!fs.exists(p)) throw PrintMessage("Mcfunction data pattern file not found: $it")
-            p.readJson<DataPointerPattern>()
+            p.readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCFunctionDataPatterns }
 
-        val mcjPatterns = projectConfig.patterns.mcjson.map {
+        val mcjPatterns = projectConfig.patterns.mcjson.flatMap {
             val p = it.toPath()
             if (!fs.exists(p)) throw PrintMessage("Mcjson pattern file not found: $it")
-            p.readJson<DataPointerPattern>()
+            p.readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCJPatterns }
 
         ensureCache()
