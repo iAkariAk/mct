@@ -230,6 +230,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 token = ai.token,
                 model = ai.model,
                 useStreamApi = ai.useStreamApi,
+                temperature = ai.temperature,
             )
             OpenAITranslator(
                 call = call,

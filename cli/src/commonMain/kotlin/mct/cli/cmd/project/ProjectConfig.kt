@@ -82,6 +82,9 @@ data class AIConfig(
     @TomlComments("Target language (e.g. Simplified Chinese, English, 日本語)")
     @SerialName("target_language")
     val targetLanguage: String? = null,
+
+    @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default)")
+    val temperature: Double? = null,
 ) {
     companion object {
         val Default = AIConfig()

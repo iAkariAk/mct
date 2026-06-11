@@ -45,6 +45,7 @@ data class ApiSettings(
     val apiUrl: String = "",
     val model: String = "gpt-4o",
     val apiToken: String = "",
+    val temperature: Double? = null,
 )
 
 // ---- 统一日志器 ---------------------------------------------------------
@@ -77,11 +78,11 @@ fun loadSettings(): ApiSettings {
     }
 }
 
-fun saveSettings(apiUrl: String, model: String, apiToken: String): Boolean {
+fun saveSettings(apiUrl: String, model: String, apiToken: String, temperature: Double? = null): Boolean {
     return try {
         FileSystem.SYSTEM.createDirectories(settingsPath.parent!!)
         FileSystem.SYSTEM.write(settingsPath) {
-            writeUtf8(settingsJson.encodeToString(ApiSettings(apiUrl, model, apiToken)))
+            writeUtf8(settingsJson.encodeToString(ApiSettings(apiUrl, model, apiToken, temperature)))
         }
         true
     } catch (e: Exception) {
@@ -236,6 +237,7 @@ suspend fun runTranslation(
     termPath: String?,
     literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
     targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
+    temperature: Double? = null,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null
 ) {
     env.logger.info { "正在加载提取结果: $input" }
@@ -294,7 +296,7 @@ suspend fun runTranslation(
             env.logger.info { "映射文件已写入: $mappingOutput" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
-            saveSettings(apiUrl ?: "", model, token)
+            saveSettings(apiUrl ?: "", model, token, temperature)
         } catch (e: Exception) {
             env.logger.error { e.stackTraceToString() }
         }

@@ -32,6 +32,10 @@ sealed interface ChatCompletionCallError : MCTError {
         override val message = "Model $mode not found"
     }
 
+    data class TemperatureOutOfRange(val temperature: Double) : ChatCompletionCallError {
+        override val message = "Temperature $temperature is out of range [0.0, 2.0]"
+    }
+
     data class UnvalidatedApi(override val message: String) : ChatCompletionCallError
 
     data class RetryTooMuch(val maxRetry: Int) : ChatCompletionCallError {
@@ -99,6 +103,7 @@ suspend fun ChatCompletionCall(
     useStreamApi: Boolean = false,
     maxRetry: Int = MAX_RETRY,
     strict: Boolean = false, // if validate model exists
+    temperature: Double? = null,
 ): ChatCompletionCall {
     val client = createOpenAIClient(apiUrl, token)
     return ChatCompletionCall(
@@ -107,6 +112,7 @@ suspend fun ChatCompletionCall(
         useStreamApi = useStreamApi,
         maxRetry = maxRetry,
         strict = strict,
+        temperature = temperature,
     )
 }
 
@@ -117,6 +123,7 @@ suspend fun ChatCompletionCall(
     useStreamApi: Boolean = false,
     maxRetry: Int = MAX_RETRY,
     strict: Boolean = true, // if validate model exists
+    temperature: Double? = null,
 ): ChatCompletionCall {
     if (strict) {
         val models = runCatching { client.models() }.getOrElse {
@@ -126,12 +133,16 @@ suspend fun ChatCompletionCall(
             ChatCompletionCallError.ModelNotFound(model)
         }
     }
+    if (temperature != null && temperature !in 0.0..2.0) {
+        raise(ChatCompletionCallError.TemperatureOutOfRange(temperature))
+    }
     return ChatCompletionCallImpl(
         client = client,
         model = model,
         useStreamApi = useStreamApi,
         env = env,
         maxRetry = maxRetry,
+        temperature = temperature,
     )
 }
 
@@ -140,7 +151,8 @@ class ChatCompletionCallImpl internal constructor(
     override val model: String,
     override val env: Env,
     val useStreamApi: Boolean = false,
-    val maxRetry: Int = MAX_RETRY
+    val maxRetry: Int = MAX_RETRY,
+    val temperature: Double? = null
 ) : ChatCompletionCall {
     context(_: Raise<ChatCompletionCallError>)
     override suspend fun <T> chat(
@@ -155,6 +167,7 @@ class ChatCompletionCallImpl internal constructor(
                 ChatMessage(role = ChatRole.System, content = prompt),
                 ChatMessage(role = ChatRole.User, content = message)
             ),
+            temperature = temperature,
             streamOptions = if (useStreamApi) StreamOptions(true) else null
         )
         var llmRetry = 0

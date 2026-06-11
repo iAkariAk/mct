@@ -142,12 +142,13 @@ fun App(
     context(env) {
         val savedSettings = remember { loadSettings() }
 
-        suspend fun setupCompletion(model: String, stream: Boolean) = either {
+        suspend fun setupCompletion(model: String, stream: Boolean, temperature: Double? = null) = either {
             clientManager.chatCompletionCall = ChatCompletionCall(
                 client = clientManager.openAIClient!!,
                 model = model,
                 useStreamApi = stream,
                 strict = false,
+                temperature = temperature,
             )
         }
 
@@ -155,7 +156,8 @@ fun App(
             translateState = translateState.copy(
                 apiUrl = savedSettings.apiUrl,
                 model = savedSettings.model,
-                apiToken = savedSettings.apiToken
+                apiToken = savedSettings.apiToken,
+                temperature = savedSettings.temperature,
             )
             if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank())
                 logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
@@ -174,7 +176,7 @@ fun App(
             }.onSuccess { models ->
                 translateState = translateState.copy(availableModels = models, isModelsLoading = false)
                 if (translateState.model in models) {
-                    setupCompletion(translateState.model, GuiSettings.useStreamApi)
+                    setupCompletion(translateState.model, GuiSettings.useStreamApi, translateState.temperature)
                         .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}")) }
                 }
             }.onFailure {
@@ -182,14 +184,14 @@ fun App(
             }
         }
 
-        LaunchedEffect(translateState.model, GuiSettings.useStreamApi) {
+        LaunchedEffect(translateState.model, GuiSettings.useStreamApi, translateState.temperature) {
             if (clientManager.openAIClient == null) return@LaunchedEffect
             val model = translateState.model
             if (model.isBlank()) return@LaunchedEffect
             val models = translateState.availableModels
             if (models.isNotEmpty() && model !in models) return@LaunchedEffect
 
-            setupCompletion(model, GuiSettings.useStreamApi)
+            setupCompletion(model, GuiSettings.useStreamApi, translateState.temperature)
                 .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}")) }
         }
 
@@ -327,6 +329,7 @@ fun App(
                                                         cachesPath = translateState.cachesPath.ifBlank { null },
                                                         literatureStyle = translateState.literatureStyle,
                                                         targetLanguage = translateState.targetLanguage,
+                                                        temperature = translateState.temperature,
                                                         onFailure = {
                                                             scope.launch {
                                                                 snackbarHostState.showSnackbar(
@@ -345,7 +348,8 @@ fun App(
                                                     null, if (saveSettings(
                                                             translateState.apiUrl,
                                                             translateState.model,
-                                                            translateState.apiToken
+                                                            translateState.apiToken,
+                                                            translateState.temperature,
                                                         )
                                                     ) "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"
                                                 )

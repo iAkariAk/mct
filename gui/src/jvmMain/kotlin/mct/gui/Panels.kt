@@ -319,6 +319,39 @@ fun TranslatePanel(
             placeholder = { Text("简体中文") }
         )
 
+        // Temperature 控制
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Temperature (0.0–2.0)",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val temp = (state.temperature ?: 1.0).toFloat().coerceIn(0f, 2f)
+            Slider(
+                value = temp,
+                onValueChange = { v -> onStateChange(state.copy(temperature = v.toDouble().coerceIn(0.0, 2.0))) },
+                valueRange = 0f..2f,
+                steps = 19,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                "%.1f".format(state.temperature ?: 1.0),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Text(
+            if (state.temperature == null) "默认" else if (state.temperature < 0.5) "更确定性" else if (state.temperature > 1.5) "更具创造性" else "平衡",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+        )
+
         // 翻译进度
         AnimatedVisibility(visible = isRunning || translationProgress > 0f) {
             Card(

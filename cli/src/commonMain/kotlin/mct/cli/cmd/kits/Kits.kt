@@ -9,6 +9,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.int
 import mct.*
 import mct.cli.BaseCommand
@@ -177,6 +178,12 @@ private class AITranslate : BaseCommand(
         CustomizedPrompts.targetLanguage
     )
 
+    val temperature by option(
+        "--temperature",
+        envvar = "OPENAI_TEMPERATURE",
+        help = "Temperature for the model (0.0-2.0)"
+    ).double()
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading extractions from $input" }
@@ -191,6 +198,7 @@ private class AITranslate : BaseCommand(
                 token = token,
                 model = model,
                 useStreamApi = useStreamApi,
+                temperature = temperature,
             )
             OpenAITranslator(
                 call = call,
