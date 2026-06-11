@@ -97,6 +97,11 @@ fun parseMCFunction(
                         isMarco = true
                         continue
                     }
+
+                    '/' -> {
+                        lineBeginMode = false
+                        continue
+                    }
                 }
                 lineBeginMode = false
 
