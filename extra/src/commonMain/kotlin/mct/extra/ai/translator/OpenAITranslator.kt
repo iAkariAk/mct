@@ -32,7 +32,8 @@ import net.benwoodworth.knbt.NbtTag
 
 data class CustomizedPrompts(
     val literatureStyle: String = Defaults.literatureStyle,
-    val targetLanguage: String = Defaults.targetLanguage
+    val targetLanguage: String = Defaults.targetLanguage,
+    val handleGradientAggressively: Boolean = Defaults.handleGradientAggressively,
 ) {
     companion object Defaults {
         val literatureStyle = """
@@ -43,12 +44,14 @@ data class CustomizedPrompts(
     """.trimIndent()
 
         const val targetLanguage = "简体中文"
+        const val handleGradientAggressively = false
 
         val Default = CustomizedPrompts() // Always at least to wait the above initialization
     }
 }
 
-private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft 地图的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
+private fun prompt(prompts: CustomizedPrompts) =
+    """你是一名专精 Minecraft 地图的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
 
 === 输入协议 ===
 - 输入采用 MCT-CLI 协议格式。
@@ -58,12 +61,10 @@ private fun prompt(prompts: CustomizedPrompts) = """你是一名专精 Minecraft
 - 行号 [N] 是该行的唯一标识，你输出的每行译文也必须以相同的 "[N] " 开头。
 
 示例（例句翻译不影响目标语言，请始终翻译成${prompts.targetLanguage}）：
-```
 Kaguya => 辉夜姬
 -- MCT-CLI:START --
 [1] 待翻译文本行1
 [2] 待翻译文本行2
-```
 
 === 核心规则（优先级从高到低） ===
 
@@ -78,6 +79,7 @@ Kaguya => 辉夜姬
 - 绝对禁止修改：字段名、键名、对象/数组结构、方括号/花括号/逗号、引号类型。
 - 转义序列（如 \n、\"、\\）必须原样保留。
 - 输出必须是结构合法的 JSON/SNBT。
+- 唯一例外：当启用渐变色激进策略时，允许对渐变文本组件的颜色数组进行插值调整（见规则3补充条款），其他结构保护条款仍然有效。
 
 【规则 2 — 翻译范围】
 - 只翻译字符串值中的自然语言部分。
@@ -86,8 +88,22 @@ Kaguya => 辉夜姬
 
 【规则 3 — 文本组件保护】
 - 对于 Minecraft 的 "translate" + "with" 组件：可以调整 with 数组内元素的顺序以符合中文语序，但不能增减元素数量。
-- 对于富文本（text + extra 列表）：可以调整相邻文本节点的顺序以获得自然的中文表达，但样式属性（color、bold、italic 等）必须原封不动保留。
-- 对于渐变色文本组件：尽量保持与原文接近的视觉长度，允许适度扩写以适配渐变文本和标题效果；也允许在长度超出原文的情况下插值。
+${if (prompts.handleGradientAggressively) """
+- **渐变色文本组件激进处理（仅当此条款被激活时生效）**  
+  渐变色组件通常由多个带 `color` 属性的 `text` 节点组成，形成颜色过渡效果。处理步骤如下：  
+  1. **正常翻译**：先翻译各节点内的文本，尽量保留原始字符数。  
+  2. **长度适配策略**（当译文总长度与原文差距过大，可能导致渐变断裂或视觉不协调时启用）：  
+     - **译文过短**：允许进行 **语义扩写**，此时忽略其他节点数量限制，适度增加修饰词、重复关键语素或补充意境词，使译文长度接近原文（例如 "Frost Blade" → "霜寒刺骨之刃"）。  
+       - 若扩写后仍显著短于原文，可 **删除部分中间颜色节点**（即从 `extra` 数组中移除若干过渡色片断），将渐变简化为更少的颜色阶梯，使短文本也能呈现平滑渐变。删除时只能移除完整节点，不得修改保留节点的 `color` 值或文本内容。  
+       - 禁止直接保留原文不译，必须输出译文。  
+     - **译文过长**：允许 **插入额外颜色插值节点**，将较长的译文拆分为更多文字片段，并为其补充中间色，以延伸渐变覆盖长度。插入时，新增节点的颜色应从相邻节点颜色插值计算得出（例如在两个 #FF0000 和 #0000FF 之间插入 #7F007F），保持视觉连贯。  
+  3. **长度参考**：中文单个字视觉宽度约等于英文2个字符。请以“视觉等宽”而非“字符数相等”来评估长度是否匹配。  
+  4. **错误容忍**：若调整后导致渐变效果不如原始，只要数据结构合法且译文准确，即视为成功。  
+  示例：  
+    - 原文渐变 "Legendary Frost Guardian"（23字符），译文 "永冬寒霜的传奇守护者"（11字，视觉约22字符），视为长度合格。  
+    - 若译文仅为 "霜卫"（2字，视觉4字符），则先扩写为 "永霜守护者"，仍不足时可删除部分颜色节点，最终输出简化的渐变。"""
+else ""}
+- 对于其他富文本（text + extra 列表）：可以调整相邻文本节点的顺序以获得自然的中文表达，但样式属性（color、bold、italic 等）必须原封不动保留。
 - 禁止跨越语义边界（如 clickEvent、hoverEvent 包裹的文本块）。
 
 【规则 4 — 字符串处理】
@@ -105,11 +121,10 @@ Kaguya => 辉夜姬
 - 对于不可自然意译的名称（例如 Asta），应采用符合目标语言风格的音译；对于具有明确语义且适合本地化表达的名称（例如 The Guardian），可进行自然意译。
 - 音译时不仅要接近原读音，还应考虑名称气质、世界观风格、角色感与文字观感。
 - 优先选用：
-  - 雅观
-  - 易读
-  - 具有幻想作品命名感
-  - 符合目标语言常见译名习惯
-    的用字，而非机械拼音式直译。
+- 雅观
+- 易读
+- 具有幻想作品命名感
+- 符合目标语言常见译名习惯的用字，而非机械拼音式直译。
 - 同一名称在全文中必须保持统一译法。
 
 【规则 7 — 翻译风格】
@@ -125,8 +140,8 @@ ${prompts.literatureStyle}
 ...
 -- MCT-CLI:TERMS --
 [
-  {"source": "原文", "target": "译文", "type": "name"},
-  {"source": "原文2", "target": "译文2", "type": "term"}
+{"source": "原文", "target": "译文", "type": "name"},
+{"source": "原文2", "target": "译文2", "type": "term"}
 ]
 -- MCT-CLI:END --
 
@@ -141,8 +156,6 @@ ${prompts.literatureStyle}
 - 如果对某行的结构安全性有疑问，优先保留原文而非冒险修改格式。
 - 宁可少翻译一行，也不能破坏数据结构的完整性。
 """
-
-
 private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) ->
     "${source.trim()} => ${target.trim()}"
 }

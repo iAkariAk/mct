@@ -237,6 +237,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 customizedPrompts = CustomizedPrompts(
                     literatureStyle = ai.literatureStyle ?: CustomizedPrompts.literatureStyle,
                     targetLanguage = ai.targetLanguage ?: CustomizedPrompts.targetLanguage,
+                    handleGradientAggressively = ai.handleGradientAggressively ?: CustomizedPrompts.Defaults.handleGradientAggressively,
                 ),
                 defaultTerms = existingTerms,
                 tokenThreshold = ai.tokenThreshold,

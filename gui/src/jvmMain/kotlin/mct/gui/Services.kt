@@ -204,6 +204,7 @@ suspend fun runTranslation(
     termPath: String?,
     literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
     targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
+    handleGradientAggressively: Boolean = CustomizedPrompts.Defaults.handleGradientAggressively,
     temperature: Double? = null,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null
 ) {
@@ -244,7 +245,8 @@ suspend fun runTranslation(
         defaultTerms = existingTerms,
         customizedPrompts = CustomizedPrompts(
             literatureStyle = literatureStyle,
-            targetLanguage = targetLanguage
+            targetLanguage = targetLanguage,
+            handleGradientAggressively = handleGradientAggressively,
         ),
         tokenThreshold = GuiSettings.tokenThreshold
     )

@@ -332,6 +332,7 @@ fun App(
                                                         cachesPath = translateState.cachesPath.ifBlank { null },
                                                         literatureStyle = translateState.literatureStyle,
                                                         targetLanguage = translateState.targetLanguage,
+                                                        handleGradientAggressively = translateState.handleGradientAggressively,
                                                         temperature = GuiSettings.temperature,
                                                         onFailure = {
                                                             scope.launch {

@@ -310,6 +310,14 @@ fun TranslatePanel(
             )
         )
 
+        Spacer(Modifier.height(12.dp))
+        TextSwitch(
+            modifier = Modifier.fillMaxWidth(),
+            checked = state.handleGradientAggressively,
+            onCheckedChange = { onStateChange(state.copy(handleGradientAggressively = it)) },
+            text = "启用激进的渐变色文本处理",
+        )
+
         // 目标语言
         Spacer(Modifier.height(12.dp))
         ConfigTextField(

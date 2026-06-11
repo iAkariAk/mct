@@ -184,6 +184,12 @@ private class AITranslate : BaseCommand(
         help = "Temperature for the model (0.0-2.0)"
     ).double()
 
+    val handleGradient by option(
+        "--handle-gradient",
+        envvar = "HANDLE_GRADIENT",
+        help = "Enable aggressive gradient text handling"
+    ).flag()
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading extractions from $input" }
@@ -204,7 +210,8 @@ private class AITranslate : BaseCommand(
                 call = call,
                 customizedPrompts = CustomizedPrompts(
                     literatureStyle = literatureStyle,
-                    targetLanguage = targetLanguage
+                    targetLanguage = targetLanguage,
+                    handleGradientAggressively = handleGradient,
                 ),
                 defaultTerms = terms,
                 tokenThreshold = tokenThreshold

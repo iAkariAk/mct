@@ -85,6 +85,10 @@ data class AIConfig(
 
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default)")
     val temperature: Double? = null,
+
+    @TomlComments("Enable aggressive gradient text handling (default: true)")
+    @SerialName("handle_gradient")
+    val handleGradientAggressively: Boolean? = null,
 ) {
     companion object {
         val Default = AIConfig()

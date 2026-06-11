@@ -219,6 +219,7 @@ data class TranslateState(
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
     val isOptimizing: Boolean = false,
+    val handleGradientAggressively: Boolean = CustomizedPrompts.Defaults.handleGradientAggressively,
 )
 
 data class BackfillState(
