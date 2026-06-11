@@ -101,6 +101,40 @@ fun SettingsSheet(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    Text(
+                        "Temperature (0.0–2.0)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "控制 AI 输出的随机性。较低的值使输出更确定，较高的值更具创造性。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    var sliderTemp by remember { mutableFloatStateOf((GuiSettings.temperature ?: 1.0).toFloat().coerceIn(0f, 2f)) }
+
+                    Slider(
+                        value = sliderTemp,
+                        onValueChange = { sliderTemp = it },
+                        onValueChangeFinished = { GuiSettings.temperature = sliderTemp.toDouble().coerceIn(0.0, 2.0) },
+                        valueRange = 0f..2f,
+                        steps = 19,
+                    )
+                    Text(
+                        "%.1f  —  %s".format(
+                            GuiSettings.temperature ?: 1.0,
+                            if (GuiSettings.temperature == null) "默认" else if (GuiSettings.temperature!! < 0.5) "更确定性" else if (GuiSettings.temperature!! > 1.5) "更具创造性" else "平衡"
+                        ),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
                 }
             }
         }

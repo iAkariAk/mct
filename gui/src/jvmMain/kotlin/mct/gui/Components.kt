@@ -219,7 +219,6 @@ data class TranslateState(
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
     val isOptimizing: Boolean = false,
-    val temperature: Double? = null,
 )
 
 data class BackfillState(
@@ -234,6 +233,7 @@ object GuiSettings {
     var prettyOutput by mutableStateOf(false)
     var tokenThreshold by mutableIntStateOf(TOKEN_COUNT_THRESHOLD)
     var useStreamApi by mutableStateOf(false)
+    var temperature by mutableStateOf<Double?>(null)
 }
 
 // ── 通用组件 ─────────────────────────────────────────────────

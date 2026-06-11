@@ -31,6 +31,7 @@ import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.createOpenAIClient
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
+import mct.gui.util.renderWithUnit
 import mct.on
 import okio.FileSystem
 import org.koin.compose.koinInject
@@ -140,7 +141,7 @@ fun App(
     }
 
     context(env) {
-        val savedSettings = remember { loadSettings() }
+        val savedSettings = remember { apiSetting.load() }
 
         suspend fun setupCompletion(model: String, stream: Boolean, temperature: Double? = null) = either {
             clientManager.chatCompletionCall = ChatCompletionCall(
@@ -157,10 +158,12 @@ fun App(
                 apiUrl = savedSettings.apiUrl,
                 model = savedSettings.model,
                 apiToken = savedSettings.apiToken,
-                temperature = savedSettings.temperature,
             )
+            GuiSettings.temperature = savedSettings.temperature
+            GuiSettings.useStreamApi = savedSettings.useStreamApi
+            GuiSettings.tokenThreshold = savedSettings.tokenThreshold
             if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank())
-                logLines.add(LogEntry(null, "已加载 API 设置 ($settingsPathString)"))
+                logLines.add(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
         }
 
         LaunchedEffect(translateState.apiUrl, translateState.apiToken) {
@@ -176,7 +179,7 @@ fun App(
             }.onSuccess { models ->
                 translateState = translateState.copy(availableModels = models, isModelsLoading = false)
                 if (translateState.model in models) {
-                    setupCompletion(translateState.model, GuiSettings.useStreamApi, translateState.temperature)
+                    setupCompletion(translateState.model, GuiSettings.useStreamApi, GuiSettings.temperature)
                         .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}")) }
                 }
             }.onFailure {
@@ -184,14 +187,14 @@ fun App(
             }
         }
 
-        LaunchedEffect(translateState.model, GuiSettings.useStreamApi, translateState.temperature) {
+        LaunchedEffect(translateState.model, GuiSettings.useStreamApi, GuiSettings.temperature) {
             if (clientManager.openAIClient == null) return@LaunchedEffect
             val model = translateState.model
             if (model.isBlank()) return@LaunchedEffect
             val models = translateState.availableModels
             if (models.isNotEmpty() && model !in models) return@LaunchedEffect
 
-            setupCompletion(model, GuiSettings.useStreamApi, translateState.temperature)
+            setupCompletion(model, GuiSettings.useStreamApi, GuiSettings.temperature)
                 .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "切换模型失败: ${it.message}")) }
         }
 
@@ -329,7 +332,7 @@ fun App(
                                                         cachesPath = translateState.cachesPath.ifBlank { null },
                                                         literatureStyle = translateState.literatureStyle,
                                                         targetLanguage = translateState.targetLanguage,
-                                                        temperature = translateState.temperature,
+                                                        temperature = GuiSettings.temperature,
                                                         onFailure = {
                                                             scope.launch {
                                                                 snackbarHostState.showSnackbar(
@@ -345,13 +348,15 @@ fun App(
                                         onSaveSettings = {
                                             logLines.add(
                                                 LogEntry(
-                                                    null, if (saveSettings(
+                                                    null, if (apiSetting.save(ApiSettings(
                                                             translateState.apiUrl,
                                                             translateState.model,
                                                             translateState.apiToken,
-                                                            translateState.temperature,
-                                                        )
-                                                    ) "API 设置已保存到 $settingsPathString" else "保存 API 设置失败"
+                                                            GuiSettings.useStreamApi,
+                                                            GuiSettings.tokenThreshold,
+                                                            GuiSettings.temperature,
+                                                        ))
+                                                    ) "API 设置已保存到 ${apiSetting.path}" else "保存 API 设置失败"
                                                 )
                                             )
                                         },

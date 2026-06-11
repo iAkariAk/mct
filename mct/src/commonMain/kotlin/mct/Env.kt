@@ -36,9 +36,9 @@ data class Env(
 }
 
 
-context(env: Env)
-val fs get() = env.fs
+context(holder: FSHolder)
+val fs get() = holder.fs
 
-context(env: Env)
-val logger get() = env.logger
+context(holder: LoggerHolder)
+val logger get() = holder.logger
 

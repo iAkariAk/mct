@@ -1,4 +1,4 @@
-package mct.gui
+package mct.gui.util
 
 val Int.k get() = this / 1000.0
 val Int.m get() = this / 1000000.0

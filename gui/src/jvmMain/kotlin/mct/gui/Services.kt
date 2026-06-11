@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import mct.*
 import mct.dp.backfillDatapack
 import mct.dp.compile
@@ -14,10 +13,12 @@ import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.CommandExtractPattern
 import mct.extra.ai.ChatCompletionCallError
+import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
 import mct.extra.ai.translator.translate
+import mct.gui.util.setting
 import mct.kit.replace
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
@@ -25,28 +26,22 @@ import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
-import okio.FileSystem
-import okio.Path
 import okio.Path.Companion.toPath
 import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
-// ---- API 设置持久化 -----------------------------------------------------
-
-private val settingsJson = Json { ignoreUnknownKeys = true; encodeDefaults = false }
-private val settingsPath: Path =
-    "${System.getProperty("user.home")}/.mct/api-settings.json".toPath()
-
-/** Full path string of the API settings file, for display in UI log messages. */
-val settingsPathString: String get() = settingsPath.toString()
 
 @Serializable
 data class ApiSettings(
     val apiUrl: String = "",
     val model: String = "gpt-4o",
     val apiToken: String = "",
+    val useStreamApi: Boolean = false,
+    val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val temperature: Double? = null,
 )
+
+val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
 
 // ---- 统一日志器 ---------------------------------------------------------
 
@@ -63,34 +58,6 @@ class GuiLogger(
         onLog(LogEntry(level, message))
     }
 }
-
-// ---- 设置读写 -----------------------------------------------------------
-
-fun loadSettings(): ApiSettings {
-    return try {
-        if (FileSystem.SYSTEM.exists(settingsPath)) {
-            val text = FileSystem.SYSTEM.read(settingsPath) { readUtf8() }
-            settingsJson.decodeFromString(text)
-        } else ApiSettings()
-    } catch (e: Exception) {
-        println("[MCT] 加载API设置失败: ${e.message}")
-        ApiSettings()
-    }
-}
-
-fun saveSettings(apiUrl: String, model: String, apiToken: String, temperature: Double? = null): Boolean {
-    return try {
-        FileSystem.SYSTEM.createDirectories(settingsPath.parent!!)
-        FileSystem.SYSTEM.write(settingsPath) {
-            writeUtf8(settingsJson.encodeToString(ApiSettings(apiUrl, model, apiToken, temperature)))
-        }
-        true
-    } catch (e: Exception) {
-        println("[MCT] 保存API设置失败: ${e.message}")
-        false
-    }
-}
-
 // ---- 后台任务 -----------------------------------------------------------
 
 /**
@@ -296,7 +263,7 @@ suspend fun runTranslation(
             env.logger.info { "映射文件已写入: $mappingOutput" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
-            saveSettings(apiUrl ?: "", model, token, temperature)
+            apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature))
         } catch (e: Exception) {
             env.logger.error { e.stackTraceToString() }
         }
