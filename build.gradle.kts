@@ -22,7 +22,8 @@ subprojects {
         @OptIn(ExperimentalKotlinGradlePluginApi::class, KotlinNativeCacheApi::class)
         kotlin.compilerOptions {
             freeCompilerArgs.addAll(
-                "-Xcontext-parameters",
+                "-Xcollection-literals",
+                "-Xintrinsic-const-evaluation",
                 "-Xwarning-level=NOTHING_TO_INLINE:disabled"
             )
             optIn.addAll(
