@@ -4,7 +4,6 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.raise
 import arrow.core.raise.recover
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -18,6 +17,7 @@ import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.Snbt
 import mct.text.TextCompound
 import mct.text.encodeToIR
+import mct.util.IO
 import mct.util.formatir.toNbt
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList

@@ -4,7 +4,7 @@ import kotlinx.serialization.serializer
 import mct.util.BuilderMaker
 import kotlin.reflect.KClass
 
-inline fun KClass<*>.identifier() = qualifiedName ?: toString()
+inline fun KClass<*>.identifier() = simpleName ?: toString()
 
 fun interface Notifier {
     fun notify(key: String, value: Any?)
@@ -44,7 +44,7 @@ inline fun Notifier(register: OnSignRegistry.() -> Unit): Notifier {
     val registry = object : OnSignRegistry {
         @Suppress("UNCHECKED_CAST")
         override fun <T : Any> on(clazz: KClass<T>, callback: (T) -> Unit) {
-            hooks[clazz.qualifiedName ?: clazz.toString()] = RegistryItem(clazz, callback as (Any) -> Unit)
+            hooks[clazz.identifier()] = RegistryItem(clazz, callback as (Any) -> Unit)
         }
     }
     registry.register()

@@ -3,7 +3,6 @@ package mct.region
 import arrow.core.raise.Raise
 import arrow.core.raise.context.either
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.*
 import mct.FormatKind
 import mct.MCTWorkspace
@@ -15,6 +14,7 @@ import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
+import mct.util.IO
 import mct.util.StringIndices
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList

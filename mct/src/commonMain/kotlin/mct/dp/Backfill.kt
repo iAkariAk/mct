@@ -1,7 +1,6 @@
 package mct.dp
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
@@ -18,6 +17,7 @@ import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
+import mct.util.IO
 import mct.util.io.newRelativeFS
 import mct.util.io.openZipReadWrite
 import mct.util.io.useAsync
