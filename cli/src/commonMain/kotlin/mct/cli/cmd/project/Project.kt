@@ -22,7 +22,9 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.BuiltinMCFPatterns
+import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.CommandExtractPattern
+import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.OpenAITranslator
@@ -32,6 +34,7 @@ import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
 import mct.kit.replace
 import mct.pointer.DataPointerPattern
+import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.copyToRecursively
@@ -117,7 +120,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             val p = it.toPath()
             if (!fs.exists(p)) throw PrintMessage("Region pattern file not found: $it")
             p.readJson<DataPointerPattern>()
-        }.ifEmpty { null }
+        }.ifEmpty { BuiltinRegionPatterns }
 
         val mcfPatterns = projectConfig.patterns.mcfunction.map {
             val p = it.toPath()
@@ -129,13 +132,13 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             val p = it.toPath()
             if (!fs.exists(p)) throw PrintMessage("Mcfunction data pattern file not found: $it")
             p.readJson<DataPointerPattern>()
-        }.ifEmpty { null }
+        }.ifEmpty { BuiltinMCFunctionDataPatterns }
 
         val mcjPatterns = projectConfig.patterns.mcjson.map {
             val p = it.toPath()
             if (!fs.exists(p)) throw PrintMessage("Mcjson pattern file not found: $it")
             p.readJson<DataPointerPattern>()
-        }.ifEmpty { null }
+        }.ifEmpty { BuiltinMCJPatterns }
 
         ensureCache()
 
