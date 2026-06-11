@@ -202,7 +202,7 @@ fun TranslatePanel(
                 onValueChange = { onStateChange(state.copy(model = it)) },
                 label = { Text("模型名称") },
                 readOnly = true,
-                placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-chat...") },
+                placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-v4-pro...") },
                 trailingIcon = if (state.availableModels.isNotEmpty()) {
                     {
                         IconButton(onClick = { modelMenuExpanded = true }) {

@@ -57,22 +57,23 @@ data class PatternsConfig(
 @Serializable
 @SerialName("ai")
 data class AIConfig(
+    @SerialName("api_url")
     @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/v1)")
     val apiUrl: String? = null,
 
     @TomlComments("API access token")
-    val token: String? = null,
+    val token: String = "Token / API Key",
 
-    @TomlComments("Model name (e.g. gpt-4o, deepseek-chat, gemini-2.0-flash)")
+    @TomlComments("Model name (e.g. gpt-4o, deepseek-v4-pro, gemini-2.0-flash)")
     val model: String = "gpt-4o",
 
     @TomlComments("Use streaming API (can resolve empty response issues on some providers)")
     @SerialName("use_stream_api")
-    val useStreamApi: Boolean = false,
+    val useStreamApi: Boolean = true,
 
     @TomlComments("Max tokens per translation request")
     @SerialName("token_threshold")
-    val tokenThreshold: Int = 1024,
+    val tokenThreshold: Int = 2048,
 
     @TomlComments("Custom literature-style prompt for translation")
     @SerialName("literature_style")

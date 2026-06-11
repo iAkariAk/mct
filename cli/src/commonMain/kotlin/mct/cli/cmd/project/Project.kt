@@ -190,11 +190,11 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 
         val extractionGroups = mutableListOf<ExtractionGroup>()
         if (fs.exists(regionFile)) {
-            extractionGroups += regionFile.readJson<List<ExtractionGroup>>()
+            extractionGroups += regionFile.readJson<List<RegionExtractionGroup>>()
             logger.info { "Loaded region extractions" }
         }
         if (fs.exists(datapackFile)) {
-            extractionGroups += datapackFile.readJson<List<ExtractionGroup>>()
+            extractionGroups += datapackFile.readJson<List<DatapackExtractionGroup>>()
             logger.info { "Loaded datapack extractions" }
         }
 
@@ -220,8 +220,8 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         logger.info { "Loaded ${existingTerms.size} existing terms" }
 
         val ai = projectConfig.ai
-        if (ai.token.isNullOrBlank()) {
-            throw PrintMessage("AI token not configured. Set [ai.token] in mct.toml")
+        if (!ai.token.startsWith("sk-")) {
+            throw PrintMessage("AI token not configured correctly. Set [ai.token] in mct.toml")
         }
 
         val translator = context(env) {
@@ -278,25 +278,42 @@ private class Build : ProjectCommand("build", "Build translated world") {
         }
         val mapping = mappingFile.readJson<TranslationMapping>()
         logger.info { "Loaded mapping with ${mapping.size} entries" }
-        val allGroups = mutableListOf<ExtractionGroup>()
-        if (fs.exists(regionFile)) {
-            allGroups += regionFile.readJson<List<ExtractionGroup>>()
+
+        ensureCache()
+
+        val regionGroups = if (fs.exists(regionFile)) {
+            regionFile.readJson<List<RegionExtractionGroup>>()
+        } else {
+            emptyList()
         }
-        if (fs.exists(datapackFile)) {
-            allGroups += datapackFile.readJson<List<ExtractionGroup>>()
+        val datapackGroups = if (fs.exists(datapackFile)) {
+            datapackFile.readJson<List<DatapackExtractionGroup>>()
+        } else {
+            emptyList()
         }
-        if (allGroups.isEmpty()) {
+        if (regionGroups.isEmpty() && datapackGroups.isEmpty()) {
             throw PrintMessage("All cache files are empty. Run 'project update' first.")
         }
 
-        ensureCache()
-        val replacements = allGroups.replace(mapping)
-        cache("replacements.json").writeJson(replacements, projectConfig.prettyJson)
-        logger.info { "Generated ${replacements.size} replacement groups" }
+        val regionReplacements = if (regionGroups.isNotEmpty()) {
+            @Suppress("UNCHECKED_CAST")
+            (regionGroups.replace(mapping) as List<RegionReplacementGroup>).also {
+                cache("region_replacements.json").writeJson(it, projectConfig.prettyJson)
+                logger.info { "Generated ${it.size} region replacement groups" }
+            }
+        } else {
+            emptyList()
+        }
 
-        val regionGroups = replacements.filterIsInstance<RegionReplacementGroup>()
-        val datapackGroups = replacements.filterIsInstance<DatapackReplacementGroup>()
-        logger.info { "Region: ${regionGroups.size}, Datapack: ${datapackGroups.size} replacement groups" }
+        val datapackReplacements = if (datapackGroups.isNotEmpty()) {
+            @Suppress("UNCHECKED_CAST")
+            (datapackGroups.replace(mapping) as List<DatapackReplacementGroup>).also {
+                cache("datapack_replacements.json").writeJson(it, projectConfig.prettyJson)
+                logger.info { "Generated ${it.size} datapack replacement groups" }
+            }
+        } else {
+            emptyList()
+        }
 
         val targetDir = projectDir / "build"
         if (!fs.exists(srcDir)) {
@@ -312,17 +329,17 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val buildWorkspace = workspace(targetDir)
 
         coroutineScope {
-            if (regionGroups.isNotEmpty()) {
+            if (regionReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
-                    logger.info { "Backfilling ${regionGroups.size} region groups..." }
-                    buildWorkspace.backfillRegion(regionGroups)
+                    logger.info { "Backfilling ${regionReplacements.size} region groups..." }
+                    buildWorkspace.backfillRegion(regionReplacements)
                     logger.info { "Region backfill complete." }
                 }
             }
-            if (datapackGroups.isNotEmpty()) {
+            if (datapackReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
-                    logger.info { "Backfilling ${datapackGroups.size} datapack groups..." }
-                    buildWorkspace.backfillDatapack(datapackGroups)
+                    logger.info { "Backfilling ${datapackReplacements.size} datapack groups..." }
+                    buildWorkspace.backfillDatapack(datapackReplacements)
                     logger.info { "Datapack backfill complete." }
                 }
             }
