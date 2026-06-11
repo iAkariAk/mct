@@ -20,7 +20,7 @@ import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.BuiltinMCFPatterns
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.ExtractPattern
+import mct.dp.mcfunction.CommandExtractPattern
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson
@@ -66,7 +66,7 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val mcfPatterns = mcfPatternsPath?.jsonFile<List<ExtractPattern>>()
+        val mcfPatterns = mcfPatternsPath?.jsonFile<List<CommandExtractPattern>>()
         val userMcjPatterns = mcjPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }

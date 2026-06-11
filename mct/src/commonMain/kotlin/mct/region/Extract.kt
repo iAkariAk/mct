@@ -30,11 +30,11 @@ import kotlin.jvm.JvmName
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
-    patterns: List<DataPointerPattern>? = BuiltinRegionPatterns,
+    regionPatterns: List<DataPointerPattern>? = BuiltinRegionPatterns,
     mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
     mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
 ): Flow<RegionExtractionGroup> {
-    if (patterns == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
+    if (regionPatterns == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
     logger.info { "Extracting from ${dimensions.size} dimensions" }
 
     return dimensions.values.asFlow().flatMapMerge { dimension ->
@@ -73,7 +73,7 @@ fun MCTWorkspace.extractFromRegion(
                                             )
                                         }.getOrNull()
 
-                                        PointerWithExtension.Type.Text if pointer.matches(patterns) -> RegionExtraction.Text(
+                                        PointerWithExtension.Type.Text if pointer.matches(regionPatterns) -> RegionExtraction.Text(
                                             index = chunk.index,
                                             pointer = pointer,
                                             kind = kind,

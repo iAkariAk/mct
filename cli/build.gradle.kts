@@ -52,6 +52,7 @@ kotlin {
             implementation(libs.kotlinx.serialization.json.okio)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.io.okio)
+            implementation(libs.ktoml.core)
             implementation(project(":mct"))
             implementation(project(":extra"))
         }

@@ -19,7 +19,7 @@ import mct.cli.path
 import mct.dp.compile
 import mct.dp.mcfunction.BuiltinMCFPatterns
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.ExtractPattern
+import mct.dp.mcfunction.CommandExtractPattern
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
@@ -68,7 +68,7 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
             else -> BuiltinRegionPatterns.toList()
         }
 
-        val mcfPatterns = mcfPatternsPath?.jsonFile<List<ExtractPattern>>()
+        val mcfPatterns = mcfPatternsPath?.jsonFile<List<CommandExtractPattern>>()
         val userMcfDataPatterns = mcfDataPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }

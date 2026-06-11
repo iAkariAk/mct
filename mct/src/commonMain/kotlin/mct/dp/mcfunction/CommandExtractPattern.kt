@@ -17,7 +17,7 @@ import mct.util.StringIndices
 import mct.util.snbt.SnbtTag
 import org.intellij.lang.annotations.Language
 
-typealias ExtractPatternSet = Map<String, List<ExtractPattern>>
+typealias ExtractPatternSet = Map<String, List<CommandExtractPattern>>
 
 operator fun ExtractPatternSet.plus(other: ExtractPatternSet): ExtractPatternSet {
     val result = this.toMutableMap()
@@ -28,7 +28,7 @@ operator fun ExtractPatternSet.plus(other: ExtractPatternSet): ExtractPatternSet
 }
 
 @Serializable
-data class ExtractPattern(
+data class CommandExtractPattern(
     val command: String,
     val preCondition: PreCondition,
     val selected: IndexSelector,

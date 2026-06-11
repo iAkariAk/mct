@@ -11,7 +11,7 @@ import mct.DatapackExtractionGroup
 import mct.Env
 import mct.MCTWorkspace
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.ExtractPattern
+import mct.dp.mcfunction.CommandExtractPattern
 import mct.dp.mcfunction.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
@@ -23,7 +23,7 @@ import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJsonBuiltinPatterns
 
 fun MCTWorkspace.extractFromDatapack(
-    mcfPatterns: List<ExtractPattern> = emptyList(),
+    mcfPatterns: List<CommandExtractPattern> = emptyList(),
     mcfDataPatterns: List<DataPointerPattern>? = emptyList(),
     mcjPatterns: List<DataPointerPattern>? = emptyList()
 ) = extractFromDatapackRaw(
@@ -32,7 +32,7 @@ fun MCTWorkspace.extractFromDatapack(
     mcjPatterns?.let { MCJsonBuiltinPatterns + mcjPatterns },
 )
 
-fun List<ExtractPattern>.compile(): Map<String, List<ExtractPattern>> =
+fun List<CommandExtractPattern>.compile(): Map<String, List<CommandExtractPattern>> =
     MCFBuiltinPatterns + groupBy { it.command }.toMap()
 
 fun MCTWorkspace.extractFromDatapackRaw(

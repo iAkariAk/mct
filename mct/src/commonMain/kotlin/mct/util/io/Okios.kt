@@ -149,3 +149,16 @@ private suspend fun Path.copyToRecursively(
         }
     }
 }
+
+
+context(fs: FileSystem)
+fun Path.copyToRecursively(target: Path) {
+    if (fs.metadata(this).isDirectory) {
+        fs.createDirectories(target)
+        fs.list(this).forEach { entry ->
+            entry.copyToRecursively(target / entry.name)
+        }
+    } else {
+        fs.copy(this, target)
+    }
+}

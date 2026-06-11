@@ -12,7 +12,7 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.ExtractPattern
+import mct.dp.mcfunction.CommandExtractPattern
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.OpenAITranslator
@@ -134,7 +134,7 @@ suspend fun runExtraction(
                     val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
                         ?.let { p ->
                             env.fs.read(p.toPath()) { readUtf8() }
-                                .let { MCTJson.decodeFromString<List<ExtractPattern>>(it) }
+                                .let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
                                 .compile()
                         } ?: MCFBuiltinPatterns
 
@@ -153,7 +153,7 @@ suspend fun runExtraction(
                         }
 
                     workspace.extractFromRegion(
-                        patterns = patterns,
+                        regionPatterns = patterns,
                         mcfPatterns = mcfPatterns,
                         mcfDataPatterns = mcfDataPatterns
                     ).toList() as List<ExtractionGroup>
@@ -163,7 +163,7 @@ suspend fun runExtraction(
                     val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
                         ?.let { p ->
                             env.fs.read(p.toPath()) { readUtf8() }
-                                .let { MCTJson.decodeFromString<List<ExtractPattern>>(it) }
+                                .let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
                                 .compile()
                         } ?: MCFBuiltinPatterns
 

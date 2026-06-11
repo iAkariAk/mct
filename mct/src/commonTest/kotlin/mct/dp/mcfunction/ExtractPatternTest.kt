@@ -191,7 +191,7 @@ class ExtractPatternTest : FreeSpec({
 
         "ExtractPattern" - {
             "Greedy pattern with pre and post conditions" {
-                val pattern = ExtractPattern(
+                val pattern = CommandExtractPattern(
                     command = "say",
                     preCondition = PreCondition.Companion.Any,
                     selected = IndexSelector.Greedy(0),
@@ -207,7 +207,7 @@ class ExtractPatternTest : FreeSpec({
             }
 
             "NonGreedy Special + MatchRegex combination" {
-                val pattern = ExtractPattern(
+                val pattern = CommandExtractPattern(
                     command = "tellraw",
                     preCondition = PreCondition.Companion.WithSize(2),
                     selected = IndexSelector.NonGreedy(mapOf(2 to null)),

@@ -8,13 +8,13 @@ import org.intellij.lang.annotations.Language
 
 @BuilderMaker
 class CommandBuilderPreConditionScope(val command: String) {
-    internal val result = mutableSetOf<ExtractPattern>()
+    internal val result = mutableSetOf<CommandExtractPattern>()
 
     infix fun PreCondition.then(builder: CommandBuilderIndexSelectorScope.() -> Unit) {
         val scope = CommandBuilderIndexSelectorScope()
         scope.run(builder)
         scope.result.mapTo(result) { (selector, post) ->
-            ExtractPattern(command, this, selector, post)
+            CommandExtractPattern(command, this, selector, post)
         }
     }
 
@@ -85,7 +85,7 @@ class CommandBuilderPostConditionScope {
 
 @BuilderMaker
 class RootBuilderScope {
-    internal val patterns = mutableMapOf<String, List<ExtractPattern>>()
+    internal val patterns = mutableMapOf<String, List<CommandExtractPattern>>()
 
     fun command(
         command: String,
@@ -94,7 +94,7 @@ class RootBuilderScope {
         postCondition: PostCondition
     ) {
         val p = patterns(command)
-        p.add(ExtractPattern(command, preCondition, indexSelector, postCondition))
+        p.add(CommandExtractPattern(command, preCondition, indexSelector, postCondition))
     }
 
     fun command(
@@ -110,11 +110,11 @@ class RootBuilderScope {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private inline fun patterns(command: String): MutableList<ExtractPattern> =
-        patterns.getOrPut(command) { mutableListOf() } as MutableList<ExtractPattern>
+    private inline fun patterns(command: String): MutableList<CommandExtractPattern> =
+        patterns.getOrPut(command) { mutableListOf() } as MutableList<CommandExtractPattern>
 }
 
-fun PatternSet(builder: RootBuilderScope.() -> Unit): Map<String, List<ExtractPattern>> {
+fun PatternSet(builder: RootBuilderScope.() -> Unit): Map<String, List<CommandExtractPattern>> {
     val scope = RootBuilderScope()
     context(scope) {
         scope.builder()
