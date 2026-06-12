@@ -62,6 +62,9 @@ compose.desktop {
             proguard {
                 version.set("7.9.1")
                 configurationFiles.from(project.file("proguard-rules.pro"))
+                optimize = true
+                obfuscate = true
+                joinOutputJars = true
             }
         }
     }

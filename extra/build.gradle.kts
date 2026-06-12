@@ -3,7 +3,6 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinNativeBinaryContainer
-import org.jetbrains.kotlin.gradle.plugin.mpp.DisableCacheInKotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi
 
 plugins {
@@ -34,8 +33,6 @@ kotlin {
         executable {
             baseName = "mct"
             entryPoint = "mct.cli.main"
-
-            disableNativeCache(DisableCacheInKotlinVersion.`2_3_20`, "ld invocation reported errors")
         }
     }
     mingwX64 {

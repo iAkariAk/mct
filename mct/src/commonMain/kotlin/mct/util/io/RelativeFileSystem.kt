@@ -22,7 +22,7 @@ class RelativeFileSystem(
                 "", "." -> Unit
                 ".." -> {
                     if (parts.isNotEmpty()) {
-                        parts.removeLast()
+                        parts.removeAt(parts.lastIndex)
                     }
                 }
 

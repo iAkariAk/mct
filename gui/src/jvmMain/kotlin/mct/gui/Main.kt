@@ -182,8 +182,9 @@ fun App(
                     setupCompletion(translateState.model, GuiSettings.useStreamApi, GuiSettings.temperature)
                         .onLeft { logLines.add(LogEntry(LoggerLevel.Warning, "创建 API 连接失败: ${it.message}")) }
                 }
-            }.onFailure {
+            }.onFailure { e ->
                 translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
+                logLines.add(LogEntry(LoggerLevel.Error, "API 连接失败: ${e.message}"))
             }
         }
 
@@ -349,14 +350,16 @@ fun App(
                                         onSaveSettings = {
                                             logLines.add(
                                                 LogEntry(
-                                                    null, if (apiSetting.save(ApiSettings(
-                                                            translateState.apiUrl,
-                                                            translateState.model,
-                                                            translateState.apiToken,
-                                                            GuiSettings.useStreamApi,
-                                                            GuiSettings.tokenThreshold,
-                                                            GuiSettings.temperature,
-                                                        ))
+                                                    null, if (apiSetting.save(
+                                                            ApiSettings(
+                                                                translateState.apiUrl,
+                                                                translateState.model,
+                                                                translateState.apiToken,
+                                                                GuiSettings.useStreamApi,
+                                                                GuiSettings.tokenThreshold,
+                                                                GuiSettings.temperature,
+                                                            )
+                                                        )
                                                     ) "API 设置已保存到 ${apiSetting.path}" else "保存 API 设置失败"
                                                 )
                                             )
