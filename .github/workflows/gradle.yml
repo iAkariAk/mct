@@ -18,6 +18,12 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
 
+    - name: Cache Gradle wrapper (setup-gradle doesn't cache wrapper/dists)
+      uses: actions/cache@v4
+      with:
+        path: ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
@@ -65,15 +71,29 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
 
+    - name: Cache Gradle wrapper (setup-gradle doesn't cache wrapper/dists)
+      uses: actions/cache@v4
+      with:
+        path: ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
+
+    - name: Cache Kotlin Native compiler (~/.konan)
+      uses: actions/cache@v4
+      with:
+        path: ~/.konan
+        key: ${{ runner.os }}-konan-${{ hashFiles('**/build.gradle.kts', 'gradle/libs.versions.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-konan-
 
     - name: Link native binary
       run: |
         chmod +x ./gradlew
         ./gradlew cli:linkReleaseExecutable${{ matrix.target }}
 
-    - name: Package AppImage
+    - name: Package AppImage for GUI
       if: matrix.os == 'ubuntu-latest'
       run: ./gradlew gui:packageReleaseAppImage
 
@@ -83,7 +103,7 @@ jobs:
         name: mct-cli-${{ matrix.target }}
         path: cli/build/bin/${{ matrix.target }}/releaseExecutable/mct*
 
-    - name: Upload AppImage
+    - name: Upload GUI AppImage
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
