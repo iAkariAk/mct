@@ -1,4 +1,4 @@
-name: Build test
+name: Build
 
 on:
   push:
@@ -7,54 +7,85 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
-
+  jars:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up JDK 25
       uses: actions/setup-java@v4
       with:
         java-version: '25'
         distribution: 'temurin'
 
-    # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
-    # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
-    
-    - name: Assembly
-      run: chmod +x ./gradlew && ./gradlew jvmTest && ./gradlew cli:shadowJar && ./gradlew gui:shadowJar
-    
-    - name: Upload cli jar
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Build & test
+      run: |
+        chmod +x ./gradlew
+        ./gradlew jvmTest
+        ./gradlew cli:shadowJar
+        ./gradlew gui:shadowJar
+        ./gradlew gui:proguardReleaseJars
+
+    - name: Upload CLI JAR
       uses: actions/upload-artifact@v4
       with:
-       name: mct-cli.jar
-       path: cli/build/libs/cli-*-all.jar
-    - name: Upload gui jar
+        name: mct-cli
+        path: cli/build/libs/cli-*-all.jar
+
+    - name: Upload GUI shadow JAR
       uses: actions/upload-artifact@v4
       with:
-        name: mct-gui.jar
+        name: mct-gui-shadow
         path: gui/build/libs/gui-*-all.jar
 
-  dependency-submission:
+    - name: Upload GUI ProGuard JAR
+      uses: actions/upload-artifact@v4
+      with:
+        name: mct-gui
+        path: gui/build/compose/tmp/*/proguard/gui-jvm-*.jar
 
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+  native:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linuxX64
+          - os: windows-latest
+            target: mingwX64
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up JDK 25
       uses: actions/setup-java@v4
       with:
         java-version: '25'
         distribution: 'temurin'
 
-    # Generates and submits a dependency graph, enabling Dependabot Alerts for all project dependencies.
-    # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
-    - name: Generate and submit dependency graph
-      uses: gradle/actions/dependency-submission@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Link native binary
+      run: |
+        chmod +x ./gradlew
+        ./gradlew cli:linkReleaseExecutable${{ matrix.target }}
+
+    - name: Package AppImage
+      if: matrix.os == 'ubuntu-latest'
+      run: ./gradlew gui:packageReleaseAppImage
+
+    - name: Upload CLI native
+      uses: actions/upload-artifact@v4
+      with:
+        name: mct-cli-${{ matrix.target }}
+        path: cli/build/bin/${{ matrix.target }}/releaseExecutable/mct*
+
+    - name: Upload AppImage
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: mct-gui-${{ matrix.target }}
+        path: gui/build/compose/binaries/main-release/app/**/*

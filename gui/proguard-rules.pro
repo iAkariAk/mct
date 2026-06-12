@@ -24,9 +24,7 @@
 -keep class kotlinx.io.** { *; }
 -dontwarn kotlinx.io.**
 
-# ── kotlinx.coroutines (ProGuard optimization corrupts its bytecode) ─────────┐
-#     -keep without allowshrinking prevents removal, renaming, AND optimization  │
-#     of coroutine internals. The optimizer breaks invokespecial on interfaces.  │
+# ── kotlinx.coroutines (kept for safety) ─────────────────────────────────
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
 
