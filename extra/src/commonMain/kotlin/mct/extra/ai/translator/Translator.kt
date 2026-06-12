@@ -24,6 +24,7 @@ import mct.text.encodeToIR
 import mct.text.replaceText
 import mct.util.formatir.IRList
 import mct.util.formatir.toIR
+import mct.util.formatir.toJson
 import mct.util.formatir.toNbt
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtList
@@ -293,7 +294,7 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
     var isList = false
     val compound = Option.catch {
         when (kind) {
-            FormatKind.Str -> MCTJson.decodeFromString<JsonElement>(raw).let {
+            FormatKind.JsonStr -> MCTJson.decodeFromString<JsonElement>(raw).let {
                 if (it is JsonArray) {
                     it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
                 } else it
@@ -304,7 +305,9 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
                     it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
                 } else it
             }.toIR()
-        }.decodeToCompound()
+
+            FormatKind.PlainStr -> null
+        }?.decodeToCompound()
     }.getOrNull() ?: return CompoundStrip.Failure(raw)
 
     val strip = (if (compound.extra.isEmpty()) {
@@ -325,12 +328,15 @@ internal fun List<CompoundStrip>.destrip(response: List<String?>): List<String> 
             when (cs) {
                 is CompoundStrip.Success -> {
                     when (cs.sourceFormat) {
-                        FormatKind.Str -> s
-                        FormatKind.Nbt -> {
+                        FormatKind.PlainStr -> s
+                        else -> {
                             val ir = cs.source.replaceText(s).encodeToIR().let { e ->
                                 if (cs.isSingleList) IRList(e) else e
                             }
-                            ir.toNbt().toSnbt(false)
+                            when (cs.sourceFormat) {
+                                FormatKind.JsonStr -> MCTJson.encodeToString(ir.toJson())
+                                FormatKind.Nbt -> ir.toNbt().toSnbt(false)
+                            }
                         }
                     }
                 }
@@ -400,7 +406,7 @@ suspend fun Translator.translate(
     }
     val extractions = groups.flatMap { it.extractions }.groupBy {
         when (it) {
-            is DatapackExtraction -> FormatKind.Str
+            is DatapackExtraction -> FormatKind.JsonStr
             is RegionExtraction -> it.kind
         }
     }

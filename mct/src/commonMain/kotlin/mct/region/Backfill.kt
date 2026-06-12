@@ -10,6 +10,7 @@ import kotlinx.serialization.decodeFromString
 import mct.FormatKind
 import mct.MCTWorkspace
 import mct.RegionReplacementGroup
+import mct.isString
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
@@ -106,7 +107,7 @@ private fun NbtTag.transform(
     }
 
     is NbtString -> {
-        val pointer = pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.Str } ?: return this
+        val pointer = pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() } ?: return this
         pointer as DataPointerReplacementGroup.Terminator
 
         NbtString(pointer.replacement)

@@ -103,7 +103,7 @@ fun MCTWorkspace.extractFromRegion(
 internal data class PointerWithExtension(
     val pointer: DataPointer,
     val content: String,
-    val kind: FormatKind = FormatKind.Str,
+    val kind: FormatKind,
     val type: Type = Type.Text,
 ) {
     enum class Type {
@@ -137,7 +137,7 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
                     val pwe = PointerWithExtension(
                         DataPointer.Terminator,
                         value.value,
-                        FormatKind.Str,
+                        FormatKind.PlainStr,
                         PointerWithExtension.Type.Command
                     )
                     return@flatMap sequenceOf(pwe)
@@ -150,7 +150,7 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
     }
 
     is NbtString -> {
-        sequenceOf(PointerWithExtension(DataPointer.Terminator, value))
+        sequenceOf(PointerWithExtension(DataPointer.Terminator, value, FormatKind.PlainStr))
     }
 
     else -> emptySequence()
@@ -163,7 +163,7 @@ internal data class PointerWithExtensionForSnbt(
     val pointer: DataPointer,
     override val indices: IntRange,
     override val content: String,
-    val kind: FormatKind = FormatKind.Str,
+    val kind: FormatKind = FormatKind.JsonStr,
 ) : StringIndices
 
 @JvmName($$"filterPointer$snbt")

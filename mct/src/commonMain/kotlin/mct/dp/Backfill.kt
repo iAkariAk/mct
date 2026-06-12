@@ -75,7 +75,7 @@ internal fun String.backfill(replacements: List<DatapackReplacement.MCJson>): St
     val standardizedJson = standardizeMCJson(this)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standardizedJson)
     val pointerDatapackReplacementGroups =
-        replacements.map { DataPointerWithValue(it.pointer, it.replacement, FormatKind.Str) }.toReplacementGroups()
+        replacements.map { DataPointerWithValue(it.pointer, it.replacement, FormatKind.JsonStr) }.toReplacementGroups()
     val backfilledJsonElement = jsonElement.transform(pointerDatapackReplacementGroups)
     return MCJson.encodeToString(backfilledJsonElement)
 }
