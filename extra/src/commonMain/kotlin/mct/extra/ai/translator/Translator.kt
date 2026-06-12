@@ -24,7 +24,6 @@ import mct.text.encodeToIR
 import mct.text.replaceText
 import mct.util.formatir.IRList
 import mct.util.formatir.toIR
-import mct.util.formatir.toJson
 import mct.util.formatir.toNbt
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtList
@@ -325,12 +324,14 @@ internal fun List<CompoundStrip>.destrip(response: List<String?>): List<String> 
         s?.let {
             when (cs) {
                 is CompoundStrip.Success -> {
-                    val ir = cs.source.replaceText(s).encodeToIR().let { e ->
-                        if (cs.isSingleList) IRList(e) else e
-                    }
                     when (cs.sourceFormat) {
-                        FormatKind.Str -> MCTJson.encodeToString<JsonElement>(ir.toJson())
-                        FormatKind.Nbt -> ir.toNbt().toSnbt(false)
+                        FormatKind.Str -> s
+                        FormatKind.Nbt -> {
+                            val ir = cs.source.replaceText(s).encodeToIR().let { e ->
+                                if (cs.isSingleList) IRList(e) else e
+                            }
+                            ir.toNbt().toSnbt(false)
+                        }
                     }
                 }
 
