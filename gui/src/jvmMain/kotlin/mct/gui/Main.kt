@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -84,6 +85,7 @@ fun main() = application {
 fun App(
     modifier: Modifier = Modifier,
 ) {
+    val uriHandler = LocalUriHandler.current
     val clientManager = koinInject<ClientManager>()
     var selectedTab by remember { mutableStateOf(Tab.Extract) }
     val logLines = remember { mutableStateListOf(LogEntry(null, "就绪。")) }
@@ -220,12 +222,16 @@ fun App(
                 NavigationRail(
                     header = {
                         Spacer(Modifier.height(8.dp))
-                        Icon(
-                            Icons.Outlined.Translate,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        IconButton(onClick = {
+                            uriHandler.openUri("https://github.com/iAkariAk/mct")
+                        }) {
+                            Icon(
+                                Icons.Outlined.Translate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                     },
                     modifier = Modifier.padding(end = 4.dp),
