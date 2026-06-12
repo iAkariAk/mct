@@ -39,12 +39,16 @@ internal fun extractTextMCF(
     val mcfunctions = parseMCFunction(mcf)
     logger.debug { "Parsed ${mcfunctions.size} commands in $path" }
     val extractedArgs = mcfunctions.asSequence().flatMap { command ->
-        either {
+        val selector = extractFromTargetSelector(command.args)
+
+        val command = either {
             extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
         }.getOrElse {
             logger.error { "Skip $command due to ${it.message}" }
             emptyList()
         }
+
+        selector + command
     }
     val extractions = extractedArgs.map { extracted ->
         DatapackExtraction.MCFunction(
@@ -59,6 +63,24 @@ internal fun extractTextMCF(
         extractions = extractions
     )
 }
+
+// https://minecraft.wiki/w/Target_selectors
+private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
+private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)""")
+private fun extractFromTargetSelector(args: List<MCCommand.Arg>): List<StringIndices> = args.asSequence()
+    .filter { SELECTOR_REGEX.matches(it.content) }
+    .mapNotNull { arg ->
+        SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
+            val negative = result.value.startsWith("name=!")
+            val value = if (negative) result.value.removePrefix("name=!") else result.value.removePrefix("name=")
+            StringIndices(
+                (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)
+                        ..(arg.indices.last + result.range.last),
+                value
+            )
+        }
+    }
+    .toList()
 
 
 context(_: Raise<IndexSelectError>)
