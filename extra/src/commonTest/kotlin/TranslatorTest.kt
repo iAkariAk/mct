@@ -12,7 +12,7 @@ import mct.extra.ai.translator.*
 import mct.util.envvar
 import mct.util.unreachable
 
-class OpenAITranslatorTest : FreeSpec({
+class TranslatorTest : FreeSpec({
     val apiUrl = envvar("OPENAI_URL")
     val token = envvar("OPENAI_TOKEN")
     val model = envvar("OPENAI_MODEL")
@@ -23,7 +23,7 @@ class OpenAITranslatorTest : FreeSpec({
                 token = token!!,
                 model = model!!,
             )
-            OpenAITranslator(call)
+            Translator(call)
         }
 
         "parse test" {
@@ -80,7 +80,8 @@ class OpenAITranslatorTest : FreeSpec({
                 override suspend fun <T> chat(
                     prompt: String,
                     message: String,
-                    parseLLM: suspend (String) -> T
+                    parseLLM: suspend (String) -> T,
+                    validate: (T) -> Boolean,
                 ): T = unreachable
 
             }
@@ -95,9 +96,9 @@ class OpenAITranslatorTest : FreeSpec({
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = OpenAITranslator(
+                val translator = Translator(
                     call = mockCall,
-                    chatCompletion = mockChat,
+                    requestTranslation = mockChat,
                     defaultTerms = emptySet(),
                 )
 
@@ -116,9 +117,9 @@ class OpenAITranslatorTest : FreeSpec({
 
                 val existingTerms = setOf(Term("Kaguya", "辉夜姬", TermType.Name))
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = OpenAITranslator(
+                val translator = Translator(
                     call = mockCall,
-                    chatCompletion = mockChat,
+                    requestTranslation = mockChat,
                     defaultTerms = existingTerms,
                 )
 
@@ -137,9 +138,9 @@ class OpenAITranslatorTest : FreeSpec({
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = OpenAITranslator(
+                val translator = Translator(
                     call = mockCall,
-                    chatCompletion = mockChat,
+                    requestTranslation = mockChat,
                     defaultTerms = emptySet(),
                 )
 
@@ -158,9 +159,9 @@ class OpenAITranslatorTest : FreeSpec({
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = OpenAITranslator(
+                val translator = Translator(
                     call = mockCall,
-                    chatCompletion = mockChat,
+                    requestTranslation = mockChat,
                     defaultTerms = emptySet(),
                 )
 
@@ -173,25 +174,26 @@ class OpenAITranslatorTest : FreeSpec({
                 var callIndex = 0
                 val callChunkSizes = mutableListOf<Int>()
 
-                val mockChat: suspend (Int, String) -> Pair<TermTable, List<String?>> = { expectedSize, _ ->
-                    val idx = callIndex++
-                    callChunkSizes += expectedSize
-                    val content = buildString {
-                        appendLine("-- MCT-CLI:TRANSLATED --")
-                        (0 until expectedSize).joinTo(this, "\n") { i -> "[$i] chunk${idx}_line${i}" }
-                        appendLine()
-                        appendLine("-- MCT-CLI:TERMS --")
-                        appendLine("[]")
-                        append("-- MCT-CLI:END --")
+                val mockChat: suspend (Int, String, (Pair<TermTable, List<String?>>) -> Boolean) -> Pair<TermTable, List<String?>> =
+                    { expectedSize, _, _ ->
+                        val idx = callIndex++
+                        callChunkSizes += expectedSize
+                        val content = buildString {
+                            appendLine("-- MCT-CLI:TRANSLATED --")
+                            (0 until expectedSize).joinTo(this, "\n") { i -> "[$i] chunk${idx}_line${i}" }
+                            appendLine()
+                            appendLine("-- MCT-CLI:TERMS --")
+                            appendLine("[]")
+                            append("-- MCT-CLI:END --")
+                        }
+                        parseLLMResponse(content, expectedSize)
                     }
-                    parseLLMResponse(content, expectedSize)
-                }
 
                 val sources = (0 until 10).flatMap { TEST_TEXT.lines() }
 
-                val translator = OpenAITranslator(
+                val translator = Translator(
                     call = mockCall,
-                    chatCompletion = mockChat,
+                    requestTranslation = mockChat,
                     defaultTerms = emptySet(),
                 )
 
@@ -211,6 +213,6 @@ class OpenAITranslatorTest : FreeSpec({
  * Creates a mock chatCompletion function that returns a pre-configured response.
  * The mock ignores the input message and returns parsed mock data for any expected line count.
  */
-fun mockChatCompletion(content: String): suspend (Int, String) -> Pair<TermTable, List<String?>> =
-    { expectedSize, _ -> parseLLMResponse(content, expectedSize) }
+fun mockChatCompletion(content: String): suspend (Int, String, (Pair<TermTable, List<String?>>) -> Boolean) -> Pair<TermTable, List<String?>> =
+    { expectedSize, _, _ -> parseLLMResponse(content, expectedSize) }
 

@@ -15,8 +15,8 @@ import mct.dp.mcfunction.CommandExtractPattern
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
-import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
+import mct.extra.ai.translator.Translator
 import mct.extra.ai.translator.translate
 import mct.gui.util.setting
 import mct.kit.replace
@@ -240,7 +240,7 @@ suspend fun runTranslation(
         return
     }
 
-    val translator = OpenAITranslator(
+    val translator = Translator(
         call = call,
         defaultTerms = existingTerms,
         customizedPrompts = CustomizedPrompts(

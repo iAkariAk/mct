@@ -19,8 +19,8 @@ import mct.cli.path
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
-import mct.extra.ai.translator.OpenAITranslator
 import mct.extra.ai.translator.TermTable
+import mct.extra.ai.translator.Translator
 import mct.extra.ai.translator.translate
 import mct.kit.*
 import mct.util.io.writeJson
@@ -206,7 +206,7 @@ private class AITranslate : BaseCommand(
                 useStreamApi = useStreamApi,
                 temperature = temperature,
             )
-            OpenAITranslator(
+            Translator(
                 call = call,
                 customizedPrompts = CustomizedPrompts(
                     literatureStyle = literatureStyle,

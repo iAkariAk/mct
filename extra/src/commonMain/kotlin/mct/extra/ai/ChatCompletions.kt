@@ -82,6 +82,7 @@ interface ChatCompletionCall : EnvHolder {
         prompt: String,
         message: String,
         parseLLM: suspend (String) -> T,
+        validate: (T) -> Boolean = { true },
     ): T
 }
 
@@ -159,6 +160,7 @@ class ChatCompletionCallImpl internal constructor(
         prompt: String,
         message: String,
         parseLLM: suspend (String) -> T,
+        validate: (T) -> Boolean,
     ): T {
         val request = ChatCompletionRequest(
             model = ModelId(model),
@@ -171,7 +173,7 @@ class ChatCompletionCallImpl internal constructor(
             streamOptions = if (useStreamApi) StreamOptions(true) else null
         )
         var llmRetry = 0
-        while (llmRetry < maxRetry) {
+        loop@ while (llmRetry < maxRetry) {
             val llmResult = runCatching {
                 val callId = Clock.System.now().nanosecondsOfSecond
                 if (useStreamApi) client.chatCompletions(request)
@@ -195,7 +197,14 @@ class ChatCompletionCallImpl internal constructor(
                     continue
                 } else throw e
             }
-            return runCatching { parseLLM(llmResult) }.getOrElse { e ->
+            return runCatching {
+                val result = parseLLM(llmResult)
+                if (validate(result)) result else {
+                    llmRetry++
+                    env.logger.error { "LLM response is illegal (${llmRetry}/$MAX_RETRY). Retrying..." }
+                    continue@loop
+                }
+            }.getOrElse { e ->
                 llmRetry++
                 env.logger.error { "LLM response parse failed (${llmRetry}/$MAX_RETRY): ${e.message}. Retrying..." }
                 continue

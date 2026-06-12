@@ -2,11 +2,14 @@ package mct
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import mct.pointer.DataPointer
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.IntRangeSerializable
+import mct.serializer.Snbt
 import mct.util.StringIndices
+import net.benwoodworth.knbt.NbtTag
 
 @Serializable
 sealed interface ExtractionGroup {
@@ -36,6 +39,11 @@ enum class FormatKind {
 
     @SerialName("nbt")
     Nbt // save via snbt
+}
+
+fun FormatKind.validate(value: String): Boolean = when (this) {
+    FormatKind.Nbt -> runCatching { Snbt.decodeFromString<NbtTag>(value) }.isSuccess
+    FormatKind.Str -> true
 }
 
 /**
