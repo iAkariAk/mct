@@ -12,17 +12,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up JDK 25
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '25'
+        java-version: '21'
         distribution: 'temurin'
-
-    - name: Cache Gradle wrapper (setup-gradle doesn't cache wrapper/dists)
-      uses: actions/cache@v4
-      with:
-        path: ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
@@ -33,7 +27,6 @@ jobs:
         ./gradlew jvmTest
         ./gradlew cli:shadowJar
         ./gradlew gui:shadowJar
-        ./gradlew gui:proguardReleaseJars
 
     - name: Upload CLI JAR
       uses: actions/upload-artifact@v4
@@ -41,17 +34,11 @@ jobs:
         name: mct-cli
         path: cli/build/libs/cli-*-all.jar
 
-    - name: Upload GUI shadow JAR
+    - name: Upload GUI JAR
       uses: actions/upload-artifact@v4
       with:
         name: mct-gui-shadow
         path: gui/build/libs/gui-*-all.jar
-
-    - name: Upload GUI ProGuard JAR
-      uses: actions/upload-artifact@v4
-      with:
-        name: mct-gui
-        path: gui/build/compose/tmp/*/proguard/gui-jvm-*.jar
 
   native:
     strategy:
@@ -65,26 +52,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up JDK 25
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '25'
+        java-version: '21'
         distribution: 'temurin'
-
-    - name: Cache Gradle wrapper (setup-gradle doesn't cache wrapper/dists)
-      uses: actions/cache@v4
-      with:
-        path: ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Cache Kotlin Native compiler (~/.konan)
+    - name: Cache Kotlin Native compiler + deps (~/.konan)
       uses: actions/cache@v4
       with:
         path: ~/.konan
-        key: ${{ runner.os }}-konan-${{ hashFiles('**/build.gradle.kts', 'gradle/libs.versions.toml') }}
+        key: ${{ runner.os }}-konan-2.4.0
         restore-keys: |
           ${{ runner.os }}-konan-
 
