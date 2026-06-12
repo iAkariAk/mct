@@ -10,35 +10,35 @@ jobs:
   jars:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-    - name: Build & test
-      run: |
-        chmod +x ./gradlew
-        ./gradlew jvmTest
-        ./gradlew cli:shadowJar
-        ./gradlew gui:shadowJar
+      - name: Build & test
+        run: |
+          chmod +x ./gradlew
+          ./gradlew jvmTest
+          ./gradlew cli:shadowJar
+          ./gradlew gui:shadowJar
 
-    - name: Upload CLI JAR
-      uses: actions/upload-artifact@v4
-      with:
-        name: mct-cli
-        path: cli/build/libs/cli-*-all.jar
+      - name: Upload CLI JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-cli
+          path: cli/build/libs/cli-*-all.jar
 
-    - name: Upload GUI JAR
-      uses: actions/upload-artifact@v4
-      with:
-        name: mct-gui-shadow
-        path: gui/build/libs/gui-*-all.jar
+      - name: Upload GUI JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-gui-shadow
+          path: gui/build/libs/gui-*-all.jar
 
   native:
     strategy:
@@ -50,43 +50,65 @@ jobs:
             target: mingwX64
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-    - name: Cache Kotlin Native compiler + deps (~/.konan)
-      uses: actions/cache@v4
-      with:
-        path: ~/.konan
-        key: ${{ runner.os }}-konan-2.4.0
-        restore-keys: |
-          ${{ runner.os }}-konan-
+      - name: Cache Kotlin Native compiler + deps (~/.konan)
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-2.4.0
+          restore-keys: |
+            ${{ runner.os }}-konan-
 
-    - name: Link native binary
-      run: |
-        chmod +x ./gradlew
-        ./gradlew cli:linkReleaseExecutable${{ matrix.target }}
+      - name: Link native binary
+        run: |
+          chmod +x ./gradlew
+          ./gradlew cli:linkReleaseExecutable${{ matrix.target }}
 
-    - name: Package AppImage for GUI
-      if: matrix.os == 'ubuntu-latest'
-      run: ./gradlew gui:packageReleaseAppImage
+      - name: Package GUI for Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          ./gradlew gui:packageReleaseAppImage
+          ./gradlew gui:packageReleaseDeb
 
-    - name: Upload CLI native
-      uses: actions/upload-artifact@v4
-      with:
-        name: mct-cli-${{ matrix.target }}
-        path: cli/build/bin/${{ matrix.target }}/releaseExecutable/mct*
+      - name: Upload CLI native
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-cli-${{ matrix.target }}
+          path: cli/build/bin/${{ matrix.target }}/releaseExecutable/mct*
 
-    - name: Upload GUI AppImage
-      if: matrix.os == 'ubuntu-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: mct-gui-${{ matrix.target }}
-        path: gui/build/compose/binaries/main-release/app/**/*
+      - name: Upload GUI for Linux
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-gui-${{ matrix.target }}-deb
+          path: gui/build/compose/binaries/main-release/deb/*.deb
+
+      - name: Package GUI for Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          ./gradlew gui:packageReleaseAppImage
+          ./gradlew gui:packageReleaseMsi
+
+      - name: Upload GUI for Windows
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-gui-${{ matrix.target }}-msi
+          path: gui/build/compose/binaries/main-release/msi/*.msi
+
+      - name: Upload GUI AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-gui-${{ matrix.target }}
+          path: gui/build/compose/binaries/main-release/app/**/*
+
