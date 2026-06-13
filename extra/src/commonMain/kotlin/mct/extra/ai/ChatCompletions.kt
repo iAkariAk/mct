@@ -44,7 +44,7 @@ sealed interface ChatCompletionCallError : MCTError {
 }
 
 context(env: Env)
-fun createOpenAIClient(apiUrl: String?, token: String): OpenAI {
+fun createOpenAIClient(apiUrl: String?, token: String, logLevel: LogLevel = LogLevel.None): OpenAI {
     val host = apiUrl?.let {
         val url = StringBuilder(apiUrl)
         if (!url.endsWith("/")) url.append("/")
@@ -55,7 +55,7 @@ fun createOpenAIClient(apiUrl: String?, token: String): OpenAI {
         token,
         host = host,
         logging = LoggingConfig(
-            logLevel = LogLevel.None,
+            logLevel = logLevel,
         ),
         httpClientConfig = {
             engine {
@@ -105,8 +105,9 @@ suspend fun ChatCompletionCall(
     maxRetry: Int = MAX_RETRY,
     strict: Boolean = false, // if validate model exists
     temperature: Double? = null,
+    logLevel: LogLevel = LogLevel.None
 ): ChatCompletionCall {
-    val client = createOpenAIClient(apiUrl, token)
+    val client = createOpenAIClient(apiUrl, token, logLevel)
     return ChatCompletionCall(
         client = client,
         model = model,

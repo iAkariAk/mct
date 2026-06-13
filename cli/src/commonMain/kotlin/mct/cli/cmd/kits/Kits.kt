@@ -1,6 +1,7 @@
 package mct.cli.cmd.kits
 
 import arrow.core.raise.Raise
+import com.aallam.openai.api.logging.LogLevel
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.subcommands
@@ -144,9 +145,14 @@ private class AITranslate : BaseCommand(
     help = "Translate via OpenAI api"
 ) {
     val input by option("--input", "-i", help = "The extraction JSON file to translate").path().required()
-    val caches by option("--cache-mapping", "-cm", help = "The cache mapping file exported by the follow `--mapping`. By default").path()
+    val caches by option(
+        "--cache-mapping",
+        "-cm",
+        help = "The cache mapping file exported by the follow `--mapping`. By default"
+    ).path()
     val output by option("--output", "-o", help = "The output path for the replacements JSON").path().required()
-    val mappingOutput by option("--output-mapping", "-om", help = "The output path for the mapping JSON").path().required()
+    val mappingOutput by option("--output-mapping", "-om", help = "The output path for the mapping JSON").path()
+        .required()
     val termOutput by option("--output-term", "-ot", help = "The output path for the term table JSON").path().required()
     val term by option("--term", help = "Path to an existing term table JSON file").path()
     val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
@@ -190,6 +196,8 @@ private class AITranslate : BaseCommand(
         help = "Enable aggressive gradient text handling"
     ).flag()
 
+    val enableHttpLogging by option("--http-logging", envvar = "Enable all HTTP logging").flag()
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading extractions from $input" }
@@ -205,6 +213,7 @@ private class AITranslate : BaseCommand(
                 model = model,
                 useStreamApi = useStreamApi,
                 temperature = temperature,
+                logLevel = if (enableHttpLogging) LogLevel.All else LogLevel.None,
             )
             Translator(
                 call = call,

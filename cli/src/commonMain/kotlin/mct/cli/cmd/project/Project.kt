@@ -1,6 +1,7 @@
 package mct.cli.cmd.project
 
 import arrow.core.raise.Raise
+import com.aallam.openai.api.logging.LogLevel
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.PrintMessage
@@ -231,7 +232,8 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 model = ai.model,
                 useStreamApi = ai.useStreamApi,
                 temperature = ai.temperature,
-            )
+                logLevel = if (ai.enableHttpLogging) LogLevel.All else LogLevel.None,
+                )
             Translator(
                 call = call,
                 customizedPrompts = CustomizedPrompts(

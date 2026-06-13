@@ -90,6 +90,10 @@ data class AIConfig(
     @TomlComments("Enable aggressive gradient text handling (default: true)")
     @SerialName("handle_gradient")
     val handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
+
+    @TomlComments("Enable http logging for debug (default: true)")
+    @SerialName("http_logging")
+    val enableHttpLogging: Boolean = false,
 ) {
     companion object {
         val Default = AIConfig()
