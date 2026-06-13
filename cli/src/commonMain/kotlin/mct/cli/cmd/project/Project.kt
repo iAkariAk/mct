@@ -46,6 +46,11 @@ import mct.util.io.writeJson
 import okio.Path
 import okio.Path.Companion.toPath
 
+private const val REGION_CACHE = "region_extractions.json"
+private const val DATAPACK_CACHE = "datapack_extractions.json"
+private const val POOL = "pool.json"
+private const val REGION_REPLACEMENTS = "region_replacements.json"
+private const val DATAPACK_REPLACEMENTS = "datapack_replacements.json"
 
 class Project : SuspendingCliktCommand(name = "project") {
     init {
@@ -82,7 +87,7 @@ private class Init : BaseCommand(name = "init") {
         try {
             context(fs) { mapDir.copyToRecursively(srcTarget) }
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error { "Failed to copy world: ${e.message ?: "unknown error"}" }
             throw PrintMessage("Failed to copy world: ${e.message ?: "unknown error"}")
         }
         val config = ProjectConfig(
@@ -112,56 +117,39 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
         return MCTWorkspace(dir, env)
     }
 
-    fun cache(path: String) = projectDir / "cache" / path
+    fun cache(path: String): Path {
+        ensureCache()
+        return projectDir / "cache" / path
+    }
     fun ensureCache() = fs.createDirectories(projectDir / "cache")
 }
 
 private class Update : ProjectCommand("update", "Update extraction pool") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
+        fun requirePath(path: String, label: String): Path {
+            val p = path.toPath()
+            if (!fs.exists(p)) throw PrintMessage("$label pattern file not found: $path")
+            return p
+        }
+
         val regionPatterns = projectConfig.patterns.regions.flatMap {
-            val p = it.toPath()
-            if (!fs.exists(p)) throw PrintMessage("Region pattern file not found: $it")
-            p.readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "Region").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinRegionPatterns }
 
         val mcfPatterns = projectConfig.patterns.mcfunction.map {
-            val p = it.toPath()
-            if (!fs.exists(p)) throw PrintMessage("Mcfunction pattern file not found: $it")
-            p.readJson<CommandExtractPattern>()
+            requirePath(it, "Mcfunction").readJson<CommandExtractPattern>()
         }.let { if (it.isEmpty()) BuiltinMCFPatterns else it.compile() }
 
         val mcfDataPatterns = projectConfig.patterns.mcfunctionData.flatMap {
-            val p = it.toPath()
-            if (!fs.exists(p)) throw PrintMessage("Mcfunction data pattern file not found: $it")
-            p.readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "Mcfunction data").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCFunctionDataPatterns }
 
         val mcjPatterns = projectConfig.patterns.mcjson.flatMap {
-            val p = it.toPath()
-            if (!fs.exists(p)) throw PrintMessage("Mcjson pattern file not found: $it")
-            p.readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "Mcjson").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCJPatterns }
 
-        ensureCache()
-
         val w = workspace()
-        val regionJob = async(Dispatchers.IO) {
-            val groups = w.extractFromRegion(
-                regionPatterns, mcfPatterns, mcfDataPatterns
-            ).toList()
-            cache("region_extractions.json").writeJson(groups, projectConfig.prettyJson)
-            logger.info { "Extracted ${groups.size} groups from region" }
-            groups
-        }
-        val datapackJob = async(Dispatchers.IO) {
-            val groups = w.extractFromDatapackRaw(
-                mcfPatterns, mcfDataPatterns, mcjPatterns
-            ).toList()
-            cache("datapack_extractions.json").writeJson(groups, projectConfig.prettyJson)
-            logger.info { "Extracted ${groups.size} groups from datapack" }
-            groups
-        }
 
         val mappingFile = projectDir / projectConfig.mappings
         val existingMapping = if (fs.exists(mappingFile)) {
@@ -170,13 +158,31 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             emptyMap()
         }
 
-        val pool = (regionJob.await() + datapackJob.await()).exportIntoPool(false)
+        val pool = coroutineScope {
+            val regionJob = async(Dispatchers.IO) {
+                val groups = w.extractFromRegion(
+                    regionPatterns, mcfPatterns, mcfDataPatterns
+                ).toList()
+                cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                logger.info { "Extracted ${groups.size} groups from region" }
+                groups
+            }
+            val datapackJob = async(Dispatchers.IO) {
+                val groups = w.extractFromDatapackRaw(
+                    mcfPatterns, mcfDataPatterns, mcjPatterns
+                ).toList()
+                cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                logger.info { "Extracted ${groups.size} groups from datapack" }
+                groups
+            }
+            (regionJob.await() + datapackJob.await()).exportIntoPool(simply = false)
+        }
         val missingPool = pool.filter { it !in existingMapping }
         if (missingPool.isNotEmpty()) {
-            env.logger.info { "Missing ${missingPool.size} items (${pool.size} total extracted)" }
-            (projectDir / "pool.json").writeJson(missingPool, projectConfig.prettyJson)
+            logger.info { "Missing ${missingPool.size} items (${pool.size} total extracted)" }
+            (projectDir / POOL).writeJson(missingPool, projectConfig.prettyJson)
         } else {
-            env.logger.info { "No new items found (${pool.size} total extracted, all mapped)" }
+            logger.info { "No new items found (${pool.size} total extracted, all mapped)" }
         }
     }
 }
@@ -184,8 +190,8 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 private class Translate : ProjectCommand("translate", "Translate extractions via AI") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val regionFile = cache("region_extractions.json")
-        val datapackFile = cache("datapack_extractions.json")
+        val regionFile = cache(REGION_CACHE)
+        val datapackFile = cache(DATAPACK_CACHE)
 
         if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
             throw PrintMessage("No extractions found in cache. Run 'project update' first.")
@@ -193,11 +199,11 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 
         val extractionGroups = mutableListOf<ExtractionGroup>()
         if (fs.exists(regionFile)) {
-            extractionGroups += regionFile.readJson<List<RegionExtractionGroup>>()
+            extractionGroups += regionFile.readJson<List<ExtractionGroup>>()
             logger.info { "Loaded region extractions" }
         }
         if (fs.exists(datapackFile)) {
-            extractionGroups += datapackFile.readJson<List<DatapackExtractionGroup>>()
+            extractionGroups += datapackFile.readJson<List<ExtractionGroup>>()
             logger.info { "Loaded datapack extractions" }
         }
 
@@ -223,8 +229,8 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         logger.info { "Loaded ${existingTerms.size} existing terms" }
 
         val ai = projectConfig.ai
-        if (!ai.token.startsWith("sk-")) {
-            throw PrintMessage("AI token not configured correctly. Set [ai.token] in mct.toml")
+        if (ai.token.isBlank() || ai.token == AIConfig.Default.token) {
+            throw PrintMessage("AI token not configured. Set [ai.token] in mct.toml")
         }
 
         val translator = context(env) {
@@ -261,7 +267,6 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         val totalMapping = existingMapping + mapping
         logger.info { "Translated ${mapping.size} new items (${totalMapping.size} total)" }
 
-        ensureCache()
         mappingFile.writeJson(totalMapping, projectConfig.prettyJson)
         logger.info { "Mapping saved to $mappingFile" }
 
@@ -270,7 +275,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             logger.info { "${translator.terms.size} terms saved to $termFile" }
         }
 
-        logger.info { "Translation complete and consume $consumedTokenCount tokens." }
+        logger.info { "Translation complete, consumed $consumedTokenCount tokens." }
     }
 }
 
@@ -278,8 +283,8 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 private class Build : ProjectCommand("build", "Build translated world") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val regionFile = cache("region_extractions.json")
-        val datapackFile = cache("datapack_extractions.json")
+        val regionFile = cache(REGION_CACHE)
+        val datapackFile = cache(DATAPACK_CACHE)
 
         if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
             throw PrintMessage("No extractions found in cache. Run 'project update' first.")
@@ -292,15 +297,13 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val mapping = mappingFile.readJson<TranslationMapping>()
         logger.info { "Loaded mapping with ${mapping.size} entries" }
 
-        ensureCache()
-
         val regionGroups = if (fs.exists(regionFile)) {
-            regionFile.readJson<List<RegionExtractionGroup>>()
+            regionFile.readJson<List<ExtractionGroup>>()
         } else {
             emptyList()
         }
         val datapackGroups = if (fs.exists(datapackFile)) {
-            datapackFile.readJson<List<DatapackExtractionGroup>>()
+            datapackFile.readJson<List<ExtractionGroup>>()
         } else {
             emptyList()
         }
@@ -311,7 +314,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val regionReplacements = if (regionGroups.isNotEmpty()) {
             @Suppress("UNCHECKED_CAST")
             (regionGroups.replace(mapping) as List<RegionReplacementGroup>).also {
-                cache("region_replacements.json").writeJson(it, projectConfig.prettyJson)
+                cache(REGION_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
                 logger.info { "Generated ${it.size} region replacement groups" }
             }
         } else {
@@ -321,7 +324,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val datapackReplacements = if (datapackGroups.isNotEmpty()) {
             @Suppress("UNCHECKED_CAST")
             (datapackGroups.replace(mapping) as List<DatapackReplacementGroup>).also {
-                cache("datapack_replacements.json").writeJson(it, projectConfig.prettyJson)
+                cache(DATAPACK_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
                 logger.info { "Generated ${it.size} datapack replacement groups" }
             }
         } else {
@@ -336,28 +339,48 @@ private class Build : ProjectCommand("build", "Build translated world") {
         if (fs.exists(targetDir)) {
             fs.deleteRecursively(targetDir)
         }
-        context(fs) { srcDir.copyToRecursively(targetDir) }
+        try {
+            context(fs) { srcDir.copyToRecursively(targetDir) }
+        } catch (e: Exception) {
+            logger.error { "Failed to copy world: ${e.message ?: "unknown error"}" }
+            throw PrintMessage("Failed to copy world: ${e.message ?: "unknown error"}")
+        }
         logger.info { "World copied." }
 
         val buildWorkspace = workspace(targetDir)
 
+        var hasBackfillErrors = false
         coroutineScope {
             if (regionReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
-                    logger.info { "Backfilling ${regionReplacements.size} region groups..." }
-                    buildWorkspace.backfillRegion(regionReplacements)
-                    logger.info { "Region backfill complete." }
+                    try {
+                        logger.info { "Backfilling ${regionReplacements.size} region groups..." }
+                        buildWorkspace.backfillRegion(regionReplacements)
+                        logger.info { "Region backfill complete." }
+                    } catch (e: Exception) {
+                        logger.error { "Region backfill failed: ${e.message}" }
+                        hasBackfillErrors = true
+                    }
                 }
             }
             if (datapackReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
-                    logger.info { "Backfilling ${datapackReplacements.size} datapack groups..." }
-                    buildWorkspace.backfillDatapack(datapackReplacements)
-                    logger.info { "Datapack backfill complete." }
+                    try {
+                        logger.info { "Backfilling ${datapackReplacements.size} datapack groups..." }
+                        buildWorkspace.backfillDatapack(datapackReplacements)
+                        logger.info { "Datapack backfill complete." }
+                    } catch (e: Exception) {
+                        logger.error { "Datapack backfill failed: ${e.message}" }
+                        hasBackfillErrors = true
+                    }
                 }
             }
         }
 
-        logger.info { "Build complete. Translated world at $targetDir" }
+        if (hasBackfillErrors) {
+            logger.warning { "Build completed with errors. Check logs above." }
+        } else {
+            logger.info { "Build complete. Translated world at $targetDir" }
+        }
     }
 }

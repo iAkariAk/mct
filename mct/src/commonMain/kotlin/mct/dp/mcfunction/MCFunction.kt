@@ -66,7 +66,7 @@ internal fun extractTextMCF(
 
 // https://minecraft.wiki/w/Target_selectors
 private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
-private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)""")
+private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]?""")
 private fun extractFromTargetSelector(args: List<MCCommand.Arg>): List<StringIndices> = args.asSequence()
     .filter { SELECTOR_REGEX.matches(it.content) }
     .mapNotNull { arg ->
@@ -74,8 +74,7 @@ private fun extractFromTargetSelector(args: List<MCCommand.Arg>): List<StringInd
             val negative = result.value.startsWith("name=!")
             val value = if (negative) result.value.removePrefix("name=!") else result.value.removePrefix("name=")
             StringIndices(
-                (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)
-                        ..(arg.indices.last + result.range.last),
+                (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.last + result.range.last,
                 value
             )
         }

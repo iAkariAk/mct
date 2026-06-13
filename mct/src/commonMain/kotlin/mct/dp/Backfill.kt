@@ -33,6 +33,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
         datapackDir / it.source
     }.forEach { (dbPath, replacementGroups) ->
         logger.debug { "Backfilling ${replacementGroups.size} replacements in $dbPath" }
+
         launch(Dispatchers.IO) {
             val m = fs.metadata(dbPath)
             val sfs = if (m.isDirectory) fs.newRelativeFS(dbPath) else fs.openZipReadWrite(dbPath)
@@ -40,6 +41,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                 replacementGroups.forEach { replacementGroup ->
                     val path = replacementGroup.path.toPath()
                     val origin = sfs.read(path, BufferedSource::readUtf8)
+
                     val handled = origin.backfill(replacementGroup.replacements)
                     path.writeText(handled, sfs)
                 }
