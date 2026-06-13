@@ -14,7 +14,9 @@ fun interface Notifier {
     }
 }
 
-inline fun <reified T> Notifier.notify(message: () -> T) {
+interface Sign
+
+inline fun <reified T> Notifier.notify(message: () -> T) where T : Sign {
     val key = T::class.identifier()
     notify(key, message())
 }

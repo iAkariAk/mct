@@ -13,10 +13,8 @@ import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.int
 import mct.*
-import mct.cli.BaseCommand
-import mct.cli.WorkspaceCommand
-import mct.cli.jsonFile
-import mct.cli.path
+import mct.cli.*
+import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
@@ -204,6 +202,13 @@ private class AITranslate : BaseCommand(
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
         val terms = term.jsonFile<TermTable>(emptySet())
         val caches = caches.jsonFile<Map<String, String>>(emptyMap())
+        var consumedTokenCount = 0
+        NotifierHooks.onAiSign {
+            if (it is AiSign.ConsumeToken) {
+                consumedTokenCount += it.count
+            }
+        }
+
         logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
 
         val translator = context(env) {
@@ -227,7 +232,6 @@ private class AITranslate : BaseCommand(
             )
         }
 
-
         logger.info { "Starting translation..." }
         val mapping = translator.translate(extractionGroups, caches)
         val replacements = extractionGroups.replace(mapping)
@@ -240,6 +244,6 @@ private class AITranslate : BaseCommand(
         output.writeJson(replacements)
         logger.info { "Writing ${translator.terms.size} terms to $termOutput" }
         termOutput.writeJson(translator.terms)
-        logger.info { "Done." }
+        logger.info { "Done and consume $consumedTokenCount tokens." }
     }
 }

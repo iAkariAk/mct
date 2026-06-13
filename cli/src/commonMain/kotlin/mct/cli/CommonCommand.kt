@@ -14,10 +14,6 @@ import mct.*
 import mct.util.SystemFileSystem
 import okio.Path.Companion.toPath
 
-interface EnvProvider {
-    val env: Env
-}
-
 abstract class BaseCommand(
     val name: String? = null,
     private val help: String? = null,
@@ -39,7 +35,8 @@ abstract class BaseCommand(
     override val env by lazy {
         Env(
             SystemFileSystem,
-            ColorTerminalLogger(loggerLevels)
+            ColorTerminalLogger(loggerLevels),
+            notifier = CliNotifier
         )
     }
 

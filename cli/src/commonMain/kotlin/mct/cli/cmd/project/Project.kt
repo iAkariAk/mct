@@ -17,6 +17,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.toList
 import mct.*
 import mct.cli.BaseCommand
+import mct.cli.NotifierHooks
 import mct.cli.path
 import mct.cli.util.CURRENT_PATH
 import mct.dp.backfillDatapack
@@ -26,6 +27,7 @@ import mct.dp.mcfunction.BuiltinMCFPatterns
 import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
 import mct.dp.mcfunction.CommandExtractPattern
 import mct.dp.mcjson.BuiltinMCJPatterns
+import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.TermTable
@@ -246,6 +248,13 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             )
         }
 
+        var consumedTokenCount = 0
+        NotifierHooks.onAiSign {
+            if (it is AiSign.ConsumeToken) {
+                consumedTokenCount += it.count
+            }
+        }
+
         logger.info { "Starting translation using ${ai.model}..." }
         val mapping = translator.translate(extractionGroups, existingMapping)
 
@@ -261,7 +270,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             logger.info { "${translator.terms.size} terms saved to $termFile" }
         }
 
-        logger.info { "Translation complete." }
+        logger.info { "Translation complete and consume $consumedTokenCount tokens." }
     }
 }
 
