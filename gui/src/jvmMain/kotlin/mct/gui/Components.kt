@@ -183,7 +183,8 @@ fun TextSwitch(
 enum class Tab(val label: String) {
     Extract("提取文本"),
     Translate("AI 翻译"),
-    Backfill("回填存档")
+    Backfill("回填存档"),
+    Toolbox("工具箱")
 }
 
 enum class RunMode(val key: String, val label: String) {
@@ -227,6 +228,21 @@ data class BackfillState(
     val replacements: String = "replacements.json",
     val mode: RunMode = RunMode.Region,
 )
+
+data class ToolboxState(
+    val pointerKind: PointerKind = PointerKind.Region,
+    val pointerPatternPath: String = "",
+    val noBuiltin: Boolean = false,
+    val pointerInput: String = "",
+    val pointerResult: String? = null,
+    val exportInput: String = "",
+    val exportOutput: String = "",
+)
+
+enum class PointerKind(val key: String, val label: String) {
+    Region("region", "Region"),
+    McJson("mcjson", "MCJson"),
+}
 
 // ---- 全局设置 -----------------------------------------------------------
 

@@ -14,7 +14,7 @@ suspend fun MCTWorkspace.exportRegionSnbt(outputDir: Path) = coroutineScope {
                 val dir = outputDir / relative
                 fs.createDirectories(dir)
                 mgr.regions().forEach { region ->
-                    val target = dir / region.inferFilename()
+                    val target = dir / ("${region.inferFilename()}.txt")
                     fs.write(target) {
                         val output = region.chunks.withIndex().joinToString("\n\n") { (index, chunk) ->
                             val data = chunk?.data?.toSnbt(true) ?: "<empty_chunk>"

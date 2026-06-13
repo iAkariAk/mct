@@ -95,6 +95,7 @@ fun App(
     var extractState by remember { mutableStateOf(ExtractState()) }
     var translateState by remember { mutableStateOf(TranslateState()) }
     var backfillState by remember { mutableStateOf(BackfillState()) }
+    var toolboxState by remember { mutableStateOf(ToolboxState()) }
 
     var translateProgress by remember { mutableFloatStateOf(0f) }
     var translateStatus by remember { mutableStateOf("") }
@@ -252,6 +253,11 @@ fun App(
                         onClick = { selectedTab = Tab.Backfill },
                         icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
                         label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) })
+                    NavigationRailItem(
+                        selected = selectedTab == Tab.Toolbox,
+                        onClick = { selectedTab = Tab.Toolbox },
+                        icon = { Icon(Icons.Outlined.Handyman, contentDescription = null) },
+                        label = { Text(Tab.Toolbox.label, style = MaterialTheme.typography.labelSmall) })
                     Spacer(Modifier.weight(1f))
                     if (totalTokenConsume > 0) {
                         Column(
@@ -398,6 +404,29 @@ fun App(
                                                     backfillState.input,
                                                     backfillState.replacements,
                                                     backfillState.mode.key
+                                                )
+                                            }
+                                        })
+
+                                    Tab.Toolbox -> ToolboxPanel(
+                                        state = toolboxState,
+                                        onStateChange = { toolboxState = it },
+                                        isRunning = isRunning,
+                                        onRunPointerTest = {
+                                            launchOp(prelude = { isRunning = true; logLines.clear() }) {
+                                                runPointerTest(
+                                                    toolboxState.pointerKind.key,
+                                                    toolboxState.pointerPatternPath.takeIf { it.isNotBlank() },
+                                                    toolboxState.noBuiltin,
+                                                    toolboxState.pointerInput,
+                                                ).let { toolboxState = toolboxState.copy(pointerResult = it.toString()) }
+                                            }
+                                        },
+                                        onRunExportSnbt = {
+                                            launchOp(prelude = { isRunning = true; logLines.clear() }) {
+                                                runExportSnbt(
+                                                    toolboxState.exportInput,
+                                                    toolboxState.exportOutput,
                                                 )
                                             }
                                         })

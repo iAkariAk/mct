@@ -19,8 +19,12 @@ import mct.extra.ai.translator.TermTable
 import mct.extra.ai.translator.Translator
 import mct.extra.ai.translator.translate
 import mct.gui.util.setting
+import mct.kit.exportRegionSnbt
 import mct.kit.replace
 import mct.pointer.CustomizedDataPointerPattern
+import mct.pointer.DataPointer
+import mct.pointer.DataPointerPattern
+import mct.pointer.matches
 import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
@@ -326,6 +330,67 @@ suspend fun runBackfill(
 
                     else -> env.logger.error { "未知模式 $mode" }
                 }
+            }
+        )
+    }
+}
+
+// ── 工具箱服务 ────────────────────────────────────────────────
+
+/**
+ * Test whether a DataPointer string matches the built-in (+ optional custom) filter patterns.
+ */
+context(env: Env)
+suspend fun runPointerTest(
+    kind: String,
+    patternPath: String?,
+    noBuiltin: Boolean,
+    pointerStr: String,
+): Boolean = withContext(Dispatchers.IO) {
+    val extra = if (patternPath != null) {
+        env.fs.read(patternPath.toPath()) { readUtf8() }
+            .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
+            .map { it.compile() }
+    } else emptyList()
+
+    val builtin: List<DataPointerPattern> = when (kind) {
+        "mcjson" -> MCJBuiltinPatterns
+        "region" -> BuiltinRegionPatterns.toList()
+        else -> error("未知 kind: $kind")
+    }
+    val patterns = if (noBuiltin) extra else builtin + extra
+
+    val result = decodePointerSafely(pointerStr, patterns)
+    env.logger.info { "Pointer 测试: $pointerStr → $result (kind=$kind, patterns=${patterns.size})" }
+    result
+}
+
+private fun decodePointerSafely(pointerStr: String, patterns: List<DataPointerPattern>): Boolean = try {
+    val pointer = MCTJson.decodeFromString<DataPointer>(MCTJson.encodeToString(pointerStr))
+    pointer.matches(patterns)
+} catch (_: Exception) { false }
+
+/**
+ * Export all region NBT data as SNBT text files to the given directory.
+ */
+context(env: Env)
+suspend fun runExportSnbt(
+    input: String,
+    output: String,
+) {
+    withContext(Dispatchers.IO) {
+        env.logger.info { "正在打开存档: $input" }
+        val inputPath = input.toPath()
+        val outputPath = output.toPath()
+
+        either<OpenError, MCTWorkspace> {
+            MCTWorkspace(inputPath, env)
+        }.fold(
+            ifLeft = { env.logger.error { it.message } },
+            ifRight = { workspace ->
+                env.logger.info { "正在导出 SNBT 到: $output" }
+                workspace.exportRegionSnbt(outputPath)
+                env.logger.info { "SNBT 导出完成。" }
             }
         )
     }
