@@ -6,9 +6,12 @@ import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.mordant.rendering.TextColors
+import com.github.ajalt.mordant.rendering.TextStyles
 import korlibs.io.async.async
 import korlibs.io.async.launch
 import kotlinx.coroutines.Dispatchers
@@ -87,14 +90,14 @@ private class Init : BaseCommand(name = "init") {
         try {
             context(fs) { mapDir.copyToRecursively(srcTarget) }
         } catch (e: Exception) {
-            logger.error { "Failed to copy world: ${e.message ?: "unknown error"}" }
+            terminal.println(TextColors.red("Failed to copy world: ${e.message ?: "unknown error"}"))
             throw PrintMessage("Failed to copy world: ${e.message ?: "unknown error"}")
         }
         val config = ProjectConfig(
             name = projectName,
         )
         (projectDir / "mct.toml").writeToml(config)
-        logger.info { "Project '$projectName' created at $projectDir" }
+        terminal.println(TextColors.green("Project '$projectName' created at $projectDir"))
     }
 }
 
@@ -121,6 +124,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
         ensureCache()
         return projectDir / "cache" / path
     }
+
     fun ensureCache() = fs.createDirectories(projectDir / "cache")
 }
 
@@ -164,7 +168,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                     regionPatterns, mcfPatterns, mcfDataPatterns
                 ).toList()
                 cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
-                logger.info { "Extracted ${groups.size} groups from region" }
+                terminal.println(TextColors.green("Extracted ") + (TextColors.green + TextStyles.bold)("${groups.size}") + TextColors.green(" groups from region"))
                 groups
             }
             val datapackJob = async(Dispatchers.IO) {
@@ -172,17 +176,17 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                     mcfPatterns, mcfDataPatterns, mcjPatterns
                 ).toList()
                 cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
-                logger.info { "Extracted ${groups.size} groups from datapack" }
+                terminal.println(TextColors.green("Extracted ") + (TextColors.green + TextStyles.bold)("${groups.size}") + TextColors.green(" groups from datapack"))
                 groups
             }
             (regionJob.await() + datapackJob.await()).exportIntoPool(simply = false)
         }
         val missingPool = pool.filter { it !in existingMapping }
         if (missingPool.isNotEmpty()) {
-            logger.info { "Missing ${missingPool.size} items (${pool.size} total extracted)" }
+            terminal.println(TextColors.yellow("Missing ") + (TextColors.yellow + TextStyles.bold)("${missingPool.size}") + TextColors.yellow(" items (${pool.size} total extracted)"))
             (projectDir / POOL).writeJson(missingPool, projectConfig.prettyJson)
         } else {
-            logger.info { "No new items found (${pool.size} total extracted, all mapped)" }
+            terminal.println(TextColors.green("No new items found (${pool.size} total extracted, all mapped)"))
         }
     }
 }
@@ -200,17 +204,17 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         val extractionGroups = mutableListOf<ExtractionGroup>()
         if (fs.exists(regionFile)) {
             extractionGroups += regionFile.readJson<List<ExtractionGroup>>()
-            logger.info { "Loaded region extractions" }
+            terminal.println(TextColors.green("Loaded region extractions"))
         }
         if (fs.exists(datapackFile)) {
             extractionGroups += datapackFile.readJson<List<ExtractionGroup>>()
-            logger.info { "Loaded datapack extractions" }
+            terminal.println(TextColors.green("Loaded datapack extractions"))
         }
 
         if (extractionGroups.isEmpty()) {
             throw PrintMessage("All cache files are empty. Run 'project update' first.")
         }
-        logger.info { "Total ${extractionGroups.size} extraction groups loaded" }
+        terminal.println(TextColors.cyan("Total ${extractionGroups.size} extraction groups loaded"))
 
         val mappingFile = projectDir / projectConfig.mappings
         val existingMapping = if (fs.exists(mappingFile)) {
@@ -218,7 +222,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         } else {
             emptyMap()
         }
-        logger.info { "Loaded ${existingMapping.size} existing mappings" }
+        terminal.println(TextColors.cyan("Loaded ${existingMapping.size} existing mappings"))
 
         val termFile = projectDir / projectConfig.terms
         val existingTerms = if (fs.exists(termFile)) {
@@ -226,7 +230,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         } else {
             emptySet()
         }
-        logger.info { "Loaded ${existingTerms.size} existing terms" }
+        terminal.println(TextColors.cyan("Loaded ${existingTerms.size} existing terms"))
 
         val ai = projectConfig.ai
         if (ai.token.isBlank() || ai.token == AIConfig.Default.token) {
@@ -241,7 +245,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 useStreamApi = ai.useStreamApi,
                 temperature = ai.temperature,
                 logLevel = if (ai.enableHttpLogging) LogLevel.All else LogLevel.None,
-                )
+            )
             Translator(
                 call = call,
                 customizedPrompts = CustomizedPrompts(
@@ -261,21 +265,21 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             }
         }
 
-        logger.info { "Starting translation using ${ai.model}..." }
+        terminal.println(TextColors.cyan("Starting translation using ${ai.model}..."))
         val mapping = translator.translate(extractionGroups, existingMapping)
 
         val totalMapping = existingMapping + mapping
-        logger.info { "Translated ${mapping.size} new items (${totalMapping.size} total)" }
+        terminal.println(TextColors.green("Translated ") + (TextColors.green + TextStyles.bold)("${mapping.size}") + TextColors.green(" new items (${totalMapping.size} total)"))
 
         mappingFile.writeJson(totalMapping, projectConfig.prettyJson)
-        logger.info { "Mapping saved to $mappingFile" }
+        terminal.println(TextColors.green("Mapping saved to $mappingFile"))
 
         if (translator.terms.isNotEmpty()) {
             termFile.writeJson(translator.terms, projectConfig.prettyJson)
-            logger.info { "${translator.terms.size} terms saved to $termFile" }
+            terminal.println(TextColors.green("${translator.terms.size} terms saved to $termFile"))
         }
 
-        logger.info { "Translation complete, consumed $consumedTokenCount tokens." }
+        terminal.println(TextColors.green("Translation complete, consumed ") + (TextColors.green + TextStyles.bold)("$consumedTokenCount") + TextColors.green(" tokens."))
     }
 }
 
@@ -295,7 +299,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
             throw PrintMessage("No mapping found. Run 'project translate' first.")
         }
         val mapping = mappingFile.readJson<TranslationMapping>()
-        logger.info { "Loaded mapping with ${mapping.size} entries" }
+        terminal.println(TextColors.cyan("Loaded mapping with ") + (TextColors.cyan + TextStyles.bold)("${mapping.size}") + TextColors.cyan(" entries"))
 
         val regionGroups = if (fs.exists(regionFile)) {
             regionFile.readJson<List<ExtractionGroup>>()
@@ -315,7 +319,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
             @Suppress("UNCHECKED_CAST")
             (regionGroups.replace(mapping) as List<RegionReplacementGroup>).also {
                 cache(REGION_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
-                logger.info { "Generated ${it.size} region replacement groups" }
+                terminal.println(TextColors.green("Generated ") + (TextColors.green + TextStyles.bold)("${it.size}") + TextColors.green(" region replacement groups"))
             }
         } else {
             emptyList()
@@ -325,7 +329,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
             @Suppress("UNCHECKED_CAST")
             (datapackGroups.replace(mapping) as List<DatapackReplacementGroup>).also {
                 cache(DATAPACK_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
-                logger.info { "Generated ${it.size} datapack replacement groups" }
+                terminal.println(TextColors.green("Generated ") + (TextColors.green + TextStyles.bold)("${it.size}") + TextColors.green(" datapack replacement groups"))
             }
         } else {
             emptyList()
@@ -335,17 +339,17 @@ private class Build : ProjectCommand("build", "Build translated world") {
         if (!fs.exists(srcDir)) {
             throw PrintMessage("Source world directory not found: $srcDir")
         }
-        logger.info { "Copying world to $targetDir ..." }
+        terminal.println(TextColors.cyan("Copying world to $targetDir ..."))
         if (fs.exists(targetDir)) {
             fs.deleteRecursively(targetDir)
         }
         try {
             context(fs) { srcDir.copyToRecursively(targetDir) }
         } catch (e: Exception) {
-            logger.error { "Failed to copy world: ${e.message ?: "unknown error"}" }
+            terminal.println(TextColors.red("Failed to copy world: ${e.message ?: "unknown error"}"))
             throw PrintMessage("Failed to copy world: ${e.message ?: "unknown error"}")
         }
-        logger.info { "World copied." }
+        terminal.println(TextColors.green("World copied."))
 
         val buildWorkspace = workspace(targetDir)
 
@@ -354,11 +358,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             if (regionReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
                     try {
-                        logger.info { "Backfilling ${regionReplacements.size} region groups..." }
+                        terminal.println(TextColors.cyan("Backfilling ") + (TextColors.cyan + TextStyles.bold)("${regionReplacements.size}") + TextColors.cyan(" region groups..."))
                         buildWorkspace.backfillRegion(regionReplacements)
-                        logger.info { "Region backfill complete." }
+                        terminal.println(TextColors.green("Region backfill complete."))
                     } catch (e: Exception) {
-                        logger.error { "Region backfill failed: ${e.message}" }
+                        terminal.println(TextColors.red("Region backfill failed: ${e.message}"))
                         hasBackfillErrors = true
                     }
                 }
@@ -366,11 +370,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             if (datapackReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
                     try {
-                        logger.info { "Backfilling ${datapackReplacements.size} datapack groups..." }
+                        terminal.println(TextColors.cyan("Backfilling ") + (TextColors.cyan + TextStyles.bold)("${datapackReplacements.size}") + TextColors.cyan(" datapack groups..."))
                         buildWorkspace.backfillDatapack(datapackReplacements)
-                        logger.info { "Datapack backfill complete." }
+                        terminal.println(TextColors.green("Datapack backfill complete."))
                     } catch (e: Exception) {
-                        logger.error { "Datapack backfill failed: ${e.message}" }
+                        terminal.println(TextColors.red("Datapack backfill failed: ${e.message}"))
                         hasBackfillErrors = true
                     }
                 }
@@ -378,9 +382,9 @@ private class Build : ProjectCommand("build", "Build translated world") {
         }
 
         if (hasBackfillErrors) {
-            logger.warning { "Build completed with errors. Check logs above." }
+            terminal.println(TextColors.yellow("Build completed with errors. Check logs above."))
         } else {
-            logger.info { "Build complete. Translated world at $targetDir" }
+            terminal.println(TextColors.green("Build complete. Translated world at ") + (TextColors.green + TextStyles.bold)("$targetDir"))
         }
     }
 }
