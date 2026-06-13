@@ -1,6 +1,9 @@
 package mct.util
 
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import mct.serializer.PrettySnbt
 import mct.serializer.Snbt
 import net.benwoodworth.knbt.NbtTag
@@ -17,6 +20,8 @@ inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
 
 fun NbtTag.toSnbt(pretty: Boolean = false): String = (if (pretty) PrettySnbt else Snbt).encodeToString(this)
+fun String.isSnbt() = runCatching { Snbt.decodeFromString<NbtTag>(this) }.isSuccess
+fun String.isJson() = runCatching { Json.decodeFromString<JsonElement>(this) }.isSuccess
 
 inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other
 inline infix fun Short.divCeil(other: Short) = (this + other - 1) / other
@@ -31,7 +36,7 @@ inline fun String.findAll(str: String): Sequence<IntRange> = sequence {
     var index = 0
     while (index < length) {
         index = indexOf(str, index)
-        if (index  == -1) break
+        if (index == -1) break
         val end = index + str.length
         yield(index until end)
         index = end

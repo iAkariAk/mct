@@ -15,7 +15,7 @@ kotlin {
         }
     }
 
-    js(IR) {
+    js {
         browser {
             testTask {
                 useKarma {

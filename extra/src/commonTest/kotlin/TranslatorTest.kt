@@ -6,9 +6,12 @@ import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.Env
 import mct.FormatKind
+import mct.Logger
+import mct.RegionExtractionGroup
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.translator.*
+import mct.serializer.MCTJson
 import mct.util.envvar
 import mct.util.unreachable
 
@@ -16,7 +19,13 @@ class TranslatorTest : FreeSpec({
     val apiUrl = envvar("OPENAI_URL")
     val token = envvar("OPENAI_TOKEN")
     val model = envvar("OPENAI_MODEL")
-    context(Env()) {
+
+    val enabledRealLLMResponseTest = listOf(apiUrl, token, model).all { it != null }
+
+    if (!enabledRealLLMResponseTest) {
+        println("WARNING: Test was disabled due to no configure for OpenAI in env vars, please add `OPENAI_URL`, `OPENAI_TOKEN` and `OPENAI_MODEL`.")
+    }
+    context(Env(logger = Logger.Console())) {
         suspend fun translator() = shouldNotRaise {
             val call = ChatCompletionCall(
                 apiUrl = apiUrl,
@@ -24,6 +33,17 @@ class TranslatorTest : FreeSpec({
                 model = model!!,
             )
             Translator(call)
+        }
+
+
+
+        "translate test".config(enabled = enabledRealLLMResponseTest) {
+            shouldNotRaise {
+                val translator = translator()
+                val result = translator.translate(FormatKind.JsonStr, Constants.TEXT1.lines())
+                println("terms: ${translator.terms}")
+                println("translated: $result")
+            }
         }
 
         "parse test" {
@@ -41,19 +61,6 @@ class TranslatorTest : FreeSpec({
             translated shouldBe listOf("a", "b", "c")
         }
 
-        val testEnabled = listOf(apiUrl, token, model).all { it != null }
-
-        if (!testEnabled) {
-            println("WARNING: Test was disabled due to no configure for OpenAI in env vars, please add `OPENAI_URL`, `OPENAI_TOKEN` and `OPENAI_MODEL`.")
-        }
-
-        "translate test".config(enabled = testEnabled) {
-            val translator = translator()
-            val result = translator.translate(FormatKind.JsonStr, TEST_TEXT.lines())
-            println("translated: $result")
-            println("terms: ${translator.terms}")
-        }
-
         "strip test" {
             val raws = listOf(
                 """[{"color":"gray","text":"Key recipes unlocked!\n(Check the recipe book in a crafting table)"}]""",
@@ -69,6 +76,16 @@ class TranslatorTest : FreeSpec({
                 }
             }
         }
+
+        "comprehensive test".config(enabled = enabledRealLLMResponseTest) {
+            shouldNotRaise {
+                val translator = translator()
+                val jsonStr = TestResources.extractions.readText()
+                val extractions = MCTJson.decodeFromString<List<RegionExtractionGroup>>(jsonStr)
+                println(translator.translate(extractions))
+            }
+        }
+
 
         "mock" - {
             val mockCall = object : ChatCompletionCall {
@@ -102,8 +119,10 @@ class TranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val result = translator.translate(FormatKind.JsonStr, listOf("Hello world", "This is a test"))
-                result shouldBe listOf("你好世界", "这是测试")
+                shouldNotRaise {
+                    val result = translator.translate(FormatKind.JsonStr, listOf("Hello world", "This is a test"))
+                    result shouldBe listOf("你好世界", "这是测试")
+                }
             }
 
             "with existing terms" {
@@ -123,9 +142,11 @@ class TranslatorTest : FreeSpec({
                     defaultTerms = existingTerms,
                 )
 
-                val result = translator.translate(FormatKind.JsonStr, listOf("Kaguya is beautiful"))
-                result shouldBe listOf("辉夜姬很漂亮")
-                translator.terms shouldBe existingTerms
+                shouldNotRaise {
+                    val result = translator.translate(FormatKind.JsonStr, listOf("Kaguya is beautiful"))
+                    result shouldBe listOf("辉夜姬很漂亮")
+                    translator.terms shouldBe existingTerms
+                }
             }
 
             "new terms discovered" {
@@ -144,9 +165,11 @@ class TranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val result = translator.translate(FormatKind.JsonStr, listOf("Iroha is walking"))
-                result shouldBe listOf("彩叶在散步")
-                translator.terms shouldBe setOf(Term("Iroha", "彩叶", TermType.Name))
+                shouldNotRaise {
+                    val result = translator.translate(FormatKind.JsonStr, listOf("Iroha is walking"))
+                    result shouldBe listOf("彩叶在散步")
+                    translator.terms shouldBe setOf(Term("Iroha", "彩叶", TermType.Name))
+                }
             }
 
             "json text component" {
@@ -165,16 +188,18 @@ class TranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val jsonInput = """{"text":"Hello","color":"red"}"""
-                val result = translator.translate(FormatKind.JsonStr, listOf(jsonInput))
-                result[0] shouldBe """{"text":"你好","color":"red"}"""
+                shouldNotRaise {
+                    val jsonInput = """{"text":"Hello","color":"red"}"""
+                    val result = translator.translate(FormatKind.JsonStr, listOf(jsonInput))
+                    result[0] shouldBe """{"text":"你好","color":"red"}"""
+                }
             }
 
             "long request chunking" {
                 var callIndex = 0
                 val callChunkSizes = mutableListOf<Int>()
 
-                val mockChat: suspend (Int, String, (Pair<TermTable, List<String?>>) -> Boolean) -> Pair<TermTable, List<String?>> =
+                val mockChat: RequestTranslation =
                     { expectedSize, _, _ ->
                         val idx = callIndex++
                         callChunkSizes += expectedSize
@@ -189,7 +214,7 @@ class TranslatorTest : FreeSpec({
                         parseLLMResponse(content, expectedSize)
                     }
 
-                val sources = (0 until 10).flatMap { TEST_TEXT.lines() }
+                val sources = (0 until 10).flatMap { Constants.TEXT1.lines() }
 
                 val translator = Translator(
                     call = mockCall,
@@ -197,13 +222,15 @@ class TranslatorTest : FreeSpec({
                     defaultTerms = emptySet(),
                 )
 
-                val result = translator.translate(FormatKind.JsonStr, sources)
+                shouldNotRaise {
 
-                result.size shouldBe sources.size
-                callChunkSizes.sum() shouldBe sources.size
-                // Verify chunking occurred (multiple calls) or at least one call
-                // Verify mock was called
-                (callIndex >= 1) shouldBe true
+                    val result = translator.translate(FormatKind.JsonStr, sources)
+                    result.size shouldBe sources.size
+                    callChunkSizes.sum() shouldBe sources.size
+                    // Verify chunking occurred (multiple calls) or at least one call
+                    // Verify mock was called
+                    (callIndex >= 1) shouldBe true
+                }
             }
         }
     }
@@ -213,6 +240,6 @@ class TranslatorTest : FreeSpec({
  * Creates a mock chatCompletion function that returns a pre-configured response.
  * The mock ignores the input message and returns parsed mock data for any expected line count.
  */
-fun mockChatCompletion(content: String): suspend (Int, String, (Pair<TermTable, List<String?>>) -> Boolean) -> Pair<TermTable, List<String?>> =
+fun mockChatCompletion(content: String): RequestTranslation =
     { expectedSize, _, _ -> parseLLMResponse(content, expectedSize) }
 

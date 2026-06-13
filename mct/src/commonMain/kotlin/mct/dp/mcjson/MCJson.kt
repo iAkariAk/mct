@@ -9,6 +9,7 @@ import mct.FormatKind
 import mct.dp.Extractor
 import mct.dp.MCJsonExtractError
 import mct.pointer.*
+import mct.util.isJson
 import mct.DatapackExtraction.MCJson as MCJsonExtraction
 
 internal val MCJson = Json {
@@ -67,7 +68,10 @@ internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when
         }
     }
 
-    is JsonPrimitive if isString -> sequenceOf(DataPointerWithValue(DataPointer.Terminator, content, FormatKind.JsonStr))
+    is JsonPrimitive if isString -> sequenceOf(DataPointerWithValue(DataPointer.Terminator, content, when {
+        content.isJson() -> FormatKind.JsonStr
+        else -> FormatKind.PlainStr
+    }))
     JsonNull -> emptySequence()
     else -> emptySequence()
 }

@@ -159,31 +159,20 @@ private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) -
     "${source.trim()} => ${target.trim()}"
 }
 
-context(_: Env, _: Raise<ChatCompletionCallError>)
-private suspend fun ChatCompletionCall.translate(
-    customizePrompts: CustomizedPrompts = CustomizedPrompts.Default,
-    message: String,
-    expectedSize: Int,
-): Pair<TermTable, List<String?>> = chat(
-    prompt = prompt(customizePrompts),
-    message = message,
-    parseLLM = {
-        parseLLMResponse(it, expectedSize)
-    }
-)
+typealias RequestTranslation = suspend context(Raise<ChatCompletionCallError>)(
+    count: Int, message: String,
+    validate: (Pair<TermTable, List<String?>>) -> Boolean
+) -> Pair<TermTable, List<String?>>
 
 class Translator internal constructor(
     private val call: ChatCompletionCall,
-    private val requestTranslation: suspend (
-        count: Int, message: String,
-        validate: (Pair<TermTable, List<String?>>) -> Boolean
-    ) -> Pair<TermTable, List<String?>>,
+    private val requestTranslation: RequestTranslation,
     defaultTerms: TermTable,
     private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
     private val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
 ) : EnvHolder {
     companion object {
-        context(env: Env, _: Raise<ChatCompletionCallError>)
+        context(env: Env)
         operator fun invoke(
             call: ChatCompletionCall,
             defaultTerms: TermTable = emptySet(),
@@ -212,6 +201,7 @@ class Translator internal constructor(
 
     private val mutex = Mutex()
 
+    context(_: Raise<ChatCompletionCallError>)
     suspend fun translate(kind: FormatKind, sources: List<String>): List<String> {
         val chunks = sources.chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
@@ -237,11 +227,7 @@ class Translator internal constructor(
 
             val (appendTerms, appendedTranslatedRaw) = requestTranslation(strips.size, message) { (_, result) ->
                 result.all {
-                    it?.let {
-                        kind.validate(it).also {
-                            if (!it) mct.logger.info { "LLM response wrong snbt, retrying." }
-                        }
-                    } ?: true
+                    it?.let { kind.validate(it) } ?: true
                 }
             }
             val appendedTranslated = strips.destrip(appendedTranslatedRaw)
@@ -396,6 +382,7 @@ private val REGEX_LLM_OUTPUT =
     """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
 
 
+context(_: Raise<ChatCompletionCallError>)
 suspend fun Translator.translate(
     groups: List<ExtractionGroup>,
     caches: Map<String, String> = emptyMap()
@@ -406,7 +393,8 @@ suspend fun Translator.translate(
     }
     val extractions = groups.flatMap { it.extractions }.groupBy {
         when (it) {
-            is DatapackExtraction -> FormatKind.JsonStr
+            is DatapackExtraction.MCJson -> FormatKind.JsonStr
+            is DatapackExtraction.MCFunction -> FormatKind.PlainStr
             is RegionExtraction -> it.kind
         }
     }
@@ -424,5 +412,6 @@ suspend fun Translator.translate(
 }
 
 
+context(_: Raise<ChatCompletionCallError>)
 suspend fun Translator.translateReplace(groups: List<ExtractionGroup>): List<ReplacementGroup> =
     groups.replace(translate(groups))

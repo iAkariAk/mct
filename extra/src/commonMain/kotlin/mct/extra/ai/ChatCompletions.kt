@@ -55,7 +55,7 @@ fun createOpenAIClient(apiUrl: String?, token: String): OpenAI {
         token,
         host = host,
         logging = LoggingConfig(
-            logLevel = LogLevel.Info,
+            logLevel = LogLevel.None,
         ),
         httpClientConfig = {
             engine {
@@ -201,7 +201,7 @@ class ChatCompletionCallImpl internal constructor(
                 val result = parseLLM(llmResult)
                 if (validate(result)) result else {
                     llmRetry++
-                    env.logger.error { "LLM response is illegal (${llmRetry}/$MAX_RETRY). Retrying..." }
+                    env.logger.info { "LLM response is illegal (${llmRetry}/$MAX_RETRY). Retrying..." }
                     continue@loop
                 }
             }.getOrElse { e ->

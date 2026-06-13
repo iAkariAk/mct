@@ -2,16 +2,13 @@ package mct
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import mct.pointer.DataPointer
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.IntRangeSerializable
-import mct.serializer.Snbt
 import mct.util.StringIndices
-import net.benwoodworth.knbt.NbtTag
+import mct.util.isJson
+import mct.util.isSnbt
 
 @Serializable
 sealed interface ExtractionGroup {
@@ -50,8 +47,8 @@ fun FormatKind.isString(): Boolean = this == FormatKind.JsonStr || this == Forma
 fun FormatKind.isBinary(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
-    FormatKind.Nbt -> runCatching { Snbt.decodeFromString<NbtTag>(value) }.isSuccess
-    FormatKind.JsonStr -> runCatching { Json.decodeFromString<JsonElement>(value) }.isSuccess
+    FormatKind.Nbt -> value.isSnbt()
+    FormatKind.JsonStr -> value.isJson()
     FormatKind.PlainStr -> true
 }
 
@@ -153,7 +150,7 @@ sealed interface RegionExtraction : Extraction {
     data class Text(
         override val index: Int,
         override val pointer: DataPointer,
-        override val kind: FormatKind = FormatKind.JsonStr,
+        override val kind: FormatKind = FormatKind.PlainStr,
         val content: String,
     ) : RegionExtraction {
         inline fun replace(replacement: (String) -> String) =
@@ -168,7 +165,7 @@ sealed interface RegionExtraction : Extraction {
         val raw: String,
         val locations: List<Location>, // must be ordered ascendingly based on indices
     ) : RegionExtraction {
-        override val kind: FormatKind = FormatKind.JsonStr
+        override val kind: FormatKind = FormatKind.PlainStr
 
         @Serializable
         data class Location(
@@ -272,7 +269,7 @@ sealed interface RegionReplacement : Replacement {
     data class Text(
         override val index: Int,
         override val pointer: DataPointer,
-        override val kind: FormatKind = FormatKind.JsonStr,
+        override val kind: FormatKind = FormatKind.PlainStr,
         override val replacement: String,
     ) : RegionReplacement
 
@@ -283,7 +280,7 @@ sealed interface RegionReplacement : Replacement {
         override val pointer: DataPointer,
         override val replacement: String,
     ) : RegionReplacement {
-        override val kind: FormatKind get() = FormatKind.JsonStr
+        override val kind: FormatKind get() = FormatKind.PlainStr
     }
 }
 

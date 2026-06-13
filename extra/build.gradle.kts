@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotest)
     alias(libs.plugins.shadow)
+    alias(libs.plugins.goncalossilva.resources)
 }
 
 kotlin {
@@ -63,6 +64,7 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.bundles.kotest)
+            implementation(libs.goncalossilva.resources)
         }
 
         jvmMain.dependencies {
