@@ -1,4 +1,4 @@
-package mct.gui
+package mct.gui.services
 
 import com.aallam.openai.client.OpenAI
 import mct.extra.ai.ChatCompletionCall

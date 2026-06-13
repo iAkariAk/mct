@@ -32,6 +32,12 @@ import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.createOpenAIClient
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
+import mct.gui.components.DraggableSplitPane
+import mct.gui.components.WindowTitleBar
+import mct.gui.components.coloredLogAnnotatedString
+import mct.gui.model.*
+import mct.gui.pages.*
+import mct.gui.services.*
 import mct.gui.util.renderWithUnit
 import mct.on
 import okio.FileSystem

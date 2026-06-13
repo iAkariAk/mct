@@ -1,4 +1,4 @@
-package mct.gui
+package mct.gui.pages
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import mct.gui.components.TextSwitch
+import mct.gui.model.GuiSettings
 
 @Composable
 fun SettingsSheet(
@@ -29,7 +31,6 @@ fun SettingsSheet(
         exit = slideOutHorizontally { it },
     ) {
         Box(Modifier.fillMaxSize()) {
-            // Scrim
             Box(
                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f))
                     .clickable(
@@ -38,7 +39,6 @@ fun SettingsSheet(
                         onClick = onDismiss
                     )
             )
-            // Side sheet
             Box(
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()

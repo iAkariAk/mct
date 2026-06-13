@@ -1,4 +1,4 @@
-package mct.gui
+package mct.gui.services
 
 import arrow.core.raise.Raise
 import arrow.core.raise.either
@@ -18,6 +18,8 @@ import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.TermTable
 import mct.extra.ai.translator.Translator
 import mct.extra.ai.translator.translate
+import mct.gui.model.GuiSettings
+import mct.gui.model.LogEntry
 import mct.gui.util.setting
 import mct.kit.exportRegionSnbt
 import mct.kit.replace
@@ -62,13 +64,11 @@ class GuiLogger(
         onLog(LogEntry(level, message))
     }
 }
+
 // ---- 后台任务 -----------------------------------------------------------
 
 /**
  * Run extraction in the background.
- *
- * All I/O uses [env.fs] (Okio). All status messages go through [env.logger].
- * Progress/signals are emitted via `env.logger.sign<>` and handled upstream by `onSign<>`.
  */
 context(env: Env)
 suspend fun runExtraction(
@@ -90,9 +90,8 @@ suspend fun runExtraction(
             val workspace = MCTWorkspace(inputPath, env)
             when (mode) {
                 "region" -> {
-                    val patterns = if (disableFilter) {
-                        null
-                    } else {
+                    val patterns = if (disableFilter) null
+                    else {
                         val userPatterns = regionPatternPath.takeIf { it.isNotBlank() }
                             ?.let { p ->
                                 env.fs.read(p.toPath()) { readUtf8() }
@@ -111,9 +110,8 @@ suspend fun runExtraction(
                         } ?: MCFBuiltinPatterns
 
                     val mcfDataPatterns: List<mct.pointer.DataPointerPattern>? =
-                        if (disableFilter) {
-                            null
-                        } else {
+                        if (disableFilter) null
+                        else {
                             val userPatterns = mcfDataPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
@@ -140,9 +138,8 @@ suspend fun runExtraction(
                         } ?: MCFBuiltinPatterns
 
                     val mcfDataPatterns: List<mct.pointer.DataPointerPattern>? =
-                        if (disableFilter) {
-                            null
-                        } else {
+                        if (disableFilter) null
+                        else {
                             val userPatterns = mcfDataPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
@@ -154,9 +151,8 @@ suspend fun runExtraction(
                         }
 
                     val mcjPatterns: List<mct.pointer.DataPointerPattern>? =
-                        if (disableFilter) {
-                            null
-                        } else {
+                        if (disableFilter) null
+                        else {
                             val userPatterns = mcjPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
@@ -189,10 +185,6 @@ suspend fun runExtraction(
 
 /**
  * Run AI translation in the background.
- *
- * All I/O uses [env.fs] (Okio). Status messages use [env.logger].
- * TranslateSign signals (progress) are emitted via `env.logger.sign<>` and
- * handled by the `onSign<>` wrapper created at App level.
  */
 context(env: Env, _: Raise<ChatCompletionCallError>)
 suspend fun runTranslation(
@@ -233,10 +225,8 @@ suspend fun runTranslation(
             }
         } else emptyMap()
 
-
         Triple(groups, terms, caches)
     }
-
 
     val call = clientManager.chatCompletionCall
     if (call == null) {
@@ -278,8 +268,6 @@ suspend fun runTranslation(
 
 /**
  * Run backfill in the background.
- *
- * All I/O uses [env.fs] (Okio). All status messages go through [env.logger].
  */
 suspend fun runBackfill(
     env: Env,

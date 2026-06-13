@@ -1,4 +1,4 @@
-package mct.gui
+package mct.gui.pages
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,7 +23,7 @@ fun ReasoningSheet(
 
     val entries = remember(reasoningContentVersion) {
         reasoningContents.entries
-            .sortedBy { it.key } // due to the oldest being the apex at LazyColumn
+            .sortedBy { it.key }
             .mapIndexed { index, (_, value) -> index + 1 to value.toString() }
     }
 
