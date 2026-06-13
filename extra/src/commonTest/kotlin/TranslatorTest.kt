@@ -69,7 +69,7 @@ class TranslatorTest : FreeSpec({
             context(Env()) {
                 val result = raws.strip(FormatKind.JsonStr)
 
-                val failures = result.filterIsInstance<CompoundStrip.Failure>()
+                val failures = result.filterIsInstance<CompoundStrip.CannotStrip>()
 
                 if (failures.isNotEmpty()) {
                     fail("Strip failed for: ${failures.joinToString { it.original }}")

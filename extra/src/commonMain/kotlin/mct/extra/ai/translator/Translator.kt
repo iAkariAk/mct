@@ -136,6 +136,8 @@ ${prompts.literatureStyle}
 [1] <译文第1行>
 [2] <译文第2行>
 ...
+
+注意：<译文> 的内容格式必须与原始输入保持一致。如果某行原文是 JSON 或 SNBT（Minecraft 文本组件），该行译文也必须保持完全相同的 JSON/SNBT 结构，只替换其中的文本值（"text"、"fallback" 等字段）。
 -- MCT-CLI:TERMS --
 [
 {"source": "原文", "target": "译文", "type": "name"},
@@ -226,9 +228,15 @@ class Translator internal constructor(
             logger.info { "Handling ${index + 1} (total $totalChunkSize)" }
 
             val (appendTerms, appendedTranslatedRaw) = requestTranslation(strips.size, message) { (_, result) ->
-                result.all {
-                    it?.let { kind.validate(it) } ?: true
+                val invalidated = result.withIndex().filter { (index, value) ->
+                    strips[index] is CompoundStrip.CannotStrip && value?.let { it.isNotEmpty() && !kind.validate(it) } ?: false
                 }
+                if (invalidated.isNotEmpty()) {
+                    env.logger.info { "LLM responds invalidly (${kind.name}) ${invalidated.joinToString("\n"){
+                      "${it.index}: ${it.value}; (original: ${sources[it.index]}, strip: ${strips[it.index]})"  
+                    }}" }
+                    false
+                } else true
             }
             val appendedTranslated = strips.destrip(appendedTranslatedRaw)
             translated.addAll(appendedTranslated)
@@ -255,7 +263,8 @@ class Translator internal constructor(
 internal sealed interface CompoundStrip {
     val original: String
 
-    data class Failure(override val original: String) : CompoundStrip
+    data class CannotStrip(override val original: String) : CompoundStrip
+    data class NoCompound(override val original: String) : CompoundStrip
     data class Success(
         override val original: String,
         val sourceFormat: FormatKind,
@@ -266,7 +275,8 @@ internal sealed interface CompoundStrip {
 }
 
 private fun CompoundStrip.stripOrOriginal() = when (this) {
-    is CompoundStrip.Failure -> original
+    is CompoundStrip.CannotStrip -> original
+    is CompoundStrip.NoCompound -> original
     is CompoundStrip.Success -> strip
 }
 
@@ -294,14 +304,14 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
 
             FormatKind.PlainStr -> null
         }?.decodeToCompound()
-    }.getOrNull() ?: return CompoundStrip.Failure(raw)
+    }.getOrNull() ?: return CompoundStrip.NoCompound(raw)
 
     val strip = (if (compound.extra.isEmpty()) {
         when (compound) {
             is TextCompound.Plain -> compound.text
             else -> cannotStrip()
         }
-    } else cannotStrip()) ?: return CompoundStrip.Failure(raw)
+    } else cannotStrip()) ?: return CompoundStrip.CannotStrip(raw)
     return CompoundStrip.Success(raw, kind, compound, strip, isList)
 }
 
@@ -327,7 +337,8 @@ internal fun List<CompoundStrip>.destrip(response: List<String?>): List<String> 
                     }
                 }
 
-                is CompoundStrip.Failure -> s
+                is CompoundStrip.CannotStrip -> s
+                is CompoundStrip.NoCompound -> s
             }
         } ?: cs.original
     }
