@@ -91,7 +91,7 @@ fun ToolboxPanel(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            state.pointerResult!!,
+                            state.pointerResult,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (state.pointerResult == "true") MaterialTheme.colorScheme.onPrimaryContainer

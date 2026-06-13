@@ -3,6 +3,7 @@ package mct.cli.cmd.project
 import com.akuleshov7.ktoml.annotations.TomlComments
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import mct.extra.ai.translator.CustomizedPrompts
 
 @Serializable
 @SerialName("project")
@@ -58,8 +59,8 @@ data class PatternsConfig(
 @SerialName("ai")
 data class AIConfig(
     @SerialName("api_url")
-    @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/v1)")
-    val apiUrl: String? = null,
+    @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/ or https://api.deepseek.com/)")
+    val apiUrl: String = "https://api.openai.com/)",
 
     @TomlComments("API access token")
     val token: String = "Token / API Key",
@@ -77,18 +78,18 @@ data class AIConfig(
 
     @TomlComments("Custom literature-style prompt for translation")
     @SerialName("literature_style")
-    val literatureStyle: String? = null,
+    val literatureStyle: String = CustomizedPrompts.literatureStyle,
 
     @TomlComments("Target language (e.g. Simplified Chinese, English, 日本語)")
     @SerialName("target_language")
-    val targetLanguage: String? = null,
+    val targetLanguage: String = CustomizedPrompts.targetLanguage,
 
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default)")
-    val temperature: Double? = null,
+    val temperature: Double? = 1.0,
 
     @TomlComments("Enable aggressive gradient text handling (default: true)")
     @SerialName("handle_gradient")
-    val handleGradientAggressively: Boolean? = null,
+    val handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
 ) {
     companion object {
         val Default = AIConfig()
