@@ -49,6 +49,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.clikt)
+            implementation(libs.mordant)
+            implementation(libs.mordant.coroutines)
+            implementation(libs.mordant.markdown)
             implementation(libs.kotlinx.serialization.json.okio)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.io.okio)

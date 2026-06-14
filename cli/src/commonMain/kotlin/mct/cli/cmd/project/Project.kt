@@ -10,8 +10,11 @@ import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.mordant.rendering.TextAlign
 import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.rendering.TextStyles
+import com.github.ajalt.mordant.widgets.Panel
+import com.github.ajalt.mordant.widgets.Text
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.toList
 import mct.*
@@ -164,7 +167,11 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                     regionPatterns, mcfPatterns, mcfDataPatterns
                 ).toList()
                 cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
-                terminal.println(TextColors.green("Extracted ") + (TextColors.green + TextStyles.bold)("${groups.size}") + TextColors.green(" groups from region"))
+                terminal.println(
+                    TextColors.green("Extracted ") + (TextColors.green + TextStyles.bold)("${groups.size}") + TextColors.green(
+                        " groups from region"
+                    )
+                )
                 groups
             }
             val datapackJob = async(Dispatchers.IO) {
@@ -172,14 +179,22 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                     mcfPatterns, mcfDataPatterns, mcjPatterns
                 ).toList()
                 cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
-                terminal.println(TextColors.green("Extracted ") + (TextColors.green + TextStyles.bold)("${groups.size}") + TextColors.green(" groups from datapack"))
+                terminal.println(
+                    TextColors.green("Extracted ") + (TextColors.green + TextStyles.bold)("${groups.size}") + TextColors.green(
+                        " groups from datapack"
+                    )
+                )
                 groups
             }
             (regionJob.await() + datapackJob.await()).exportIntoPool(simply = false)
         }
         val missingPool = pool.filter { it !in existingMapping }
         if (missingPool.isNotEmpty()) {
-            terminal.println(TextColors.yellow("Missing ") + (TextColors.yellow + TextStyles.bold)("${missingPool.size}") + TextColors.yellow(" items (${pool.size} total extracted)"))
+            terminal.println(
+                TextColors.yellow("Missing ") + (TextColors.yellow + TextStyles.bold)("${missingPool.size}") + TextColors.yellow(
+                    " items (${pool.size} total extracted)"
+                )
+            )
             (projectDir / POOL).writeJson(missingPool, projectConfig.prettyJson)
         } else {
             terminal.println(TextColors.green("No new items found (${pool.size} total extracted, all mapped)"))
@@ -188,6 +203,9 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 }
 
 private class Translate : ProjectCommand("translate", "Translate extractions via AI") {
+    private var currentThinkingId = Int.MIN_VALUE
+    private val thinking = StringBuilder()
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val regionFile = cache(REGION_CACHE)
@@ -254,18 +272,47 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             )
         }
 
-        var consumedTokenCount = 0
+        var currentConsumeTokenCount = 0
+        var totalConsumedTokenCount = 0
+        fun outputThinking() {
+            terminal.println(
+                Panel(
+                    title = Text(TextColors.blue("Thinking")),
+                    content = Text(thinking.toString()),
+                    bottomTitle = Text(TextColors.yellow("Consume $currentConsumeTokenCount tokens")),
+                    bottomTitleAlign = TextAlign.RIGHT,
+                )
+            )
+        }
         NotifierHooks.onAiSign {
-            if (it is AiSign.ConsumeToken) {
-                consumedTokenCount += it.count
+            when (it) {
+                is AiSign.Reasoning -> {
+                    if (currentThinkingId != it.id) {
+                        if (thinking.isNotEmpty()) outputThinking()
+                        thinking.clear()
+                        currentThinkingId = it.id
+                    }
+                    thinking.append(it.reasoningContent)
+                    currentConsumeTokenCount = 0
+                }
+
+                is AiSign.ConsumeToken -> {
+                    currentConsumeTokenCount += it.count
+                    totalConsumedTokenCount += it.count
+                }
             }
         }
 
         terminal.println(TextColors.cyan("Starting translation using ${ai.model}..."))
         val mapping = translator.translate(extractionGroups, existingMapping)
+        if (thinking.isNotEmpty()) outputThinking()
 
         val totalMapping = existingMapping + mapping
-        terminal.println(TextColors.green("Translated ") + (TextColors.green + TextStyles.bold)("${mapping.size}") + TextColors.green(" new items (${totalMapping.size} total)"))
+        terminal.println(
+            TextColors.green("Translated ") + (TextColors.green + TextStyles.bold)("${mapping.size}") + TextColors.green(
+                " new items (${totalMapping.size} total)"
+            )
+        )
 
         mappingFile.writeJson(totalMapping, projectConfig.prettyJson)
         terminal.println(TextColors.green("Mapping saved to $mappingFile"))
@@ -275,7 +322,11 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             terminal.println(TextColors.green("${translator.terms.size} terms saved to $termFile"))
         }
 
-        terminal.println(TextColors.green("Translation complete, consumed ") + (TextColors.green + TextStyles.bold)("$consumedTokenCount") + TextColors.green(" tokens."))
+        terminal.println(
+            TextColors.green("Translation complete, consumed ") + (TextColors.green + TextStyles.bold)("$totalConsumedTokenCount") + TextColors.green(
+                " tokens."
+            )
+        )
     }
 }
 
@@ -295,7 +346,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             throw PrintMessage("No mapping found. Run 'project translate' first.")
         }
         val mapping = mappingFile.readJson<TranslationMapping>()
-        terminal.println(TextColors.cyan("Loaded mapping with ") + (TextColors.cyan + TextStyles.bold)("${mapping.size}") + TextColors.cyan(" entries"))
+        terminal.println(
+            TextColors.cyan("Loaded mapping with ") + (TextColors.cyan + TextStyles.bold)("${mapping.size}") + TextColors.cyan(
+                " entries"
+            )
+        )
 
         val regionGroups = if (fs.exists(regionFile)) {
             regionFile.readJson<List<ExtractionGroup>>()
@@ -315,7 +370,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             @Suppress("UNCHECKED_CAST")
             (regionGroups.replace(mapping) as List<RegionReplacementGroup>).also {
                 cache(REGION_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
-                terminal.println(TextColors.green("Generated ") + (TextColors.green + TextStyles.bold)("${it.size}") + TextColors.green(" region replacement groups"))
+                terminal.println(
+                    TextColors.green("Generated ") + (TextColors.green + TextStyles.bold)("${it.size}") + TextColors.green(
+                        " region replacement groups"
+                    )
+                )
             }
         } else {
             emptyList()
@@ -325,7 +384,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             @Suppress("UNCHECKED_CAST")
             (datapackGroups.replace(mapping) as List<DatapackReplacementGroup>).also {
                 cache(DATAPACK_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
-                terminal.println(TextColors.green("Generated ") + (TextColors.green + TextStyles.bold)("${it.size}") + TextColors.green(" datapack replacement groups"))
+                terminal.println(
+                    TextColors.green("Generated ") + (TextColors.green + TextStyles.bold)("${it.size}") + TextColors.green(
+                        " datapack replacement groups"
+                    )
+                )
             }
         } else {
             emptyList()
@@ -354,7 +417,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             if (regionReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
                     try {
-                        terminal.println(TextColors.cyan("Backfilling ") + (TextColors.cyan + TextStyles.bold)("${regionReplacements.size}") + TextColors.cyan(" region groups..."))
+                        terminal.println(
+                            TextColors.cyan("Backfilling ") + (TextColors.cyan + TextStyles.bold)("${regionReplacements.size}") + TextColors.cyan(
+                                " region groups..."
+                            )
+                        )
                         buildWorkspace.backfillRegion(regionReplacements)
                         terminal.println(TextColors.green("Region backfill complete."))
                     } catch (e: Exception) {
@@ -366,7 +433,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
             if (datapackReplacements.isNotEmpty()) {
                 launch(Dispatchers.IO) {
                     try {
-                        terminal.println(TextColors.cyan("Backfilling ") + (TextColors.cyan + TextStyles.bold)("${datapackReplacements.size}") + TextColors.cyan(" datapack groups..."))
+                        terminal.println(
+                            TextColors.cyan("Backfilling ") + (TextColors.cyan + TextStyles.bold)("${datapackReplacements.size}") + TextColors.cyan(
+                                " datapack groups..."
+                            )
+                        )
                         buildWorkspace.backfillDatapack(datapackReplacements)
                         terminal.println(TextColors.green("Datapack backfill complete."))
                     } catch (e: Exception) {
@@ -380,7 +451,11 @@ private class Build : ProjectCommand("build", "Build translated world") {
         if (hasBackfillErrors) {
             terminal.println(TextColors.yellow("Build completed with errors. Check logs above."))
         } else {
-            terminal.println(TextColors.green("Build complete. Translated world at ") + (TextColors.green + TextStyles.bold)("$targetDir"))
+            terminal.println(
+                TextColors.green("Build complete. Translated world at ") + (TextColors.green + TextStyles.bold)(
+                    "$targetDir"
+                )
+            )
         }
     }
 }
