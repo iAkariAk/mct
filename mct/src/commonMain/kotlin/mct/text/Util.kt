@@ -54,6 +54,17 @@ internal fun Map<String, *>.isTextCompound() =
                 else value !is Map<*, *> && value !is Collection<*>
             }
 
+internal fun List<*>.isTextCompound(): Boolean = all {
+    @Suppress("UNCHECKED_CAST")
+    when (it) {
+        is String -> true
+        is List<*> -> it.isTextCompound()
+        is Map<*, *> -> it.keys.all { it is String }&& (it as Map<String, *>).isTextCompound()
+        else -> false
+    }
+}
+
+
 // "minecraft:lore": [
 //  {
 //    "": " " // Here are a shorthand for "text"

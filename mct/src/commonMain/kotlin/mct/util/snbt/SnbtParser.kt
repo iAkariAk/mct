@@ -85,19 +85,26 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
                 else -> unreachable
             }
 
-            SnbtString(currentToken!!.indices, contentRaw, content)
+            SnbtString(currentToken!!.indices, raw, contentRaw, content)
         }
 
         SnbtTokenType.LITERAL -> {
             val raw = currentView()
-            SnbtString(currentToken!!.indices, raw, raw)
+            SnbtString(currentToken!!.indices, raw, raw, raw)
         }
 
         else -> error("$currentToken(${currentView()}) isn't a string")
     }
 
     private fun unescape(string: String) = ESCAPE_REGEX.replace(string) {
-        it.groupValues[1]
+        when (val r = it.groupValues[1]) {
+            "n" -> "\n"
+            "r" -> "\r"
+            "t" -> "\t"
+            "\"" -> "\""
+            "\\" -> "\\"
+            else -> r
+        }
     }
 
 

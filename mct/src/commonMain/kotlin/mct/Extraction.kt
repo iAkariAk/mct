@@ -1,3 +1,5 @@
+@file:Suppress("OVERRIDE_BY_INLINE")
+
 package mct
 
 import kotlinx.serialization.SerialName
@@ -111,7 +113,7 @@ sealed interface DatapackExtraction : Extraction {
         val pointer: DataPointer,
         val content: String,
     ) : DatapackExtraction {
-        inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content))
+         inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content))
     }
 
     /**
@@ -124,10 +126,15 @@ sealed interface DatapackExtraction : Extraction {
         val indices: IntRangeSerializable,
         val content: String,
     ) : DatapackExtraction {
-        inline fun replace(replacement: (String) -> String) =
+         inline fun replace(replacement: (String) -> String) =
             DatapackReplacement.MCFunction(indices, replacement(content))
     }
 
+}
+
+inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
+    is DatapackExtraction.MCFunction -> replace(replacement)
+    is DatapackExtraction.MCJson -> replace(replacement)
 }
 
 /**

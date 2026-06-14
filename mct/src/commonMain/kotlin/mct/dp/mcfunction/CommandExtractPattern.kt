@@ -8,7 +8,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
-import mct.FormatKind
 import mct.MCTError
 import mct.pointer.DataPointerPattern
 import mct.region.extractTexts
@@ -98,7 +97,6 @@ private fun selectSnbt(patterns: List<DataPointerPattern>?, content: String): Se
     }
     return tag.extractTexts(content)
         .filterPointer(patterns)
-        .filter { it.kind == FormatKind.Nbt }
 }
 
 @Serializable

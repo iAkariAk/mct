@@ -26,6 +26,10 @@ fun PatternSet(action: DataPointerPatternSetBuilderScope.() -> Unit): List<DataP
         override fun DataPointerPattern.unaryPlus() {
             result += this
         }
+
+        override fun dependsOn(patterns: List<DataPointerPattern>) {
+            result += patterns
+        }
     }
     scope.apply(action)
     return result
@@ -33,6 +37,8 @@ fun PatternSet(action: DataPointerPatternSetBuilderScope.() -> Unit): List<DataP
 
 interface DataPointerPatternSetBuilderScope {
     operator fun DataPointerPattern.unaryPlus()
+
+    fun dependsOn(patterns: List<DataPointerPattern>)
 }
 
 private typealias S = DataPointerPatternSetBuilderScope

@@ -2,6 +2,7 @@ package mct.dp.mcfunction
 
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
+import mct.region.BuiltinRegionPatterns
 import mct.text.isTextComponent
 
 val BuiltinMCFPatterns = PatternSet {
@@ -339,15 +340,14 @@ val BuiltinMCFPatterns = PatternSet {
 
 
 val BuiltinMCFunctionDataPatterns = mct.pointer.PatternSet {
+    dependsOn(BuiltinRegionPatterns)
+
     // ── Display entity text ──────────────────────────────────────
-    // Matches `>#text` (single text display compound) and `>#text>0` etc. (array elements)
-    // Also matches nested text leaves within array element compounds: `>#text>0>#text`
-    +RegexPattern("""^>#text(?:>\d+(?:>#(?:text|translate))?)?$""")
+    +RightPattern(""">#text""")
 
     // ── CustomName ───────────────────────────────────────────────
     // CustomName text components in NBT (entities, block entities, etc.)
     +RightPattern(">#CustomName")
-    +RegexPattern("""^>#CustomName>#(?:text|translate|fallback)$""")
 
     // ── Dialog SNBT fields ───────────────────────────────────────
     // /dialog show <targets> {type:"...",title:{...},...}

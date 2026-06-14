@@ -156,14 +156,14 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
     else -> emptySequence()
 }
 
-// Cope from the above
+// Coped from the above
 // due to using IR dragging slow performance
 
 internal data class PointerWithExtensionForSnbt(
     val pointer: DataPointer,
     override val indices: IntRange,
     override val content: String,
-    val kind: FormatKind = FormatKind.JsonStr,
+    val kind: FormatKind,
 ) : StringIndices
 
 @JvmName($$"filterPointer$snbt")
@@ -171,11 +171,22 @@ internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns
     filter { (ptr, _, _) -> ptr.matches(patterns) }
 
 internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
-    is SnbtList -> asSequence().withIndex().flatMap { (index, tag) ->
-        tag.extractTexts(snbt).map {
-            it.copy(pointer = it.pointer.markArray(index))
-        }
-    } // wrap inner pointer
+    is SnbtList -> {
+        if (isTextCompound()) {
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.JsonStr
+                )
+            )
+        } else asSequence().withIndex().flatMap { (index, tag) ->
+            tag.extractTexts(snbt).map {
+                it.copy(pointer = it.pointer.markArray(index))
+            }
+        } // wrap inner pointer
+    }
 
     is SnbtCompound -> {
         if (isTextCompound()) {
@@ -184,7 +195,7 @@ internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionFo
                     DataPointer.Terminator,
                     indices,
                     snbt.substring(indices),
-                    FormatKind.Nbt
+                    FormatKind.JsonStr
                 )
             )
         } else if (isTextCompoundShorthanded()) {
@@ -198,20 +209,18 @@ internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionFo
                     DataPointer.Terminator,
                     indices,
                     snbt.substring(indices),
-                    FormatKind.Nbt
+                    FormatKind.JsonStr
                 )
             )
-        } else {
-            asSequence().flatMap { (key, value) ->
-                value.extractTexts(snbt).map {
-                    it.copy(pointer = it.pointer.markMap(key))
-                }
+        } else asSequence().flatMap { (key, value) ->
+            value.extractTexts(snbt).map {
+                it.copy(pointer = it.pointer.markMap(key))
             } // wrap inner pointer
         }
     }
 
     is SnbtString -> {
-        sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, rawContent))
+        sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, raw, FormatKind.PlainStr))
     }
 
     else -> emptySequence()
