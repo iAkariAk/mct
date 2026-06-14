@@ -92,12 +92,18 @@ class MCFunctionTest : StringSpec({
               """.trimIndent()
     }
 
-    "test snbt selecting" {
-        val extraction = extractTextMCF(TestFunctions.update_billboard)
-        extraction.extractions.size shouldBe 77
-        extraction.extractions.forEach {
-            println(it)
+    "test practice" {
+        val extractions = extractTextMCF(TestFunctions.update_billboard).extractions
+        val replacements = extractions.mapNotNull {
+            it.replace {
+                mappings[it] ?: return@mapNotNull null
+            }
         }
-    }
 
+        extractions.forEach {
+            println(it.contents().toList())
+        }
+        val backfilled = TestFunctions.update_billboard.backfill(replacements)
+        println(backfilled)
+    }
 })

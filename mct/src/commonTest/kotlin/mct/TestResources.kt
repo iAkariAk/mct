@@ -4,12 +4,16 @@ import arrow.core.getOrElse
 import arrow.core.raise.either
 import com.goncalossilva.resources.Resource
 import korlibs.io.lang.unreachable
+import mct.kit.TranslationMapping
+import mct.serializer.MCTJson
 import mct.util.io.openZipReadWrite
 import mct.util.io.useAsync
 import okio.Path.Companion.toPath
 import kotlin.properties.ReadOnlyProperty
 
 private val test_map = Resource("TestMap.zip")
+private val test_mappings = Resource("mappings.json")
+
 
 suspend fun TestMapWorkspace() = test_map.readBytes().openZipReadWrite().useAsync {
     val env = Env(
@@ -30,3 +34,5 @@ object TestFunctions {
 
     val update_billboard by mcf()
 }
+
+val mappings = MCTJson.decodeFromString<TranslationMapping>(test_mappings.readText())
