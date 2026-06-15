@@ -200,7 +200,7 @@ class TranslatorTest : FreeSpec({
                 val callChunkSizes = mutableListOf<Int>()
 
                 val mockChat: RequestTranslation =
-                    { expectedSize, _, _ ->
+                    { expectedSize, _, _, _ ->
                         val idx = callIndex++
                         callChunkSizes += expectedSize
                         val content = buildString {
@@ -241,5 +241,5 @@ class TranslatorTest : FreeSpec({
  * The mock ignores the input message and returns parsed mock data for any expected line count.
  */
 fun mockChatCompletion(content: String): RequestTranslation =
-    { expectedSize, _, _ -> parseLLMResponse(content, expectedSize) }
+    { expectedSize, _, _, _ -> parseLLMResponse(content, expectedSize) }
 
