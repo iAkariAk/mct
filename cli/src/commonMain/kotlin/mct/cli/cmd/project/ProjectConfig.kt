@@ -60,7 +60,7 @@ data class PatternsConfig(
 data class AIConfig(
     @SerialName("api_url")
     @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/ or https://api.deepseek.com/)")
-    val apiUrl: String = "https://api.openai.com/)",
+    val apiUrl: String = "https://api.openai.com/",
 
     @TomlComments("API access token")
     val token: String = "Token / API Key",
@@ -68,7 +68,7 @@ data class AIConfig(
     @TomlComments("Model name (e.g. gpt-4o, deepseek-v4-pro, gemini-2.0-flash)")
     val model: String = "gpt-4o",
 
-    @TomlComments("Use streaming API (can resolve empty response issues on some providers)")
+    @TomlComments("Use streaming API (can resolve empty response issues on some providers; default: true)")
     @SerialName("use_stream_api")
     val useStreamApi: Boolean = true,
 
@@ -80,20 +80,23 @@ data class AIConfig(
     @SerialName("literature_style")
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
 
-    @TomlComments("Target language (e.g. Simplified Chinese, English, 日本語)")
+    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${CustomizedPrompts.targetLanguage})")
     @SerialName("target_language")
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
 
-    @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default)")
+    @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default, i.e. 1.0)")
     val temperature: Double? = 1.0,
 
-    @TomlComments("Enable aggressive gradient text handling (default: true)")
+    @TomlComments("Enable aggressive gradient text handling (default: ${CustomizedPrompts.handleGradientAggressively})")
     @SerialName("handle_gradient")
     val handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
 
-    @TomlComments("Enable http logging for debug (default: true)")
+    @TomlComments("Enable http logging for debug (default: false)")
     @SerialName("http_logging")
     val enableHttpLogging: Boolean = false,
+
+    @TomlComments("Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective; default: 1)")
+    val concurrency: Int = 1,
 ) {
     companion object {
         val Default = AIConfig()

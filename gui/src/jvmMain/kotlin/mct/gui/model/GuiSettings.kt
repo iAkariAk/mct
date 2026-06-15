@@ -12,6 +12,7 @@ object GuiSettings {
     var tokenThreshold by mutableIntStateOf(TOKEN_COUNT_THRESHOLD)
     var useStreamApi by mutableStateOf(false)
     var temperature by mutableStateOf<Double?>(null)
+    var concurrency by mutableIntStateOf(1)
 }
 
 data class LogEntry(

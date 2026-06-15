@@ -43,6 +43,7 @@ data class ApiSettings(
     val useStreamApi: Boolean = false,
     val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val temperature: Double? = null,
+    val concurrency: Int = 1,
 )
 
 val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
@@ -200,6 +201,7 @@ suspend fun runTranslation(
     targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
     handleGradientAggressively: Boolean = CustomizedPrompts.Defaults.handleGradientAggressively,
     temperature: Double? = null,
+    concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
     onCancel: OnTranslateCancel = { _, _ -> }
 ) {
@@ -241,7 +243,8 @@ suspend fun runTranslation(
             targetLanguage = targetLanguage,
             handleGradientAggressively = handleGradientAggressively,
         ),
-        tokenThreshold = GuiSettings.tokenThreshold
+        tokenThreshold = GuiSettings.tokenThreshold,
+        concurrency = GuiSettings.concurrency,
     )
 
     val wrappedOnCancel: OnTranslateCancel = { terms, salvaged ->
@@ -268,7 +271,7 @@ suspend fun runTranslation(
             env.logger.info { "映射文件已写入: $mappingOutput" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
-            apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature))
+            apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature, GuiSettings.concurrency))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

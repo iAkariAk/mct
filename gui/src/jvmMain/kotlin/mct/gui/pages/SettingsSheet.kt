@@ -7,7 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -47,7 +49,9 @@ fun SettingsSheet(
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(20.dp)
             ) {
-                Column {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
                     Text(
                         "设置",
                         style = MaterialTheme.typography.titleLarge,
@@ -134,6 +138,47 @@ fun SettingsSheet(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    Text(
+                        "并发度 (1–20)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "同时进行的 AI 请求数量。较高的值可加速大量文本的翻译，但可能增加 API 限流风险。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    val concurrencyRange = 1f..20f
+                    var sliderConc by remember { mutableFloatStateOf(GuiSettings.concurrency.toFloat().coerceIn(concurrencyRange)) }
+
+                    Slider(
+                        value = sliderConc,
+                        onValueChange = { sliderConc = it },
+                        onValueChangeFinished = { GuiSettings.concurrency = sliderConc.toInt().coerceIn(1, 20) },
+                        valueRange = concurrencyRange,
+                        steps = 18,
+                    )
+                    Text(
+                        "%d  —  %s".format(
+                            sliderConc.toInt(),
+                            if (sliderConc.toInt() <= 1) "串行" else "并发"
+                        ),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "注意：并发 > 1 时术语表仅初始术语生效，各 chunk 互不可见",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = .8f),
                     )
                 }
             }

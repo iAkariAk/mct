@@ -269,6 +269,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 ),
                 defaultTerms = existingTerms,
                 tokenThreshold = ai.tokenThreshold,
+                concurrency = ai.concurrency
             )
         }
 
@@ -303,7 +304,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             }
         }
 
-        terminal.println(cyan("Starting translation using ${ai.model}..."))
+        terminal.println(cyan("Starting translation using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
         val mapping = translator.translate(extractionGroups, existingMapping) { terms, salvaged ->
             mappingFile.writeJson(existingMapping + salvaged, projectConfig.prettyJson)
             terminal.println(green("Mapping saved to $mappingFile"))

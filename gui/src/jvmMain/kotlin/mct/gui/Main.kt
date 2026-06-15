@@ -174,6 +174,7 @@ fun App(
             GuiSettings.temperature = savedSettings.temperature
             GuiSettings.useStreamApi = savedSettings.useStreamApi
             GuiSettings.tokenThreshold = savedSettings.tokenThreshold
+            GuiSettings.concurrency = savedSettings.concurrency
             if (savedSettings.apiUrl.isNotBlank() || savedSettings.apiToken.isNotBlank())
                 logLines.add(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
         }
@@ -395,6 +396,7 @@ fun App(
                                                                 GuiSettings.useStreamApi,
                                                                 GuiSettings.tokenThreshold,
                                                                 GuiSettings.temperature,
+                                                                GuiSettings.concurrency,
                                                             )
                                                         )
                                                     ) "API 设置已保存到 ${apiSetting.path}" else "保存 API 设置失败"

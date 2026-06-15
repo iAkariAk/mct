@@ -19,11 +19,12 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.fold
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mct.Env
 import mct.EnvHolder
 import mct.MCTError
 import mct.notify
-import kotlin.time.Clock
 
 private const val MAX_RETRY = 20
 
@@ -154,8 +155,10 @@ class ChatCompletionCallImpl internal constructor(
     override val env: Env,
     val useStreamApi: Boolean = false,
     val maxRetry: Int = MAX_RETRY,
-    val temperature: Double? = null
+    val temperature: Double? = null,
 ) : ChatCompletionCall {
+    private val callIdMutex = Mutex()
+    private var nextCallId = 0
     context(_: Raise<ChatCompletionCallError>)
     override suspend fun <T> chat(
         prompt: String,
@@ -176,7 +179,7 @@ class ChatCompletionCallImpl internal constructor(
         var llmRetry = 0
         loop@ while (llmRetry < maxRetry) {
             val llmResult = runCatching {
-                val callId = Clock.System.now().nanosecondsOfSecond
+                val callId = callIdMutex.withLock { nextCallId++ }
                 if (useStreamApi) client.chatCompletions(request)
                     .onEach {
                         noticeTokenConsume(it.usage)
