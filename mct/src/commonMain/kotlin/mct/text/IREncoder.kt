@@ -32,7 +32,7 @@ private fun IRObjectBuilder.commonPut(value: TextCompound, simplify: Boolean = t
 }
 
 
-fun TextCompound.encodeToIR(simplify: Boolean = true): IRElement {
+fun TextCompound.encodeToIR(simplify: Boolean = false): IRElement {
     val value = this
 
     return when (this) {
