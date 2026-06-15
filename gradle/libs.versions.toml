@@ -26,6 +26,7 @@ serialization = "1.11.0"
 shadow = "9.4.2"
 ktoml = "0.7.1"
 mordant = "3.0.2"
+slf4j = "2.0.18"
 
 [libraries]
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
@@ -76,6 +77,7 @@ openai-client = { module = "com.aallam.openai:openai-client", version.ref = "ope
 mordant = { module = "com.github.ajalt.mordant:mordant", version.ref = "mordant" }
 mordant-coroutines = { module = "com.github.ajalt.mordant:mordant-coroutines", version.ref = "mordant" }
 mordant-markdown = { module = "com.github.ajalt.mordant:mordant-markdown", version.ref = "mordant" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 
 [bundles]
 arrow = [

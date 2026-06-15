@@ -58,7 +58,7 @@ kotlin {
             api(libs.ktor.client.logging)
             implementation(libs.ktor.client.contentNegotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
-
+            implementation(libs.slf4j.nop)
             implementation(project(":mct"))
         }
 
