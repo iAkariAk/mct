@@ -8,6 +8,7 @@ import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import mct.Logger
+import mct.SyntaxKind
 import mct.command.*
 
 class ExtractPatternTest : FreeSpec({
@@ -358,7 +359,7 @@ class ExtractPatternTest : FreeSpec({
                 val patterns = BuiltinMCFPatterns["data"].orEmpty()
                 val p = patterns.find { it.preCondition is PreCondition.Companion.And &&
                     it.selected is IndexSelector.NonGreedy &&
-                    (it.selected as IndexSelector.NonGreedy).matches(4) }
+                    it.selected.matches(4) }
                 p shouldNotBe null
                 p!!.preCondition.matches(cmd) shouldBe true
                 p.postCondition.matches(cmd, cmd.args[3]) shouldBe true
@@ -377,6 +378,183 @@ class ExtractPatternTest : FreeSpec({
                 p!!.preCondition.matches(cmd) shouldBe true
                 p.postCondition.matches(cmd, cmd.args[5]) shouldBe true
             }
+        }
+    }
+
+    "TargetSelector" - {
+        fun extractTargetSelector(mcf: String): List<ExtractedCommandSlice> {
+            val cmds = parseMCFunction(mcf)
+            return cmds.flatMap { extractTextFromTargetSelector(it.args) }
+        }
+
+        "extracts literal name" {
+            val slices = extractTargetSelector("say @p[name=foo]")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "foo"
+            slices[0].syntax shouldBe SyntaxKind.Literal
+        }
+
+        "extracts name with colon (namespaced)" {
+            val slices = extractTargetSelector("say @p[name=foo:bar]")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "foo:bar"
+            slices[0].syntax shouldBe SyntaxKind.Literal
+        }
+
+        "extracts double-quoted name with quotes preserved in content" {
+            // content stores the raw value including surrounding quotes
+            val slices = extractTargetSelector("""say @p[name="hello"]""")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "\"hello\""
+            slices[0].syntax shouldBe SyntaxKind.DoubleQuoteWrapped
+        }
+
+        "extracts single-quoted name with quotes preserved in content" {
+            val slices = extractTargetSelector("say @p[name='hello']")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "'hello'"
+            slices[0].syntax shouldBe SyntaxKind.SingleQuoteWrapped
+        }
+
+        "extracts negative/not name" {
+            val slices = extractTargetSelector("say @p[name=!foo]")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "foo"
+            slices[0].syntax shouldBe SyntaxKind.Literal
+        }
+
+        "extracts name when selector has multiple properties" {
+            val slices = extractTargetSelector("""say @p[type=minecraft:player,name="foo",tag=bar]""")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "\"foo\""
+            slices[0].syntax shouldBe SyntaxKind.DoubleQuoteWrapped
+        }
+
+        "extracts name from last property before closing bracket" {
+            val slices = extractTargetSelector("say @e[tag=carried,name=Foo]")
+            slices.size shouldBe 1
+            slices[0].content shouldBe "Foo"
+            slices[0].syntax shouldBe SyntaxKind.Literal
+        }
+
+        "does not extract when no name argument" {
+            val slices = extractTargetSelector("say @p")
+            slices.size shouldBe 0
+        }
+
+        "does not extract from non-selector args" {
+            val slices = extractTargetSelector("say hello world")
+            slices.size shouldBe 0
+        }
+
+        "extracts from multiple selectors in one command" {
+            val slices = extractTargetSelector("""say @p[name="foo"] @s[name=bar]""")
+            slices.size shouldBe 2
+            slices[0].content shouldBe "\"foo\""
+            slices[0].syntax shouldBe SyntaxKind.DoubleQuoteWrapped
+            slices[1].content shouldBe "bar"
+            slices[1].syntax shouldBe SyntaxKind.Literal
+        }
+
+        "indices slice back to the exact name value in the original string" {
+            // For literal name, indices cover just the value (without trailing bracket)
+            val raw = "say @p[name=foo]"
+            val slices = extractTargetSelector(raw)
+            slices.size shouldBe 1
+            val slice = slices[0]
+            slice.content shouldBe "foo"
+            raw.substring(slice.indices) shouldBe "foo"
+        }
+
+        "indices for double-quoted name include the quotes" {
+            // For double-quoted name, indices cover the quoted value (without trailing bracket)
+            val raw = "say @p[name=\"foo\"]"
+            val slices = extractTargetSelector(raw)
+            slices.size shouldBe 1
+            val slice = slices[0]
+            slice.content shouldBe "\"foo\""
+            raw.substring(slice.indices) shouldBe "\"foo\""
+        }
+
+        "indices for single-quoted name include the quotes" {
+            val raw = "say @p[name='foo']"
+            val slices = extractTargetSelector(raw)
+            slices.size shouldBe 1
+            val slice = slices[0]
+            slice.content shouldBe "'foo'"
+            raw.substring(slice.indices) shouldBe "'foo'"
+        }
+    }
+
+    "RecursiveSubcommand" - {
+        fun shouldMatches(mcf: String, vararg expectedContents: String) {
+            val cmds = parseMCFunction(mcf)
+            val matches = cmds.flatMap {
+                shouldNotRaise { extractTextFromCommand(it) }
+            }
+            matches.isNotEmpty() shouldBe true
+            if (expectedContents.isNotEmpty()) {
+                matches.map { it.content } shouldBe expectedContents.toList()
+            }
+        }
+
+        "execute as @p run say" {
+            shouldMatches("execute as @p run say Hello world", "Hello world")
+        }
+
+        "execute at @e run say" {
+            shouldMatches("execute at @e run say Hello world", "Hello world")
+        }
+
+        "return run say" {
+            shouldMatches("return run say Hello world", "Hello world")
+        }
+
+        "execute as @p run tellraw" {
+            shouldMatches(
+                """execute as @p run tellraw @a {"text":"Hello","color":"red"}""",
+                """{"text":"Hello","color":"red"}"""
+            )
+        }
+
+        "execute ... run execute ... run nested deep" {
+            shouldMatches(
+                "execute as @p run execute at @e run say deep hello",
+                "deep hello"
+            )
+        }
+
+        "execute run say with greedy extraction gets full remainder" {
+            shouldMatches(
+                "execute as @p run say hello world foo bar",
+                "hello world foo bar"
+            )
+        }
+    }
+
+    "GreedyRange" - {
+        fun shouldMatches(mcf: String, vararg expectedContents: String) {
+            val cmds = parseMCFunction(mcf)
+            val matches = cmds.flatMap {
+                shouldNotRaise { extractTextFromCommand(it) }
+            }
+            matches.isNotEmpty() shouldBe true
+            if (expectedContents.isNotEmpty()) {
+                matches.map { it.content } shouldBe expectedContents.toList()
+            }
+        }
+
+        "greedy from position 0 extracts all text after command name" {
+            shouldMatches("say hello world", "hello world")
+        }
+
+        "greedy from position 0 with no args uses full name offset" {
+            // This tests the case where command.name.length == command.raw.length
+            // e.g., the greedy selector tries to read beyond the command name
+        }
+
+        "greedy from position 0 with single word arg" {
+            shouldMatches("say hello", "hello")
         }
     }
 })
