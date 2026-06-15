@@ -9,5 +9,10 @@ sealed class AiSign : Sign {
     data class ConsumeToken(val count: Int) : AiSign()
 
     @Serializable
-    data class Reasoning(val reasoningContent: String, val id: Int) : AiSign()
+    data class Reasoning(
+        val reasoningContent: String,
+        val id: Int,
+        val terminated: Boolean = false,
+        val consumeTokenCount: Int? = null
+    ) : AiSign()
 }

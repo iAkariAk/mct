@@ -273,14 +273,14 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
             )
         }
 
-        var currentConsumeTokenCount = 0
         var totalConsumedTokenCount = 0
-        fun outputThinking() {
+        val thinkings = mutableMapOf<Int, StringBuilder>()
+        fun outputThinking(id: Int, thinking: String, consumedTokenCount: Int) {
             terminal.println(
                 Panel(
-                    title = Text(blue("Thinking")),
-                    content = Text(thinking.toString()),
-                    bottomTitle = Text(yellow("Consume $currentConsumeTokenCount tokens")),
+                    title = Text(blue("Thinking ($id)")),
+                    content = Text(thinking),
+                    bottomTitle = Text(yellow("Consume $consumedTokenCount tokens")),
                     bottomTitleAlign = TextAlign.RIGHT,
                 )
             )
@@ -288,17 +288,16 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         NotifierHooks.onAiSign {
             when (it) {
                 is AiSign.Reasoning -> {
-                    if (currentThinkingId != it.id) {
-                        if (thinking.isNotEmpty()) outputThinking()
-                        thinking.clear()
-                        currentThinkingId = it.id
+                    val sb = thinkings.getOrPut(it.id) { StringBuilder() }
+                    if (it.terminated) {
+                        outputThinking(it.id, sb.toString(), it.consumeTokenCount!!)
+                        thinkings.remove(it.id)
+                    } else {
+                        sb.append(it.reasoningContent)
                     }
-                    thinking.append(it.reasoningContent)
-                    currentConsumeTokenCount = 0
                 }
 
                 is AiSign.ConsumeToken -> {
-                    currentConsumeTokenCount += it.count
                     totalConsumedTokenCount += it.count
                 }
             }
@@ -321,7 +320,6 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 )
             )
         }
-        if (thinking.isNotEmpty()) outputThinking()
 
         val totalMapping = existingMapping + mapping
         terminal.println(
@@ -439,7 +437,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
                         buildWorkspace.backfillRegion(regionReplacements)
                         terminal.println(green("Region backfill complete."))
                     } catch (e: Exception) {
-                        terminal.println(red("Region backfill failed: ${e.message}"))
+                        terminal.println(red("Region backfill failed: ${e.stackTraceToString()}"))
                         hasBackfillErrors = true
                     }
                 }
@@ -455,7 +453,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
                         buildWorkspace.backfillDatapack(datapackReplacements)
                         terminal.println(green("Datapack backfill complete."))
                     } catch (e: Exception) {
-                        terminal.println(red("Datapack backfill failed: ${e.message}"))
+                        terminal.println(red("Datapack backfill failed: ${e.stackTraceToString()}"))
                         hasBackfillErrors = true
                     }
                 }

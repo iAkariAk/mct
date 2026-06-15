@@ -1,8 +1,7 @@
 package mct.extra.ai
 
-import arrow.core.raise.context.Raise
-import arrow.core.raise.context.ensure
-import arrow.core.raise.context.raise
+import arrow.atomic.AtomicInt
+import arrow.core.raise.context.*
 import com.aallam.openai.api.chat.*
 import com.aallam.openai.api.core.Usage
 import com.aallam.openai.api.exception.GenericIOException
@@ -158,7 +157,8 @@ class ChatCompletionCallImpl internal constructor(
     val temperature: Double? = null,
 ) : ChatCompletionCall {
     private val callIdMutex = Mutex()
-    private var nextCallId = 0
+    private var nextCallId = AtomicInt(0)
+
     context(_: Raise<ChatCompletionCallError>)
     override suspend fun <T> chat(
         prompt: String,
@@ -179,21 +179,31 @@ class ChatCompletionCallImpl internal constructor(
         var llmRetry = 0
         loop@ while (llmRetry < maxRetry) {
             val llmResult = runCatching {
-                val callId = callIdMutex.withLock { nextCallId++ }
+                val callId = callIdMutex.withLock { nextCallId.incrementAndGet() }
                 if (useStreamApi) client.chatCompletions(request)
                     .onEach {
                         noticeTokenConsume(it.usage)
                     }
-                    .mapNotNull { it.choices.firstOrNull() }
-                    .mapNotNull { it.delta }
-                    .onEach { postReasoning(it.reasoningContent, callId) }
-                    .fold(StringBuilder()) { acc, e -> e.content?.let { acc.append(it) } ?: acc }
+                    .mapNotNull { chatCompletionChunk ->
+                        nullable {
+                            val choice = chatCompletionChunk.choices.firstOrNull().bind()
+                            val delta = choice.delta.bind()
+                            val usage = chatCompletionChunk.usage
+                            val terminated = usage != null
+                            postReasoning(delta.reasoningContent, callId, terminated, usage?.totalTokens)
+                            delta.content
+                        }
+                    }
+                    .fold(StringBuilder()) { acc, content -> acc.append(content) }
                     .toString()
-                else client.chatCompletion(request).also {
-                    noticeTokenConsume(it.usage)
-                }.choices.first().message.also {
-                    postReasoning(it.reasoningContent, callId)
-                }.content!!
+                else {
+                    val chatCompletion = client.chatCompletion(request)
+                    val usage = chatCompletion.usage
+                    noticeTokenConsume(usage)
+                    val chatMessage = chatCompletion.choices.first().message
+                    postReasoning(chatMessage.reasoningContent, callId, true, usage?.totalTokens)
+                    chatMessage.content!!
+                }
             }.getOrElse { e ->
                 if (e is OpenAIHttpException || e is OpenAITimeoutException || e is GenericIOException) {
                     env.logger.error { "API error: ${e.message}. Retry ${llmRetry + 1}/$MAX_RETRY." }
@@ -227,8 +237,8 @@ private fun EnvHolder.noticeTokenConsume(usage: Usage?) {
     }
 }
 
-private fun EnvHolder.postReasoning(reasoningContent: String?, id: Int) {
+private fun EnvHolder.postReasoning(reasoningContent: String?, id: Int, terminated: Boolean, consumeTokenCount: Int? = null) {
     reasoningContent?.let {
-        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent, id) })
+        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent, id, terminated, consumeTokenCount) })
     }
 }

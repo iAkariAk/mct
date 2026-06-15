@@ -287,7 +287,7 @@ class Translator internal constructor(
             val appendedTranslated = strips.destrip(appendedTranslatedRaw)
             logger.info { "Handled ${chunkIndex + 1} (total $totalChunkSize)" }
             logger.debug {
-                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" }
+                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate ${x.value} => ${y.value}" }
             }
             val pct = mutex.withLock {
                 terms += appendTerms
