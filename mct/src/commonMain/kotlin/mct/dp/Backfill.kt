@@ -68,8 +68,8 @@ internal fun String.backfill(replacements: List<DatapackReplacement>): String {
 internal fun String.backfill(replacements: List<DatapackReplacement.MCFunction>) =
     replacements
         .sortedByDescending { it.indices.first }
-        .fold(StringBuilder(this)) { ace, e ->
-            ace.replaceRange(e.indices, e.replacement) as StringBuilder
+        .fold(StringBuilder(this)) { acc, e ->
+            acc.setRange(e.indices.first, e.indices.last + 1, e.replacement) as StringBuilder
         }.toString()
 
 @JvmName($$"backfill$MCJson")

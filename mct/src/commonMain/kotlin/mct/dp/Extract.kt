@@ -9,9 +9,9 @@ import kotlinx.coroutines.flow.*
 import mct.DatapackExtractionGroup
 import mct.Env
 import mct.MCTWorkspace
-import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.CommandExtractPattern
-import mct.dp.mcfunction.ExtractPatternSet
+import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.CommandExtractPattern
+import mct.command.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
 import mct.pointer.DataPointerPattern
@@ -19,7 +19,7 @@ import mct.util.IO
 import mct.util.io.*
 import okio.FileSystem
 import okio.Path
-import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
+import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJsonBuiltinPatterns
 
 fun MCTWorkspace.extractFromDatapack(

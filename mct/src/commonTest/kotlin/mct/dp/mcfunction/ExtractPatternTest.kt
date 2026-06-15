@@ -8,10 +8,11 @@ import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import mct.Logger
+import mct.command.*
 
 class ExtractPatternTest : FreeSpec({
     fun parseMCFunction(mcf: String): List<MCCommand> =
-        context(Logger.None) { mct.dp.mcfunction.parseMCFunction(mcf) }
+        context(Logger.None) { mct.command.parseMCFunction(mcf) }
 
     /**
      * Creates a simple mock MCCommand for unit testing conditions.
@@ -326,9 +327,9 @@ class ExtractPatternTest : FreeSpec({
                 )
                 val patterns = BuiltinMCFPatterns["team"].orEmpty()
                 val p = patterns.find { it.preCondition is PreCondition.Companion.WithSize &&
-                    (it.preCondition as PreCondition.Companion.WithSize).size == 3 &&
+                    it.preCondition.size == 3 &&
                     it.selected is IndexSelector.NonGreedy &&
-                    (it.selected as IndexSelector.NonGreedy).matches(3) }
+                    it.selected.matches(3) }
                 p shouldNotBe null
                 p!!.preCondition.matches(cmd) shouldBe true
                 p.postCondition.matches(cmd, cmd.args[2]) shouldBe true

@@ -1,4 +1,4 @@
-package mct.dp.mcfunction
+package mct.command
 
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern

@@ -8,7 +8,7 @@ import mct.FormatKind
 import mct.MCTWorkspace
 import mct.RegionExtraction
 import mct.RegionExtractionGroup
-import mct.dp.mcfunction.*
+import mct.command.*
 import mct.pointer.*
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
@@ -61,14 +61,16 @@ fun MCTWorkspace.extractFromRegion(
                                                 pointer = pointer,
                                                 raw = content,
                                                 locations = cmds.flatMap {
-                                                    extractTextFromCommand(
+                                                    val selector = extractTextFromTargetSelector(it.args)
+                                                    val command = extractTextFromCommand(
                                                         it,
                                                         mcfPatterns,
                                                         mcfDataPatterns
                                                     )
+                                                    selector + command
                                                 }.takeIf { it.isNotEmpty() }
                                                     ?.map {
-                                                        RegionExtraction.Command.Location(it.indices, it.content)
+                                                        RegionExtraction.Command.Location(it.indices, it.content, it.syntax)
                                                     } ?: return@mapNotNull null
                                             )
                                         }.getOrNull()

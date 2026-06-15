@@ -8,9 +8,7 @@ import mct.pointer.DataPointer
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.serializer.IntRangeSerializable
-import mct.util.StringIndices
-import mct.util.isJson
-import mct.util.isSnbt
+import mct.util.*
 
 @Serializable
 sealed interface ExtractionGroup {
@@ -44,6 +42,27 @@ enum class FormatKind {
     @SerialName("nbt")
     Nbt // save via snbt
 }
+
+// Used to distinguish where a string sources
+@Serializable
+enum class SyntaxKind {
+    Literal,
+    SingleQuoteWrapped,
+    DoubleQuoteWrapped;
+
+    fun content(value: String) = when (this) {
+        Literal -> value
+        SingleQuoteWrapped -> value.singleUnquoted()
+        DoubleQuoteWrapped -> value.doubleUnquoted()
+    }
+
+    fun substitute(value: String) = when (this) {
+        Literal -> value
+        SingleQuoteWrapped -> value.singleQuoted()
+        DoubleQuoteWrapped -> value.doubleQuoted()
+    }
+}
+
 
 fun FormatKind.isString(): Boolean = this == FormatKind.JsonStr || this == FormatKind.PlainStr
 fun FormatKind.isBinary(): Boolean = this == FormatKind.Nbt
@@ -113,7 +132,7 @@ sealed interface DatapackExtraction : Extraction {
         val pointer: DataPointer,
         val content: String,
     ) : DatapackExtraction {
-         inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content))
+        inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content))
     }
 
     /**
@@ -125,11 +144,11 @@ sealed interface DatapackExtraction : Extraction {
     data class MCFunction(
         val indices: IntRangeSerializable,
         val content: String,
+        val syntax: SyntaxKind,
     ) : DatapackExtraction {
-         inline fun replace(replacement: (String) -> String) =
+        inline fun replace(replacement: (String) -> String) =
             DatapackReplacement.MCFunction(indices, replacement(content))
     }
-
 }
 
 inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
@@ -177,20 +196,21 @@ sealed interface RegionExtraction : Extraction {
         @Serializable
         data class Location(
             override val indices: IntRangeSerializable,
-            override val content: String
+            override val content: String,
+            val syntax: SyntaxKind,
         ) : StringIndices
 
         inline fun replace(replacements: (List<String>) -> List<String?>): RegionReplacement.Command {
-            val r = replacements(locations.map { it.content })
+            val r = replacements(locations.map { it.syntax.substitute(it.content) })
             return RegionReplacement.Command(
                 index,
                 pointer,
                 locations.asSequence()
-                    .sortedByDescending { it.indices.first }
                     .zip(r.asSequence())
-                    .fold(raw) { acc, (loc, r) ->
-                        acc.replaceRange(loc.indices, r ?: return@fold acc)
-                    }
+                    .sortedByDescending { (loc, str) -> loc.indices.first }
+                    .fold(StringBuilder(raw)) { acc, (loc, r) ->
+                        acc.setRange(loc.indices.first, loc.indices.last + 1, r ?: return@fold acc)
+                    }.toString()
             )
         }
     }
@@ -293,8 +313,8 @@ sealed interface RegionReplacement : Replacement {
 
 
 inline fun Extraction.contents() = when (this) {
-    is DatapackExtraction.MCFunction -> sequenceOf(content)
+    is DatapackExtraction.MCFunction -> sequenceOf(syntax.content(content))
     is DatapackExtraction.MCJson -> sequenceOf(content)
-    is RegionExtraction.Command -> locations.asSequence().map { it.content }
+    is RegionExtraction.Command -> locations.asSequence().map { it.syntax.content(it.content) }
     is RegionExtraction.Text -> sequenceOf(content)
 }

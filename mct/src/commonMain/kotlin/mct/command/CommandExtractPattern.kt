@@ -1,4 +1,4 @@
-package mct.dp.mcfunction
+package mct.command
 
 import arrow.core.raise.context.Raise
 import arrow.core.raise.context.raise

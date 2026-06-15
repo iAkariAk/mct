@@ -7,14 +7,14 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.shouldBe
 import mct.*
-import mct.dp.mcfunction.MCCommand
+import mct.command.MCCommand
 import mct.dp.mcfunction.extractTextMCF
 
 class MCFunctionTest : StringSpec({
     fun parseMCFunction(mcf: String): List<MCCommand> {
         val logger = Logger.Console()
         return context(logger) {
-            mct.dp.mcfunction.parseMCFunction(mcf)
+            mct.command.parseMCFunction(mcf)
         }
     }
 

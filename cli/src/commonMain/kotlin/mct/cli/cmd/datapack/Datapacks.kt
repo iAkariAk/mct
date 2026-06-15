@@ -15,12 +15,12 @@ import mct.ReplacementGroup
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
+import mct.command.BuiltinMCFPatterns
+import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.CommandExtractPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
-import mct.dp.mcfunction.BuiltinMCFPatterns
-import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.CommandExtractPattern
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson

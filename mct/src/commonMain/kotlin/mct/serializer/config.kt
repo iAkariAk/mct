@@ -1,7 +1,7 @@
 package mct.serializer
 
 import kotlinx.serialization.json.Json
-import mct.dp.mcfunction.extractPatternModule
+import mct.command.extractPatternModule
 import net.benwoodworth.knbt.Nbt
 import net.benwoodworth.knbt.NbtCompression
 import net.benwoodworth.knbt.NbtVariant

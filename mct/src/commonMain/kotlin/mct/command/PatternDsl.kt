@@ -1,6 +1,6 @@
 @file:Suppress("unused", "FunctionName")
 
-package mct.dp.mcfunction
+package mct.command
 
 import mct.util.BuilderMaker
 import org.intellij.lang.annotations.Language

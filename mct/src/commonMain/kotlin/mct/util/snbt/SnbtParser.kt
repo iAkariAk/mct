@@ -1,8 +1,5 @@
 package mct.util.snbt
 
-import mct.util.unreachable
-
-private val ESCAPE_REGEX = """\\(.)""".toRegex()
 
 class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
     private var currentToken: SnbtToken? = null
@@ -77,34 +74,15 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
             val raw = currentView()
             val boundary = raw.first()
             check(boundary in "'\"")
-            val contentRaw = raw.substring(1, raw.length - 1)
-
-            val content = when (boundary) {
-                '\'' -> contentRaw
-                '\"' -> unescape(contentRaw)
-                else -> unreachable
-            }
-
-            SnbtString(currentToken!!.indices, raw, contentRaw, content)
+            SnbtString(currentToken!!.indices, raw, boundary)
         }
 
         SnbtTokenType.LITERAL -> {
             val raw = currentView()
-            SnbtString(currentToken!!.indices, raw, raw, raw)
+            SnbtString(currentToken!!.indices, raw, null)
         }
 
         else -> error("$currentToken(${currentView()}) isn't a string")
-    }
-
-    private fun unescape(string: String) = ESCAPE_REGEX.replace(string) {
-        when (val r = it.groupValues[1]) {
-            "n" -> "\n"
-            "r" -> "\r"
-            "t" -> "\t"
-            "\"" -> "\""
-            "\\" -> "\\"
-            else -> r
-        }
     }
 
 

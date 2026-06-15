@@ -1,5 +1,7 @@
 package mct.util.snbt
 
+import korlibs.io.lang.unreachable
+import mct.util.doubleUnquoted
 import mct.util.formatir.*
 
 sealed interface SnbtTag {
@@ -37,7 +39,13 @@ data class SnbtFloat(override val indices: IntRange, val value: Float) : SnbtTag
 data class SnbtDouble(override val indices: IntRange, val value: Double) : SnbtTag {
     override fun toIR() = IRDouble(value)
 }
-data class SnbtString(override val indices: IntRange, val raw: String, val rawContent: String, val content: String) : SnbtTag {
+data class SnbtString(override val indices: IntRange, val raw: String, val boundary: Char?) : SnbtTag {
+    val content = when (boundary) {
+        '"' -> raw.doubleUnquoted()
+        '\'' -> raw.substring(1, raw.length - 1)
+        null -> raw
+        else -> unreachable
+    }
     override fun toIR() = IRString(content)
 }
 data class SnbtCompound(override val indices: IntRange, val value: Map<String, SnbtTag>) : SnbtTag, Map<String, SnbtTag> by value {

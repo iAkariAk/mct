@@ -1,4 +1,4 @@
-package mct.dp.mcfunction
+package mct.command
 
 import mct.Logger
 import mct.util.*
@@ -240,3 +240,5 @@ private enum class BracketState(val left: Char, val right: Char) : State {
     Square('[', ']'),
     Curly('{', '}'),
 }
+
+

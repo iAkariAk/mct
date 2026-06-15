@@ -7,11 +7,11 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import mct.*
+import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.CommandExtractPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
-import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.CommandExtractPattern
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.CustomizedPrompts
@@ -33,7 +33,7 @@ import mct.region.extractFromRegion
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import okio.Path.Companion.toPath
-import mct.dp.mcfunction.BuiltinMCFPatterns as MCFBuiltinPatterns
+import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
 

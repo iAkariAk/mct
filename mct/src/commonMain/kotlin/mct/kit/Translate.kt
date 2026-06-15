@@ -1,5 +1,6 @@
 package mct.kit
 
+import arrow.core.raise.nullable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import mct.*
@@ -33,9 +34,6 @@ fun List<ExtractionGroup>.exportIntoPool(simply: Boolean): TranslationPool =
     }
 
 
-inline fun List<ExtractionGroup>.replaceSimply(mapping: TranslationMapping): List<ReplacementGroup> =
-    replaceSimply { mapping.entries.fold(it) { ace, (k, v) -> ace.replace(k, v) } }
-
 inline fun List<ExtractionGroup>.replaceSimply(replace: (String) -> String?): List<ReplacementGroup> = replace(
     mcfReplace = replace,
     mcjReplace = replace,
@@ -63,12 +61,17 @@ inline fun List<ExtractionGroup>.replace(
                 source = it.source,
                 path = it.path,
                 replacements = it.extractions.mapNotNull { extraction ->
-                    when (extraction) {
-                        is DatapackExtraction.MCFunction -> extraction.replace {
-                            mcfReplace(it) ?: return@mapNotNull null
-                        }
+                    nullable {
+                        when (extraction) {
+                            is DatapackExtraction.MCFunction -> extraction.replace {
+                                val syntax = extraction.syntax
+                                syntax.substitute(mcfReplace(extraction.syntax.content(it)).bind())
+                            }
 
-                        is DatapackExtraction.MCJson -> extraction.replace { mcjReplace(it) ?: return@mapNotNull null }
+                            is DatapackExtraction.MCJson -> extraction.replace {
+                                mcjReplace(it).bind()
+                            }
+                        }
                     }
                 })
 
@@ -77,10 +80,14 @@ inline fun List<ExtractionGroup>.replace(
                 kind = it.kind,
                 coord = it.coord,
                 replacements = it.extractions.mapNotNull { extraction ->
-                    when (extraction) {
-                        is RegionExtraction.Command -> extraction.replace { regionCommandReplace(it) }
-                        is RegionExtraction.Text -> extraction.replace {
-                            regionTextReplace(it) ?: return@mapNotNull null
+                    nullable {
+                        when (extraction) {
+                            is RegionExtraction.Command -> extraction.replace {
+                                regionCommandReplace(it)
+                            }
+                            is RegionExtraction.Text -> extraction.replace {
+                                regionTextReplace(it).bind()
+                            }
                         }
                     }
                 }

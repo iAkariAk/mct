@@ -22,12 +22,12 @@ import mct.cli.BaseCommand
 import mct.cli.NotifierHooks
 import mct.cli.path
 import mct.cli.util.CURRENT_PATH
+import mct.command.BuiltinMCFPatterns
+import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.CommandExtractPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
-import mct.dp.mcfunction.BuiltinMCFPatterns
-import mct.dp.mcfunction.BuiltinMCFunctionDataPatterns
-import mct.dp.mcfunction.CommandExtractPattern
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
