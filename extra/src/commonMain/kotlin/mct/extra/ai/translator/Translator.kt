@@ -2,8 +2,12 @@ package mct.extra.ai.translator
 
 import arrow.core.Option
 import arrow.core.raise.Raise
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -15,7 +19,6 @@ import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.chunkedByToken
-import mct.kit.replace
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
@@ -167,6 +170,8 @@ typealias RequestTranslation = suspend context(Raise<ChatCompletionCallError>)(
     validate: (Pair<TermTable, List<String?>>) -> Boolean
 ) -> Pair<TermTable, List<String?>>
 
+typealias OnTranslateCancel = (terms: TermTable, salvaged: Map<String, String>) -> Unit
+
 class Translator internal constructor(
     private val call: ChatCompletionCall,
     private val requestTranslation: RequestTranslation,
@@ -205,56 +210,73 @@ class Translator internal constructor(
     private val mutex = Mutex()
 
     context(_: Raise<ChatCompletionCallError>)
-    suspend fun translate(kind: FormatKind, sources: List<String>): List<String> {
+    suspend fun translate(
+        kind: FormatKind,
+        sources: List<String>,
+        onCancel: (List<String>) -> Unit = {}
+    ): List<String> = coroutineScope {
         val chunks = sources.chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
         logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms" }
         val translated = chunks.withIndex().fold(mutableListOf<String>()) { translated, (index, chunk) ->
-            val strips = chunk.strip(kind)
-            val strippedCount = strips.count { it is CompoundStrip.Success }
-            logger.debug { "Chunk $index: ${strippedCount}/${strips.size} items stripped to plain text" }
-            val message = buildString {
-                if (terms.isNotEmpty()) {
-                    append(terms.render())
-                    appendLine()
+            try {
+                val strips = chunk.strip(kind)
+                val strippedCount = strips.count { it is CompoundStrip.Success }
+                logger.debug { "Chunk $index: ${strippedCount}/${strips.size} items stripped to plain text" }
+                val message = buildString {
+                    if (terms.isNotEmpty()) {
+                        append(terms.render())
+                        appendLine()
+                    }
+                    appendLine("-- MCT-CLI:START --")
+                    strips.map { strip ->
+                        val str = strip.stripOrOriginal()
+                        str.replace("\n", "↠mctnl↠")
+                    }.forEachIndexed { i, text ->
+                        appendLine("[${i}] $text")
+                    }
                 }
-                appendLine("-- MCT-CLI:START --")
-                strips.map { strip ->
-                    val str = strip.stripOrOriginal()
-                    str.replace("\n", "↠mctnl↠")
-                }.forEachIndexed { i, text ->
-                    appendLine("[${i}] $text")
-                }
-            }
-            logger.info { "Handling ${index + 1} (total $totalChunkSize)" }
+                logger.info { "Handling ${index + 1} (total $totalChunkSize)" }
 
-            val (appendTerms, appendedTranslatedRaw) = requestTranslation(strips.size, message) { (_, result) ->
-                val invalidated = result.withIndex().filter { (index, value) ->
-                    strips[index] is CompoundStrip.CannotStrip && value?.let { it.isNotEmpty() && !kind.validate(it) } ?: false
-                }
-                if (invalidated.isNotEmpty()) {
-                    env.logger.info { "LLM responds invalidly (${kind.name}) ${invalidated.joinToString("\n"){
-                      "${it.index}: ${it.value}; (original: ${sources[it.index]}, strip: ${strips[it.index]})"  
-                    }}" }
-                    false
-                } else true
-            }
-            val appendedTranslated = strips.destrip(appendedTranslatedRaw)
-            translated.addAll(appendedTranslated)
-            logger.info { "Handled ${index + 1} (total $totalChunkSize)" }
-            logger.debug {
-                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" }
-            }
-            mutex.withLock {
-                terms += appendTerms
-            }
-            val pct = (index + 1).toFloat() / totalChunkSize
-            notifier.notify<TranslateSign> { TranslateSign.Progress(pct) }
 
-            translated
+                val (appendTerms, appendedTranslatedRaw) = requestTranslation(strips.size, message) { (_, result) ->
+                    val invalidated = result.withIndex().filter { (index, value) ->
+                        strips[index] is CompoundStrip.CannotStrip && value?.let { it.isNotEmpty() && !kind.validate(it) } ?: false
+                    }
+                    if (invalidated.isNotEmpty()) {
+                        env.logger.info {
+                            "LLM responds invalidly (${kind.name}) ${
+                                invalidated.joinToString("\n") {
+                                    "${it.index}: ${it.value}; (original: ${chunk[it.index]}, strip: ${strips[it.index]})"
+                                }
+                            }"
+                        }
+                        false
+                    } else true
+                }
+                val appendedTranslated = strips.destrip(appendedTranslatedRaw)
+                translated.addAll(appendedTranslated)
+                logger.info { "Handled ${index + 1} (total $totalChunkSize)" }
+                logger.debug {
+                    chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate $x => $y" }
+                }
+                mutex.withLock {
+                    terms += appendTerms
+                }
+                val pct = (index + 1).toFloat() / totalChunkSize
+                notifier.notify<TranslateSign> { TranslateSign.Progress(pct) }
+
+                translated
+            } catch (e: CancellationException) {
+                logger.error { "Translation was cancelled." }
+                withContext(NonCancellable) {
+                    onCancel(translated)
+                }
+                throw e
+            }
         }
         logger.info { "Translation complete: ${translated.size} items, ${terms.size} terms accumulated" }
-        return translated
+        translated
     }
 
     override fun toString() = "Translator($call, $customizedPrompts)"
@@ -397,11 +419,12 @@ private val REGEX_LLM_OUTPUT =
 context(_: Raise<ChatCompletionCallError>)
 suspend fun Translator.translate(
     groups: List<ExtractionGroup>,
-    caches: Map<String, String> = emptyMap()
-): Map<String, String> {
+    caches: Map<String, String> = emptyMap(),
+    onCancel: OnTranslateCancel = { _, _ -> }
+): Map<String, String> = coroutineScope {
     if (groups.isEmpty()) {
         logger.debug { "Skipping empty group" }
-        return emptyMap()
+        return@coroutineScope emptyMap()
     }
     val extractions = groups.flatMap { it.extractions }.groupBy {
         when (it) {
@@ -410,20 +433,21 @@ suspend fun Translator.translate(
             is RegionExtraction -> it.kind
         }
     }
-    val mapping = extractions.flatMap { (kind, extractions) ->
+    val mapping = mutableMapOf<String, String>()
+
+    extractions.forEach { (kind, extractions) ->
         val sources = extractions.asSequence().flatMap {
             it.contents().filter(String::isNotBlank)
         }.distinct().filter { it !in caches }.toList()
-        val translated = translate(kind, sources)
-        sources.zip(translated)
-    }.toMap()
+        val translated = translate(kind, sources) { translated ->
+            val salvaged = sources.zip(translated)
+            onCancel(terms, mapping + salvaged)
+        }
+        mapping += sources.zip(translated)
+    }
     mapping.toMutableMap().putAll(caches)
     notifier.notify<TranslateSign> { TranslateSign.Progress(1f) }
     env.logger.info { "Built mapping with ${mapping.size} entries" }
-    return mapping
+    mapping
 }
 
-
-context(_: Raise<ChatCompletionCallError>)
-suspend fun Translator.translateReplace(groups: List<ExtractionGroup>): List<ReplacementGroup> =
-    groups.replace(translate(groups))

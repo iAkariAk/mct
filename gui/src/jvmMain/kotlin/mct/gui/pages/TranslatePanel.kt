@@ -33,6 +33,7 @@ fun TranslatePanel(
     translationStatus: String,
     isRunning: Boolean,
     onRun: () -> Unit,
+    onCancel: () -> Unit = {},
     onSaveSettings: () -> Unit,
     onOptimizePrompt: suspend (String) -> String? = { _ -> null },
 ) {
@@ -280,7 +281,8 @@ fun TranslatePanel(
                     isRunning,
                     onRun,
                     enabled = state.input.isNotBlank() && state.output.isNotBlank()
-                            && state.termOutput.isNotBlank() && state.model.isNotBlank() && state.apiToken.isNotBlank()
+                            && state.termOutput.isNotBlank() && state.model.isNotBlank() && state.apiToken.isNotBlank(),
+                    onCancel = onCancel,
                 )
             }
         }

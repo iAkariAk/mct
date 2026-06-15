@@ -48,6 +48,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.arrow.suspendapp)
             implementation(libs.clikt)
             implementation(libs.mordant)
             implementation(libs.mordant.coroutines)

@@ -30,7 +30,7 @@ class Test : SuspendingCliktCommand(name = "test") {
     override fun help(context: Context) = "Test tools"
 }
 
-class DataPointerTest : BaseCommand(name = "pointer") {
+private class DataPointerTest : BaseCommand(name = "pointer") {
     override fun help(context: Context) = "Test pointer matching"
 
     val kind by option("--kind", "-k", help = "The kind of inputted pointer").choice("mcjson", "region").required()

@@ -34,6 +34,7 @@ androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecyc
 arrow-core = { module = "io.arrow-kt:arrow-core" }
 arrow-functions = { module = "io.arrow-kt:arrow-functions" }
 arrow-fx-coroutines = { module = "io.arrow-kt:arrow-fx-coroutines" }
+arrow-suspendapp = { module = "io.arrow-kt:suspendapp", version.ref = "arrow" }
 arrow-optics = { module = "io.arrow-kt:arrow-optics" }
 arrow-optics-ksp = { module = "io.arrow-kt:arrow-optics-ksp-plugin", version.ref = "arrow" }
 arrow-stack = { module = "io.arrow-kt:arrow-stack", version.ref = "arrow" }

@@ -1,14 +1,23 @@
 package mct.gui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,14 +104,95 @@ fun ModeRadio(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun ActionButton(label: String, running: Boolean, onClick: () -> Unit, enabled: Boolean) {
+fun ActionButton(
+    label: String,
+    running: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    onCancel: (() -> Unit)? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val hasCancel = onCancel != null
+
+    // MD3 expressive: animate container color smoothly between primary and error
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            running && hasCancel -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.primary
+        },
+        animationSpec = tween(durationMillis = 300),
+        label = "cancelBtnContainerColor"
+    )
+
+    // MD3 expressive: animate content color to match container
+    val contentColor by animateColorAsState(
+        targetValue = when {
+            running && hasCancel -> MaterialTheme.colorScheme.onError
+            else -> MaterialTheme.colorScheme.onPrimary
+        },
+        animationSpec = tween(durationMillis = 300),
+        label = "cancelBtnContentColor"
+    )
+
+    // MD3 expressive: pulsing scale animation on hover for cancel button
+    val infiniteTransition = rememberInfiniteTransition(label = "cancelPulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.02f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "cancelPulseScale"
+    )
+
+    // MD3 expressive: subtle scale bounce on hover for cancel button
+    val scale by animateFloatAsState(
+        targetValue = if (isHovered && running && hasCancel) pulseScale else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 350f),
+        label = "cancelScale"
+    )
+
+    // MD3 expressive: elevation shadow for depth on hover (using float animation)
+    val elevation by animateFloatAsState(
+        targetValue = if (isHovered && running && hasCancel) 12f else 0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "cancelElevation"
+    )
+
     Button(
-        onClick = onClick,
-        enabled = enabled && !running,
-        modifier = Modifier.fillMaxWidth().height(44.dp),
+        onClick = {
+            if (running && hasCancel) onCancel()
+            else onClick()
+        },
+        enabled = if (running && hasCancel) true else (enabled && !running),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .hoverable(interactionSource, enabled = true)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                shadowElevation = elevation
+                shape = RoundedCornerShape(12.dp)
+                clip = true
+            },
         shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+        ),
     ) {
-        if (running) {
+        if (running && hasCancel) {
+            Icon(
+                Icons.Outlined.Stop,
+                contentDescription = "取消",
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("取消翻译")
+        } else if (running) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,

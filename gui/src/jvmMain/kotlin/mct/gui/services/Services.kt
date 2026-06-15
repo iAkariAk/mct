@@ -2,6 +2,7 @@ package mct.gui.services
 
 import arrow.core.raise.Raise
 import arrow.core.raise.either
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
@@ -14,10 +15,7 @@ import mct.dp.compile
 import mct.dp.extractFromDatapackRaw
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
-import mct.extra.ai.translator.CustomizedPrompts
-import mct.extra.ai.translator.TermTable
-import mct.extra.ai.translator.Translator
-import mct.extra.ai.translator.translate
+import mct.extra.ai.translator.*
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
 import mct.gui.util.setting
@@ -202,7 +200,8 @@ suspend fun runTranslation(
     targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
     handleGradientAggressively: Boolean = CustomizedPrompts.Defaults.handleGradientAggressively,
     temperature: Double? = null,
-    onFailure: ((ChatCompletionCallError) -> Unit)? = null
+    onFailure: ((ChatCompletionCallError) -> Unit)? = null,
+    onCancel: OnTranslateCancel = { _, _ -> }
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
@@ -245,9 +244,19 @@ suspend fun runTranslation(
         tokenThreshold = GuiSettings.tokenThreshold
     )
 
+    val wrappedOnCancel: OnTranslateCancel = { terms, salvaged ->
+        runCatching {
+            mappingOutput.toPath().writeJson(salvaged, pretty = GuiSettings.prettyOutput)
+            termOutput.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
+            env.logger.info { "已保存 ${salvaged.size} 条部分映射到 $mappingOutput" }
+            env.logger.info { "已保存 ${terms.size} 条术语到 $termOutput" }
+        }
+        onCancel(terms, salvaged)
+    }
+
     withContext(Dispatchers.IO) {
         try {
-            val mapping = translator.translate(extractionGroups, caches)
+            val mapping = translator.translate(extractionGroups, caches, onCancel = wrappedOnCancel)
             val replacements = extractionGroups.replace(mapping)
 
             output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
@@ -260,6 +269,8 @@ suspend fun runTranslation(
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
             apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             env.logger.error { e.stackTraceToString() }
         }

@@ -22,7 +22,9 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import arrow.core.getOrElse
 import arrow.core.raise.either
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import mct.Env
 import mct.LoggerLevel
@@ -30,6 +32,7 @@ import mct.Notifier
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.createOpenAIClient
+import mct.extra.ai.translator.TermTable
 import mct.extra.ai.translator.TranslateSign
 import mct.extra.ai.translator.optimizePrompt
 import mct.gui.components.DraggableSplitPane
@@ -209,17 +212,22 @@ fun App(
         }
 
         val scope = rememberCoroutineScope()
+        var currentJob by remember { mutableStateOf<Job?>(null) }
 
         fun launchOp(prelude: () -> Unit, block: suspend CoroutineScope.() -> Unit) {
             prelude()
-            scope.launch {
+            currentJob = scope.launch {
                 try {
                     block()
+                } catch (e: CancellationException) {
+                    logLines.add(LogEntry(null, "操作已被用户取消"))
+                    throw e
                 } catch (e: Exception) {
                     logLines.add(LogEntry(LoggerLevel.Error, e.stackTraceToString()))
                     snackbarHostState.showSnackbar(e.message ?: "未知错误")
                 } finally {
                     isRunning = false
+                    currentJob = null
                 }
             }
         }
@@ -360,10 +368,21 @@ fun App(
                                                                 )
                                                             }
                                                         },
-                                                        clientManager = clientManager
+                                                        clientManager = clientManager,
+                                                        onCancel = { terms: TermTable, salvaged: Map<String, String> ->
+                                                            logLines.add(
+                                                                LogEntry(
+                                                                    null,
+                                                                    "翻译被取消，已保存 ${salvaged.size} 条已翻译文本"
+                                                                )
+                                                            )
+                                                        }
                                                     )
                                                 }.onLeft { snackbarHostState.showSnackbar(it.message) }
                                             }
+                                        },
+                                        onCancel = {
+                                            currentJob?.cancel()
                                         },
                                         onSaveSettings = {
                                             logLines.add(
@@ -425,7 +444,9 @@ fun App(
                                                     toolboxState.pointerPatternPath.takeIf { it.isNotBlank() },
                                                     toolboxState.noBuiltin,
                                                     toolboxState.pointerInput,
-                                                ).let { toolboxState = toolboxState.copy(pointerResult = it.toString()) }
+                                                ).let {
+                                                    toolboxState = toolboxState.copy(pointerResult = it.toString())
+                                                }
                                             }
                                         },
                                         onRunExportSnbt = {

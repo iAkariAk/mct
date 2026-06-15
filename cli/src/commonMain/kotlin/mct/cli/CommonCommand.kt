@@ -1,5 +1,6 @@
 package mct.cli
 
+import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.either
@@ -42,7 +43,7 @@ abstract class BaseCommand(
 
     val cacheDir by option("--cache-dir", help = "Path to cache directory").path().default(".".toPath())
 
-    override suspend fun run() {
+    override suspend fun run() = SuspendApp {
         either {
             context(fs) {
                 App()
