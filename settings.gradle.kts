@@ -2,6 +2,7 @@
 
 pluginManagement {
     repositories {
+        maven("https://raw.githubusercontent.com/graalvm/native-build-tools/snapshots")
         gradlePluginPortal()
     }
 }
@@ -28,6 +29,7 @@ include(
     "mct",
     "extra",
     "cli",
+    "cli-graal",
     "gui",
 //    "web"
 )

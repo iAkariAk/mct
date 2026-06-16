@@ -1,0 +1,18 @@
+{
+  "rules": [
+    {"includeClasses": "mct.**"},
+    {"includeClasses": "io.ktor.**"},
+    {"includeClasses": "kotlinx.**"},
+    {"includeClasses": "kotlin.**"},
+    {"includeClasses": "com.aallam.openai.**"},
+    {"includeClasses": "com.github.ajalt.**"},
+    {"includeClasses": "com.knuddels.jtokkit.**"},
+    {"includeClasses": "org.slf4j.**"},
+    {"includeClasses": "com.sun.jna.**"},
+    {"includeClasses": "com.sun.crypto.**"},
+    {"includeClasses": "sun.security.**"},
+    {"excludeClasses": "org.junit.**"},
+    {"excludeClasses": "org.opentest4j.**"},
+    {"excludeClasses": "ch.qos.logback.**"}
+  ]
+}

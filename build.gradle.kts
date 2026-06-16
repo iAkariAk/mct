@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotest) apply false
     alias(libs.plugins.shadow) apply false
     alias(libs.plugins.goncalossilva.resources) apply false
+    alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.catelog.update)
 }
 
