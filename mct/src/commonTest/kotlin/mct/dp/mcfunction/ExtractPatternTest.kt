@@ -8,7 +8,7 @@ import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import mct.Logger
-import mct.SyntaxKind
+import mct.SnbtSyntaxKind
 import mct.command.*
 
 class ExtractPatternTest : FreeSpec({
@@ -391,14 +391,14 @@ class ExtractPatternTest : FreeSpec({
             val slices = extractTargetSelector("say @p[name=foo]")
             slices.size shouldBe 1
             slices[0].content shouldBe "foo"
-            slices[0].syntax shouldBe SyntaxKind.Literal
+            slices[0].syntax shouldBe SnbtSyntaxKind.LiteralString
         }
 
         "extracts name with colon (namespaced)" {
             val slices = extractTargetSelector("say @p[name=foo:bar]")
             slices.size shouldBe 1
             slices[0].content shouldBe "foo:bar"
-            slices[0].syntax shouldBe SyntaxKind.Literal
+            slices[0].syntax shouldBe SnbtSyntaxKind.LiteralString
         }
 
         "extracts double-quoted name with quotes preserved in content" {
@@ -406,35 +406,35 @@ class ExtractPatternTest : FreeSpec({
             val slices = extractTargetSelector("""say @p[name="hello"]""")
             slices.size shouldBe 1
             slices[0].content shouldBe "\"hello\""
-            slices[0].syntax shouldBe SyntaxKind.DoubleQuoteWrapped
+            slices[0].syntax shouldBe SnbtSyntaxKind.DoubleQuoteString
         }
 
         "extracts single-quoted name with quotes preserved in content" {
             val slices = extractTargetSelector("say @p[name='hello']")
             slices.size shouldBe 1
             slices[0].content shouldBe "'hello'"
-            slices[0].syntax shouldBe SyntaxKind.SingleQuoteWrapped
+            slices[0].syntax shouldBe SnbtSyntaxKind.SingleQuoteString
         }
 
-        "extracts negative/not name" {
+        "extracts negative name" {
             val slices = extractTargetSelector("say @p[name=!foo]")
             slices.size shouldBe 1
             slices[0].content shouldBe "foo"
-            slices[0].syntax shouldBe SyntaxKind.Literal
+            slices[0].syntax shouldBe SnbtSyntaxKind.LiteralString
         }
 
         "extracts name when selector has multiple properties" {
             val slices = extractTargetSelector("""say @p[type=minecraft:player,name="foo",tag=bar]""")
             slices.size shouldBe 1
             slices[0].content shouldBe "\"foo\""
-            slices[0].syntax shouldBe SyntaxKind.DoubleQuoteWrapped
+            slices[0].syntax shouldBe SnbtSyntaxKind.DoubleQuoteString
         }
 
         "extracts name from last property before closing bracket" {
             val slices = extractTargetSelector("say @e[tag=carried,name=Foo]")
             slices.size shouldBe 1
             slices[0].content shouldBe "Foo"
-            slices[0].syntax shouldBe SyntaxKind.Literal
+            slices[0].syntax shouldBe SnbtSyntaxKind.LiteralString
         }
 
         "does not extract when no name argument" {
@@ -451,9 +451,9 @@ class ExtractPatternTest : FreeSpec({
             val slices = extractTargetSelector("""say @p[name="foo"] @s[name=bar]""")
             slices.size shouldBe 2
             slices[0].content shouldBe "\"foo\""
-            slices[0].syntax shouldBe SyntaxKind.DoubleQuoteWrapped
+            slices[0].syntax shouldBe SnbtSyntaxKind.DoubleQuoteString
             slices[1].content shouldBe "bar"
-            slices[1].syntax shouldBe SyntaxKind.Literal
+            slices[1].syntax shouldBe SnbtSyntaxKind.LiteralString
         }
 
         "indices slice back to the exact name value in the original string" {

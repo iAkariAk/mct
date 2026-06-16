@@ -1,36 +1,45 @@
 package mct.command
 
+import arrow.core.Either
 import arrow.core.raise.context.Raise
-import mct.SyntaxKind
-import mct.pointer.DataPointerPattern
+import mct.FormatKind
+import mct.SnbtSyntaxKind
+import mct.pointer.*
+import mct.text.isTextCompound
+import mct.text.isTextCompoundShorthanded
 import mct.util.StringIndices
+import mct.util.snbt.SnbtCompound
+import mct.util.snbt.SnbtList
+import mct.util.snbt.SnbtString
+import mct.util.snbt.SnbtTag
 import mct.util.surroundedBy
 
 
+interface StringIndicesWithSyntax : StringIndices {
+    override val indices: IntRange // absolute
+    override val content: String
+    val syntax: SnbtSyntaxKind?
+}
+
 data class ExtractedCommandSlice(
-    override val indices: IntRange,
+    override val indices: IntRange, // absolute
     override val content: String,
-    val syntax: SyntaxKind
-) : StringIndices
+    override val syntax: SnbtSyntaxKind? // null represents the slice isn't a snbt
+) : StringIndicesWithSyntax
 
 // https://minecraft.wiki/w/Target_selectors
 private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
-private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]?""")
+private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
 internal fun extractTextFromTargetSelector(args: List<MCCommand.Arg>): List<ExtractedCommandSlice> = args.asSequence()
     .filter { SELECTOR_REGEX.matches(it.content) }
     .mapNotNull { arg ->
         SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
             val negative = result.value.startsWith("name=!")
             val value = result.groupValues[1]
-            val syntax = when {
-                value.surroundedBy('\'') -> SyntaxKind.SingleQuoteWrapped
-                value.surroundedBy('\"') -> SyntaxKind.DoubleQuoteWrapped
-                else -> SyntaxKind.Literal
-            }
             ExtractedCommandSlice(
                 (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
                 value,
-                syntax
+                value.inferSyntaxKind()
             )
         }
     }
@@ -73,7 +82,7 @@ internal fun extractTextFromCommand(
                     ExtractedCommandSlice(
                         absRange,
                         command.raw.substring(relRange),
-                        SyntaxKind.Literal
+                        null
                     ).let(::sequenceOf)
                 }
 
@@ -83,19 +92,76 @@ internal fun extractTextFromCommand(
                         .filter { (index, _) -> selector.matches(index + 1) }
                         .filter { (_, arg) -> pattern.postCondition.matches(command, arg) }
                         .flatMap { (index, arg) ->
-                            val selections =
-                                selector.select(index + 1, mcfDataPatterns, arg.content) ?: return@flatMap sequenceOf(
-                                    ExtractedCommandSlice(arg.indices, arg.content, SyntaxKind.Literal)
-                                )
+                            val selectResult = selector.select(index + 1, mcfDataPatterns, arg)
+                            val selections = when (selectResult) {
+                                is Either.Left<Sequence<SelectResult>> -> selectResult.value
+                                is Either.Right<SnbtSyntaxKind?> -> sequenceOf(ExtractedCommandSlice(arg.indices, arg.content, selectResult.value)) // feedback
+                            }
+
                             selections.map {
-                                val entire = arg.indices
-                                val part = it.indices
-                                val indices = (entire.first + part.first)..(entire.first + part.last)
-                                ExtractedCommandSlice(indices, it.content, SyntaxKind.Literal)
+                                ExtractedCommandSlice(it.indices, it.content, it.syntax)
                             }
                         }
             }
         }.toList()
+}
+
+// Refer to mct.region.ExtractKt.extractTexts
+// due to using IR dragging slow performance
+
+internal data class PointerWithExtensionForSnbt(
+    val pointer: DataPointer,
+    override val indices: IntRange, // relate to the arg
+    override val content: String,
+    val kind: FormatKind,
+    override val syntax: SnbtSyntaxKind
+) : StringIndicesWithSyntax
+
+internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
+    filter { (ptr, _, _) -> ptr.matches(patterns) }
+
+internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
+    is SnbtList -> {
+        if (isTextCompound()) {
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.SnbtStr,
+                    syntax = SnbtSyntaxKind.List
+                )
+            )
+        } else asSequence().withIndex().flatMap { (index, tag) ->
+            tag.extractTexts(snbt).map {
+                it.copy(pointer = it.pointer.markArray(index))
+            }
+        } // wrap inner pointer
+    }
+
+    is SnbtCompound -> {
+        if (isTextCompound() || isTextCompoundShorthanded()) {
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices),
+                    FormatKind.SnbtStr,
+                    syntax = SnbtSyntaxKind.Compound
+                )
+            )
+        } else asSequence().flatMap { (key, value) ->
+            value.extractTexts(snbt).map {
+                it.copy(pointer = it.pointer.markMap(key))
+            } // wrap inner pointer
+        }
+    }
+
+    is SnbtString -> {
+        sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, raw, FormatKind.PlainStr, syntaxKind))
+    }
+
+    else -> emptySequence()
 }
 
 private fun computeGreedyRange(
@@ -115,3 +181,11 @@ private fun computeGreedyRange(
             (commandBeginIndex + command.trimOffset + endIndexRelative)
     return Pair(relRange, absRange)
 }
+
+private fun String.inferSyntaxKind(): SnbtSyntaxKind = when {
+    surroundedBy('\'') -> SnbtSyntaxKind.SingleQuoteString
+    surroundedBy('\"') -> SnbtSyntaxKind.DoubleQuoteString
+    else -> SnbtSyntaxKind.LiteralString
+}
+
+

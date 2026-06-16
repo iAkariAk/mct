@@ -47,9 +47,9 @@ data object IRNull : IRElement {
     override fun toString() = "null"
 }
 
-fun IRElement.toJson() = JsonIRConverter.decodeFromIR(this)
+fun IRElement.toJsonElement() = JsonIRConverter.decodeFromIR(this)
 fun JsonElement.toIR() = JsonIRConverter.encodeToIR(this)
-fun IRElement.toNbt() = NbtTagIRConverter.decodeFromIR(this)
+fun IRElement.toNbtTag() = NbtTagIRConverter.decodeFromIR(this)
 fun NbtTag.toIR() = NbtTagIRConverter.encodeToIR(this)
 
 object JsonIRConverter : IRConverter<JsonElement> {

@@ -36,39 +36,48 @@ enum class FormatKind {
     @SerialName("plain_str")
     PlainStr, // command etc.
 
+    @SerialName("snbt_str")
+    SnbtStr,
+
     @SerialName("json_str")
     JsonStr, // includes plain text without quote
 
-    @SerialName("nbt")
-    Nbt // save via snbt
+    @SerialName("nbt_binary")
+    Nbt // displayed as snbt
 }
 
-// Used to distinguish where a string sources
+// Used to distinguish what type the extracted part is
 @Serializable
-enum class SyntaxKind {
-    Literal,
-    SingleQuoteWrapped,
-    DoubleQuoteWrapped;
+enum class SnbtSyntaxKind {
+    Compound,
+    List,
 
-    fun content(value: String) = when (this) {
-        Literal -> value
-        SingleQuoteWrapped -> value.singleUnquoted()
-        DoubleQuoteWrapped -> value.doubleUnquoted()
-    }
+    // String
+    SingleQuoteString,
+    DoubleQuoteString,
+    LiteralString;
+}
 
-    fun substitute(value: String) = when (this) {
-        Literal -> value
-        SingleQuoteWrapped -> value.singleQuoted()
-        DoubleQuoteWrapped -> value.doubleQuoted()
-    }
+fun String.unquoted(syntax: SnbtSyntaxKind?) = when (syntax) {
+    SnbtSyntaxKind.SingleQuoteString -> singleUnquoted()
+    SnbtSyntaxKind.DoubleQuoteString -> doubleUnquoted()
+    else -> this
+}
+
+fun String.quoted(syntax: SnbtSyntaxKind?) = when (syntax) {
+    SnbtSyntaxKind.SingleQuoteString -> singleQuoted()
+    SnbtSyntaxKind.DoubleQuoteString -> doubleQuoted()
+    SnbtSyntaxKind.LiteralString -> doubleQuoted()
+    else -> this
 }
 
 
-fun FormatKind.isString(): Boolean = this == FormatKind.JsonStr || this == FormatKind.PlainStr
+fun FormatKind.isString(): Boolean = this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
 fun FormatKind.isBinary(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
     FormatKind.Nbt -> value.isSnbt()
+    FormatKind.SnbtStr -> value.isSnbt()
     FormatKind.JsonStr -> value.isJson()
     FormatKind.PlainStr -> true
 }
@@ -144,14 +153,18 @@ sealed interface DatapackExtraction : Extraction {
     data class MCFunction(
         val indices: IntRangeSerializable,
         val content: String,
-        val syntax: SyntaxKind,
+        val syntax: SnbtSyntaxKind?,
     ) : DatapackExtraction {
-        inline fun replace(replacement: (String) -> String) =
-            DatapackReplacement.MCFunction(indices, replacement(content))
+        inline fun unquoted() = content.unquoted(syntax)
+
+        inline fun replace(replacement: (String) -> String): DatapackReplacement.MCFunction {
+            val r = replacement(content.unquoted(syntax))
+            return DatapackReplacement.MCFunction(indices, if (syntax == null) r else r.doubleQuoted(), syntax)
+        }
     }
 }
 
-inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
+internal inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
     is DatapackExtraction.MCFunction -> replace(replacement)
     is DatapackExtraction.MCJson -> replace(replacement)
 }
@@ -197,19 +210,22 @@ sealed interface RegionExtraction : Extraction {
         data class Location(
             override val indices: IntRangeSerializable,
             override val content: String,
-            val syntax: SyntaxKind,
-        ) : StringIndices
+            val syntax: SnbtSyntaxKind?,
+        ) : StringIndices {
+            inline fun unquoted() = content.unquoted(syntax)
+        }
 
-        inline fun replace(replacements: (List<String>) -> List<String?>): RegionReplacement.Command {
-            val r = replacements(locations.map { it.syntax.substitute(it.content) })
+        inline fun replace(replace: (List<String>) -> List<String?>): RegionReplacement.Command {
+            val replacements = replace(locations.map { it.unquoted() })
             return RegionReplacement.Command(
                 index,
                 pointer,
                 locations.asSequence()
-                    .zip(r.asSequence())
-                    .sortedByDescending { (loc, str) -> loc.indices.first }
+                    .zip(replacements.asSequence())
+                    .sortedByDescending { (loc, _) -> loc.indices.first }
                     .fold(StringBuilder(raw)) { acc, (loc, r) ->
-                        acc.setRange(loc.indices.first, loc.indices.last + 1, r ?: return@fold acc)
+                        val rr = if (loc.syntax == null) r else r?.doubleQuoted()
+                        acc.setRange(loc.indices.first, loc.indices.last + 1, rr ?: return@fold acc)
                     }.toString()
             )
         }
@@ -260,6 +276,7 @@ sealed interface DatapackReplacement : Replacement {
     data class MCFunction(
         val indices: IntRangeSerializable,
         override val replacement: String,
+        val syntax: SnbtSyntaxKind?,
     ) : DatapackReplacement
 
     /**
@@ -313,8 +330,8 @@ sealed interface RegionReplacement : Replacement {
 
 
 inline fun Extraction.contents() = when (this) {
-    is DatapackExtraction.MCFunction -> sequenceOf(syntax.content(content))
+    is DatapackExtraction.MCFunction -> sequenceOf(unquoted())
     is DatapackExtraction.MCJson -> sequenceOf(content)
-    is RegionExtraction.Command -> locations.asSequence().map { it.syntax.content(it.content) }
+    is RegionExtraction.Command -> locations.asSequence().map { it.unquoted() }
     is RegionExtraction.Text -> sequenceOf(content)
 }

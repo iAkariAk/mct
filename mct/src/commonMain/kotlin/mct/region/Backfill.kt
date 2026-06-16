@@ -19,7 +19,7 @@ import mct.serializer.Snbt
 import mct.text.TextCompound
 import mct.text.encodeToIR
 import mct.util.IO
-import mct.util.formatir.toNbt
+import mct.util.formatir.toNbtTag
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
@@ -50,8 +50,7 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
                             val replacementGroups =
                                 replacements.map {
                                     DataPointerWithValue(it.pointer, it.replacement, it.kind)
-                                }
-                                    .toReplacementGroups()
+                                }.toReplacementGroups()
                             val chunk = chunks[index] ?: return@forEach
                             chunks[index] = chunk.modify {
                                 it.transform(replacementGroups)
@@ -68,7 +67,7 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
 
 private fun List<NbtTag>.toTCListStandardized() = map {
     when (it) {
-        is NbtString -> TextCompound.Plain(it.value).encodeToIR(false).toNbt() as NbtCompound
+        is NbtString -> TextCompound.Plain(it.value).encodeToIR(false).toNbtTag() as NbtCompound
         is NbtCompound -> it
         else -> error("Unexpected tag type $it")
     }
@@ -93,7 +92,12 @@ private fun NbtTag.transform(
             ?.let { terminator ->
                 terminator as DataPointerReplacementGroup.Terminator
 
-                return Snbt.decodeFromString(terminator.replacement)
+                return try {
+                    Snbt.decodeFromString(terminator.replacement)
+                } catch (e: Throwable) {
+                    println(terminator.replacement)
+                    throw e
+                }
             }
 
         val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
@@ -107,7 +111,8 @@ private fun NbtTag.transform(
     }
 
     is NbtString -> {
-        val pointer = pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() } ?: return this
+        val pointer =
+            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() } ?: return this
         pointer as DataPointerReplacementGroup.Terminator
 
         NbtString(pointer.replacement)

@@ -1,5 +1,6 @@
 package mct.text
 
+import mct.util.snbt.SnbtString
 import net.benwoodworth.knbt.NbtString
 
 private val MAYBE_MAJOR_FIELDS = listOf(
@@ -77,4 +78,4 @@ internal fun List<*>.isTextCompound(): Boolean = all {
 //  }
 //],
 internal fun Map<String, *>.isTextCompoundShorthanded() =
-    "text" !in this && (this[""]?.let { it is NbtString } ?: false)
+    "text" !in this && (this[""]?.let { it is NbtString || it is SnbtString } ?: false)

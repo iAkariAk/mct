@@ -1,6 +1,7 @@
 package mct.util.snbt
 
 import korlibs.io.lang.unreachable
+import mct.SnbtSyntaxKind
 import mct.util.doubleUnquoted
 import mct.util.formatir.*
 
@@ -46,6 +47,14 @@ data class SnbtString(override val indices: IntRange, val raw: String, val bound
         null -> raw
         else -> unreachable
     }
+
+    val syntaxKind = when (boundary) {
+        '"' -> SnbtSyntaxKind.DoubleQuoteString
+        '\'' -> SnbtSyntaxKind.SingleQuoteString
+        null -> SnbtSyntaxKind.LiteralString
+        else -> unreachable
+    }
+
     override fun toIR() = IRString(content)
 }
 data class SnbtCompound(override val indices: IntRange, val value: Map<String, SnbtTag>) : SnbtTag, Map<String, SnbtTag> by value {

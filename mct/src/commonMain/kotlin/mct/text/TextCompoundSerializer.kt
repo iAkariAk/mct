@@ -12,8 +12,8 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonEncoder
 import mct.util.formatir.toIR
-import mct.util.formatir.toJson
-import mct.util.formatir.toNbt
+import mct.util.formatir.toJsonElement
+import mct.util.formatir.toNbtTag
 import net.benwoodworth.knbt.NbtDecoder
 import net.benwoodworth.knbt.NbtEncoder
 
@@ -28,12 +28,12 @@ class TextCompoundSerializer : KSerializer<TextCompound> {
     }
 
     private fun serializeJson(encoder: JsonEncoder, value: TextCompound) {
-        val simplified = value.encodeToIR(true).toJson()
+        val simplified = value.encodeToIR(true).toJsonElement()
         encoder.encodeJsonElement(simplified)
     }
 
     private fun serializeNbt(encoder: NbtEncoder, value: TextCompound) {
-        val simplified = value.encodeToIR(true).toNbt()
+        val simplified = value.encodeToIR(true).toNbtTag()
         encoder.encodeNbtTag(simplified)
     }
 

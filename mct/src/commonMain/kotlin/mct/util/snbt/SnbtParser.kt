@@ -16,7 +16,6 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
 
     private fun nextToken(): SnbtToken? {
         currentToken = lexer.nextToken()
-//        println("$currentToken : ${currentView()}")
         return currentToken
     }
 
