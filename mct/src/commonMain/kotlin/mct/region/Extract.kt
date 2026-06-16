@@ -90,9 +90,8 @@ fun MCTWorkspace.extractFromRegion(
                                 ?: return@flatMapMerge emptyFlow()
                         )
                     )
-                }.flowOn(Dispatchers.IO)
+                }
             }
-            .flowOn(Dispatchers.IO)
     }.flowOn(Dispatchers.IO)
 }
 
