@@ -7,10 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
-import mct.FormatKind
-import mct.MCTWorkspace
-import mct.RegionReplacementGroup
-import mct.isString
+import mct.*
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
@@ -53,7 +50,7 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
                                 }.toReplacementGroups()
                             val chunk = chunks[index] ?: return@forEach
                             chunks[index] = chunk.modify {
-                                it.transform(replacementGroups)
+                                it.transform(replacementGroups) ?: it
                             }
                         }
                     region.modifyChunks(chunks)
@@ -73,16 +70,18 @@ private fun List<NbtTag>.toTCListStandardized() = map {
     }
 }.let { NbtList(it) }
 
+context(_: LoggerHolder)
 private fun NbtTag.transform(
     pointers: List<DataPointerReplacementGroup>,
-): NbtTag = when (this) {
+): NbtTag? = when (this) {
     is NbtList<*> -> {
         val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.List>()
             .filter { it.point < size }
         if (isEmpty()) return this // safely first to infer type
         val transformed = toMutableList()
         pointers.forEach { pointer ->
-            transformed[pointer.point] = transformed[pointer.point].transform(pointer.values)
+            val orig = transformed[pointer.point]
+            transformed[pointer.point] = orig.transform(pointer.values) ?: orig
         }
         transformed.toTCListStandardized()
     }
@@ -95,8 +94,10 @@ private fun NbtTag.transform(
                 return try {
                     Snbt.decodeFromString(terminator.replacement)
                 } catch (e: Throwable) {
-                    println(terminator.replacement)
-                    throw e
+                    logger.error {
+                        "Cannot decode ${terminator.replacement} as SNBT" }
+                    null
+//                    throw e
                 }
             }
 
@@ -104,7 +105,7 @@ private fun NbtTag.transform(
         val transformed = toMutableMap()
         pointers.forEach { pointer ->
             transformed[pointer.point]?.let {
-                transformed[pointer.point] = it.transform(pointer.values)
+                transformed[pointer.point] = it.transform(pointer.values) ?: it
             }
         }
         NbtCompound(transformed)

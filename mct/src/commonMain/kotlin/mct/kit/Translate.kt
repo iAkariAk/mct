@@ -64,10 +64,7 @@ inline fun List<ExtractionGroup>.replace(
                     nullable {
                         when (extraction) {
                             is DatapackExtraction.MCFunction -> extraction.replace {
-                                val syntax = extraction.syntax
-                                val content = it.unquoted(syntax)
-                                val replacement = mcfReplace(content)?.quoted(syntax)
-                                replacement.bind()
+                                mcfReplace(it).bind()
                             }
 
                             is DatapackExtraction.MCJson -> extraction.replace {
