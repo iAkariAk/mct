@@ -115,8 +115,6 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linuxX64
-          - os: windows-latest
-            target: mingwX64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
