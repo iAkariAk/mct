@@ -99,7 +99,13 @@ private fun selectSnbt(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg):
     }
     return tag.extractTexts(content)
         .filterPointer(patterns)
-        .map { SelectResult((arg.indices.first + it.indices.first)..(arg.indices.first + it.indices.last), it.content, it.syntax) }
+        .map {
+            SelectResult(
+                (arg.indices.first + it.indices.first)..(arg.indices.first + it.indices.last),
+                it.content,
+                it.syntax
+            )
+        }
 }
 
 data class SelectResult(
@@ -135,7 +141,7 @@ sealed interface IndexSelection {
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
         ): Either<Sequence<SelectResult>, SnbtSyntaxKind?> =
-            recover({ selectSnbt(patterns, arg).left() }, { SnbtSyntaxKind.LiteralString.right() })
+            recover({ selectSnbt(patterns, arg).left() }, { null.right() })
     }
 }
 
@@ -156,7 +162,11 @@ sealed interface IndexSelector {
         // select parts of the entire arg, and extract field if selection is as to snbt
         // about the return sign, refer to [mct.command.IndexSelection.select]
         context(_: Raise<IndexSelectError>)
-        fun select(pos: Int, patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): Either<Sequence<SelectResult>, SnbtSyntaxKind?> =
+        fun select(
+            pos: Int,
+            patterns: List<DataPointerPattern>?,
+            arg: MCCommand.Arg
+        ): Either<Sequence<SelectResult>, SnbtSyntaxKind?> =
             indexes[pos]?.select(patterns, arg) ?: null.right()
     }
 }

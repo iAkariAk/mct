@@ -115,7 +115,6 @@ private fun NbtTag.transform(
         val pointer =
             pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() } ?: return this
         pointer as DataPointerReplacementGroup.Terminator
-
         NbtString(pointer.replacement)
     }
 

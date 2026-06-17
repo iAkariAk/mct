@@ -50,7 +50,7 @@ import okio.Path.Companion.toPath
 
 private const val REGION_CACHE = "region_extractions.json"
 private const val DATAPACK_CACHE = "datapack_extractions.json"
-private const val POOL = "pool.json"
+private const val MISSING = "missing.json"
 private const val REGION_REPLACEMENTS = "region_replacements.json"
 private const val DATAPACK_REPLACEMENTS = "datapack_replacements.json"
 
@@ -195,7 +195,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                     " items (${pool.size} total extracted)"
                 )
             )
-            (projectDir / POOL).writeJson(missingPool, projectConfig.prettyJson)
+            (projectDir / MISSING).writeJson(missingPool, projectConfig.prettyJson)
         } else {
             terminal.println(green("No new items found (${pool.size} total extracted, all mapped)"))
         }

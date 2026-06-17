@@ -11,6 +11,7 @@ import com.github.ajalt.clikt.parameters.groups.default
 import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
+import kotlinx.coroutines.CancellationException
 import mct.*
 import mct.util.SystemFileSystem
 import okio.Path.Companion.toPath
@@ -43,14 +44,17 @@ abstract class BaseCommand(
 
     val cacheDir by option("--cache-dir", help = "Path to cache directory").path().default(".".toPath())
 
-    override suspend fun run() = SuspendApp {
-        either {
-            context(fs) {
-                App()
+    override suspend fun run() = try {
+        SuspendApp {
+            either {
+                context(fs) {
+                    App()
+                }
+            }.onLeft { error ->
+                throw CliktError(error.message)
             }
-        }.onLeft { error ->
-            throw CliktError(error.message)
         }
+    } catch (_: CancellationException) { // arrow.continuations.SuspendAppShutdown:
     }
 
     context(_: Raise<MCTError>)

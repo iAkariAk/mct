@@ -64,7 +64,11 @@ fun MCTWorkspace.extractFromRegion(
                                                     selector + command
                                                 }.takeIf { it.isNotEmpty() }
                                                     ?.map {
-                                                        RegionExtraction.Command.Location(it.indices, it.content, it.syntax)
+                                                        RegionExtraction.Command.Location(
+                                                            it.indices,
+                                                            it.content,
+                                                            it.syntax
+                                                        )
                                                     } ?: return@mapNotNull null
                                             )
                                         }.getOrNull()
@@ -127,7 +131,7 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
             asSequence().flatMap { (key, value) ->
                 if (key == "Command" && value is NbtString) {
                     val pwe = PointerWithExtension(
-                        DataPointer.Terminator,
+                        DataPointer.Map("Command", DataPointer.Terminator),
                         value.value,
                         FormatKind.PlainStr,
                         PointerWithExtension.Type.Command

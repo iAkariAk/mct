@@ -52,6 +52,7 @@ inline fun DataPointerWithValue.markMap(point: String) =
 inline fun DataPointerWithValue.markArray(point: Int) =
     copy(pointer = DataPointer.List(point, pointer))
 
+
 internal object DataPointerSerializer : KSerializer<DataPointer> {
     val delegatedSerializer = String.serializer()
     override val descriptor: SerialDescriptor =
