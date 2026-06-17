@@ -1,4 +1,4 @@
-package mct.dp
+package mct.dp.mcfunction
 
 import io.kotest.assertions.fail
 import io.kotest.assertions.withClue
@@ -9,7 +9,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import mct.*
 import mct.command.MCCommand
-import mct.dp.mcfunction.extractTextMCF
+import mct.dp.backfill
 import mct.pointer.DataPointer
 
 class MCFunctionTest : StringSpec({

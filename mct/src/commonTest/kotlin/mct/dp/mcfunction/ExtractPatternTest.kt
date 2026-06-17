@@ -6,7 +6,6 @@ import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import mct.Logger
 import mct.SnbtSyntaxKind
 import mct.command.*
@@ -277,106 +276,53 @@ class ExtractPatternTest : FreeSpec({
                 shouldMatches("""team modify myteam prefix {"text":"[VIP]"}""", """{"text":"[VIP]"}""")
             }
 
-            "match data modify set value" {
-                // data modify entity @s <path> set value <json> (6 args, WithSize(6))
-                val cmd = cmd(
-                    "data",
-                    "modify", "entity", "@s", "set", "value",
-                    """{"text":"Named Entity"}""",
+            "extract data modify set value" {
+                shouldMatches(
+                    """data modify entity @s set value {"text":"Named Entity"}""",
+                    """{"text":"Named Entity"}"""
                 )
-                val patterns = BuiltinMCFPatterns["data"].orEmpty()
-                val p0 = patterns.first { (it.preCondition as? PreCondition.Companion.WithSize)?.size == 6 }
-                p0.preCondition.matches(cmd) shouldBe true
-                (p0.selected as IndexSelector.NonGreedy).matches(6) shouldBe true
-                // Position 6 is the last arg: the JSON text component
-                p0.postCondition.matches(cmd, cmd.args[5]) shouldBe true
             }
 
-            "match give with text component" {
-                // give <targets> <item> (2 args, WithSize(3), Positions(2))
-                val cmd = cmd(
-                    "give",
-                    "@p",
-                    """stick{display:{Name:"text"}}""",
-                )
-                val patterns = BuiltinMCFPatterns["give"].orEmpty()
-                patterns.isNotEmpty() shouldBe true
-                val p = patterns.first()
-                p.preCondition.matches(cmd) shouldBe true  // WithSize(3) >= 2
-                (p.selected as IndexSelector.NonGreedy).matches(2) shouldBe true
+            "extract give with text component" {
+                shouldMatches("""give @p stick{display:{Name:"text"}}""")
             }
 
-            "match item modify" {
-                // item modify entity <target> <slot> <modifier> (5 args, WithSize(5))
-                val cmd = cmd(
-                    "item",
-                    "modify", "entity", "@p", "weapon.mainhand",
-                    """{"function":"minecraft:set_name","name":"text"}""",
+            "extract summon" {
+                shouldMatches(
+                    """summon block_display -106 3 -436 {NoGravity:1b,Glowing:1b,CustomNameVisible:0b,Tags:["wickedorb"],CustomName:{"bold":true,"color":"dark_purple","text":"彩叶"},glow_color_override:0,transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[3f,3f,3f]},block_state:{Name:"minecraft:crying_obsidian"}}""",
+                    """{"bold":true,"color":"dark_purple","text":"彩叶"}"""
                 )
-                val patterns = BuiltinMCFPatterns["item"].orEmpty()
-                patterns.isNotEmpty() shouldBe true
-                val p = patterns.first()
-                p.preCondition.matches(cmd) shouldBe true  // WithSize(5) >= 5
-                (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
             }
 
-            "match team add displayName" {
-                val cmd = cmd(
-                    "team",
-                    "add", "myteam",
-                    """{"text":"My Team"}""",
+            "extract item modify" {
+                shouldMatches(
+                    """item modify entity @p weapon.mainhand {"function":"minecraft:set_name","name":"text"}""",
                 )
-                val patterns = BuiltinMCFPatterns["team"].orEmpty()
-                val p = patterns.find { it.preCondition is PreCondition.Companion.WithSize &&
-                    it.preCondition.size == 3 &&
-                    it.selected is IndexSelector.NonGreedy &&
-                    it.selected.matches(3) }
-                p shouldNotBe null
-                p!!.preCondition.matches(cmd) shouldBe true
-                p.postCondition.matches(cmd, cmd.args[2]) shouldBe true
             }
 
-            "match setblock with NBT data" {
-                val cmd = cmd(
-                    "setblock",
-                    "~", "~", "~", "minecraft:chest",
-                    """{CustomName:'{"text":"Treasure","color":"gold"}'}""",
+            "extract team add displayName" {
+                shouldMatches(
+                    """team add myteam {"text":"My Team"}""",
+                    """{"text":"My Team"}"""
                 )
-                val patterns = BuiltinMCFPatterns["setblock"].orEmpty()
-                patterns.isNotEmpty() shouldBe true
-                val p = patterns.first()
-                p.preCondition.matches(cmd) shouldBe true  // WithSize(5)
-                (p.selected as IndexSelector.NonGreedy).matches(5) shouldBe true
-                p.postCondition.matches(cmd, cmd.args[4]) shouldBe true
             }
 
-            "match data merge entity NBT" {
-                val cmd = cmd(
-                    "data",
-                    "merge", "entity", "@s",
-                    """{CustomName:'{"text":"Named Entity"}'}""",
+            "extract setblock with NBT data" {
+                shouldMatches(
+                    """setblock ~ ~ ~ minecraft:chest {CustomName:'{"text":"Treasure","color":"gold"}'}""",
                 )
-                val patterns = BuiltinMCFPatterns["data"].orEmpty()
-                val p = patterns.find { it.preCondition is PreCondition.Companion.And &&
-                    it.selected is IndexSelector.NonGreedy &&
-                    it.selected.matches(4) }
-                p shouldNotBe null
-                p!!.preCondition.matches(cmd) shouldBe true
-                p.postCondition.matches(cmd, cmd.args[3]) shouldBe true
             }
 
-            "match data merge block NBT" {
-                val cmd = cmd(
-                    "data",
-                    "merge", "block", "~", "~", "~",
-                    """{CustomName:'{"text":"Block Name"}'}""",
+            "extract data merge entity NBT" {
+                shouldMatches(
+                    """data merge entity @s {CustomName:'{"text":"Named Entity"}'}""",
                 )
-                val patterns = BuiltinMCFPatterns["data"].orEmpty()
-                val p = patterns.find { it.preCondition is PreCondition.Companion.And &&
-                    (it.selected as IndexSelector.NonGreedy).matches(6) }
-                p shouldNotBe null
-                p!!.preCondition.matches(cmd) shouldBe true
-                p.postCondition.matches(cmd, cmd.args[5]) shouldBe true
+            }
+
+            "extract data merge block NBT" {
+                shouldMatches(
+                    """data merge block ~ ~ ~ {CustomName:'{"text":"Block Name"}'}""",
+                )
             }
         }
     }
