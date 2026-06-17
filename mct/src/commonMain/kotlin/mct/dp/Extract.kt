@@ -67,6 +67,7 @@ fun MCTWorkspace.extractFromDatapackRaw(
                 sfs.useAsync { sfs ->
                     sfs.listRecursively(Path.ROOT)
                         .asFlow()
+                        .filter { "__MACOSX" !in it.toString() }
                         .mapNotNull { zpath ->
                             nullable { zpath to extractors.find { zpath.endsWith(it.targetExtension) }.bind() }
                         }
