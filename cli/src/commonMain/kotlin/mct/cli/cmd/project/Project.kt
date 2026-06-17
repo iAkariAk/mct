@@ -203,9 +203,6 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 }
 
 private class Translate : ProjectCommand("translate", "Translate extractions via AI") {
-    private var currentThinkingId = Int.MIN_VALUE
-    private val thinking = StringBuilder()
-
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val regionFile = cache(REGION_CACHE)
