@@ -141,5 +141,5 @@ jobs:
       - name: Upload GraalVM native image
         uses: actions/upload-artifact@v4
         with:
-          name: mct-cli-${{ matrix.target }}
+          name: mct-cli-graal-${{ matrix.target }}
           path: cli-graal/build/native/nativeCompile/*
