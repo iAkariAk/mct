@@ -71,6 +71,13 @@ fun String.quoted(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
+fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
+    SnbtSyntaxKind.SingleQuoteString -> doubleQuoted()
+    SnbtSyntaxKind.DoubleQuoteString -> doubleQuoted()
+    SnbtSyntaxKind.LiteralString -> doubleQuoted()
+    else -> this
+}
+
 
 fun FormatKind.isString(): Boolean = this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
 fun FormatKind.isBinary(): Boolean = this == FormatKind.Nbt
@@ -159,7 +166,7 @@ sealed interface DatapackExtraction : Extraction {
 
         inline fun replace(replacement: (String) -> String): DatapackReplacement.MCFunction {
             val r = replacement(content.unquoted(syntax))
-            return DatapackReplacement.MCFunction(indices, if (syntax == null) r else r.doubleQuoted(), syntax)
+            return DatapackReplacement.MCFunction(indices, r.doubleQuotedIfString(syntax), syntax)
         }
     }
 }
@@ -224,7 +231,7 @@ sealed interface RegionExtraction : Extraction {
                     .zip(replacements.asSequence())
                     .sortedByDescending { (loc, _) -> loc.indices.first }
                     .fold(StringBuilder(raw)) { acc, (loc, r) ->
-                        val rr = if (loc.syntax == null) r else r?.doubleQuoted()
+                        val rr = r?.doubleQuotedIfString(loc.syntax)
                         acc.setRange(loc.indices.first, loc.indices.last + 1, rr ?: return@fold acc)
                     }.toString()
             )

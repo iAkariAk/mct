@@ -330,7 +330,7 @@ val BuiltinMCFPatterns = PatternSet {
     }
 
 
-    // summon <entity> <pos> [<nbt>]
+    // summon <entity> <pos>*3 [<nbt>]
     command("summon") {
         WithSize(5, strict = true) then {
             Positions(5 to IndexSelection.SnbtEntire).withAry()
