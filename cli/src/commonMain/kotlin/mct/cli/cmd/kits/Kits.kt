@@ -166,6 +166,17 @@ private class AITranslate : BaseCommand(
         envvar = "OPENAI_TOKEN_THRESHOLD",
         help = "The token threshold amount per request."
     ).int().default(TOKEN_COUNT_THRESHOLD)
+
+    val enableHttpLogging by option("--http-logging", envvar = "Enable all HTTP logging").flag()
+    val concurrency: Int by option(
+        "--concurrency",
+        "-C",
+        envvar = "CONCURRENCY",
+        help = "Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective)"
+    ).int().default(1)
+
+    val concurrentByKind by option("--concurrent-by-kind", "-K", envvar = "CONCURRENT_BY_KINDS").flag()
+
     val literatureStyle by option(
         "--literature-style",
         envvar = "LITERATURE_STYLE",
@@ -194,7 +205,7 @@ private class AITranslate : BaseCommand(
         help = "Enable aggressive gradient text handling"
     ).flag()
 
-    val enableHttpLogging by option("--http-logging", envvar = "Enable all HTTP logging").flag()
+
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -228,12 +239,13 @@ private class AITranslate : BaseCommand(
                     handleGradientAggressively = handleGradient,
                 ),
                 defaultTerms = terms,
-                tokenThreshold = tokenThreshold
+                tokenThreshold = tokenThreshold,
+                concurrency = concurrency,
             )
         }
 
         logger.info { "Starting translation..." }
-        val mapping = translator.translate(extractionGroups, caches) { terms, salvaged ->
+        val mapping = translator.translate(extractionGroups, caches, concurrentByKind) { terms, salvaged ->
             mappingOutput.writeJson(salvaged)
             termOutput.writeJson(terms)
         }

@@ -180,6 +180,27 @@ fun SettingsSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error.copy(alpha = .8f),
                     )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    TextSwitch(
+                        modifier = Modifier.fillMaxWidth(),
+                        checked = GuiSettings.concurrentByKind,
+                        onCheckedChange = { GuiSettings.concurrentByKind = it },
+                        text = "按类型并发（加速多格式混合翻译）",
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "同时翻译 JSON、SNBT、纯文本，充分利用并发度。要求并发度 > 1。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "注意：并发翻译时各类型的术语表相互独立",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = .8f),
+                    )
                 }
             }
         }

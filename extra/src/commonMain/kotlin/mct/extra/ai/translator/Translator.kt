@@ -25,6 +25,7 @@ import mct.text.TextCompound
 import mct.text.decodeToCompound
 import mct.text.encodeToIR
 import mct.text.replaceText
+import mct.util.IO
 import mct.util.formatir.IRList
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
@@ -251,7 +252,7 @@ class Translator internal constructor(
     ): List<String> = coroutineScope {
         val chunks = sources.withIndex().chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
-        logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms" }
+        logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms, kind: $kind" }
         val translated = MutableList<String?>(sources.size) { null }
         var completedChunks = 0
 
@@ -473,6 +474,7 @@ context(_: Raise<ChatCompletionCallError>)
 suspend fun Translator.translate(
     groups: List<ExtractionGroup>,
     caches: Map<String, String> = emptyMap(),
+    concurrentByKind: Boolean = false,
     onCancel: OnTranslateCancel = { _, _ -> }
 ): Map<String, String> = coroutineScope {
     if (groups.isEmpty()) {
@@ -487,22 +489,37 @@ suspend fun Translator.translate(
         }
     }
     val mapping = mutableMapOf<String, String>()
+    val mappingMutex = Mutex()
 
-    extractions.forEach { (kind, extractions) ->
-        val sources = extractions.asSequence().flatMap {
-            it.contents().filter(String::isNotBlank)
-        }.distinct().filter { it !in caches }.toList()
-        val translated = translate(kind, sources) { translated ->
-            val salvaged = buildMap {
-                translated.forEachIndexed { index, translated ->
-                    translated?.let {
-                        put(sources[index], translated)
+    suspend fun execute(block: suspend (append: suspend (Iterable<Pair<String, String>>) -> Unit) -> Unit) {
+        if (concurrentByKind) {
+            launch(Dispatchers.IO) {
+                block { others ->
+                    mappingMutex.withLock {
+                        mapping.putAll(others)
                     }
                 }
             }
-            onCancel(terms, mapping + salvaged)
+        } else block(mapping::putAll)
+    }
+
+    extractions.forEach { (kind, extractions) ->
+        execute { append ->
+            val sources = extractions.asSequence().flatMap {
+                it.contents().filter(String::isNotBlank)
+            }.distinct().filter { it !in caches }.toList()
+            val translated = translate(kind, sources) { translated ->
+                val salvaged = buildMap {
+                    translated.forEachIndexed { index, translated ->
+                        translated?.let {
+                            put(sources[index], translated)
+                        }
+                    }
+                }
+                onCancel(terms, mapping + salvaged)
+            }
+            append(sources.zip(translated))
         }
-        mapping += sources.zip(translated)
     }
     mapping.toMutableMap().putAll(caches)
     notifier.notify<TranslateSign> { TranslateSign.Progress(1f) }

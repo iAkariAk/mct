@@ -44,6 +44,7 @@ data class ApiSettings(
     val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val temperature: Double? = null,
     val concurrency: Int = 1,
+    val concurrentByKind: Boolean = false,
 )
 
 val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
@@ -259,7 +260,7 @@ suspend fun runTranslation(
 
     withContext(Dispatchers.IO) {
         try {
-            val mapping = translator.translate(extractionGroups, caches, onCancel = wrappedOnCancel)
+            val mapping = translator.translate(extractionGroups, caches, concurrentByKind = GuiSettings.concurrentByKind, onCancel = wrappedOnCancel)
             val replacements = extractionGroups.replace(mapping)
 
             output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
@@ -271,7 +272,7 @@ suspend fun runTranslation(
             env.logger.info { "映射文件已写入: $mappingOutput" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
-            apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature, GuiSettings.concurrency))
+            apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature, GuiSettings.concurrency, GuiSettings.concurrentByKind))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

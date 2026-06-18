@@ -13,6 +13,7 @@ object GuiSettings {
     var useStreamApi by mutableStateOf(false)
     var temperature by mutableStateOf<Double?>(null)
     var concurrency by mutableIntStateOf(1)
+    var concurrentByKind by mutableStateOf(false)
 }
 
 data class LogEntry(
