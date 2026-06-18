@@ -62,11 +62,10 @@ graalvmNative {
             standard {
             }
             conditional {
-                userCodeFilterPath.set("path-to-filter.json")
-                extraFilterPath.set("path-to-another-filter.json")
+                userCodeFilterPath.set("filter.json")
+                extraFilterPath.set("filter.json")
             }
             direct {
-                options.add("config-output-dir={output_dir}")
                 options.add("experimental-configuration-with-origins")
             }
         }
