@@ -16,7 +16,7 @@ enum class LoggerLevel {
 
 abstract class Logger(
     val enabledLevels: List<LoggerLevel>
-) {
+) : LoggerHolder {
     companion object {
         val None = object : Logger(emptyList()) {
             override fun log(level: LoggerLevel, message: String) = Unit
@@ -31,6 +31,8 @@ abstract class Logger(
             override fun toString() = "Logger.Console"
         }
     }
+
+    override val logger = this
 
     val levelMarks = (enabledLevels).fold(0) { acc, e ->
         acc or e.mask

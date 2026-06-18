@@ -1,9 +1,11 @@
 package mct.command
 
-import arrow.core.Either
 import arrow.core.raise.context.Raise
+import arrow.core.raise.recover
 import mct.FormatKind
+import mct.LoggerHolder
 import mct.SnbtSyntaxKind
+import mct.logger
 import mct.pointer.*
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
@@ -27,26 +29,7 @@ data class ExtractedCommandSlice(
     override val syntax: SnbtSyntaxKind? // null represents the slice isn't a snbt
 ) : StringIndicesWithSyntax
 
-// https://minecraft.wiki/w/Target_selectors
-private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
-private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
-internal fun extractTextFromTargetSelector(args: List<MCCommand.Arg>): List<ExtractedCommandSlice> = args.asSequence()
-    .filter { SELECTOR_REGEX.matches(it.content) }
-    .mapNotNull { arg ->
-        SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
-            val negative = result.value.startsWith("name=!")
-            val value = result.groupValues[1]
-            ExtractedCommandSlice(
-                (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
-                value,
-                value.inferSyntaxKind()
-            )
-        }
-    }
-    .toList()
-
-
-context(_: Raise<IndexSelectError>)
+context(_: Raise<IndexSelectError>, _: LoggerHolder)
 internal fun extractTextFromCommand(
     command: MCCommand,
     mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
@@ -73,7 +56,8 @@ internal fun extractTextFromCommand(
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
         return extractTextFromCommand(subCommand, mcfPatterns, mcfDataPatterns)
     }
-    return (mcfPatterns[command.name]?.asSequence() ?: emptySequence())
+    val fromIntrinsic = MCFExtractorIntrinsic.extract(command)
+    val fromPattern = (mcfPatterns[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
             when (val selector = pattern.selected) {
@@ -92,18 +76,25 @@ internal fun extractTextFromCommand(
                         .filter { (index, _) -> selector.matches(index + 1) }
                         .filter { (_, arg) -> pattern.postCondition.matches(command, arg) }
                         .flatMap { (index, arg) ->
-                            val selectResult = selector.select(index + 1, mcfDataPatterns, arg)
-                            val selections = when (selectResult) {
-                                is Either.Left<Sequence<SelectResult>> -> selectResult.value
-                                is Either.Right<SnbtSyntaxKind?> -> sequenceOf(ExtractedCommandSlice(arg.indices, arg.content, selectResult.value)) // feedback
-                            }
-
-                            selections.map {
-                                ExtractedCommandSlice(it.indices, it.content, it.syntax)
-                            }
+                            recover(
+                                block = {
+                                    selector.select(index + 1, mcfDataPatterns, arg)?.map {
+                                        ExtractedCommandSlice(it.indices, it.content, it.syntax)
+                                    }
+                                },
+                                recover = {
+                                    logger.warning { "Selection fails: ${it.message}" }
+                                    null
+                                }
+                            ) ?: ExtractedCommandSlice(
+                                arg.indices,
+                                arg.content,
+                                null
+                            ).let(::sequenceOf) // feedback
                         }
             }
         }.toList()
+    return fromIntrinsic + fromPattern
 }
 
 // Refer to mct.region.ExtractKt.extractTexts
@@ -182,10 +173,34 @@ private fun computeGreedyRange(
     return Pair(relRange, absRange)
 }
 
+
+internal object MCFExtractorIntrinsic {
+    // https://minecraft.wiki/w/Target_selectors
+    private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
+    private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
+    fun extractFromTargetSelector(args: List<MCCommand.Arg>): List<ExtractedCommandSlice> = args.asSequence()
+        .filter { SELECTOR_REGEX.matches(it.content) }
+        .mapNotNull { arg ->
+            SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
+                val negative = result.value.startsWith("name=!")
+                val value = result.groupValues[1]
+                ExtractedCommandSlice(
+                    (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
+                    value,
+                    value.inferSyntaxKind()
+                )
+            }
+        }
+        .toList()
+
+
+    fun extract(command: MCCommand): List<ExtractedCommandSlice> =
+        extractFromTargetSelector(command.args)
+}
+
+
 private fun String.inferSyntaxKind(): SnbtSyntaxKind = when {
     surroundedBy('\'') -> SnbtSyntaxKind.SingleQuoteString
     surroundedBy('\"') -> SnbtSyntaxKind.DoubleQuoteString
     else -> SnbtSyntaxKind.LiteralString
 }
-
-

@@ -1,11 +1,7 @@
 package mct.command
 
-import arrow.core.Either
-import arrow.core.left
 import arrow.core.raise.context.Raise
 import arrow.core.raise.context.raise
-import arrow.core.raise.recover
-import arrow.core.right
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
@@ -87,25 +83,10 @@ sealed interface IndexSelectError : MCTError {
     ) : IndexSelectError {
         override val message = "When parsing $raw, get ${reason.message}"
     }
-}
 
-context(_: Raise<IndexSelectError>)
-private fun selectSnbt(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): Sequence<SelectResult> {
-    val content = arg.content
-    val tag = runCatching {
-        SnbtTag.decodeFromString(content)
-    }.getOrElse {
-        raise(IndexSelectError.Parse(content, it))
+    data class InvalidatedTargetSelector(val raw: String) : IndexSelectError {
+        override val message = "Target selector <$raw> is not valid"
     }
-    return tag.extractTexts(content)
-        .filterPointer(patterns)
-        .map {
-            SelectResult(
-                (arg.indices.first + it.indices.first)..(arg.indices.first + it.indices.last),
-                it.content,
-                it.syntax
-            )
-        }
 }
 
 data class SelectResult(
@@ -117,11 +98,8 @@ data class SelectResult(
 @Serializable
 sealed interface IndexSelection {
     context(_: Raise<IndexSelectError>)
-    // Left: select parts which are snbt
-    // Right:
-    //   non-null: the entire is snbt
-    //   null: the entire isn't nbt
-    fun select(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): Either<Sequence<SelectResult>, SnbtSyntaxKind?>
+    // null: the entire isn't snbt
+    fun select(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): Sequence<SelectResult>?
 
     //brigadier:string
     @Serializable
@@ -130,7 +108,7 @@ sealed interface IndexSelection {
         override fun select(
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
-        ): Either<Sequence<SelectResult>, SnbtSyntaxKind?> = null.right()
+        ): Sequence<SelectResult>? = null
     }
 
     // minecraft:component || minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
@@ -140,8 +118,23 @@ sealed interface IndexSelection {
         override fun select(
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
-        ): Either<Sequence<SelectResult>, SnbtSyntaxKind?> =
-            recover({ selectSnbt(patterns, arg).left() }, { null.right() })
+        ): Sequence<SelectResult>? {
+            val content = arg.content
+            val tag = runCatching<SnbtTag> {
+                SnbtTag.decodeFromString(content)
+            }.getOrElse {
+                raise(IndexSelectError.Parse(content, it))
+            }
+            return tag.extractTexts(content)
+                .filterPointer(patterns)
+                .map {
+                    SelectResult(
+                        (arg.indices.first + it.indices.first)..(arg.indices.first + it.indices.last),
+                        it.content,
+                        it.syntax
+                    )
+                }
+        }
     }
 }
 
@@ -160,14 +153,13 @@ sealed interface IndexSelector {
         fun matches(pos: Int) = pos in indexes
 
         // select parts of the entire arg, and extract field if selection is as to snbt
-        // about the return sign, refer to [mct.command.IndexSelection.select]
         context(_: Raise<IndexSelectError>)
         fun select(
             pos: Int,
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
-        ): Either<Sequence<SelectResult>, SnbtSyntaxKind?> =
-            indexes[pos]?.select(patterns, arg) ?: null.right()
+        ): Sequence<SelectResult>? =
+            indexes[pos]?.select(patterns, arg)
     }
 }
 

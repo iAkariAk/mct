@@ -38,16 +38,14 @@ internal fun extractTextMCF(
     val mcfunctions = parseMCFunction(mcf)
     logger.debug { "Parsed ${mcfunctions.size} commands in $path" }
     val extractedArgs = mcfunctions.asSequence().flatMap { command ->
-        val selector = extractTextFromTargetSelector(command.args)
-
-        val command = either {
-            extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
+        either {
+            context(logger) {
+                extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
+            }
         }.getOrElse {
             logger.error { "Skip $command due to ${it.message}" }
             emptyList()
         }
-
-        selector + command
     }
     val extractions = extractedArgs.map { extracted ->
         DatapackExtraction.MCFunction(

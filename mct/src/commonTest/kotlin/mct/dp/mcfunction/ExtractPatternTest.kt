@@ -235,7 +235,11 @@ class ExtractPatternTest : FreeSpec({
         }
 
         "BuiltinMCFPatterns" - {
-            fun matchCmd(cmd: MCCommand) = shouldNotRaise { extractTextFromCommand(cmd) }
+            fun matchCmd(cmd: MCCommand) = shouldNotRaise {
+                context(Logger.Console()) {
+                    extractTextFromCommand(cmd)
+                }
+            }
 
 
             fun shouldMatches(mcf: String, vararg expectedContents: String) {
@@ -330,7 +334,7 @@ class ExtractPatternTest : FreeSpec({
     "TargetSelector" - {
         fun extractTargetSelector(mcf: String): List<ExtractedCommandSlice> {
             val cmds = parseMCFunction(mcf)
-            return cmds.flatMap { extractTextFromTargetSelector(it.args) }
+            return cmds.flatMap { MCFExtractorIntrinsic.extractFromTargetSelector(it.args) }
         }
 
         "extracts literal name" {
@@ -436,7 +440,11 @@ class ExtractPatternTest : FreeSpec({
         fun shouldMatches(mcf: String, vararg expectedContents: String) {
             val cmds = parseMCFunction(mcf)
             val matches = cmds.flatMap {
-                shouldNotRaise { extractTextFromCommand(it) }
+                shouldNotRaise {
+                    context(Logger.Console()) {
+                        extractTextFromCommand(it)
+                    }
+                }
             }
             matches.isNotEmpty() shouldBe true
             if (expectedContents.isNotEmpty()) {
@@ -482,7 +490,11 @@ class ExtractPatternTest : FreeSpec({
         fun shouldMatches(mcf: String, vararg expectedContents: String) {
             val cmds = parseMCFunction(mcf)
             val matches = cmds.flatMap {
-                shouldNotRaise { extractTextFromCommand(it) }
+                shouldNotRaise {
+                    context(Logger.Console()) {
+                        extractTextFromCommand(it)
+                    }
+                }
             }
             matches.isNotEmpty() shouldBe true
             if (expectedContents.isNotEmpty()) {
