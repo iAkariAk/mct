@@ -6,6 +6,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
 import mct.DatapackExtractionGroup
 import mct.FormatKind
+import mct.MCTPattern
 import mct.dp.Extractor
 import mct.dp.MCJsonExtractError
 import mct.pointer.*
@@ -19,14 +20,14 @@ internal val MCJson = Json {
 }
 
 internal fun MCJsonExtractor(
-    patterns: List<DataPointerPattern>? = BuiltinMCJPatterns
-) = Extractor("MCJson", ".json") { env, zfs, zpath, path ->
+    pattern: MCTPattern,
+) = Extractor("MCJson", ".json") { env,sourcePath, zfs, zpath ->
     val text = zfs.read(zpath) { readUtf8() }
     extractTextMCJ(
         text,
-        source = path.name,
+        source = sourcePath.name,
         path = zpath.normalized().toString(),
-        patterns
+        pattern.mcjson
     )
 }
 
@@ -54,7 +55,7 @@ internal fun extractTextMCJ(
         extractions = extractions
     )
 } catch (e: SerializationException) {
-    raise(MCJsonExtractError.JsonSyntaxError(e))
+    raise(MCJsonExtractError.JsonSyntaxError(source,path, e))
 }
 
 internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when (this) {
@@ -68,10 +69,15 @@ internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when
         }
     }
 
-    is JsonPrimitive if isString -> sequenceOf(DataPointerWithValue(DataPointer.Terminator, content, when {
-        content.isJson() -> FormatKind.JsonStr
-        else -> FormatKind.PlainStr
-    }))
+    is JsonPrimitive if isString -> sequenceOf(
+        DataPointerWithValue(
+            DataPointer.Terminator, content, when {
+                content.isJson() -> FormatKind.JsonStr
+                else -> FormatKind.PlainStr
+            }
+        )
+    )
+
     JsonNull -> emptySequence()
     else -> emptySequence()
 }

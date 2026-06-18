@@ -1,6 +1,7 @@
 package mct.command
 
-import mct.Logger
+import mct.LoggerHolder
+import mct.logger
 import mct.util.*
 
 data class MCCommand(
@@ -36,7 +37,7 @@ data class MCCommand(
     companion object
 }
 
-context(logger: Logger)
+context(_: LoggerHolder)
 fun parseMCFunction(
     mcf: String,
 ): List<MCCommand> {

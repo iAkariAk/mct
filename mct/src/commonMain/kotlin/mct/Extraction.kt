@@ -79,7 +79,9 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
 }
 
 
-fun FormatKind.isString(): Boolean = this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
+fun FormatKind.isString(): Boolean =
+    this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
+
 fun FormatKind.isBinary(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {

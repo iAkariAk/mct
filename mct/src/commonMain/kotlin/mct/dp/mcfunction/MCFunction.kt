@@ -2,32 +2,28 @@ package mct.dp.mcfunction
 
 import arrow.core.getOrElse
 import arrow.core.raise.context.either
-import mct.DatapackExtraction
-import mct.DatapackExtractionGroup
-import mct.Logger
+import mct.*
 import mct.command.*
 import mct.dp.Extractor
 import mct.pointer.DataPointerPattern
 
 
 internal fun MCFunctionExtractor(
-    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
-    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
-) = Extractor("MCFunction", ".mcfunction") { env, zfs, zpath, path ->
+    pattern: MCTPattern,
+) = Extractor("MCFunction", ".mcfunction") { env, sourcePath, zfs, zpath ->
     val text = zfs.read(zpath) { readUtf8() }
-    context(env.logger) {
-        extractTextMCF(
-            text,
-            source = path.name,
-            path = zpath.normalized().toString(),
-            mcfPatterns = mcfPatterns,
-            mcfDataPatterns = mcfDataPatterns
-        )
-    }
+    extractTextMCF(
+        text,
+        source = sourcePath.name,
+        path = zpath.normalized().toString(),
+        mcfPatterns = pattern.mcfunction,
+        mcfDataPatterns = pattern.mcfunctionData
+    )
+
 }
 
 
-context(logger: Logger)
+context(_: LoggerHolder)
 internal fun extractTextMCF(
     mcf: String,
     source: String,
@@ -49,15 +45,11 @@ internal fun extractTextMCF(
     }
     val extractions = extractedArgs.map { extracted ->
         DatapackExtraction.MCFunction(
-            indices = extracted.indices,
-            content = extracted.content,
-            syntax = extracted.syntax
+            indices = extracted.indices, content = extracted.content, syntax = extracted.syntax
         )
     }.toList()
     logger.debug { "Extracted ${extractions.size} texts from $path" }
     return DatapackExtractionGroup(
-        source = source,
-        path = path,
-        extractions = extractions
+        source = source, path = path, extractions = extractions
     )
 }

@@ -8,16 +8,19 @@ sealed interface DBError : MCTError
 
 sealed interface BackfillError : DBError {}
 
-sealed interface ExtractError : DBError {
-    data class JsonSyntaxError(val exception: SerializationException) : ExtractError{
-        override val message = exception.message ?: "<null>"
-    }
-}
-sealed interface MCFunctionExtractError : ExtractError {
-}
+sealed interface ExtractError : DBError
+sealed interface MCFunctionExtractError : ExtractError
 
 sealed interface MCJsonExtractError : ExtractError {
-    data class JsonSyntaxError(val exception: SerializationException) : MCJsonExtractError{
-        override val message = exception.message ?: "<null>"
+    data class JsonSyntaxError(val source: String, val filePath: String, val exception: SerializationException) :
+        MCJsonExtractError {
+        override val message = "($source >> $filePath)${exception.message}"
+    }
+}
+
+sealed interface NbtExtractError : ExtractError {
+    data class NbtDecodeError(val source: String, val filePath: String, val exception: SerializationException) :
+        MCJsonExtractError {
+        override val message = "($source >> $filePath)${exception.message}"
     }
 }

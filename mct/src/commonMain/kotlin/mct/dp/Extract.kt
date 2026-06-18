@@ -6,47 +6,33 @@ import arrow.core.raise.context.either
 import arrow.core.raise.nullable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import mct.DatapackExtractionGroup
-import mct.Env
-import mct.MCTWorkspace
-import mct.command.BuiltinMCFunctionDataPatterns
+import mct.*
 import mct.command.CommandExtractPattern
-import mct.command.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
-import mct.pointer.DataPointerPattern
 import mct.util.IO
 import mct.util.io.*
 import okio.FileSystem
 import okio.Path
 import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
-import mct.dp.mcjson.BuiltinMCJPatterns as MCJsonBuiltinPatterns
-
-fun MCTWorkspace.extractFromDatapack(
-    mcfPatterns: List<CommandExtractPattern> = emptyList(),
-    mcfDataPatterns: List<DataPointerPattern>? = emptyList(),
-    mcjPatterns: List<DataPointerPattern>? = emptyList()
-) = extractFromDatapackRaw(
-    mcfPatterns.compile(),
-    mcfDataPatterns?.let { BuiltinMCFunctionDataPatterns + mcfDataPatterns },
-    mcjPatterns?.let { MCJsonBuiltinPatterns + mcjPatterns },
-)
 
 fun List<CommandExtractPattern>.compile(): Map<String, List<CommandExtractPattern>> =
     MCFBuiltinPatterns + groupBy { it.command }.toMap()
 
-fun MCTWorkspace.extractFromDatapackRaw(
-    mcfPatterns: ExtractPatternSet = MCFBuiltinPatterns,
-    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
-    mcjPatterns: List<DataPointerPattern>? = MCJsonBuiltinPatterns
+fun MCTWorkspace.extractFromDatapack(
+    pattern: MCTPattern = MCTPattern.Default
 ): Flow<DatapackExtractionGroup> {
-    if (mcjPatterns == null) logger.warning { "The filter was disabled, which causes export all string from the datapack" }
+    if (pattern.mcjson == null) logger.warning { "The filter was disabled, which causes export all string out of mcjson from the datapack" }
     logger.info { "Scanning datapacks in $datapackDir" }
 
-    val extractors = listOf(
-        MCFunctionExtractor(mcfPatterns, mcfDataPatterns),
-        MCJsonExtractor(mcjPatterns),
-    )
+    val extractors = buildMap {
+        fun add(constructExtractor: (pattern: MCTPattern) -> Extractor) {
+            val extractor = constructExtractor(pattern)
+            put(extractor.targetExtension, constructExtractor(pattern))
+        }
+        add(::MCFunctionExtractor)
+        add(::MCJsonExtractor)
+    }
 
     return fs.list(datapackDir)
         .asFlow()
@@ -60,23 +46,23 @@ fun MCTWorkspace.extractFromDatapackRaw(
                 } else null
                 sfs.bind() to it
             }
-
-        }
-        .flatMapMerge { (sfs, path) ->
+        }.flatMapMerge { (sfs, sourcePath) ->
             flow {
                 sfs.useAsync { sfs ->
                     sfs.listRecursively(Path.ROOT)
                         .asFlow()
                         .filter { "__MACOSX" !in it.toString() }
                         .mapNotNull { zpath ->
-                            nullable { zpath to extractors.find { zpath.endsWith(it.targetExtension) }.bind() }
+                            nullable {
+                                zpath to extractors[zpath.extension].bind()
+                            }
                         }
-                        .flatMapMerge { (filePath, extractor) ->
+                        .flatMapMerge { (zpath, extractor) ->
                             either {
                                 env.logger.debug {
-                                    "Extracting $filePath via $extractor"
+                                    "Extracting $zpath via $extractor"
                                 }
-                                flowOf(extractor.extract(env, sfs, filePath, path))
+                                flowOf(extractor.extract(env, sourcePath, sfs, zpath))
                             }.getOrElse { error ->
                                 env.logger.error { error.message }
                                 emptyFlow()
@@ -93,34 +79,34 @@ fun MCTWorkspace.extractFromDatapackRaw(
 internal interface Extractor {
     val targetExtension: String
 
-    context(_: Raise<ExtractError>)
+    context(_: Raise<ExtractError>, _: EnvHolder)
     fun extract(
         env: Env,
+        sourcePath: Path,
         zfs: FileSystem,
-        zpath: Path,
-        path: Path
+        zpath: Path
     ): DatapackExtractionGroup
 }
 
 internal fun Extractor(
     name: String,
     targetExtension: String,
-    extract: context(Raise<ExtractError>) (
+    extract: context(Raise<ExtractError>, EnvHolder) (
         env: Env,
+        sourcePath: Path,
         zfs: FileSystem,
-        zpath: Path,
-        path: Path
+        zpath: Path
     ) -> DatapackExtractionGroup
 ) = object : Extractor {
     override val targetExtension = targetExtension
 
-    context(_: Raise<ExtractError>)
+    context(_: Raise<ExtractError>, _: EnvHolder)
     override fun extract(
         env: Env,
+        sourcePath: Path,
         zfs: FileSystem,
-        zpath: Path,
-        path: Path
-    ): DatapackExtractionGroup = extract(env, zfs, zpath, path)
+        zpath: Path
+    ): DatapackExtractionGroup = extract(env, sourcePath, zfs, zpath)
 
     override fun toString() = "Extractor($name)"
 }

@@ -27,7 +27,7 @@ import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
-import mct.dp.extractFromDatapackRaw
+import mct.dp.extractFromDatapack
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
@@ -163,9 +163,11 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 
         val pool = coroutineScope {
             val regionJob = async(Dispatchers.IO) {
-                val groups = w.extractFromRegion(
-                    regionPatterns, mcfPatterns, mcfDataPatterns
-                ).toList()
+                val groups = w.extractFromRegion(MCTPattern(
+                    region = regionPatterns,
+                    mcfunction = mcfPatterns,
+                    mcfunctionData = mcfDataPatterns
+                )).toList()
                 cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 terminal.println(
                     green("Extracted ") + (green + bold)("${groups.size}") + green(
@@ -175,9 +177,11 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                 groups
             }
             val datapackJob = async(Dispatchers.IO) {
-                val groups = w.extractFromDatapackRaw(
-                    mcfPatterns, mcfDataPatterns, mcjPatterns
-                ).toList()
+                val groups = w.extractFromDatapack(MCTPattern(
+                    mcfunction = mcfPatterns,
+                    mcfunctionData = mcfDataPatterns,
+                    mcjson = mcjPatterns
+                )).toList()
                 cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 terminal.println(
                     green("Extracted ") + (green + bold)("${groups.size}") + green(

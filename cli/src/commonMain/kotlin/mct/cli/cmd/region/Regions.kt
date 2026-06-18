@@ -9,10 +9,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
-import mct.ExtractionGroup
-import mct.MCTError
-import mct.RegionReplacementGroup
-import mct.ReplacementGroup
+import mct.*
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -79,7 +76,11 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
         }
 
         env.logger.info { "Extracting from region..." }
-        val extractions: List<ExtractionGroup> = workspace.extractFromRegion(patterns, mcfPatterns?.compile() ?: BuiltinMCFPatterns, mcfDataPatterns).toList()
+        val extractions: List<ExtractionGroup> = workspace.extractFromRegion(MCTPattern(
+            region = patterns,
+            mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
+            mcfunctionData = mcfDataPatterns
+        )).toList()
         env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
 
         output.writeJson(extractions)

@@ -4,13 +4,14 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.either
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import mct.MCTPattern
 import mct.MCTWorkspace
 import mct.RegionExtraction
 import mct.RegionExtractionGroup
-import mct.command.*
+import mct.command.extractTextFromCommand
+import mct.command.parseMCFunction
 import mct.nbt.PointerWithExtension
 import mct.nbt.extractTexts
-import mct.pointer.DataPointerPattern
 import mct.pointer.matches
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
@@ -19,11 +20,9 @@ import mct.util.IO
 
 context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
-    regionPatterns: List<DataPointerPattern>? = BuiltinRegionPatterns,
-    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
-    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
+    pattern: MCTPattern = MCTPattern.Default,
 ): Flow<RegionExtractionGroup> {
-    if (regionPatterns == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
+    if (pattern.region == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
     logger.info { "Extracting from ${dimensions.size} dimensions" }
 
     return dimensions.values.asFlow().flatMapMerge { dimension ->
@@ -52,8 +51,8 @@ fun MCTWorkspace.extractFromRegion(
                                                 locations = cmds.flatMap {
                                                     extractTextFromCommand(
                                                         it,
-                                                        mcfPatterns,
-                                                        mcfDataPatterns
+                                                        pattern.mcfunction,
+                                                        pattern.mcfunctionData
                                                     )
                                                 }.takeIf { it.isNotEmpty() }
                                                     ?.map {
@@ -66,7 +65,7 @@ fun MCTWorkspace.extractFromRegion(
                                             )
                                         }.getOrNull()
 
-                                        PointerWithExtension.Type.Text if pointer.matches(regionPatterns) -> RegionExtraction.Text(
+                                        PointerWithExtension.Type.Text if pointer.matches(pattern.region) -> RegionExtraction.Text(
                                             index = chunk.index,
                                             pointer = pointer,
                                             kind = kind,

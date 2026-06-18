@@ -8,10 +8,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
-import mct.DatapackReplacementGroup
-import mct.ExtractionGroup
-import mct.MCTError
-import mct.ReplacementGroup
+import mct.*
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -20,7 +17,7 @@ import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
-import mct.dp.extractFromDatapackRaw
+import mct.dp.extractFromDatapack
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson
@@ -86,8 +83,11 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
         logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
-            workspace.extractFromDatapackRaw(mcfPatterns?.compile() ?: BuiltinMCFPatterns, mcfDataPatterns, mcjPatterns)
-                .toList()
+            workspace.extractFromDatapack(MCTPattern(
+                mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
+                mcfunctionData = mcfDataPatterns,
+                mcjson = mcjPatterns
+            )).toList()
         logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)
     }

@@ -12,7 +12,7 @@ import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
-import mct.dp.extractFromDatapackRaw
+import mct.dp.extractFromDatapack
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
@@ -122,11 +122,11 @@ suspend fun runExtraction(
                             else BuiltinMCFunctionDataPatterns
                         }
 
-                    workspace.extractFromRegion(
-                        regionPatterns = patterns,
-                        mcfPatterns = mcfPatterns,
-                        mcfDataPatterns = mcfDataPatterns
-                    ).toList() as List<ExtractionGroup>
+                    workspace.extractFromRegion(MCTPattern(
+                        region = patterns,
+                        mcfunction = mcfPatterns,
+                        mcfunctionData = mcfDataPatterns
+                    )).toList() as List<ExtractionGroup>
                 }
 
                 "datapack" -> {
@@ -162,8 +162,11 @@ suspend fun runExtraction(
                             if (userPatterns != null) MCJBuiltinPatterns + userPatterns
                             else MCJBuiltinPatterns
                         }
-                    workspace.extractFromDatapackRaw(mcfPatterns, mcfDataPatterns, mcjPatterns)
-                        .toList() as List<ExtractionGroup>
+                    workspace.extractFromDatapack(MCTPattern(
+                        mcfunction = mcfPatterns,
+                        mcfunctionData = mcfDataPatterns,
+                        mcjson = mcjPatterns
+                    )).toList() as List<ExtractionGroup>
                 }
 
                 else -> error("未知模式: $mode")
