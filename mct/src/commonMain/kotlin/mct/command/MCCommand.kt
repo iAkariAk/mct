@@ -38,9 +38,7 @@ data class MCCommand(
 }
 
 context(_: LoggerHolder)
-fun parseMCFunction(
-    mcf: String,
-): List<MCCommand> {
+fun parseCommands(content: String, ): List<MCCommand> {
     val mcfunctions = mutableListOf<MCCommand>()
     var row = 0
 
@@ -190,7 +188,7 @@ fun parseMCFunction(
     val line = StringBuilder()
     var lastC: Char? = null
     var lineStart = 0
-    for ((charOffset, c) in mcf.toCharArray().withIndex()) {
+    for ((charOffset, c) in content.toCharArray().withIndex()) {
         if (c == '\n') {
             handleLine(lineStart, line.toString())
             line.clear()

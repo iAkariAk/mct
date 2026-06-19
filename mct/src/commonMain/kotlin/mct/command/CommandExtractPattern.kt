@@ -8,7 +8,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import mct.MCTError
-import mct.SnbtSyntaxKind
+import mct.model.patch.SnbtSyntaxKind
 import mct.pointer.DataPointerPattern
 import mct.util.snbt.SnbtTag
 import org.intellij.lang.annotations.Language

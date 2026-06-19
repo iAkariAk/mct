@@ -5,12 +5,12 @@ import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.Env
-import mct.FormatKind
 import mct.Logger
-import mct.RegionExtractionGroup
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.translator.*
+import mct.model.patch.FormatKind
+import mct.model.patch.RegionExtractionGroup
 import mct.serializer.MCTJson
 import mct.util.envvar
 import mct.util.unreachable

@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import mct.MCTWorkspace
-import mct.RegionReplacementGroup
+import mct.model.patch.RegionReplacementGroup
 import mct.nbt.transform
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups

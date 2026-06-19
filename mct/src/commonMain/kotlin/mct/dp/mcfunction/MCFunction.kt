@@ -2,15 +2,18 @@ package mct.dp.mcfunction
 
 import arrow.core.getOrElse
 import arrow.core.raise.context.either
-import mct.*
+import mct.LoggerHolder
+import mct.MCTPattern
 import mct.command.*
 import mct.dp.Extractor
+import mct.logger
+import mct.model.patch.DatapackExtraction
 import mct.pointer.DataPointerPattern
 
 
 internal fun MCFunctionExtractor(
     pattern: MCTPattern,
-) = Extractor("MCFunction", ".mcfunction") { env, sourcePath, zfs, zpath ->
+) = Extractor("MCFunction", "mcfunction") { sourcePath, zfs, zpath ->
     val text = zfs.read(zpath) { readUtf8() }
     extractTextMCF(
         text,
@@ -30,14 +33,12 @@ internal fun extractTextMCF(
     path: String,
     mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
     mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
-): DatapackExtractionGroup {
-    val mcfunctions = parseMCFunction(mcf)
-    logger.debug { "Parsed ${mcfunctions.size} commands in $path" }
+): List<DatapackExtraction> {
+    val mcfunctions = parseCommands(mcf)
+    logger.debug { "Parsed ${mcfunctions.size} commands in $path ($source)" }
     val extractedArgs = mcfunctions.asSequence().flatMap { command ->
         either {
-            context(logger) {
-                extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
-            }
+            extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
         }.getOrElse {
             logger.error { "Skip $command due to ${it.message}" }
             emptyList()
@@ -49,7 +50,5 @@ internal fun extractTextMCF(
         )
     }.toList()
     logger.debug { "Extracted ${extractions.size} texts from $path" }
-    return DatapackExtractionGroup(
-        source = source, path = path, extractions = extractions
-    )
+    return extractions
 }

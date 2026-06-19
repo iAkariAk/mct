@@ -4,14 +4,13 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.raise
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
-import mct.DatapackExtractionGroup
-import mct.FormatKind
 import mct.MCTPattern
 import mct.dp.Extractor
 import mct.dp.MCJsonExtractError
+import mct.model.patch.FormatKind
 import mct.pointer.*
 import mct.util.isJson
-import mct.DatapackExtraction.MCJson as MCJsonExtraction
+import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
 
 internal val MCJson = Json {
     ignoreUnknownKeys = true
@@ -21,14 +20,14 @@ internal val MCJson = Json {
 
 internal fun MCJsonExtractor(
     pattern: MCTPattern,
-) = Extractor("MCJson", ".json") { env,sourcePath, zfs, zpath ->
+) = Extractor("MCJson", ".json") { sourcePath, zfs, zpath ->
     val text = zfs.read(zpath) { readUtf8() }
     extractTextMCJ(
         text,
         source = sourcePath.name,
         path = zpath.normalized().toString(),
         pattern.mcjson
-    )
+    ).toList()
 }
 
 context(_: Raise<MCJsonExtractError>)
@@ -37,25 +36,21 @@ internal fun extractTextMCJ(
     source: String,
     path: String,
     patterns: List<DataPointerPattern>? = BuiltinMCJPatterns
-): DatapackExtractionGroup = try {
+): Sequence<MCJsonExtraction> = try {
     val standard = standardizeMCJson(json)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standard)
 
-    val extractions = jsonElement.extractTextMCJ()
+    jsonElement.extractTextMCJ()
         .filterPointer(patterns)
         .map { (pointer, content) ->
             MCJsonExtraction(
                 pointer,
                 content = content
             )
-        }.toList()
-    DatapackExtractionGroup(
-        source = source,
-        path = path,
-        extractions = extractions
-    )
+        }
+
 } catch (e: SerializationException) {
-    raise(MCJsonExtractError.JsonSyntaxError(source,path, e))
+    raise(MCJsonExtractError.JsonSyntaxError(source, path, e))
 }
 
 internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when (this) {

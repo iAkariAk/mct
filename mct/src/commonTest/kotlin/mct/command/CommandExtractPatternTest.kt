@@ -1,18 +1,17 @@
 @file:Suppress("FunctionName")
 
-package mct.dp.mcfunction
+package mct.command
 
 import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.Logger
-import mct.SnbtSyntaxKind
-import mct.command.*
+import mct.model.patch.SnbtSyntaxKind
 
-class ExtractPatternTest : FreeSpec({
+class CommandExtractPatternTest : FreeSpec({
     fun parseMCFunction(mcf: String): List<MCCommand> =
-        context(Logger.None) { mct.command.parseMCFunction(mcf) }
+        context(Logger.None) { mct.command.parseCommands(mcf) }
 
     /**
      * Creates a simple mock MCCommand for unit testing conditions.

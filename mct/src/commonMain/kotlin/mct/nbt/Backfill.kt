@@ -1,10 +1,10 @@
 package mct.nbt
 
 import kotlinx.serialization.decodeFromString
-import mct.FormatKind
 import mct.LoggerHolder
-import mct.isString
 import mct.logger
+import mct.model.patch.FormatKind
+import mct.model.patch.isString
 import mct.pointer.DataPointerReplacementGroup
 import mct.serializer.Snbt
 import mct.text.TextCompound

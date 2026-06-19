@@ -7,12 +7,12 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import mct.DatapackReplacement
-import mct.DatapackReplacementGroup
-import mct.FormatKind
 import mct.MCTWorkspace
 import mct.dp.mcjson.MCJson
 import mct.dp.mcjson.standardizeMCJson
+import mct.model.patch.DatapackReplacement
+import mct.model.patch.DatapackReplacementGroup
+import mct.model.patch.FormatKind
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
@@ -57,6 +57,7 @@ internal fun String.backfill(replacements: List<DatapackReplacement>): String {
         when (replacement) {
             is DatapackReplacement.MCFunction -> mcfunction.add(replacement)
             is DatapackReplacement.MCJson -> mcjson.add(replacement)
+            is DatapackReplacement.Nbt -> Unit
         }
     }
     if (mcfunction.isNotEmpty()) return backfill(mcfunction)

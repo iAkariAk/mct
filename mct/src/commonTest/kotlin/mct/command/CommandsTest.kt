@@ -1,4 +1,4 @@
-package mct.dp.mcfunction
+package mct.command
 
 import io.kotest.assertions.fail
 import io.kotest.assertions.withClue
@@ -7,20 +7,25 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import mct.*
-import mct.command.MCCommand
+import mct.Logger
+import mct.TestFunctions
 import mct.dp.backfill
+import mct.dp.mcfunction.extractTextMCF
+import mct.mappings
+import mct.model.patch.*
+import mct.model.patch.DatapackReplacement.MCFunction
 import mct.pointer.DataPointer
+import mct.util.unreachable
 
-class MCFunctionTest : StringSpec({
-    fun parseMCFunction(mcf: String): List<MCCommand> {
+class CommandsTest : StringSpec({
+    fun parseCommandsWithLogger(mcf: String): List<MCCommand> {
         val logger = Logger.Console()
         return context(logger) {
-            mct.command.parseMCFunction(mcf)
+            parseCommands(mcf)
         }
     }
 
-    fun extractTextMCF(mcf: String): DatapackExtractionGroup {
+    fun extractText(mcf: String): List<DatapackExtraction> {
         val logger = Logger.Console()
         return context(logger) {
             extractTextMCF(mcf, "test", "test")
@@ -28,74 +33,75 @@ class MCFunctionTest : StringSpec({
     }
 
 
-    val TEST_MCF = $$"""
+    val TEST_COMMANDS = $$"""
                 tellraw @a [{"storage":"global","nbt":"Prefix.ERROR"},{"text":"飛距離が設定されていない！"}]
-                
+
                 # ignore "Ciallo"
                 tellraw @s {"text":"compact","extra":[{"text":"text"}]}
                 complex "item_id_001" b{strength:50b, durability:100s}
-                
+
                 # test escape
                 tell @a "\"Kukayo\": {\"text\": \"A text compound is like this\"} 🫧"
-                
+
                 \\ invali char
-                
+
                 say a greedy string
-                
+
                 execute as @p run say iroha kaguya 99
-                
+
                 $say $(s) No any one
               """.trimIndent()
 
     "test parser" {
-        val mcfunctions = parseMCFunction(TEST_MCF)
-        withClue(mcfunctions) {
-            mcfunctions.map { it.name } shouldBeEqual listOf(
+        val commands = parseCommandsWithLogger(TEST_COMMANDS)
+        withClue(commands) {
+            commands.map { it.name } shouldBeEqual listOf(
                 "tellraw", "tellraw", "complex", "tell", "say", "execute", "say"
             )
-            mcfunctions.last().isMarco.shouldBeTrue()
+            commands.last().isMarco.shouldBeTrue()
         }
-        mcfunctions.forEach {
+        commands.forEach {
             println(it)
         }
     }
 
     "test extract" {
-        val result = extractTextMCF(TEST_MCF)
+        val result = extractText(TEST_COMMANDS)
         println(result)
     }
 
     "test backfill" {
-        val extraction = extractTextMCF(TEST_MCF).extractions
+        val extraction = extractText(TEST_COMMANDS)
         val replacements = extraction.map {
             when (it) {
-                is DatapackExtraction.MCFunction -> DatapackReplacement.MCFunction(it.indices, "{CIALLO}", null)
+                is DatapackExtraction.MCFunction -> MCFunction(it.indices, "{CIALLO}", null)
                 is DatapackExtraction.MCJson -> fail("Should not reach")
+                is DatapackExtraction.Nbt -> unreachable
             }
         }
-        val backfilled = TEST_MCF.backfill(replacements)
+        val backfilled = TEST_COMMANDS.backfill(replacements)
         backfilled shouldBe $$"""
                 tellraw @a {CIALLO}
-                
+
                 # ignore "Ciallo"
                 tellraw @s {CIALLO}
                 complex "item_id_001" b{strength:50b, durability:100s}
-                
+
                 # test escape
                 tell @a {CIALLO}
-                
+
                 \\ invali char
-                
+
                 say {CIALLO}
-                
+
                 execute as @p run say {CIALLO}
-                
+
                 $say {CIALLO}
               """.trimIndent()
     }
 
     "test practice" {
-        val extractions = extractTextMCF(TestFunctions.update_billboard).extractions
+        val extractions = extractText(TestFunctions.update_billboard)
         val replacements = extractions.mapNotNull {
             it.replace {
                 mappings[it] ?: return@mapNotNull null
@@ -113,9 +119,9 @@ class MCFunctionTest : StringSpec({
         // Verify that backfill does NOT drop trailing characters (regression for off-by-n bug)
         // Greedy extraction on "say" goes to end of command, so backfill should replace the full range
         val mcf = "say hello world"
-        val extractions = extractTextMCF(mcf).extractions
+        val extractions = extractText(mcf)
         val funcExtractions = extractions.filterIsInstance<DatapackExtraction.MCFunction>()
-        val replacement = DatapackReplacement.MCFunction(funcExtractions[0].indices, "{greeting}", null)
+        val replacement = MCFunction(funcExtractions[0].indices, "{greeting}", null)
         val backfilled = mcf.backfill(listOf(replacement))
         backfilled shouldBe "say {greeting}"
     }
@@ -125,12 +131,12 @@ class MCFunctionTest : StringSpec({
                 say alpha
                 say beta
             """.trimIndent()
-        val extractions = extractTextMCF(mcf).extractions
+        val extractions = extractText(mcf)
         val funcExtractions = extractions.filterIsInstance<DatapackExtraction.MCFunction>()
         funcExtractions.size shouldBe 2
         val replacements = listOf(
-            DatapackReplacement.MCFunction(funcExtractions[0].indices, "{A}", null),
-            DatapackReplacement.MCFunction(funcExtractions[1].indices, "{B}", null),
+            MCFunction(funcExtractions[0].indices, "{A}", null),
+            MCFunction(funcExtractions[1].indices, "{B}", null),
         )
         val backfilled = mcf.backfill(replacements)
         backfilled shouldBe """
@@ -140,12 +146,11 @@ class MCFunctionTest : StringSpec({
     }
 
     "test syntax kind is propagated through extraction" {
-        // Literal name extraction. extractTextMCF produces BOTH selector extraction
+        // Literal name extraction. extractText produces BOTH selector extraction
         // (content="foo", syntax=Literal) and greedy command extraction
         // (content="@p[name=foo]", syntax=Literal).
-        val result = extractTextMCF("say @p[name=foo]")
         // Find the selector extraction by its short content
-        val selectorExtraction = result.extractions
+        val selectorExtraction = extractText("say @p[name=foo]")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "foo" }
         selectorExtraction shouldNotBe null
@@ -154,8 +159,7 @@ class MCFunctionTest : StringSpec({
 
     "test syntax kind double-quoted" {
         // For double-quoted names, the raw content stored includes the quotes
-        val result = extractTextMCF("""say @p[name="hello"]""")
-        val selectorExtraction = result.extractions
+        val selectorExtraction = extractText("""say @p[name="hello"]""")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "\"hello\"" }
         selectorExtraction shouldNotBe null
@@ -165,8 +169,7 @@ class MCFunctionTest : StringSpec({
 
     "test syntax kind single-quoted" {
         // For single-quoted names, the raw content stored includes the quotes
-        val result = extractTextMCF("say @p[name='world']")
-        val selectorExtraction = result.extractions
+        val selectorExtraction = extractText("say @p[name='world']")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "'world'" }
         selectorExtraction shouldNotBe null
@@ -175,8 +178,7 @@ class MCFunctionTest : StringSpec({
 
     "test auto unquoted & quoted" {
         val mcf = "say @e[name='Foo']"
-        val result = extractTextMCF(mcf)
-        val selectorExtraction = result.extractions
+        val selectorExtraction = extractText(mcf)
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.unquoted() == "Foo" }
         selectorExtraction shouldNotBe null
@@ -242,8 +244,8 @@ class MCFunctionTest : StringSpec({
     "test snbt extraction via SnbtEntire carries SnbtSyntaxKind.Compound" {
         // dialog uses SnbtEntire at position 3 — nested text compounds
         // should carry the correct syntax kind
-        val result = extractTextMCF("""dialog show @a {"type":"minecraft:notice","title":{"text":"Hello","color":"red"}}""")
-        val extraction = result.extractions
+        val extraction =
+            extractText("""dialog show @a {"type":"minecraft:notice","title":{"text":"Hello","color":"red"}}""")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { "Hello" in it.content }
         extraction shouldNotBe null
@@ -252,9 +254,8 @@ class MCFunctionTest : StringSpec({
 
     "test snbt extraction via data merge entity carries SnbtSyntaxKind" {
         // data merge entity uses SnbtEntire at position 4 with BuiltinMCFunctionDataPatterns
-        val result = extractTextMCF("""data merge entity @e[limit=1] {CustomName:"Hello"}""")
         // Should extract at least one text from the NBT
-        val extraction = result.extractions
+        val extraction = extractText("""data merge entity @e[limit=1] {CustomName:"Hello"}""")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .firstOrNull()
         // At minimum, an extraction should exist (syntax depends on how data merge pattern routes)
@@ -263,8 +264,7 @@ class MCFunctionTest : StringSpec({
 
     "test plain extraction (tellraw) carries null syntax" {
         // tellraw uses Positions(2) = PlainEntire → syntax is null
-        val result = extractTextMCF("""tellraw @a {"text":"Hello","color":"red"}""")
-        val extraction = result.extractions
+        val extraction = extractText("""tellraw @a {"text":"Hello","color":"red"}""")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { "Hello" in it.content }
         extraction shouldNotBe null
@@ -273,8 +273,7 @@ class MCFunctionTest : StringSpec({
 
     "test target selector literal string carries LiteralString syntax" {
         // Unquoted selector names should get LiteralString, not Compound
-        val result = extractTextMCF("say @p[name=literalName]")
-        val selectorExtraction = result.extractions
+        val selectorExtraction = extractText("say @p[name=literalName]")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "literalName" }
         selectorExtraction shouldNotBe null
@@ -284,8 +283,7 @@ class MCFunctionTest : StringSpec({
     "test target selector literal string syntax propagated to Location for region commands" {
         // Simulate how region/Extract.kt converts ExtractedCommandSlice to Location
         // with the syntax field
-        val result = extractTextMCF("say @p[name=bareword]")
-        val slice = result.extractions
+        val slice = extractText("say @p[name=bareword]")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "bareword" }
         slice shouldNotBe null

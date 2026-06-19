@@ -14,11 +14,11 @@ import mct.cli.BaseCommand
 import mct.cli.jsonFile
 import mct.cli.path
 import mct.dp.mcjson.BuiltinMCJPatterns
+import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerPattern
 import mct.pointer.decodeFromString
 import mct.pointer.matches
-import mct.region.BuiltinRegionPatterns
 import mct.util.unreachable
 
 class Test : SuspendingCliktCommand(name = "test") {
@@ -43,7 +43,7 @@ private class DataPointerTest : BaseCommand(name = "pointer") {
         val extra = pattern.jsonFile<List<DataPointerPattern>>(emptyList())
         val builtin =  when (kind) {
             "mcjson" -> BuiltinMCJPatterns
-            "region" -> BuiltinRegionPatterns
+            "region" -> BuiltinNbtPatterns
             else -> unreachable
         }
         val patterns = if (noBuiltin) extra else builtin + extra

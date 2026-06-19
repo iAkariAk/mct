@@ -1,15 +1,13 @@
 package mct.region
 
 import arrow.core.raise.Raise
-import arrow.core.raise.context.either
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import mct.*
-import mct.command.extractTextFromCommand
-import mct.command.parseMCFunction
-import mct.nbt.PointerWithExtension
+import mct.MCTPattern
+import mct.MCTWorkspace
+import mct.model.patch.RegionExtraction
+import mct.model.patch.RegionExtractionGroup
 import mct.nbt.extractTexts
-import mct.pointer.matches
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.util.IO
@@ -34,44 +32,9 @@ fun MCTWorkspace.extractFromRegion(
                     val extractions = region.chunks.asSequence()
                         .filterNotNull()
                         .flatMap { chunk ->
-                            chunk.data.extractTexts()
-                                .mapNotNull { (pointer, content, kind, type) ->
-                                    when (type) {
-                                        PointerWithExtension.Type.Command -> either {
-                                            val cmds = context(logger) {
-                                                parseMCFunction(content)
-                                            }
-                                            NbtExtraction.Command(
-                                                pointer = pointer,
-                                                raw = content,
-                                                locations = cmds.flatMap {
-                                                    extractTextFromCommand(
-                                                        it,
-                                                        pattern.mcfunction,
-                                                        pattern.mcfunctionData
-                                                    )
-                                                }.takeIf { it.isNotEmpty() }
-                                                    ?.map {
-                                                        NbtExtraction.Command.Location(
-                                                            it.indices,
-                                                            it.content,
-                                                            it.syntax
-                                                        )
-                                                    } ?: return@mapNotNull null
-                                            )
-                                        }.getOrNull()
-
-                                        PointerWithExtension.Type.Text if pointer.matches(pattern.region) -> NbtExtraction.Text(
-                                            pointer = pointer,
-                                            kind = kind,
-                                            content = content
-                                        )
-
-                                        else -> null
-                                    }?.let {
-                                        RegionExtraction(index = chunk.index, nbt = it)
-                                    }
-                                }
+                            chunk.data.extractTexts(pattern).map {
+                                RegionExtraction(index = chunk.index, nbt = it)
+                            }
                         }
                     flowOf(
                         RegionExtractionGroup(

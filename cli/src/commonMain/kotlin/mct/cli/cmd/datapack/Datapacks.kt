@@ -8,7 +8,8 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
-import mct.*
+import mct.MCTError
+import mct.MCTPattern
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -19,6 +20,9 @@ import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
 import mct.dp.mcjson.BuiltinMCJPatterns
+import mct.model.patch.DatapackReplacementGroup
+import mct.model.patch.ExtractionGroup
+import mct.model.patch.ReplacementGroup
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson
 import mct.util.io.readText

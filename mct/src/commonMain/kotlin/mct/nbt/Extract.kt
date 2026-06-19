@@ -1,9 +1,17 @@
 package mct.nbt
 
-import mct.FormatKind
+import arrow.core.raise.context.either
+import mct.LoggerHolder
+import mct.MCTPattern
+import mct.command.extractTextFromCommand
+import mct.command.parseCommands
+import mct.logger
+import mct.model.patch.FormatKind
+import mct.model.patch.NbtExtraction
 import mct.pointer.DataPointer
 import mct.pointer.markArray
 import mct.pointer.markMap
+import mct.pointer.matches
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
 import mct.util.toSnbt
@@ -12,8 +20,35 @@ import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 import net.benwoodworth.knbt.NbtTag
 
+context(_: LoggerHolder)
+internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
+    extractTextsByPointer().mapNotNull { (pointer, content, kind, type) ->
+        when (type) {
+            PointerWithExtension.Type.Command -> either {
+                val cmds = context(logger) {
+                    parseCommands(content)
+                }
+                NbtExtraction.Command(pointer = pointer, raw = content, locations = cmds.flatMap {
+                    extractTextFromCommand(
+                        it, pattern.mcfunction, pattern.mcfunctionData
+                    )
+                }.takeIf { it.isNotEmpty() }?.map {
+                        NbtExtraction.Command.Location(
+                            it.indices, it.content, it.syntax
+                        )
+                    } ?: return@mapNotNull null)
+            }.getOrNull()
 
-internal data class PointerWithExtension(
+            PointerWithExtension.Type.Text if pointer.matches(pattern.region) -> NbtExtraction.Text(
+                pointer = pointer, kind = kind, content = content
+            )
+
+            else -> null
+        }
+    }
+
+
+private data class PointerWithExtension(
     val pointer: DataPointer,
     val content: String,
     val kind: FormatKind,
@@ -24,9 +59,9 @@ internal data class PointerWithExtension(
     }
 }
 
-internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this) {
+private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {
     is NbtList<*> -> asSequence().withIndex().flatMap { (index, tag) ->
-        tag.extractTexts().map {
+        tag.extractTextsByPointer().map {
             it.copy(pointer = it.pointer.markArray(index))
         }
     } // wrap inner pointer
@@ -52,7 +87,7 @@ internal fun NbtTag.extractTexts(): Sequence<PointerWithExtension> = when (this)
                     )
                     return@flatMap sequenceOf(pwe)
                 }
-                value.extractTexts().map {
+                value.extractTextsByPointer().map {
                     it.copy(pointer = it.pointer.markMap(key))
                 }
             } // wrap inner pointer

@@ -12,7 +12,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.int
-import mct.*
+import mct.MCTError
 import mct.cli.*
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
@@ -21,7 +21,11 @@ import mct.extra.ai.translator.CustomizedPrompts
 import mct.extra.ai.translator.TermTable
 import mct.extra.ai.translator.Translator
 import mct.extra.ai.translator.translate
-import mct.kit.*
+import mct.kit.TranslationMapping
+import mct.kit.TranslationPool
+import mct.kit.exportIntoPool
+import mct.kit.exportRegionSnbt
+import mct.model.patch.*
 import mct.util.io.writeJson
 import mct.util.unreachable
 

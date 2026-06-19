@@ -1,6 +1,6 @@
 package mct.pointer
 
-import mct.FormatKind
+import mct.model.patch.FormatKind
 import kotlin.collections.List as KList
 
 sealed interface DataPointerReplacementGroup {

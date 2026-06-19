@@ -1,7 +1,7 @@
 package mct.util.snbt
 
 import korlibs.io.lang.unreachable
-import mct.SnbtSyntaxKind
+import mct.model.patch.SnbtSyntaxKind
 import mct.util.doubleUnquoted
 import mct.util.formatir.*
 

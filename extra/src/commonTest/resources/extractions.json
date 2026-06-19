@@ -1,120 +1,152 @@
 [
-    {
-        "type": "Region",
-        "dimension": "minecraft:overworld",
-        "kind": "region",
-        "coord": {
-            "x": -1,
-            "z": -1
-        },
-        "extractions": [
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#back_text>#messages>0",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#back_text>#messages>1",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#back_text>#messages>2",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#back_text>#messages>3",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#front_text>#messages>0",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#front_text>#messages>1",
-                "content": "スタートボタン"
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#front_text>#messages>2",
-                "content": "⇩"
-            },
-            {
-                "type": "Text",
-                "index": 1020,
-                "pointer": ">#>#block_entities>1>#front_text>#messages>3",
-                "content": ""
-            }
-        ]
+  {
+    "type": "region",
+    "dimension": "minecraft:overworld",
+    "kind": "region",
+    "coord": {
+      "x": -1,
+      "z": -1
     },
-    {
-        "type": "Region",
-        "dimension": "minecraft:overworld",
-        "kind": "region",
-        "coord": {
-            "x": 0,
-            "z": 0
-        },
-        "extractions": [
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#back_text>#messages>0",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#back_text>#messages>1",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#back_text>#messages>2",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#back_text>#messages>3",
-                "content": ""
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#front_text>#messages>0",
-                "content": "◆ ゴミ箱 ◆"
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#front_text>#messages>1",
-                "content": "中に入れると"
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#front_text>#messages>2",
-                "content": "スタート時に"
-            },
-            {
-                "type": "Text",
-                "index": 4,
-                "pointer": ">#>#block_entities>0>#front_text>#messages>3",
-                "content": "削除されます"
-            }
-        ]
-    }
+    "extractions": [
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#back_text>#messages>0",
+          "content": ""
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#back_text>#messages>1",
+          "content": ""
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#back_text>#messages>2",
+          "content": ""
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#back_text>#messages>3",
+          "content": ""
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#front_text>#messages>0",
+          "content": ""
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#front_text>#messages>1",
+          "content": "スタートボタン"
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#front_text>#messages>2",
+          "content": "⇩"
+        }
+      },
+      {
+        "index": 1020,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>1>#front_text>#messages>3",
+          "content": ""
+        }
+      }
+    ]
+  },
+  {
+    "type": "region",
+    "dimension": "minecraft:overworld",
+    "kind": "region",
+    "coord": {
+      "x": 0,
+      "z": 0
+    },
+    "extractions": [
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#back_text>#messages>0",
+          "content": ""
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#back_text>#messages>1",
+          "content": ""
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#back_text>#messages>2",
+          "content": ""
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#back_text>#messages>3",
+          "content": ""
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#front_text>#messages>0",
+          "content": "◆ ゴミ箱 ◆"
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#front_text>#messages>1",
+          "content": "中に入れると"
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#front_text>#messages>2",
+          "content": "スタート時に"
+        }
+      },
+      {
+        "index": 4,
+        "nbt": {
+          "type": "text",
+          "pointer": ">#>#block_entities>0>#front_text>#messages>3",
+          "content": "削除されます"
+        }
+      }
+    ]
+  }
 ]

@@ -1,12 +1,12 @@
 @file:Suppress("FunctionName")
 
-package mct.region
+package mct.nbt
 
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
-val BuiltinRegionPatterns = PatternSet {
+val BuiltinNbtPatterns = PatternSet {
     // --- Item Display & Lore (Legacy/General) ---
     +RightPattern("#display>#Name")                   // Item custom name
     +RightPattern("#display>#Lore")                   // Item lore lines

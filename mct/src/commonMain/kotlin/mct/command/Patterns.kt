@@ -1,8 +1,8 @@
 package mct.command
 
+import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
-import mct.region.BuiltinRegionPatterns
 import mct.text.isTextComponent
 
 val BuiltinMCFPatterns = PatternSet {
@@ -340,7 +340,7 @@ val BuiltinMCFPatterns = PatternSet {
 
 
 val BuiltinMCFunctionDataPatterns = mct.pointer.PatternSet {
-    dependsOn(BuiltinRegionPatterns)
+    dependsOn(BuiltinNbtPatterns)
 
     // ── Display entity text ──────────────────────────────────────
     +RightPattern(""">#text""")

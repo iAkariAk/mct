@@ -17,7 +17,9 @@ import com.github.ajalt.mordant.widgets.Panel
 import com.github.ajalt.mordant.widgets.Text
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.toList
-import mct.*
+import mct.MCTError
+import mct.MCTPattern
+import mct.MCTWorkspace
 import mct.cli.BaseCommand
 import mct.cli.NotifierHooks
 import mct.cli.path
@@ -37,9 +39,9 @@ import mct.extra.ai.translator.Translator
 import mct.extra.ai.translator.translate
 import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
-import mct.kit.replace
+import mct.model.patch.*
+import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.CustomizedDataPointerPattern
-import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.copyToRecursively
@@ -138,7 +140,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 
         val regionPatterns = projectConfig.patterns.regions.flatMap {
             requirePath(it, "Region").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
-        }.ifEmpty { BuiltinRegionPatterns }
+        }.ifEmpty { BuiltinNbtPatterns }
 
         val mcfPatterns = projectConfig.patterns.mcfunction.map {
             requirePath(it, "Mcfunction").readJson<CommandExtractPattern>()

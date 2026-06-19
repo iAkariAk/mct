@@ -6,10 +6,14 @@ import arrow.core.raise.context.either
 import arrow.core.raise.nullable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import mct.*
+import mct.EnvHolder
+import mct.MCTPattern
+import mct.MCTWorkspace
 import mct.command.CommandExtractPattern
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
+import mct.model.patch.DatapackExtraction
+import mct.model.patch.DatapackExtractionGroup
 import mct.util.IO
 import mct.util.io.*
 import okio.FileSystem
@@ -62,7 +66,7 @@ fun MCTWorkspace.extractFromDatapack(
                                 env.logger.debug {
                                     "Extracting $zpath via $extractor"
                                 }
-                                flowOf(extractor.extract(env, sourcePath, sfs, zpath))
+                                flowOf(extractor.extractAsGroup(sourcePath, sfs, zpath))
                             }.getOrElse { error ->
                                 env.logger.error { error.message }
                                 emptyFlow()
@@ -81,32 +85,40 @@ internal interface Extractor {
 
     context(_: Raise<ExtractError>, _: EnvHolder)
     fun extract(
-        env: Env,
         sourcePath: Path,
         zfs: FileSystem,
         zpath: Path
-    ): DatapackExtractionGroup
+    ): List<DatapackExtraction>
 }
 
 internal fun Extractor(
     name: String,
     targetExtension: String,
     extract: context(Raise<ExtractError>, EnvHolder) (
-        env: Env,
         sourcePath: Path,
         zfs: FileSystem,
         zpath: Path
-    ) -> DatapackExtractionGroup
+    ) -> List<DatapackExtraction>
 ) = object : Extractor {
     override val targetExtension = targetExtension
 
     context(_: Raise<ExtractError>, _: EnvHolder)
     override fun extract(
-        env: Env,
         sourcePath: Path,
         zfs: FileSystem,
         zpath: Path
-    ): DatapackExtractionGroup = extract(env, sourcePath, zfs, zpath)
+    ): List<DatapackExtraction> = extract(sourcePath, zfs, zpath)
 
     override fun toString() = "Extractor($name)"
 }
+
+context(_: Raise<ExtractError>, _: EnvHolder)
+private fun Extractor.extractAsGroup(
+    sourcePath: Path,
+    zfs: FileSystem,
+    zpath: Path
+) = DatapackExtractionGroup(
+    source = sourcePath.name,
+    path = zpath.normalized().toString(),
+    extract(sourcePath, zfs, zpath).toList()
+)

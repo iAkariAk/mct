@@ -1,13 +1,12 @@
 package mct.kit
 
-import arrow.core.raise.nullable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import mct.*
+import mct.model.patch.ExtractionGroup
+import mct.model.patch.contents
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
-
 
 typealias TranslationMapping = Map<String, String>
 typealias TranslationPool = Set<String>
@@ -32,60 +31,3 @@ fun List<ExtractionGroup>.exportIntoPool(simply: Boolean): TranslationPool = fla
     }
 }
 
-
-inline fun List<ExtractionGroup>.replaceSimply(replace: (String) -> String?): List<ReplacementGroup> = replace(
-    mcfReplace = replace,
-    mcjReplace = replace,
-    nbtTextReplace = replace,
-    nbtCommandReplace = { it.map { replace(it) } },
-)
-
-
-fun List<ExtractionGroup>.replace(mapping: TranslationMapping) = replace(
-    mcfReplace = { mapping[it] },
-    mcjReplace = { mapping[it] },
-    nbtTextReplace = { mapping[it] },
-    nbtCommandReplace = { it.map { mapping[it] } })
-
-inline fun List<ExtractionGroup>.replace(
-    mcfReplace: (String) -> String?,
-    mcjReplace: (String) -> String?,
-    nbtTextReplace: (String) -> String?,
-    nbtCommandReplace: (List<String>) -> List<String?>,
-) = map {
-    when (it) {
-        is DatapackExtractionGroup -> DatapackReplacementGroup(
-            source = it.source, path = it.path, replacements = it.extractions.mapNotNull { extraction ->
-                nullable {
-                    when (extraction) {
-                        is DatapackExtraction.MCFunction -> extraction.replace {
-                            mcfReplace(it).bind()
-                        }
-
-                        is DatapackExtraction.MCJson -> extraction.replace {
-                            mcjReplace(it).bind()
-                        }
-                    }
-                }
-            })
-
-        is RegionExtractionGroup -> RegionReplacementGroup(
-            dimension = it.dimension,
-            kind = it.kind,
-            coord = it.coord,
-            replacements = it.extractions.mapNotNull { extraction ->
-                nullable {
-                    val nbt = when (extraction.nbt) {
-                        is NbtExtraction.Command -> extraction.nbt.replace {
-                            nbtCommandReplace(it)
-                        }
-
-                        is NbtExtraction.Text -> extraction.nbt.replace {
-                            nbtTextReplace(it).bind()
-                        }
-                    }
-                    extraction.substitute(nbt)
-                }
-            })
-    }
-}

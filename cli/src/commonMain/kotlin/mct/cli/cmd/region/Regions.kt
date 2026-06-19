@@ -9,7 +9,8 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import kotlinx.coroutines.flow.toList
-import mct.*
+import mct.MCTError
+import mct.MCTPattern
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -17,8 +18,11 @@ import mct.command.BuiltinMCFPatterns
 import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
 import mct.dp.compile
+import mct.model.patch.ExtractionGroup
+import mct.model.patch.RegionReplacementGroup
+import mct.model.patch.ReplacementGroup
+import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.CustomizedDataPointerPattern
-import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
@@ -61,8 +65,8 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
         }
         val patterns = when {
             disableFilter -> null
-            userPatterns != null -> BuiltinRegionPatterns.toList() + userPatterns
-            else -> BuiltinRegionPatterns.toList()
+            userPatterns != null -> BuiltinNbtPatterns.toList() + userPatterns
+            else -> BuiltinNbtPatterns.toList()
         }
 
         val mcfPatterns = mcfPatternsPath?.jsonFile<List<CommandExtractPattern>>()

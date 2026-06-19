@@ -14,11 +14,14 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import mct.*
+import mct.Env
+import mct.EnvHolder
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.chunkedByToken
+import mct.model.patch.*
+import mct.notify
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
@@ -486,6 +489,7 @@ suspend fun Translator.translate(
             is DatapackExtraction.MCJson -> FormatKind.JsonStr
             is DatapackExtraction.MCFunction -> FormatKind.PlainStr
             is RegionExtraction -> it.nbt.kind
+            is DatapackExtraction.Nbt -> it.nbt.kind
         }
     }
     val mapping = mutableMapOf<String, String>()

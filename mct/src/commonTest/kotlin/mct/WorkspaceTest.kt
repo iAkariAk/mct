@@ -7,7 +7,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import kotlinx.coroutines.flow.toList
 import mct.dp.backfillDatapack
 import mct.dp.extractFromDatapack
-import mct.kit.replaceSimply
+import mct.model.patch.DatapackReplacementGroup
+import mct.model.patch.RegionReplacementGroup
+import mct.model.patch.replaceSimply
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 

@@ -2,10 +2,10 @@ package mct.command
 
 import arrow.core.raise.context.Raise
 import arrow.core.raise.recover
-import mct.FormatKind
 import mct.LoggerHolder
-import mct.SnbtSyntaxKind
 import mct.logger
+import mct.model.patch.FormatKind
+import mct.model.patch.SnbtSyntaxKind
 import mct.pointer.*
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded

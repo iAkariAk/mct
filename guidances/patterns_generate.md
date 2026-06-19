@@ -182,29 +182,14 @@ These patterns match text components nested within data components. The non-anch
 
 ---
 
-## Testing Your Patterns
+## Testing
 
-### Running JVM tests
+**Test structure, file map, and mandatory test rules:** See `guidances/patterns_test_structure.md`.
+
+Test command:
 ```sh
 ./gradlew :mct:jvmTest
 ```
-
-Key test files:
-- `mct/src/commonTest/kotlin/mct/pointer/DataPointerPatternTest.kt` — Tests for MCJSON and Region DataPointer patterns
-- `mct/src/commonTest/kotlin/mct/dp/mcfunction/ExtractPatternTest.kt` — Tests for MCFunction command extraction
-- `mct/src/commonTest/kotlin/mct/dp/MCFunctionTest.kt` — Integration test with real `.mcfunction` test resources
-
-### Mandatory: Add tests for new patterns
-
-After adding **any new pattern** (in any of the three pattern files), you **must** add corresponding tests in the appropriate test file:
-
-- **For MCFunction command patterns** (`mct/dp/mcfunction/Patterns.kt`): Add a test case to `BuiltinMCFPatterns` in `mct/src/commonTest/kotlin/mct/dp/mcfunction/ExtractPatternTest.kt`.
-- **For MCJSON DataPointer patterns** (`mct/dp/mcjson/Patterns.kt`): Add a test case to `BuiltinMCJPatterns` in `mct/src/commonTest/kotlin/mct/pointer/DataPointerPatternTest.kt`.
-- **For Region DataPointer patterns** (`mct/region/Patterns.kt`): Add a test case to `BuiltinRegionPatterns` in `mct/src/commonTest/kotlin/mct/pointer/DataPointerPatternTest.kt`.
-
-This ensures pattern coverage is verified and prevents regressions. Without a corresponding test, a pattern change is incomplete.
-
-### Testing against a real map/datapack
 ```sh
 # Build the CLI jar
 ./gradlew :cli:shadowJar

@@ -12,8 +12,8 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import mct.FormatKind
 import mct.MCTError
+import mct.model.patch.FormatKind
 
 // {"abc": [{"abc": "def"}]}
 // Getting abc >#abc>0>abc

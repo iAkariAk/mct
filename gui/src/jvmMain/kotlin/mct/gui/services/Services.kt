@@ -20,12 +20,12 @@ import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
 import mct.gui.util.setting
 import mct.kit.exportRegionSnbt
-import mct.kit.replace
+import mct.model.patch.*
+import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.CustomizedDataPointerPattern
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerPattern
 import mct.pointer.matches
-import mct.region.BuiltinRegionPatterns
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
@@ -98,8 +98,8 @@ suspend fun runExtraction(
                                     .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
                                     .map { it.compile() }
                             }
-                        if (userPatterns != null) BuiltinRegionPatterns.toList() + userPatterns
-                        else BuiltinRegionPatterns.toList()
+                        if (userPatterns != null) BuiltinNbtPatterns.toList() + userPatterns
+                        else BuiltinNbtPatterns.toList()
                     }
 
                     val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
@@ -361,7 +361,7 @@ suspend fun runPointerTest(
 
     val builtin: List<DataPointerPattern> = when (kind) {
         "mcjson" -> MCJBuiltinPatterns
-        "region" -> BuiltinRegionPatterns.toList()
+        "region" -> BuiltinNbtPatterns.toList()
         else -> error("未知 kind: $kind")
     }
     val patterns = if (noBuiltin) extra else builtin + extra
