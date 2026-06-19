@@ -201,12 +201,11 @@ class MCFunctionTest : StringSpec({
 
         val raw = "AAAAABBBBB"
         val locations = listOf(
-            RegionExtraction.Command.Location(0..4, "AAAAA", null),
-            RegionExtraction.Command.Location(5..9, "BBBBB", null),
+            NbtExtraction.Command.Location(0..4, "AAAAA", null),
+            NbtExtraction.Command.Location(5..9, "BBBBB", null),
         )
 
-        val cmd = RegionExtraction.Command(
-            index = 0,
+        val cmd = NbtExtraction.Command(
             pointer = DataPointer.Terminator,
             raw = raw,
             locations = locations,
@@ -226,12 +225,11 @@ class MCFunctionTest : StringSpec({
         // Broken:  A->YYYYY, B->XXXXX  (result: "YYYYY-XXXXX")
         val raw = "AAAAA-BBBBB"
         val locations = listOf(
-            RegionExtraction.Command.Location(0..4, "AAAAA", null),
-            RegionExtraction.Command.Location(6..10, "BBBBB", null),
+            NbtExtraction.Command.Location(0..4, "AAAAA", null),
+            NbtExtraction.Command.Location(6..10, "BBBBB", null),
         )
 
-        val cmd = RegionExtraction.Command(
-            index = 0,
+        val cmd = NbtExtraction.Command(
             pointer = DataPointer.Terminator,
             raw = raw,
             locations = locations,
@@ -293,7 +291,7 @@ class MCFunctionTest : StringSpec({
         slice shouldNotBe null
 
         // Convert to Location as done in region/Extract.kt
-        val location = RegionExtraction.Command.Location(
+        val location = NbtExtraction.Command.Location(
             indices = slice!!.indices,
             content = slice.content,
             syntax = slice.syntax,

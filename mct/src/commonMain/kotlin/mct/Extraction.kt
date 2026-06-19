@@ -91,6 +91,83 @@ fun FormatKind.validate(value: String): Boolean = when (this) {
     FormatKind.PlainStr -> true
 }
 
+@Serializable
+sealed interface NbtExtraction {
+    val pointer: DataPointer
+    val kind: FormatKind
+
+    @Serializable
+    @SerialName("Text")
+    data class Text(
+        override val pointer: DataPointer,
+        override val kind: FormatKind = FormatKind.PlainStr,
+        val content: String,
+    ) : NbtExtraction {
+        inline fun replace(replacement: (String) -> String) =
+            NbtReplacement.Text(pointer, kind, replacement(content))
+    }
+
+    @Serializable
+    @SerialName("Command")
+    data class Command(
+        override val pointer: DataPointer,
+        val raw: String,
+        val locations: List<Location>, // must be ordered ascendingly based on indices
+    ) : NbtExtraction {
+        override val kind: FormatKind = FormatKind.PlainStr
+
+        @Serializable
+        data class Location(
+            override val indices: IntRangeSerializable,
+            override val content: String,
+            val syntax: SnbtSyntaxKind?,
+        ) : StringIndices {
+            inline fun unquoted() = content.unquoted(syntax)
+        }
+
+        inline fun replace(replace: (List<String>) -> List<String?>): NbtReplacement.Command {
+            val replacements = replace(locations.map { it.unquoted() })
+            return NbtReplacement.Command(
+                pointer,
+                locations.asSequence()
+                    .zip(replacements.asSequence())
+                    .sortedByDescending { (loc, _) -> loc.indices.first }
+                    .fold(StringBuilder(raw)) { acc, (loc, r) ->
+                        val rr = r?.doubleQuotedIfString(loc.syntax)
+                        acc.setRange(loc.indices.first, loc.indices.last + 1, rr ?: return@fold acc)
+                    }.toString()
+            )
+        }
+    }
+}
+
+
+@Serializable
+@SerialName("Region")
+sealed interface NbtReplacement : Replacement {
+    val pointer: DataPointer
+    val kind: FormatKind
+
+    @Serializable
+    @SerialName("Text")
+    data class Text(
+        override val pointer: DataPointer,
+        override val kind: FormatKind,
+        override val replacement: String,
+    ) : NbtReplacement
+
+
+    @Serializable
+    @SerialName("Command")
+    data class Command(
+        override val pointer: DataPointer,
+        override val replacement: String,
+    ) : NbtReplacement {
+        override val kind: FormatKind get() = FormatKind.PlainStr
+    }
+}
+
+
 /**
  * Data extracted from a Minecraft Datapack (zip or folder).
  * @property source The file name or identifier of the original datapack source.
@@ -111,6 +188,7 @@ data class DatapackExtractionGroup(
             replacements = replacements as List<DatapackReplacement>,
         )
 }
+
 
 /**
  * Data extracted from Minecraft Region files (.mca).
@@ -171,6 +249,12 @@ sealed interface DatapackExtraction : Extraction {
             return DatapackReplacement.MCFunction(indices, r.doubleQuotedIfString(syntax), syntax)
         }
     }
+
+    @Serializable
+    @SerialName("Nbt")
+    data class Nbt(
+        val nbt: NbtExtraction,
+    )
 }
 
 internal inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
@@ -187,59 +271,11 @@ internal inline fun DatapackExtraction.replace(replacement: (String) -> String):
 
 @Serializable
 @SerialName("Region")
-sealed interface RegionExtraction : Extraction {
-    val index: Int
-    val pointer: DataPointer
-    val kind: FormatKind
-
-
-    @Serializable
-    @SerialName("Text")
-    data class Text(
-        override val index: Int,
-        override val pointer: DataPointer,
-        override val kind: FormatKind = FormatKind.PlainStr,
-        val content: String,
-    ) : RegionExtraction {
-        inline fun replace(replacement: (String) -> String) =
-            RegionReplacement.Text(index, pointer, kind, replacement(content))
-    }
-
-    @Serializable
-    @SerialName("Command")
-    data class Command(
-        override val index: Int,
-        override val pointer: DataPointer,
-        val raw: String,
-        val locations: List<Location>, // must be ordered ascendingly based on indices
-    ) : RegionExtraction {
-        override val kind: FormatKind = FormatKind.PlainStr
-
-        @Serializable
-        data class Location(
-            override val indices: IntRangeSerializable,
-            override val content: String,
-            val syntax: SnbtSyntaxKind?,
-        ) : StringIndices {
-            inline fun unquoted() = content.unquoted(syntax)
-        }
-
-        inline fun replace(replace: (List<String>) -> List<String?>): RegionReplacement.Command {
-            val replacements = replace(locations.map { it.unquoted() })
-            return RegionReplacement.Command(
-                index,
-                pointer,
-                locations.asSequence()
-                    .zip(replacements.asSequence())
-                    .sortedByDescending { (loc, _) -> loc.indices.first }
-                    .fold(StringBuilder(raw)) { acc, (loc, r) ->
-                        val rr = r?.doubleQuotedIfString(loc.syntax)
-                        acc.setRange(loc.indices.first, loc.indices.last + 1, rr ?: return@fold acc)
-                    }.toString()
-            )
-        }
-    }
-
+data class RegionExtraction(
+    val index: Int,
+    val nbt: NbtExtraction
+) : Extraction {
+    fun substitute(replacement: NbtReplacement) = RegionReplacement(index, replacement)
 }
 
 /**
@@ -300,6 +336,11 @@ sealed interface DatapackReplacement : Replacement {
         override val replacement: String,
     ) : DatapackReplacement
 
+    @Serializable
+    @SerialName("Nbt")
+    data class Nbt(
+        val nbt: NbtReplacement,
+    )
 }
 
 /**
@@ -312,35 +353,20 @@ sealed interface DatapackReplacement : Replacement {
  */
 @Serializable
 @SerialName("Region")
-sealed interface RegionReplacement : Replacement {
-    val index: Int
-    val pointer: DataPointer
-    val kind: FormatKind
-
-    @Serializable
-    @SerialName("Text")
-    data class Text(
-        override val index: Int,
-        override val pointer: DataPointer,
-        override val kind: FormatKind = FormatKind.PlainStr,
-        override val replacement: String,
-    ) : RegionReplacement
-
-    @Serializable
-    @SerialName("Command")
-    data class Command(
-        override val index: Int,
-        override val pointer: DataPointer,
-        override val replacement: String,
-    ) : RegionReplacement {
-        override val kind: FormatKind get() = FormatKind.PlainStr
-    }
+data class RegionReplacement(
+    val index: Int,
+    val nbt: NbtReplacement
+) : Replacement {
+    override val replacement: String
+        get() = nbt.replacement
 }
 
 
 inline fun Extraction.contents() = when (this) {
     is DatapackExtraction.MCFunction -> sequenceOf(unquoted())
     is DatapackExtraction.MCJson -> sequenceOf(content)
-    is RegionExtraction.Command -> locations.asSequence().map { it.unquoted() }
-    is RegionExtraction.Text -> sequenceOf(content)
+    is RegionExtraction -> when (nbt) {
+        is NbtExtraction.Command -> nbt.locations.asSequence().map { it.unquoted() }
+        is NbtExtraction.Text -> sequenceOf(nbt.content)
+    }
 }

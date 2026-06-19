@@ -485,7 +485,7 @@ suspend fun Translator.translate(
         when (it) {
             is DatapackExtraction.MCJson -> FormatKind.JsonStr
             is DatapackExtraction.MCFunction -> FormatKind.PlainStr
-            is RegionExtraction -> it.kind
+            is RegionExtraction -> it.nbt.kind
         }
     }
     val mapping = mutableMapOf<String, String>()
