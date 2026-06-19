@@ -36,13 +36,12 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
                     val chunks = region.chunks.toMutableList()
                     group.replacements.groupBy { it.index }
                         .forEach { (index, replacements) ->
-                            val replacementGroups =
-                                replacements.map {
-                                    DataPointerWithValue(it.nbt.pointer, it.replacement, it.nbt.kind)
-                                }.toReplacementGroups()
+                            val ddrg = replacements.map {
+                                DataPointerWithValue(it.nbt.pointer, it.replacement, it.nbt.kind)
+                            }.toReplacementGroups()
                             val chunk = chunks[index] ?: return@forEach
                             chunks[index] = chunk.modify {
-                                it.transform(replacementGroups) ?: it
+                                it.transform(ddrg) ?: it
                             }
                         }
                     region.modifyChunks(chunks)

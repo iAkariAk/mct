@@ -9,7 +9,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import mct.Logger
 import mct.TestFunctions
-import mct.dp.backfill
+import mct.dp.backfillMCFunction
 import mct.dp.mcfunction.extractTextMCF
 import mct.mappings
 import mct.model.patch.*
@@ -79,7 +79,7 @@ class CommandsTest : StringSpec({
                 is DatapackExtraction.Nbt -> unreachable
             }
         }
-        val backfilled = TEST_COMMANDS.backfill(replacements)
+        val backfilled = TEST_COMMANDS.backfillMCFunction(replacements)
         backfilled shouldBe $$"""
                 tellraw @a {CIALLO}
 
@@ -105,13 +105,13 @@ class CommandsTest : StringSpec({
         val replacements = extractions.mapNotNull {
             it.replace {
                 mappings[it] ?: return@mapNotNull null
-            }
+            } as MCFunction
         }
 
         extractions.forEach {
             println(it.contents().toList())
         }
-        val backfilled = TestFunctions.update_billboard.backfill(replacements)
+        val backfilled = TestFunctions.update_billboard.backfillMCFunction(replacements)
         println(backfilled)
     }
 
@@ -122,7 +122,7 @@ class CommandsTest : StringSpec({
         val extractions = extractText(mcf)
         val funcExtractions = extractions.filterIsInstance<DatapackExtraction.MCFunction>()
         val replacement = MCFunction(funcExtractions[0].indices, "{greeting}", null)
-        val backfilled = mcf.backfill(listOf(replacement))
+        val backfilled = mcf.backfillMCFunction(listOf(replacement))
         backfilled shouldBe "say {greeting}"
     }
 
@@ -138,7 +138,7 @@ class CommandsTest : StringSpec({
             MCFunction(funcExtractions[0].indices, "{A}", null),
             MCFunction(funcExtractions[1].indices, "{B}", null),
         )
-        val backfilled = mcf.backfill(replacements)
+        val backfilled = mcf.backfillMCFunction(replacements)
         backfilled shouldBe """
                 say {A}
                 say {B}
@@ -189,7 +189,7 @@ class CommandsTest : StringSpec({
             println(it)
             "Bar"
         }
-        val backfilled = mcf.backfill(listOf(replacement))
+        val backfilled = mcf.backfillMCFunction(listOf(replacement))
         backfilled shouldBe "say @e[name=\"Bar\"]"
     }
 

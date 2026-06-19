@@ -33,13 +33,13 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                         it, pattern.mcfunction, pattern.mcfunctionData
                     )
                 }.takeIf { it.isNotEmpty() }?.map {
-                        NbtExtraction.Command.Location(
-                            it.indices, it.content, it.syntax
-                        )
-                    } ?: return@mapNotNull null)
+                    NbtExtraction.Command.Location(
+                        it.indices, it.content, it.syntax
+                    )
+                } ?: return@mapNotNull null)
             }.getOrNull()
 
-            PointerWithExtension.Type.Text if pointer.matches(pattern.region) -> NbtExtraction.Text(
+            PointerWithExtension.Type.Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(
                 pointer = pointer, kind = kind, content = content
             )
 

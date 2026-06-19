@@ -123,7 +123,7 @@ suspend fun runExtraction(
                         }
 
                     workspace.extractFromRegion(MCTPattern(
-                        region = patterns,
+                        nbt = patterns,
                         mcfunction = mcfPatterns,
                         mcfunctionData = mcfDataPatterns
                     )).toList() as List<ExtractionGroup>

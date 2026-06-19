@@ -12,6 +12,7 @@ import mct.MCTWorkspace
 import mct.command.CommandExtractPattern
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
+import mct.dp.nbt.NbtExtractor
 import mct.model.patch.DatapackExtraction
 import mct.model.patch.DatapackExtractionGroup
 import mct.util.IO
@@ -36,6 +37,7 @@ fun MCTWorkspace.extractFromDatapack(
         }
         add(::MCFunctionExtractor)
         add(::MCJsonExtractor)
+        add(::NbtExtractor)
     }
 
     return fs.list(datapackDir)

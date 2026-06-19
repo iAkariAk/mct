@@ -81,7 +81,7 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
 
         env.logger.info { "Extracting from region..." }
         val extractions: List<ExtractionGroup> = workspace.extractFromRegion(MCTPattern(
-            region = patterns,
+            nbt = patterns,
             mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
             mcfunctionData = mcfDataPatterns
         )).toList()

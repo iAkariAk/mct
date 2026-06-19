@@ -20,7 +20,7 @@ sealed interface NbtExtraction {
     @SerialName("text")
     data class Text(
         override val pointer: DataPointer,
-        override val kind: FormatKind = FormatKind.PlainStr,
+        override val kind: FormatKind,
         val content: String,
     ) : NbtExtraction {
         inline fun replace(replacement: (String) -> String) =

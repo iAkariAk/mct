@@ -17,7 +17,6 @@ context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
     pattern: MCTPattern = MCTPattern.Default,
 ): Flow<RegionExtractionGroup> {
-    if (pattern.region == null) logger.warning { "The filter was disabled, which causes export all string from the region" }
     logger.info { "Extracting from ${dimensions.size} dimensions" }
 
     return dimensions.values.asFlow().flatMapMerge { dimension ->

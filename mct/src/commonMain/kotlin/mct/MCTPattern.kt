@@ -8,7 +8,7 @@ import mct.pointer.DataPointerPattern
 
 // null is disabling the pattern
 data class MCTPattern(
-    val region: List<DataPointerPattern>? = BuiltinNbtPatterns,
+    val nbt: List<DataPointerPattern>? = BuiltinNbtPatterns,
     val mcjson: List<DataPointerPattern>? = null,
     val mcfunctionData: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
     val mcfunction: ExtractPatternSet = BuiltinMCFPatterns

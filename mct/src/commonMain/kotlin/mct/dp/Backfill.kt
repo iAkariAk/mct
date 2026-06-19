@@ -13,18 +13,19 @@ import mct.dp.mcjson.standardizeMCJson
 import mct.model.patch.DatapackReplacement
 import mct.model.patch.DatapackReplacementGroup
 import mct.model.patch.FormatKind
+import mct.nbt.transform
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
+import mct.serializer.NbtGzip
+import mct.serializer.NbtNone
 import mct.util.IO
-import mct.util.io.newRelativeFS
-import mct.util.io.openZipReadWrite
-import mct.util.io.useAsync
-import mct.util.io.writeText
-import okio.BufferedSource
+import mct.util.io.*
+import net.benwoodworth.knbt.NbtTag
+import net.benwoodworth.knbt.decodeFromSource
+import net.benwoodworth.knbt.encodeToSink
 import okio.Path.Companion.toPath
-import kotlin.jvm.JvmName
 
 
 suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackReplacementGroup>) = coroutineScope {
@@ -40,41 +41,60 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
             sfs.useAsync { sfs ->
                 replacementGroups.forEach { replacementGroup ->
                     val path = replacementGroup.path.toPath()
-                    val origin = sfs.read(path, BufferedSource::readUtf8)
 
-                    val handled = origin.backfill(replacementGroup.replacements)
-                    path.writeText(handled, sfs)
+                    @Suppress("UNCHECKED_CAST")
+                    when {
+                        path.endsWith(".json") -> {
+                            val replacements = replacementGroup.replacements as List<DatapackReplacement.MCJson>
+                            val origin = path.readText(sfs)
+                            val handled = origin.backfillMCJson(replacements)
+                            path.writeText(handled, sfs)
+                        }
+
+                        path.endsWith(".mcfunction") -> {
+                            val replacements = replacementGroup.replacements as List<DatapackReplacement.MCFunction>
+                            val origin = path.readText(sfs)
+                            val handled = origin.backfillMCFunction(replacements)
+                            path.writeText(handled, sfs)
+                        }
+
+
+                        path.endsWith(".nbt") -> {
+                            val replacements = replacementGroup.replacements as List<DatapackReplacement.Nbt>
+                            val origin = sfs.read(path) {
+                                runCatching {
+                                    NbtGzip.decodeFromSource<NbtTag>(this)
+                                }.getOrElse {
+                                    logger.error { "Skip $path because Failed to decode: ${it.message}" }
+                                    return@forEach
+                                }
+                            }
+                            val ddrg = replacements.map {
+                                DataPointerWithValue(it.nbt.pointer, it.replacement, it.nbt.kind)
+                            }.toReplacementGroups()
+                            val handled = origin.transform(ddrg) ?: origin
+                            sfs.write(path) {
+                                NbtNone.encodeToSink(handled, this)
+                            }
+                        }
+
+                        else -> error("Unvalidated extension: ${path.extension}")
+                    }
                 }
             }
         }
     }
 }
 
-internal fun String.backfill(replacements: List<DatapackReplacement>): String {
-    val mcfunction = mutableListOf<DatapackReplacement.MCFunction>()
-    val mcjson = mutableListOf<DatapackReplacement.MCJson>()
-    replacements.forEach { replacement ->
-        when (replacement) {
-            is DatapackReplacement.MCFunction -> mcfunction.add(replacement)
-            is DatapackReplacement.MCJson -> mcjson.add(replacement)
-            is DatapackReplacement.Nbt -> Unit
-        }
-    }
-    if (mcfunction.isNotEmpty()) return backfill(mcfunction)
-    if (mcjson.isNotEmpty()) return backfill(mcjson)
-    return this
-}
 
-@JvmName($$"backfill$MCFunction")
-internal fun String.backfill(replacements: List<DatapackReplacement.MCFunction>) =
+internal fun String.backfillMCFunction(replacements: List<DatapackReplacement.MCFunction>) =
     replacements
         .sortedByDescending { it.indices.first }
         .fold(StringBuilder(this)) { acc, e ->
             acc.setRange(e.indices.first, e.indices.last + 1, e.replacement)
         }.toString()
 
-@JvmName($$"backfill$MCJson")
-internal fun String.backfill(replacements: List<DatapackReplacement.MCJson>): String {
+internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson>): String {
     val standardizedJson = standardizeMCJson(this)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standardizedJson)
     val pointerDatapackReplacementGroups =

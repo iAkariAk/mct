@@ -166,7 +166,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
         val pool = coroutineScope {
             val regionJob = async(Dispatchers.IO) {
                 val groups = w.extractFromRegion(MCTPattern(
-                    region = regionPatterns,
+                    nbt = regionPatterns,
                     mcfunction = mcfPatterns,
                     mcfunctionData = mcfDataPatterns
                 )).toList()
