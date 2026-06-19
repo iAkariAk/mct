@@ -21,8 +21,7 @@ sealed interface OpenError : MCTError {
 }
 
 class MCTWorkspace private constructor(
-    val rootDir: Path,
-    override val env: Env
+    val rootDir: Path, override val env: Env
 ) : EnvHolder {
     companion object {
         context(_: Raise<OpenError>)
@@ -34,11 +33,10 @@ class MCTWorkspace private constructor(
         }
     }
 
-    val levelRaw =
-        fs.read(rootDir / "level.dat".toPath()) {
-            val rootTag = NbtGzip.decodeFromSource<NbtCompound>(this)
-            rootTag
-        }
+    val levelRaw = fs.read(rootDir / "level.dat".toPath()) {
+        val rootTag = NbtGzip.decodeFromSource<NbtCompound>(this)
+        rootTag
+    }
     val level: LevelRoot? = runCatching {
         NbtGzip.decodeFromNbtTag<LevelRoot>(levelRaw)
     }.getOrElse {
@@ -72,9 +70,7 @@ class MCTWorkspace private constructor(
 interface DimensionProvider : Map<String, Dimension>
 
 class Dimension(
-    internal val workspace: MCTWorkspace,
-    val id: String,
-    val path: Path
+    internal val workspace: MCTWorkspace, val id: String, val path: Path
 ) {
     val poiDir = path / "poi"
     val regionDir = path / "region"
@@ -96,22 +92,48 @@ class Dimension(
     }
 }
 
-private class DimensionProviderV1(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by mapOf(
-    "minecraft:nether" to Dimension(workspace, "minecraft:nether", workspace.rootDir / "DIM-1"),
-    "minecraft:overworld" to Dimension(workspace, "minecraft:overworld", workspace.rootDir),
-    "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", workspace.rootDir / "DIM1"),
-) {
+private fun MutableMap<String, Dimension>.scanCustomizedDimensions(workspace: MCTWorkspace) {
+    val dimDir = workspace.rootDir / "dimensions"
+    val fs = workspace.fs
+    val logger = workspace.logger
+    if (!fs.exists(dimDir)) return
+    val outerDimensions =
+        fs.list(dimDir).asSequence()
+            .filter { it.name != "minecraft" }
+            .map { it.name to fs.list(it).map { it.name to it } }
+    outerDimensions.forEach { (namespace, innerDimensions) ->
+        innerDimensions.forEach { (name, path) ->
+            val id = "$namespace:$name"
+            logger.info { "Find dimension $id at $path" }
+            val dim = Dimension(workspace, id, path)
+            put(id, dim)
+        }
+    }
+}
+
+private class DimensionProviderV1(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by (buildMap {
+    put("minecraft:nether", Dimension(workspace, "minecraft:nether", workspace.rootDir / "DIM-1"))
+    put("minecraft:overworld", Dimension(workspace, "minecraft:overworld", workspace.rootDir))
+    put("minecraft:the_end", Dimension(workspace, "minecraft:the_end", workspace.rootDir / "DIM1"))
+
+    scanCustomizedDimensions(workspace)
+}) {
     override fun toString() = "DimensionProviderV1"
 }
 
 
-private fun dim(rootDir: Path, name: String) = rootDir / "dimensions" / "minecraft" / name
-
 // before 26.1-snapshot-6
-private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by mapOf(
-    "minecraft:nether" to Dimension(workspace, "minecraft:nether", dim(workspace.rootDir, "the_nether")),
-    "minecraft:overworld" to Dimension(workspace, "minecraft:overworld", dim(workspace.rootDir, "overworld")),
-    "minecraft:the_end" to Dimension(workspace, "minecraft:the_end", dim(workspace.rootDir, "the_end")),
-) {
+private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by (buildMap {
+    fun minecraft(name: String) {
+        val id = "minecraft:$name"
+        put(id, Dimension(workspace, id, workspace.rootDir / "dimensions" / "minecraft" / name))
+    }
+
+    scanCustomizedDimensions(workspace)
+
+    minecraft("nether")
+    minecraft("overworld")
+    minecraft("the_end")
+}) {
     override fun toString() = "DimensionProviderV2"
 }
