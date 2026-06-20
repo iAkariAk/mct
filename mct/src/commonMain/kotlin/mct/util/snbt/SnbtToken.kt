@@ -4,6 +4,7 @@ enum class SnbtTokenType {
     EOF,
     COMMA,
     COLON,
+    SEMICOLON,
     LITERAL,
     NUMBER,
     STRING,

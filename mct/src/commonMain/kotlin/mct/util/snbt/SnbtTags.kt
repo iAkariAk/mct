@@ -22,24 +22,31 @@ sealed interface SnbtTag {
 data class SnbtBoolean(override val indices: IntRange, val value: Boolean) : SnbtTag {
     override fun toIR() = IRBoolean(value)
 }
+
 data class SnbtByte(override val indices: IntRange, val value: Byte) : SnbtTag {
     override fun toIR() = IRByte(value)
 }
+
 data class SnbtShort(override val indices: IntRange, val value: Short) : SnbtTag {
     override fun toIR() = IRShort(value)
 }
+
 data class SnbtInt(override val indices: IntRange, val value: Int) : SnbtTag {
     override fun toIR() = IRInt(value)
 }
+
 data class SnbtLong(override val indices: IntRange, val value: Long) : SnbtTag {
     override fun toIR() = IRLong(value)
 }
+
 data class SnbtFloat(override val indices: IntRange, val value: Float) : SnbtTag {
     override fun toIR() = IRFloat(value)
 }
+
 data class SnbtDouble(override val indices: IntRange, val value: Double) : SnbtTag {
     override fun toIR() = IRDouble(value)
 }
+
 data class SnbtString(override val indices: IntRange, val raw: String, val boundary: Char?) : SnbtTag {
     val content = when (boundary) {
         '"' -> raw.doubleUnquoted()
@@ -57,9 +64,18 @@ data class SnbtString(override val indices: IntRange, val raw: String, val bound
 
     override fun toIR() = IRString(content)
 }
-data class SnbtCompound(override val indices: IntRange, val value: Map<String, SnbtTag>) : SnbtTag, Map<String, SnbtTag> by value {
+
+data class SnbtCompound(override val indices: IntRange, val value: Map<String, SnbtTag>) : SnbtTag,
+    Map<String, SnbtTag> by value {
     override fun toIR() = IRObject(value.mapValues { it.value.toIR() })
 }
-data class SnbtList(override val indices: IntRange, val value: List<SnbtTag>) : SnbtTag, List<SnbtTag> by value {
+
+data class SnbtList(
+    override val indices: IntRange,
+    val value: List<SnbtTag>,
+) : SnbtTag, List<SnbtTag> by value {
     override fun toIR() = IRList(value.map { it.toIR() })
 }
+
+
+

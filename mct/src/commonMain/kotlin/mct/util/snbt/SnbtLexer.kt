@@ -34,6 +34,7 @@ class SnbtLexer(private val string: String) {
             '-', '.', in '0'..'9' -> readNumber()
             ',' -> singleChar(SnbtTokenType.COMMA)
             ':' -> singleChar(SnbtTokenType.COLON)
+            ';' -> singleChar(SnbtTokenType.SEMICOLON)
             '{' -> singleChar(SnbtTokenType.L_BRACE)
             '}' -> singleChar(SnbtTokenType.R_BRACE)
             '[' -> singleChar(SnbtTokenType.L_BRACKET)
@@ -42,7 +43,7 @@ class SnbtLexer(private val string: String) {
             ')' -> singleChar(SnbtTokenType.R_PAREN)
             else -> if (ch.isLetterOrUnderscore()) {
                 readLiteral()
-            } else error("Unknown")
+            } else parseError("Unknown char: $ch")
         }
     }
 

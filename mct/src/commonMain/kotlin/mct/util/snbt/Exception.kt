@@ -1,9 +1,13 @@
 package mct.util.snbt
 
 
-class ParseException(msg: String) : Exception(msg)
+open class ParseException(msg: String) : Exception(msg)
 
-internal fun error(message: String): Nothing = throw ParseException(message)
+class IllegalTokenException(msg: String) : ParseException(msg)
 
-internal fun aheadEOF(): Nothing = error("Unexpected EOF ahead")
+class EOFException(msg: String) : ParseException(msg)
+
+internal fun parseError(message: String): Nothing = throw ParseException(message)
+internal fun illegalToken(message: String): Nothing = throw IllegalTokenException(message)
+internal fun aheadEOF(): Nothing = throw EOFException("Unexpected EOF ahead")
 
