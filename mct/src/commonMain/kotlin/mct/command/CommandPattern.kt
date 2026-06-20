@@ -11,6 +11,7 @@ import mct.MCTError
 import mct.model.patch.SnbtSyntaxKind
 import mct.pointer.DataPointerPattern
 import mct.util.snbt.SnbtTag
+import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
 
 typealias ExtractPatternSet = Map<String, List<CommandExtractPattern>>
@@ -70,7 +71,7 @@ fun interface PreCondition {
         @Serializable
         @SerialName("regex")
         data class Regex(@field:Language("RegExp") val regex: String) : PreCondition {
-            private val _regex by lazy { regex.toRegex() }
+            private val _regex by lazy { regex.toRegex2() }
             override fun matches(command: MCCommand) = _regex.containsMatchIn(command.raw)
         }
     }
@@ -202,7 +203,7 @@ fun interface PostCondition {
         @Serializable
         @SerialName("regex")
         data class MatchRegex(val regex: String) : PostCondition {
-            private val _regex by lazy { regex.toRegex() }
+            private val _regex by lazy { regex.toRegex2() }
             override fun matches(command: MCCommand, arg: MCCommand.Arg): Boolean =
                 _regex.containsMatchIn(arg.content)
         }
