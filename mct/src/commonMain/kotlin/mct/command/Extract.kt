@@ -122,7 +122,7 @@ internal fun extractTextFromCommand(
                                     }
                                 },
                                 recover = {
-                                    logger.warning { "Selection fails: ${it.message}" }
+                                    logger.error { "Selection fails: ${it.message}" }
                                     null
                                 }
                             ) ?: ExtractedCommandSlice(
