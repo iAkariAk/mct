@@ -17,6 +17,7 @@ import mct.cli.path
 import mct.command.BuiltinMCFPatterns
 import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
+import mct.command.RegexPattern
 import mct.dp.compile
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.RegionReplacementGroup
@@ -57,6 +58,11 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
         "--disable-mcfunction-data-filter",
         help = "Disable mcfunction snbt arg filter, extract all strings"
     ).flag()
+    val mcfunctionRegexPatternsPath by option(
+        "--mcfunction-regex-patterns",
+        "-pR",
+        help = "Append regex patterns to extract text from mcfunction"
+    ).path()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -79,11 +85,14 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
             else -> BuiltinMCFunctionDataPatterns
         }
 
+        val mcfunctionRegexPatterns = mcfunctionRegexPatternsPath?.jsonFile<List<RegexPattern>>() ?: emptyList()
+
         env.logger.info { "Extracting from region..." }
         val extractions: List<ExtractionGroup> = workspace.extractFromRegion(MCTPattern(
             nbt = patterns,
             mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
-            mcfunctionData = mcfDataPatterns
+            mcfunctionData = mcfDataPatterns,
+            mcfunctionRegex = mcfunctionRegexPatterns
         )).toList()
         env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
 

@@ -21,6 +21,7 @@ data class ExtractState(
     val mcfPatternPath: String = "",
     val mcfDataPatternPath: String = "",
     val mcjPatternPath: String = "",
+    val mcfunctionRegexPatternPath: String = "",
 )
 
 data class TranslateState(

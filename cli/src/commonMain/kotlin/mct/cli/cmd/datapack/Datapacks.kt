@@ -16,6 +16,7 @@ import mct.cli.path
 import mct.command.BuiltinMCFPatterns
 import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
+import mct.command.RegexPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
@@ -63,7 +64,11 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         "--disable-mcfunction-data-filter",
         help = "Disable mcfunction snbt arg filter, extract all strings from JSON files"
     ).flag()
-
+    val mcfunctionRegexPatternsPath by option(
+        "--mcfunction-regex-patterns",
+        "-pR",
+        help = "Append regex patterns to extract text from mcfunction"
+    ).path()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -85,12 +90,15 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
             else -> BuiltinMCFunctionDataPatterns
         }
 
+        val mcfunctionRegexPatterns = mcfunctionRegexPatternsPath?.jsonFile<List<RegexPattern>>() ?: emptyList()
+
         logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
             workspace.extractFromDatapack(MCTPattern(
                 mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
                 mcfunctionData = mcfDataPatterns,
-                mcjson = mcjPatterns
+                mcjson = mcjPatterns,
+                mcfunctionRegex = mcfunctionRegexPatterns
             )).toList()
         logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)

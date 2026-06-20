@@ -10,7 +10,6 @@ import io.kotest.matchers.shouldNotBe
 import mct.Logger
 import mct.TestFunctions
 import mct.dp.backfillMCFunction
-import mct.dp.mcfunction.extractTextMCF
 import mct.mappings
 import mct.model.patch.*
 import mct.model.patch.DatapackReplacement.MCFunction
@@ -25,10 +24,12 @@ class CommandsTest : StringSpec({
         }
     }
 
-    fun extractText(mcf: String): List<DatapackExtraction> {
+    fun extractText(str: String): List<DatapackExtraction> {
         val logger = Logger.Console()
         return context(logger) {
-            extractTextMCF(mcf, "test", "test")
+            extractTextFromCommands(str).map {
+                DatapackExtraction.MCFunction(it.indices, it.content, it.syntax)
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package mct.text
 
 import mct.util.snbt.SnbtString
+import mct.util.toRegex2
 import net.benwoodworth.knbt.NbtString
 
 private val MAYBE_MAJOR_FIELDS = listOf(
@@ -31,7 +32,7 @@ private val ALL_FIELD = listOf(
     "click_event", "hover_event",
 )
 
-private val MAYBE_FIELDS_AS_KEY = MAYBE_MAJOR_FIELDS.map { """"$it"\s*:\s*""".toRegex() }
+private val MAYBE_FIELDS_AS_KEY = MAYBE_MAJOR_FIELDS.map { """"$it"\s*:\s*""".toRegex2() }
 
 internal fun String.isTextComponent() = MAYBE_FIELDS_AS_KEY.any { it.containsMatchIn(this) }
 

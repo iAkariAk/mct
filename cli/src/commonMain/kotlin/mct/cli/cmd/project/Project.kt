@@ -27,6 +27,7 @@ import mct.cli.util.CURRENT_PATH
 import mct.command.BuiltinMCFPatterns
 import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
+import mct.command.RegexPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
@@ -154,6 +155,10 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             requirePath(it, "Mcjson").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCJPatterns }
 
+        val mcfunctionRegexPatterns = projectConfig.patterns.mcfunctionRegex.flatMap {
+            requirePath(it, "Mcfunction regex").readJson<List<RegexPattern>>()
+        }
+
         val w = workspace()
 
         val mappingFile = projectDir / projectConfig.mappings
@@ -168,7 +173,8 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                 val groups = w.extractFromRegion(MCTPattern(
                     nbt = regionPatterns,
                     mcfunction = mcfPatterns,
-                    mcfunctionData = mcfDataPatterns
+                    mcfunctionData = mcfDataPatterns,
+                    mcfunctionRegex = mcfunctionRegexPatterns
                 )).toList()
                 cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 terminal.println(
@@ -182,7 +188,8 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                 val groups = w.extractFromDatapack(MCTPattern(
                     mcfunction = mcfPatterns,
                     mcfunctionData = mcfDataPatterns,
-                    mcjson = mcjPatterns
+                    mcjson = mcjPatterns,
+                    mcfunctionRegex = mcfunctionRegexPatterns
                 )).toList()
                 cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 terminal.println(

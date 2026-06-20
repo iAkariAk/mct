@@ -332,7 +332,8 @@ fun App(
                                                     extractState.regionPatternPath,
                                                     extractState.mcfPatternPath,
                                                     extractState.mcfDataPatternPath,
-                                                    extractState.mcjPatternPath
+                                                    extractState.mcjPatternPath,
+                                                    extractState.mcfunctionRegexPatternPath
                                                 )
                                             }
                                         })

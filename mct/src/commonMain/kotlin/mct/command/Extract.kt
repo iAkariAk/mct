@@ -1,6 +1,8 @@
 package mct.command
 
+import arrow.core.getOrElse
 import arrow.core.raise.context.Raise
+import arrow.core.raise.context.either
 import arrow.core.raise.recover
 import mct.LoggerHolder
 import mct.logger
@@ -10,6 +12,7 @@ import mct.pointer.*
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
 import mct.util.StringIndices
+import mct.util.groups2
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
@@ -29,11 +32,47 @@ data class ExtractedCommandSlice(
     override val syntax: SnbtSyntaxKind? // null represents the slice isn't a snbt
 ) : StringIndicesWithSyntax
 
+context(_: LoggerHolder)
+internal fun extractTextFromCommands(
+    commandStr: String,
+    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
+    regexPatterns: List<RegexPattern> = emptyList()
+): List<ExtractedCommandSlice> {
+    val commands = parseCommands(commandStr)
+    val fromCommandPattern = commands.flatMap { command ->
+        either {
+            extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
+        }.getOrElse {
+            logger.error { "Skip $command due to ${it.message}" }
+            emptyList()
+        }
+    }
+    return if (regexPatterns.isNotEmpty()) {
+        val fromRegex = regexPatterns.flatMap { p ->
+            p.regex.findAll(commandStr).flatMap { result ->
+                p.groups.mapNotNull { (group, syntax) ->
+                    result.groups2[group]?.let {
+                        ExtractedCommandSlice(
+                            it.range,
+                            it.value,
+                            syntax,
+                        )
+                    }
+                }
+            }
+        }
+        if (fromRegex.isEmpty()) fromCommandPattern
+        else fromCommandPattern + fromRegex
+    } else fromCommandPattern
+}
+
+
 context(_: Raise<IndexSelectError>, _: LoggerHolder)
 internal fun extractTextFromCommand(
     command: MCCommand,
     mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
-    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns
+    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
 ): List<ExtractedCommandSlice> {
     // return run <command> (1.21+) — similar recursive subcommand extraction
     if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`

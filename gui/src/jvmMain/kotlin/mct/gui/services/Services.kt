@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 import mct.*
 import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
+import mct.command.RegexPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
@@ -80,6 +81,7 @@ suspend fun runExtraction(
     mcfPatternPath: String = "",
     mcfDataPatternPath: String = "",
     mcjPatternPath: String = "",
+    mcfunctionRegexPatternPath: String = "",
 ) {
     withContext(Dispatchers.IO) {
         env.logger.info { "正在打开: $input" }
@@ -88,6 +90,11 @@ suspend fun runExtraction(
         @Suppress("UNCHECKED_CAST")
         val result = either<MCTError, List<ExtractionGroup>> {
             val workspace = MCTWorkspace(inputPath, env)
+            val mcfunctionRegexPatterns: List<RegexPattern> = mcfunctionRegexPatternPath.takeIf { it.isNotBlank() }
+                ?.let { p ->
+                    env.fs.read(p.toPath()) { readUtf8() }
+                        .let { MCTJson.decodeFromString<List<RegexPattern>>(it) }
+                } ?: emptyList()
             when (mode) {
                 "region" -> {
                     val patterns = if (disableFilter) null
@@ -125,7 +132,8 @@ suspend fun runExtraction(
                     workspace.extractFromRegion(MCTPattern(
                         nbt = patterns,
                         mcfunction = mcfPatterns,
-                        mcfunctionData = mcfDataPatterns
+                        mcfunctionData = mcfDataPatterns,
+                        mcfunctionRegex = mcfunctionRegexPatterns
                     )).toList() as List<ExtractionGroup>
                 }
 
@@ -165,7 +173,8 @@ suspend fun runExtraction(
                     workspace.extractFromDatapack(MCTPattern(
                         mcfunction = mcfPatterns,
                         mcfunctionData = mcfDataPatterns,
-                        mcjson = mcjPatterns
+                        mcjson = mcjPatterns,
+                        mcfunctionRegex = mcfunctionRegexPatterns
                     )).toList() as List<ExtractionGroup>
                 }
 

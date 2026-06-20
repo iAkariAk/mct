@@ -1,11 +1,8 @@
 package mct.nbt
 
-import arrow.core.raise.context.either
 import mct.LoggerHolder
 import mct.MCTPattern
-import mct.command.extractTextFromCommand
-import mct.command.parseCommands
-import mct.logger
+import mct.command.extractTextFromCommands
 import mct.model.patch.FormatKind
 import mct.model.patch.NbtExtraction
 import mct.pointer.DataPointer
@@ -24,20 +21,20 @@ context(_: LoggerHolder)
 internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
     extractTextsByPointer().mapNotNull { (pointer, content, kind, type) ->
         when (type) {
-            PointerWithExtension.Type.Command -> either {
-                val cmds = context(logger) {
-                    parseCommands(content)
-                }
-                NbtExtraction.Command(pointer = pointer, raw = content, locations = cmds.flatMap {
-                    extractTextFromCommand(
-                        it, pattern.mcfunction, pattern.mcfunctionData
-                    )
-                }.takeIf { it.isNotEmpty() }?.map {
-                    NbtExtraction.Command.Location(
-                        it.indices, it.content, it.syntax
-                    )
-                } ?: return@mapNotNull null)
-            }.getOrNull()
+            PointerWithExtension.Type.Command ->
+                NbtExtraction.Command(
+                    pointer = pointer,
+                    raw = content,
+                    locations = extractTextFromCommands(
+                        commandStr = content,
+                        mcfPatterns = pattern.mcfunction,
+                        mcfDataPatterns = pattern.mcfunctionData,
+                        regexPatterns = pattern.mcfunctionRegex
+                    ).takeIf { it.isNotEmpty() }?.map {
+                        NbtExtraction.Command.Location(
+                            it.indices, it.content, it.syntax
+                        )
+                    } ?: return@mapNotNull null)
 
             PointerWithExtension.Type.Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(
                 pointer = pointer, kind = kind, content = content

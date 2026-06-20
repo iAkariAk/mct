@@ -3,6 +3,7 @@ package mct.pointer
 import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import mct.util.toRegex2
 
 fun ptr(s: String) = shouldNotRaise { DataPointer.decodeFromString(s) }
 infix fun DataPointer.shouldMatch(patterns: List<DataPointerPattern>) = matches(patterns) shouldBe true
@@ -53,22 +54,22 @@ class DataPointerPatternTest : FreeSpec({
     "DataPointer.matches(Regex)" - {
         "positive - simple regex" {
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>3") }
-            ptr.matches("""#lore>\d+$""".toRegex()) shouldBe true
+            ptr.matches("""#lore>\d+$""".toRegex2()) shouldBe true
         }
 
         "positive - alternation" {
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#front_text>#messages>2") }
-            ptr.matches("""#(front|back)_text>#messages>\d+$""".toRegex()) shouldBe true
+            ptr.matches("""#(front|back)_text>#messages>\d+$""".toRegex2()) shouldBe true
         }
 
         "negative - non-numeric lore index" {
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>#title") }
-            ptr.matches("""#lore>\d+$""".toRegex()) shouldBe false
+            ptr.matches("""#lore>\d+$""".toRegex2()) shouldBe false
         }
 
         "regex against entity CustomName path" {
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#>#Entities>0>#CustomName") }
-            ptr.matches("""(>#Entities>\d+|>#SpawnData>#entity)>#CustomName$""".toRegex()) shouldBe true
+            ptr.matches("""(>#Entities>\d+|>#SpawnData>#entity)>#CustomName$""".toRegex2()) shouldBe true
         }
     }
 

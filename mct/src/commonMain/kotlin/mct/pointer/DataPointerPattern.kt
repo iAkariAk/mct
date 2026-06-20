@@ -1,5 +1,7 @@
 package mct.pointer
 
+import mct.util.Regex2
+import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
 
 
@@ -7,7 +9,7 @@ fun interface DataPointerPattern {
     fun match(pointer: DataPointer): Boolean
 }
 
-fun DataPointer.matches(regex: Regex) =
+fun DataPointer.matches(regex: Regex2) =
     regex.containsMatchIn(encodeToString())
 
 fun DataPointer.matchesRight(right: String) =
@@ -45,6 +47,6 @@ private typealias S = DataPointerPatternSetBuilderScope
 
 inline fun S.RightPattern(right: String) = DataPointerPattern { it.matchesRight(right) }
 inline fun S.RegexPattern(@Language("RegExp") regex: String): DataPointerPattern {
-    val _r = regex.toRegex()
+    val _r = regex.toRegex2()
     return DataPointerPattern { it.matches(_r) }
 }

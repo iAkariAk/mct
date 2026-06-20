@@ -52,6 +52,9 @@ fun ExtractPanel(
     val mcjPatternPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(mcjPatternPath = it.absolutePath())) } }
+    val mcfunctionRegexPatternPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(), mode = FileKitMode.Single
+    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(mcfunctionRegexPatternPath = it.absolutePath())) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -116,6 +119,11 @@ fun ExtractPanel(
                         "留空则使用内置规则...",
                         state.mcjPatternPath, { onStateChange(state.copy(mcjPatternPath = it)) }
                     ) { mcjPatternPicker.launch() }
+                    PathRow(
+                        "MCFunction 正则提取规则 JSON",
+                        "留空则不使用...",
+                        state.mcfunctionRegexPatternPath, { onStateChange(state.copy(mcfunctionRegexPatternPath = it)) }
+                    ) { mcfunctionRegexPatternPicker.launch() }
                 }
             }
         }

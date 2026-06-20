@@ -1,6 +1,6 @@
 package mct.util
 
-private val ESCAPE_REGEX = """\\(.)""".toRegex()
+private val ESCAPE_REGEX = """\\(.)""".toRegex2()
 
 fun String.unescaped() = ESCAPE_REGEX.replace(this) {
     when (val r = it.groupValues[1]) {

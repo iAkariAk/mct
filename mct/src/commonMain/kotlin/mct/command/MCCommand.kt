@@ -38,7 +38,7 @@ data class MCCommand(
 }
 
 context(_: LoggerHolder)
-fun parseCommands(content: String, ): List<MCCommand> {
+fun parseCommands(content: String): List<MCCommand> {
     val mcfunctions = mutableListOf<MCCommand>()
     var row = 0
 

@@ -49,6 +49,10 @@ data class PatternsConfig(
 
     @TomlComments("Paths to mcjson data-pointer pattern JSON files")
     val mcjson: Set<String> = emptySet(),
+
+    @SerialName("mcfunction_regex")
+    @TomlComments("Paths to mcfunction regex pattern JSON files")
+    val mcfunctionRegex: Set<String> = emptySet(),
 ) {
     companion object {
         val Empty = PatternsConfig()

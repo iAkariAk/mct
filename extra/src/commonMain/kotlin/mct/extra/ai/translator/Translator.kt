@@ -29,10 +29,13 @@ import mct.text.decodeToCompound
 import mct.text.encodeToIR
 import mct.text.replaceText
 import mct.util.IO
+import mct.util.Regex2
+import mct.util.destructured
 import mct.util.formatir.IRList
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
+import mct.util.toRegex2
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
@@ -457,7 +460,7 @@ internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>):
         IndexedValue(index, r)
     }
 
-private val LINE_PREFIX = Regex("""^\[(\d+)]\s*""")
+private val LINE_PREFIX = Regex2("""^\[(\d+)]\s*""")
 
 internal fun parseLLMResponse(content: String, expectedSize: Int): Pair<TermTable, List<String?>> {
     val (appendedTranslated, appendTermsStr) = REGEX_LLM_OUTPUT.matchEntire(content)?.destructured
@@ -467,7 +470,7 @@ internal fun parseLLMResponse(content: String, expectedSize: Int): Pair<TermTabl
         .asSequence()
         .mapNotNull { line ->
             val num = LINE_PREFIX.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
-            val text = line.replaceFirst(LINE_PREFIX, "")
+            val text = LINE_PREFIX.replaceFirst(line, "")
                 .replace("↠mctnl↠", "\n")
             IndexedValue(num, text)
         }
@@ -484,7 +487,7 @@ private fun Sequence<IndexedValue<String>>.pad(expectedSize: Int): List<String?>
 }
 
 private val REGEX_LLM_OUTPUT =
-    """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex()
+    """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex2()
 
 
 context(_: Raise<ChatCompletionCallError>)
