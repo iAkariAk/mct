@@ -1,12 +1,12 @@
 # Skill: Add Pattern Tests
 
-Trigger when the task adds, removes, or modifies patterns in `mct/dp/mcjson/Patterns.kt`, `mct/dp/mcfunction/Patterns.kt`, or `mct/region/Patterns.kt`. After changing patterns, you MUST add or update tests in the corresponding test file.
+Trigger when the task adds, removes, or modifies patterns in `mct/dp/mcjson/BuiltinPatterns.kt`, `mct/dp/mcfunction/Patterns.kt`, or `mct/region/Patterns.kt`. After changing patterns, you MUST add or update tests in the corresponding test file.
 
 ## Test File Map
 
 | Pattern file | Test file | Test class |
 |---|---|---|
-| `mct/dp/mcjson/Patterns.kt` | `mct/.../mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `MCJDataPointerPatternTest` |
+| `mct/dp/mcjson/BuiltinPatterns.kt` | `mct/.../mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `MCJDataPointerPatternTest` |
 | `mct/dp/mcfunction/Patterns.kt` | `mct/.../mct/command/CommandExtractPatternTest.kt` | `CommandExtractPatternTest` |
 | `mct/region/Patterns.kt` | `mct/.../mct/nbt/NbtDataPointerPatternTest.kt` | `NbtDataPointerPatternTest` |
 

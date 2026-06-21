@@ -8,7 +8,7 @@ Write more patterns for the following files. Each file uses a different pattern 
 
 ## Files
 
-### 1. `mct/src/commonMain/kotlin/mct/dp/mcjson/Patterns.kt`
+### 1. `mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt`
 
 **DSL:** `PatternSet { +RightPattern(...); +RegexPattern(...) }` from `mct.pointer`
 
@@ -120,7 +120,10 @@ The function `isTextCompound()` in `Util.kt` requires:
 2. For non-structural fields (`text`, `translate`, `color`, `bold`, etc.), the value must be a primitive type (string, boolean, number), NOT a compound or list
 3. Structural fields (`extra`, `with`, `hover_event`, `click_event`, `score`, `separator`, `player`, `shadow_color`) may hold compound/list values
 
-Current `ALL_FIELD` fields (keep in sync with `Util.kt`):
+**NbtList isTextCompound() (New):**
+Since the latest refactor, `NbtList<*>.isTextCompound()` also works — if a list contains only text-component elements (strings or nested text compounds), it is extracted as a single SNBT block rather than recursed into individual elements. This mirrors the `NbtCompound` behavior and prevents path explosion for uniform text-component lists.
+
+**Current `ALL_FIELD` fields (keep in sync with `Util.kt`):**
 ```
 text, translate, with, fallback,
 score, selector, keybind,
@@ -154,11 +157,14 @@ These patterns match text components nested within data components. The non-anch
 - `#components>#minecraft:item_name` — default item name
 - `#components>#minecraft:text_display` — text display entity data
 - `#components>#minecraft:description` — 1.21.5+ entity/item description
-- `#components>#minecraft:lore>N` — item lore lines
-- `#components>#minecraft:written_book_content>#pages/N|title|author` — book content
-- `#components>#minecraft:writable_book_content>#pages/N` — writable book pages
+- `#components>#minecraft:lore>(\d+>#raw)?$` — item lore lines (also matches bare `lore` key via `(\d+>#raw)?` being optional)
+- `#components>#minecraft:written_book_content>#(?:pages>\d+|title|author)(?:>#(?:raw|filtered))?$` — book content
+- `#components>#minecraft:writable_book_content>#pages>\d+(?:>#(?:raw|filtered))?$` — writable book pages
 - `#instrument>#description` — instrument description (goat horns)
 - `#attribute_modifiers>#modifiers>N>#display>#value` — custom attribute display text
+
+**Sign block entity patterns:**
+- `>#block_entities>\d+>#(front|back)_text>#(filtered_)?messages(>\d+>#raw)?$` — matches both the messages key itself and individual message entries with optional raw. The `(>\d+>#raw)?` being optional makes the pattern more flexible.
 
 **References:**
 - https://minecraft.wiki/w/Block_entity_format — NBT for all block entities (checked: most CustomName via common pattern, signs, spawners, beehives, command blocks)
@@ -167,7 +173,7 @@ These patterns match text components nested within data components. The non-anch
 - https://minecraft.wiki/w/Data_component_format — modern component system (1.20.5+; checked all text-bearing components)
 - https://minecraft.wiki/w/Text_component_format — ALL_FIELD reference for isTextCompound()
 
-**Existing coverage:** Item display (legacy + modern components), entity CustomName (including spawn data / trial spawner configs), sign text (front+back, filtered), written books, container CustomName, map banners, display entity text+raw_text+description, beehive entity data, command block CustomName+LastOutput, block entity data components, instrument.description, attribute_modifiers display value
+**Existing coverage:** Item display (legacy + modern components), entity CustomName (including spawn data / trial spawner configs), sign text (front+back, filtered), written books, container CustomName, display entity text+raw_text+description, beehive entity data, command block CustomName+LastOutput, block entity data components, instrument.description, attribute_modifiers display value
 
 **Known covered by recursive item walk (no explicit patterns needed):**
 - Items within all containers (chests, barrels, shulker boxes, hoppers, dispensers, droppers, furnaces, smokers, blast furnaces, brew stands, campfires, chiseled bookshelves, crafter)
@@ -179,6 +185,20 @@ These patterns match text components nested within data components. The non-anch
 - bundle_contents, container list, charged_projectiles
 
 **When adding a pattern, verify the exact NBT key casing** (Minecraft NBT typically uses PascalCase: `CustomName`, not `custom_name`). Signal-to-noise matters — avoid patterns so broad they'd match non-translatable strings.
+
+---
+
+## Backfill
+
+### `mct/src/commonMain/kotlin/mct/nbt/Backfill.kt`
+
+The `NbtTag.transform()` function applies replacement groups back into NBT. Since the latest refactor:
+
+- **`decodeTerminatorOrNull<T>()` helper** — shared by both `NbtList` and `NbtCompound` to decode a `Terminator` replacement as type `T`. If decoding fails, it logs an error and returns null.
+- **`NbtList` now also handles `Terminator`** — previously only `NbtCompound` could be fully replaced by a `Terminator` replacement. Now `NbtList` also checks for a matching `Terminator` replacement (with `FormatKind.Nbt`) and replaces the entire list if found.
+- **`NbtString` fallthrough** — unchanged: if a `Terminator` with a string kind is present, the string is replaced; otherwise the original value is kept.
+
+This means backfill can now handle cases where the extraction produced a list-level text component (via the new `NbtList.isTextCompound()` extraction path).
 
 ---
 
@@ -213,14 +233,29 @@ When the SNBT selection test (`test snbt selecting`) counts change, investigate 
 
 **1. `isTextCompound()` returning true unexpectedly** — When adding a data merge/setblock/summon pattern, if the root NBT happens to have only text-component keys AND the values happen to be primitive, `isTextCompound()` returns true and the entire root is extracted as one text at the empty path (`DataPointer.Terminator`). This path won't match `>#text` patterns. The fix: ensure `isTextCompound()` correctly rejects compounds with non-structural complex values.
 
-**2. `RightPattern("")` is NOT a root matcher** — `matchesRight("")` calls `encodeToString().endsWith("")`, which is always true for any pointer. Use `RegexPattern("^$")` if you need to match the empty root path specifically.
+**2. `NbtList.isTextCompound()` can also fire** — Since the refactor, `NbtList` also checks `isTextCompound()`. A list containing only text-component elements gets extracted as a single SNBT block. This is correct behavior but can change extraction counts — if you see unexpected changes, check whether a list that previously yielded N individual paths now yields 1 combined text.
 
-**3. `Positions(N)` is 1-based** — `cmd[1]` in the Matches callback is `args[0]` (0-based). `Positions(5)` selects the 5th arg (1-based) = `args[4]` (0-based).
+**3. `RightPattern("")` is NOT a root matcher** — `matchesRight("")` calls `encodeToString().endsWith("")`, which is always true for any pointer. Use `RegexPattern("^$")` if you need to match the empty root path specifically.
 
-**4. Greedy selectors ignore postConditions** — `GreedyPositions(N)` extracts from position N to end of command without checking the postCondition. Use `NonGreedy` (`Positions`) with `Matches` if you need conditional extraction.
+**4. `Positions(N)` is 1-based** — `cmd[1]` in the Matches callback is `args[0]` (0-based). `Positions(5)` selects the 5th arg (1-based) = `args[4]` (0-based).
 
-**5. FormatKind filter in SNBT selection** — `selectSnbt()` filters extracted texts with `filter { it.kind == FormatKind.Nbt }`, which removes plain strings (FormatKind.Str) from NBT. Only text compounds survive this filter. Notably, `FormatKind.Str` entries from `SnbtString` values (e.g. `CustomName:'{"text":"hello"}'` stored as JSON string) are killed — they must be NBT compounds (e.g. `CustomName:{"text":"hello"}`) to be extracted as Nbt.
+**5. Greedy selectors ignore postConditions** — `GreedyPositions(N)` extracts from position N to end of command without checking the postCondition. Use `NonGreedy` (`Positions`) with `Matches` if you need conditional extraction.
 
-**6. Always check the wiki first before adding a command pattern** — Many commands that seem like they'd accept text components actually don't (waypoint, spreadplayers, damage, kill, fill, place). Verify at https://minecraft.wiki/w/Commands/<command>.
+**6. FormatKind filter in SNBT selection** — `selectSnbt()` filters extracted texts with `filter { it.kind == FormatKind.Nbt }`, which removes plain strings (FormatKind.Str) from NBT. Only text compounds survive this filter. Notably, `FormatKind.Str` entries from `SnbtString` values (e.g. `CustomName:'{"text":"hello"}'` stored as JSON string) are killed — they must be NBT compounds (e.g. `CustomName:{"text":"hello"}`) to be extracted as Nbt.
 
-**7. After completing any pattern task, update this guidance file** — Record new pitfalls discovered, changes to `Util.kt` ALL_FIELD/STRUCTURAL_FIELDS, new pattern strategies, wiki pages researched, and commands/entities/block-entities verified as not having text components (to avoid re-checking).
+**7. NbtList backfill with Terminator** — When a `NbtList` is extracted as a text component (via the new `NbtList.isTextCompound()` path), the backfill expects a `Terminator` replacement with `FormatKind.Nbt`. The `transform()` function now handles this case — `NbtList` branches check `decodeTerminatorOrNull<NbtList<NbtTag>>()` first before processing individual elements.
+
+**8. Always check the wiki first before adding a command pattern** — Many commands that seem like they'd accept text components actually don't (waypoint, spreadplayers, damage, kill, fill, place). Verify at https://minecraft.wiki/w/Commands/<command>.
+
+**9. After completing any pattern task, update this guidance file** — Record new pitfalls discovered, changes to `Util.kt` ALL_FIELD/STRUCTURAL_FIELDS, new pattern strategies, wiki pages researched, and commands/entities/block-entities verified as not having text components (to avoid re-checking).
+
+## Translator Rules
+
+### `extra/src/commonMain/kotlin/mct/extra/ai/translator/Translator.kt`
+
+The translator prompt includes these key constraints:
+- **No merging across semantic boundaries** (e.g. text wrapped by clickEvent/hoverEvent)
+- **No cross-line reordering** — line numbers must align exactly
+  - Example: `[0] BRING MIKE` + `[1] IF YOU GO TO` + `[2] THE SEWERS` must translate line-by-line, not be merged into one sentence
+- **No extra content** in output (no blank lines, no comments)
+- **String rules:** `%s`, `%d`, color codes (§), etc. must be preserved; literal `@` must remain `@` unless it starts a translation key

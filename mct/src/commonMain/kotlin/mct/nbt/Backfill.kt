@@ -23,11 +23,31 @@ private fun List<NbtTag>.toTCListStandardized() = map {
     }
 }.let { NbtList(it) }
 
+
 context(_: LoggerHolder)
-internal fun NbtTag.transform(
-    pointers: List<DataPointerReplacementGroup>,
-): NbtTag? = when (this) {
+private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminatorOrNull() =
+    firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.Nbt }
+        ?.let { terminator ->
+            terminator as DataPointerReplacementGroup.Terminator
+            try {
+                val x = Snbt.decodeFromString<T>(terminator.replacement)
+                x
+            } catch (e: Throwable) {
+                logger.error {
+                    "Cannot decode ${terminator.replacement} as SNBT: ${e.message}"
+                }
+                null
+            }
+        }
+
+
+context(_: LoggerHolder)
+internal fun NbtTag.transform(pointers: List<DataPointerReplacementGroup>): NbtTag? = when (this) {
     is NbtList<*> -> {
+        pointers.decodeTerminatorOrNull<NbtList<NbtTag>>()?.let {
+            return it
+        }
+
         val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.List>()
             .filter { it.point < size }
         if (isEmpty()) return this // safely first to infer type
@@ -40,19 +60,9 @@ internal fun NbtTag.transform(
     }
 
     is NbtCompound -> {
-        pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.Nbt }
-            ?.let { terminator ->
-                terminator as DataPointerReplacementGroup.Terminator
-
-                return try {
-                    Snbt.decodeFromString(terminator.replacement)
-                } catch (e: Throwable) {
-                    logger.error {
-                        "Cannot decode ${terminator.replacement} as SNBT" }
-                    null
-//                    throw e
-                }
-            }
+        pointers.decodeTerminatorOrNull<NbtCompound>()?.let {
+            return it
+        }
 
         val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
         val transformed = toMutableMap()
@@ -66,7 +76,8 @@ internal fun NbtTag.transform(
 
     is NbtString -> {
         val pointer =
-            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() } ?: return this
+            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() }
+                ?: return this
         pointer as DataPointerReplacementGroup.Terminator
         NbtString(pointer.replacement)
     }

@@ -18,8 +18,8 @@ class NbtDataPointerPatternTest : FreeSpec({
             shouldMatch(">#display>#Lore")
         }
 
-        "match lore component with index" {
-            shouldMatch(">#components>#minecraft:lore>2")
+        "match lore component" {
+            shouldMatch(">#components>#minecraft:lore")
         }
 
         "match lore component with raw" {
@@ -47,7 +47,7 @@ class NbtDataPointerPatternTest : FreeSpec({
         }
 
         "match sign back_text filtered_messages" {
-            shouldMatch(">#>#block_entities>5>#back_text>#filtered_messages>3")
+            shouldMatch(">#>#block_entities>5>#back_text>#filtered_messages")
         }
 
         "match block entity CustomName" {

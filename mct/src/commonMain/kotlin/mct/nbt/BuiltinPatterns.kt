@@ -19,7 +19,7 @@ val BuiltinNbtPatterns = PatternSet {
     +RegexPattern("#components>#minecraft:item_name(>#raw)?$")
     +RegexPattern("#components>#minecraft:text_display(>#raw)?$")
     +RegexPattern("#components>#minecraft:description(>#raw)?$")
-    +RegexPattern("""#components>#minecraft:lore>\d+(>#raw)?$""")
+    +RegexPattern("""#components>#minecraft:lore(>\d+>#raw)?$""")
     +RegexPattern("""#components>#minecraft:written_book_content>#(?:pages>\d+|title|author)(?:>#(?:raw|filtered))?$""")
     +RegexPattern("""#components>#minecraft:writable_book_content>#pages>\d+(?:>#(?:raw|filtered))?$""")
     +RegexPattern("""#components>#minecraft:custom_name(>#raw)?$""")
@@ -49,7 +49,7 @@ val BuiltinNbtPatterns = PatternSet {
 
     // --- Block Entities (Signs, Containers, Spawners) ---
     // 1. Signs (Front & Back)
-    +RegexPattern(""">#block_entities>\d+>#(front|back)_text>#(filtered_)?messages>\d+(>#raw)?$""")
+    +RegexPattern(""">#block_entities>\d+>#(front|back)_text>#(filtered_)?messages(>\d+>#raw)?$""")
 
     // 2. Container Names (Chests, Shulker Boxes, Hoppers)
     // These use 'CustomName' at the block entity root

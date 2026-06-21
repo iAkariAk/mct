@@ -15,7 +15,7 @@ class MCJDataPointerPatternTest : FreeSpec({
         }
 
         "match lore component with index" {
-            shouldMatch(">#components>#lore>0")
+            shouldMatch(">#components>#lore")
         }
 
         "match advancement title" {
@@ -31,7 +31,7 @@ class MCJDataPointerPatternTest : FreeSpec({
         }
 
         "match legacy item Lore" {
-            shouldMatch(">#display>#Lore>0")
+            shouldMatch(">#display>#Lore")
         }
 
         "match entity CustomName" {
@@ -39,15 +39,15 @@ class MCJDataPointerPatternTest : FreeSpec({
         }
 
         "match sign front_text messages" {
-            shouldMatch(">#front_text>#messages>0")
+            shouldMatch(">#front_text>#messages")
         }
 
         "match sign back_text messages" {
-            shouldMatch(">#back_text>#messages>3")
+            shouldMatch(">#back_text>#messages")
         }
 
         "match book pages" {
-            shouldMatch(">#pages>0")
+            shouldMatch(">#pages")
         }
 
         "match book title" {

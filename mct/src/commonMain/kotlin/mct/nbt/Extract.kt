@@ -57,43 +57,48 @@ private data class PointerWithExtension(
 }
 
 private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {
-    is NbtList<*> -> asSequence().withIndex().flatMap { (index, tag) ->
+    is NbtList<*> -> if (isTextCompound()) {
+        sequenceOf(
+            PointerWithExtension(
+                DataPointer.Terminator,
+                toSnbt(),
+                FormatKind.Nbt,
+            )
+        )
+    } else asSequence().withIndex().flatMap { (index, tag) ->
         tag.extractTextsByPointer().map {
             it.copy(pointer = it.pointer.markArray(index))
         }
     } // wrap inner pointer
 
-    is NbtCompound -> {
-        if (isTextCompound()) {
-            sequenceOf(PointerWithExtension(DataPointer.Terminator, toSnbt(), FormatKind.Nbt))
-        } else if (isTextCompoundShorthanded()) {
-            val map = toMutableMap()
-            val text = map.remove("")
-            map["text"] = text!!
-            val expanded = NbtCompound(map)
+    is NbtCompound -> if (isTextCompound()) {
+        sequenceOf(PointerWithExtension(DataPointer.Terminator, toSnbt(), FormatKind.Nbt))
+    } else if (isTextCompoundShorthanded()) {
+        val map = toMutableMap()
+        val text = map.remove("")
+        map["text"] = text!!
+        val expanded = NbtCompound(map)
 
-            sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Nbt))
-        } else {
-            asSequence().flatMap { (key, value) ->
-                if (key == "Command" && value is NbtString) {
-                    val pwe = PointerWithExtension(
-                        DataPointer.Map("Command", DataPointer.Terminator),
-                        value.value,
-                        FormatKind.PlainStr,
-                        PointerWithExtension.Type.Command
-                    )
-                    return@flatMap sequenceOf(pwe)
-                }
-                value.extractTextsByPointer().map {
-                    it.copy(pointer = it.pointer.markMap(key))
-                }
-            } // wrap inner pointer
-        }
+        sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Nbt))
+    } else {
+        asSequence().flatMap { (key, value) ->
+            if (key == "Command" && value is NbtString) {
+                val pwe = PointerWithExtension(
+                    DataPointer.Map("Command", DataPointer.Terminator),
+                    value.value,
+                    FormatKind.PlainStr,
+                    PointerWithExtension.Type.Command
+                )
+                return@flatMap sequenceOf(pwe)
+            }
+            value.extractTextsByPointer().map {
+                it.copy(pointer = it.pointer.markMap(key))
+            }
+        } // wrap inner pointer
     }
 
-    is NbtString -> {
-        sequenceOf(PointerWithExtension(DataPointer.Terminator, value, FormatKind.PlainStr))
-    }
+
+    is NbtString -> sequenceOf(PointerWithExtension(DataPointer.Terminator, value, FormatKind.PlainStr))
 
     else -> emptySequence()
 }

@@ -2,6 +2,8 @@ package mct.text
 
 import mct.util.snbt.SnbtString
 import mct.util.toRegex2
+import net.benwoodworth.knbt.NbtCompound
+import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 
 private val MAYBE_MAJOR_FIELDS = listOf(
@@ -58,10 +60,10 @@ internal fun Map<String, *>.isTextCompound() =
 
 internal fun List<*>.isTextCompound(): Boolean = all {
     @Suppress("UNCHECKED_CAST")
-    when (it) {
-        is String -> true
-        is List<*> -> it.isTextCompound()
-        is Map<*, *> -> it.keys.all { it is String }&& (it as Map<String, *>).isTextCompound()
+    when {
+        it is String || it is NbtString -> true
+        it is List<*> || it is NbtList<*> -> it.isTextCompound()
+        it is Map<*, *> || it is NbtCompound -> it.keys.all { it is String }&& (it as Map<String, *>).isTextCompound()
         else -> false
     }
 }
