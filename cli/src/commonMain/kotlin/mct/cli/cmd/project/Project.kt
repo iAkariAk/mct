@@ -22,6 +22,7 @@ import mct.MCTPattern
 import mct.MCTWorkspace
 import mct.cli.BaseCommand
 import mct.cli.NotifierHooks
+import mct.cli.panic
 import mct.cli.path
 import mct.cli.util.CURRENT_PATH
 import mct.command.BuiltinMCFPatterns
@@ -75,15 +76,15 @@ private class Init : BaseCommand(name = "init") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
         if ("/" in projectName || "\\" in projectName) {
-            throw PrintMessage("name cannot contain / or \\")
+            panic("name cannot contain / or \\")
         }
         val projectDir = ".".toPath() / projectName
         fs.createDirectories(projectDir)
         if (!fs.exists(mapDir)) {
-            throw PrintMessage("Source directory does not exist: $mapDir")
+            panic("Source directory does not exist: $mapDir")
         }
         if (!fs.exists(mapDir / "level.dat")) {
-            throw PrintMessage("Source directory is not a valid Minecraft world (level.dat not found): $mapDir")
+            panic("Source directory is not a valid Minecraft world (level.dat not found): $mapDir")
         }
         val srcTarget = projectDir / "src"
         if (fs.exists(srcTarget)) {
@@ -93,7 +94,7 @@ private class Init : BaseCommand(name = "init") {
             context(fs) { mapDir.copyToRecursively(srcTarget) }
         } catch (e: Exception) {
             terminal.println(red("Failed to copy world: ${e.message ?: "unknown error"}"))
-            throw PrintMessage("Failed to copy world: ${e.message ?: "unknown error"}")
+            panic("Failed to copy world: ${e.message ?: "unknown error"}")
         }
         val config = ProjectConfig(
             name = projectName,
@@ -117,7 +118,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     context(_: Raise<MCTError>)
     fun workspace(dir: Path = srcDir): MCTWorkspace {
         if (!fs.exists(dir / "level.dat")) {
-            throw PrintMessage("Source directory is not a valid Minecraft world: $dir")
+            panic("Source directory is not a valid Minecraft world: $dir")
         }
         return MCTWorkspace(dir, env)
     }
@@ -135,7 +136,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
     override suspend fun App() {
         fun requirePath(path: String, label: String): Path {
             val p = path.toPath()
-            if (!fs.exists(p)) throw PrintMessage("$label pattern file not found: $path")
+            if (!fs.exists(p)) panic("$label pattern file not found: $path")
             return p
         }
 
@@ -222,7 +223,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         val datapackFile = cache(DATAPACK_CACHE)
 
         if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
-            throw PrintMessage("No extractions found in cache. Run 'project update' first.")
+            panic("No extractions found in cache. Run 'project update' first.")
         }
 
         val extractionGroups = mutableListOf<ExtractionGroup>()
@@ -236,7 +237,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         }
 
         if (extractionGroups.isEmpty()) {
-            throw PrintMessage("All cache files are empty. Run 'project update' first.")
+            panic("All cache files are empty. Run 'project update' first.")
         }
         terminal.println(cyan("Total ${extractionGroups.size} extraction groups loaded"))
 
@@ -258,7 +259,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 
         val ai = projectConfig.ai
         if (ai.token.isBlank() || ai.token == AIConfig.Default.token) {
-            throw PrintMessage("AI token not configured. Set [ai.token] in mct.toml")
+            panic("AI token not configured. Set [ai.token] in mct.toml")
         }
 
         val translator = context(env) {
@@ -362,12 +363,12 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val datapackFile = cache(DATAPACK_CACHE)
 
         if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
-            throw PrintMessage("No extractions found in cache. Run 'project update' first.")
+            panic("No extractions found in cache. Run 'project update' first.")
         }
 
         val mappingFile = projectDir / projectConfig.mappings
         if (!fs.exists(mappingFile)) {
-            throw PrintMessage("No mapping found. Run 'project translate' first.")
+            panic("No mapping found. Run 'project translate' first.")
         }
         val mapping = mappingFile.readJson<TranslationMapping>()
         terminal.println(
@@ -387,7 +388,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
             emptyList()
         }
         if (regionGroups.isEmpty() && datapackGroups.isEmpty()) {
-            throw PrintMessage("All cache files are empty. Run 'project update' first.")
+            panic("All cache files are empty. Run 'project update' first.")
         }
 
         val regionReplacements = if (regionGroups.isNotEmpty()) {
@@ -418,7 +419,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
 
         val targetDir = projectDir / "build"
         if (!fs.exists(srcDir)) {
-            throw PrintMessage("Source world directory not found: $srcDir")
+            panic("Source world directory not found: $srcDir")
         }
         terminal.println(cyan("Copying world to $targetDir ..."))
         if (fs.exists(targetDir)) {
@@ -428,7 +429,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
             context(fs) { srcDir.copyToRecursively(targetDir) }
         } catch (e: Exception) {
             terminal.println(red("Failed to copy world: ${e.message ?: "unknown error"}"))
-            throw PrintMessage("Failed to copy world: ${e.message ?: "unknown error"}")
+            panic("Failed to copy world: ${e.message ?: "unknown error"}")
         }
         terminal.println(green("World copied."))
 

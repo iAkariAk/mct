@@ -16,6 +16,7 @@ import mct.MCTError
 import mct.cli.*
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
+import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
 import mct.kit.TranslationMapping
@@ -38,16 +39,14 @@ class Kit : SuspendingCliktCommand(name = "kit") {
 }
 
 private class TextPool : BaseCommand(
-    name = "text-pool",
-    help = "A tool helping you flatten and unflatten these nested extract"
+    name = "text-pool", help = "A tool helping you flatten and unflatten these nested extract"
 ) {
     init {
         subcommands(Flatten(), Unflatten())
     }
 
     private class Flatten : BaseCommand(
-        name = "flatten",
-        help = "Flatten extraction groups into a translation pool"
+        name = "flatten", help = "Flatten extraction groups into a translation pool"
     ) {
         val input by option("--input", "-i", help = "The extraction JSON file to flatten").path().required()
         val output by option("--output", "-o", help = "The output path for the translation pool JSON").path().required()
@@ -72,8 +71,7 @@ private class TextPool : BaseCommand(
 
 
     private class Unflatten : BaseCommand(
-        name = "unflatten",
-        help = "Apply translation mapping back into extraction groups"
+        name = "unflatten", help = "Apply translation mapping back into extraction groups"
     ) {
 
         val input by option("--input", "-i", help = "The extraction JSON file to unflatten").path().required()
@@ -90,8 +88,7 @@ private class TextPool : BaseCommand(
             val map: TranslationMapping = mapping.jsonFile()
             logger.info { "Loaded mapping with ${map.size} entries" }
 
-            @Suppress("UNCHECKED_CAST")
-            val result: List<ReplacementGroup> = groups.replace(map)
+            @Suppress("UNCHECKED_CAST") val result: List<ReplacementGroup> = groups.replace(map)
             logger.info { "Writing ${result.size} replacement groups to $output" }
 
             output.writeJson(result)
@@ -101,8 +98,7 @@ private class TextPool : BaseCommand(
 
 
 private class ExportSnbt : WorkspaceCommand(
-    name = "export-snbt",
-    help = "A tool helping you extract all nbt from region files"
+    name = "export-snbt", help = "A tool helping you extract all nbt from region files"
 ) {
     val output by option("--output", "-o", help = "The dir where the extracted snbt will be placed").path().required()
 
@@ -116,15 +112,11 @@ private class ExportSnbt : WorkspaceCommand(
 
 private class ReplaceAll : BaseCommand(name = "replace-all") {
     val input by option(
-        "--input",
-        "-i",
-        help = "The path to what you want to replace extractions with a specified string"
+        "--input", "-i", help = "The path to what you want to replace extractions with a specified string"
     ).path().required()
     val output by option("--output", "-o", help = "The output path").path().required()
     val replacement by option(
-        "--replacement",
-        "-r",
-        help = "The replacement which will replace extraction"
+        "--replacement", "-r", help = "The replacement which will replace extraction"
     ).default("\"MCT\"")
 
     context(_: Raise<MCTError>)
@@ -139,17 +131,9 @@ private class ReplaceAll : BaseCommand(name = "replace-all") {
     }
 }
 
-private class TermExtract : BaseCommand(
-    name = "term-extract",
-    help = "Extract term from text pool"
-) {
-    val input by option("--input", "-i", help = "The path to the JSON file oftext pool").path().required()
-    val termCaches by option(
-        "--term-caches",
-        "-c",
-        help = "The term file exported by the follow `--output`. Default: no terms"
-    ).path()
-    val output by option("--output", "-o", help = "The output path for the term table JSON").path().required()
+private open class AICommand(
+    name: String? = null, help: String? = null,
+) : BaseCommand(name = name, help = help) {
     val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
     val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
     val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
@@ -159,9 +143,7 @@ private class TermExtract : BaseCommand(
         help = "Using streaming API can solve some api empty response, but maybe will slow down translation."
     ).flag(default = false)
     val tokenThreshold by option(
-        "--token-treshold",
-        envvar = "OPENAI_TOKEN_THRESHOLD",
-        help = "The token threshold amount per request."
+        "--token-treshold", envvar = "OPENAI_TOKEN_THRESHOLD", help = "The token threshold amount per request."
     ).int().default(TOKEN_COUNT_THRESHOLD)
 
     val enableHttpLogging by option("--http-logging", envvar = "Enable all HTTP logging").flag()
@@ -171,6 +153,32 @@ private class TermExtract : BaseCommand(
         envvar = "CONCURRENCY",
         help = "Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective)"
     ).int().default(1)
+    val temperature by option(
+        "--temperature", envvar = "OPENAI_TEMPERATURE", help = "Temperature for the model (0.0-2.0)"
+    ).double()
+
+    context(_: Raise<ChatCompletionCallError>)
+    suspend fun creatCall() = context(env) {
+        ChatCompletionCall(
+            apiUrl = apiUrl,
+            token = token,
+            model = model,
+            useStreamApi = useStreamApi,
+            temperature = temperature,
+            logLevel = if (enableHttpLogging) LogLevel.All else LogLevel.None,
+        )
+    }
+}
+
+
+private class TermExtract : AICommand(
+    name = "term-extract", help = "Extract term from text pool"
+) {
+    val input by option("--input", "-i", help = "The path to the JSON file oftext pool").path().required()
+    val termCaches by option(
+        "--term-caches", "-c", help = "The term file exported by the follow `--output`. Default: no terms"
+    ).path()
+    val output by option("--output", "-o", help = "The output path for the term table JSON").path().required()
 
     val targetLanguage by option(
         "--target-language",
@@ -179,13 +187,6 @@ private class TermExtract : BaseCommand(
     ).default(
         CustomizedPrompts.targetLanguage
     )
-
-    val temperature by option(
-        "--temperature",
-        envvar = "OPENAI_TEMPERATURE",
-        help = "Temperature for the model (0.0-2.0)"
-    ).double()
-
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -199,22 +200,13 @@ private class TermExtract : BaseCommand(
             }
         }
 
-        val extractor = context(env) {
-            val call = ChatCompletionCall(
-                apiUrl = apiUrl,
-                token = token,
-                model = model,
-                useStreamApi = useStreamApi,
-                temperature = temperature,
-                logLevel = if (enableHttpLogging) LogLevel.All else LogLevel.None,
-            )
-            TermExtractor(
-                call = call,
-                defaultTerms = termCaches,
-                tokenThreshold = tokenThreshold,
-                concurrency = concurrency,
-            )
-        }
+        val extractor = TermExtractor(
+            call = creatCall(),
+            defaultTerms = termCaches,
+            tokenThreshold = tokenThreshold,
+            targetLanguage = targetLanguage,
+            concurrency = concurrency,
+        )
 
         logger.info { "Starting extraction..." }
         val terms = extractor.extract(texts) { terms ->
@@ -225,71 +217,34 @@ private class TermExtract : BaseCommand(
     }
 }
 
-private class AITranslate : BaseCommand(
-    name = "translate",
-    help = "Translate via OpenAI api"
+private class AITranslate : AICommand(
+    name = "translate", help = "Translate via OpenAI api"
 ) {
     val input by option("--input", "-i", help = "The extraction JSON file to translate").path().required()
     val caches by option(
-        "--cache-mapping",
-        "-cm",
-        help = "The cache mapping file exported by the follow `--mapping`. By default"
+        "--cache-mapping", "-cm", help = "The cache mapping file exported by the follow `--mapping`. By default"
     ).path()
     val output by option("--output", "-o", help = "The output path for the replacements JSON").path().required()
     val mappingOutput by option("--output-mapping", "-om", help = "The output path for the mapping JSON").path()
         .required()
     val termOutput by option("--output-term", "-ot", help = "The output path for the term table JSON").path().required()
     val term by option("--term", help = "Path to an existing term table JSON file").path()
-    val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
-    val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
-    val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
-    val useStreamApi by option(
-        "--use-stream-api",
-        envvar = "OPENAI_STREAM_API",
-        help = "Using streaming API can solve some api empty response, but maybe will slow down translation."
-    ).flag(default = false)
-    val tokenThreshold by option(
-        "--token-treshold",
-        envvar = "OPENAI_TOKEN_THRESHOLD",
-        help = "The token threshold amount per request."
-    ).int().default(TOKEN_COUNT_THRESHOLD)
 
-    val enableHttpLogging by option("--http-logging", envvar = "Enable all HTTP logging").flag()
-    val concurrency: Int by option(
-        "--concurrency",
-        "-C",
-        envvar = "CONCURRENCY",
-        help = "Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective)"
-    ).int().default(1)
-
-    val concurrentByKind by option("--concurrent-by-kind", "-K", envvar = "CONCURRENT_BY_KINDS").flag()
+    val concurrentByKind by option("--concurrent-by-kind", "-K").flag()
 
     val literatureStyle by option(
-        "--literature-style",
-        envvar = "LITERATURE_STYLE",
-        help = "Custom literature style prompt for translation"
+        "--literature-style", help = "Custom literature style prompt for translation"
     ).default(
         CustomizedPrompts.literatureStyle
     )
 
     val targetLanguage by option(
-        "--target-language",
-        envvar = "TARGET_LANGUAGE",
-        help = "Target language for translation (e.g. 简体中文, English, 日本語)"
+        "--target-language", help = "Target language for translation (e.g. 简体中文, English, 日本語)"
     ).default(
         CustomizedPrompts.targetLanguage
     )
-
-    val temperature by option(
-        "--temperature",
-        envvar = "OPENAI_TEMPERATURE",
-        help = "Temperature for the model (0.0-2.0)"
-    ).double()
-
     val handleGradient by option(
-        "--handle-gradient",
-        envvar = "HANDLE_GRADIENT",
-        help = "Enable aggressive gradient text handling"
+        "--handle-gradient", help = "Enable aggressive gradient text handling"
     ).flag()
 
 
@@ -308,27 +263,18 @@ private class AITranslate : BaseCommand(
 
         logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
 
-        val translator = context(env) {
-            val call = ChatCompletionCall(
-                apiUrl = apiUrl,
-                token = token,
-                model = model,
-                useStreamApi = useStreamApi,
-                temperature = temperature,
-                logLevel = if (enableHttpLogging) LogLevel.All else LogLevel.None,
-            )
-            Translator(
-                call = call,
-                customizedPrompts = CustomizedPrompts(
-                    literatureStyle = literatureStyle,
-                    targetLanguage = targetLanguage,
-                    handleGradientAggressively = handleGradient,
-                ),
-                defaultTerms = terms,
-                tokenThreshold = tokenThreshold,
-                concurrency = concurrency,
-            )
-        }
+        val translator = Translator(
+            call = creatCall(),
+            customizedPrompts = CustomizedPrompts(
+                literatureStyle = literatureStyle,
+                targetLanguage = targetLanguage,
+                handleGradientAggressively = handleGradient,
+            ),
+            defaultTerms = terms,
+            tokenThreshold = tokenThreshold,
+            concurrency = concurrency,
+        )
+
 
         logger.info { "Starting translation..." }
         val mapping = translator.translate(extractionGroups, caches, concurrentByKind) { terms, salvaged ->

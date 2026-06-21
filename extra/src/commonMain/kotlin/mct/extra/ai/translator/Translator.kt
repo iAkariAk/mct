@@ -12,7 +12,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import mct.Env
 import mct.EnvHolder
 import mct.extra.ai.*
 import mct.model.patch.*
@@ -233,7 +232,6 @@ class Translator internal constructor(
     val concurrency: Int = 1,
 ) : EnvHolder {
     companion object {
-        context(env: Env)
         operator fun invoke(
             call: ChatCompletionCall,
             defaultTerms: TermTable = emptySet(),

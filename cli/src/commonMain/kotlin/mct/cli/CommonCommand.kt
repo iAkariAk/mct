@@ -1,20 +1,26 @@
 package mct.cli
 
 import arrow.continuations.SuspendApp
+import arrow.core.Either
 import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.either
+import arrow.core.raise.recover
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.groups.default
 import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.mordant.rendering.TextColors
 import kotlinx.coroutines.CancellationException
 import mct.*
 import mct.util.SystemFileSystem
 import okio.Path.Companion.toPath
+
+private object NoError
 
 abstract class BaseCommand(
     val name: String? = null,
@@ -44,18 +50,24 @@ abstract class BaseCommand(
 
     val cacheDir by option("--cache-dir", help = "Path to cache directory").path().default(".".toPath())
 
-    override suspend fun run() = try {
-        SuspendApp {
-            either {
-                context(fs) {
+    override suspend fun run(): Unit = recover(
+        block = {
+            Either.catch {
+                SuspendApp {
                     App()
                 }
-            }.onLeft { error ->
-                throw CliktError(error.message)
             }
+        },
+        recover = {
+            val message = when (it) {
+                is CancellationException /* arrow.continuations.SuspendAppShutdown */ -> return
+                is Throwable -> it.message
+                is MCTError -> it.message
+            }
+            terminal.println(TextColors.red(message))
         }
-    } catch (_: CancellationException) { // arrow.continuations.SuspendAppShutdown:
-    }
+    )
+
 
     context(_: Raise<MCTError>)
     protected open suspend fun App() = Unit
