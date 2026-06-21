@@ -40,6 +40,11 @@ fun MCTWorkspace.extractFromDatapack(
         add(::NbtExtractor)
     }
 
+    if (!fs.exists(datapackDir)) {
+        logger.error { "Datapacks directory doesn't exist" }
+        return emptyFlow()
+    }
+
     return fs.list(datapackDir)
         .asFlow()
         .mapNotNull {
