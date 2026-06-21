@@ -1,7 +1,9 @@
 package mct.extra.ai
 
 import arrow.atomic.AtomicInt
-import arrow.core.raise.context.*
+import arrow.core.raise.context.Raise
+import arrow.core.raise.context.ensure
+import arrow.core.raise.context.raise
 import com.aallam.openai.api.chat.*
 import com.aallam.openai.api.core.Usage
 import com.aallam.openai.api.exception.GenericIOException
@@ -185,14 +187,12 @@ class ChatCompletionCallImpl internal constructor(
                         noticeTokenConsume(it.usage)
                     }
                     .mapNotNull { chatCompletionChunk ->
-                        nullable {
-                            val choice = chatCompletionChunk.choices.firstOrNull().bind()
-                            val delta = choice.delta.bind()
-                            val usage = chatCompletionChunk.usage
-                            val terminated = usage != null
-                            postReasoning(delta.reasoningContent, callId, terminated, usage?.totalTokens)
-                            delta.content
-                        }
+                        val choice = chatCompletionChunk.choices.firstOrNull() ?: return@mapNotNull null
+                        val delta = choice.delta ?: return@mapNotNull null
+                        val usage = chatCompletionChunk.usage
+                        val terminated = choice.finishReason != null
+                        postReasoning(delta.reasoningContent, callId, terminated, usage?.totalTokens)
+                        delta.content
                     }
                     .fold(StringBuilder()) { acc, content -> acc.append(content) }
                     .toString()
@@ -237,8 +237,13 @@ private fun EnvHolder.noticeTokenConsume(usage: Usage?) {
     }
 }
 
-private fun EnvHolder.postReasoning(reasoningContent: String?, id: Int, terminated: Boolean, consumeTokenCount: Int? = null) {
-    reasoningContent?.let {
-        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent, id, terminated, consumeTokenCount) })
+private fun EnvHolder.postReasoning(
+    reasoningContent: String?,
+    id: Int,
+    terminated: Boolean,
+    consumeTokenCount: Int? = null
+) {
+    if (reasoningContent != null || terminated) {
+        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent ?: "", id, terminated, consumeTokenCount) })
     }
 }

@@ -145,19 +145,19 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
         }.ifEmpty { BuiltinNbtPatterns }
 
         val mcfPatterns = projectConfig.patterns.mcfunction.map {
-            requirePath(it, "Mcfunction").readJson<CommandExtractPattern>()
+            requirePath(it, "MCFunction").readJson<CommandExtractPattern>()
         }.let { if (it.isEmpty()) BuiltinMCFPatterns else it.compile() }
 
         val mcfDataPatterns = projectConfig.patterns.mcfunctionData.flatMap {
-            requirePath(it, "Mcfunction data").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "MCFunction data").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCFunctionDataPatterns }
 
         val mcjPatterns = projectConfig.patterns.mcjson.flatMap {
-            requirePath(it, "Mcjson").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "MCJson").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCJPatterns }
 
         val mcfunctionRegexPatterns = projectConfig.patterns.mcfunctionRegex.flatMap {
-            requirePath(it, "Mcfunction regex").readJson<List<RegexPattern>>()
+            requirePath(it, "MCFunction regex").readJson<List<RegexPattern>>()
         }
 
         val w = workspace()
@@ -301,7 +301,10 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 is AiSign.Reasoning -> {
                     val sb = thinkings.getOrPut(it.id) { StringBuilder() }
                     if (it.terminated) {
-                        outputThinking(it.id, sb.toString(), it.consumeTokenCount!!)
+                        val content = sb.toString()
+                        if (content.isNotEmpty()) {
+                            outputThinking(it.id, content, it.consumeTokenCount!!)
+                        }
                         thinkings.remove(it.id)
                     } else {
                         sb.append(it.reasoningContent)

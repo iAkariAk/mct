@@ -20,7 +20,7 @@ internal val MCJson = Json {
 
 internal fun MCJsonExtractor(
     pattern: MCTPattern,
-) = Extractor("MCJson", ".json") { sourcePath, zfs, zpath ->
+) = Extractor("MCJson", "json") { sourcePath, zfs, zpath ->
     val text = zfs.read(zpath) { readUtf8() }
     extractTextMCJ(
         text,

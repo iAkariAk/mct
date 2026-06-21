@@ -218,7 +218,8 @@ val BuiltinMCFPatterns = PatternSet {
                     arg.content.contains("\"text\"") ||
                             arg.content.contains("'text'") ||
                             arg.content.contains("item_name") ||
-                            arg.content.contains("custom_name")
+                            arg.content.contains("custom_name") ||
+                            arg.content.contains("lore")
                 }
             }
         }
