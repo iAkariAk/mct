@@ -1,5 +1,6 @@
 package mct.extra.ai.translator
 
+import arrow.atomic.AtomicBoolean
 import arrow.core.Option
 import arrow.core.raise.Raise
 import kotlinx.coroutines.*
@@ -526,7 +527,7 @@ suspend fun Translator.translate(
             }
         } else block(mapping::putAll)
     }
-
+    val cancelled = AtomicBoolean(false)
     extractions.forEach { (kind, extractions) ->
         execute { append ->
             val sources = extractions.asSequence().flatMap {
@@ -540,7 +541,9 @@ suspend fun Translator.translate(
                         }
                     }
                 }
-                onCancel(terms, mapping + salvaged)
+                if (cancelled.compareAndSet(false, true)) {
+                    onCancel(terms, mapping + salvaged)
+                }
             }
             append(sources.zip(translated))
         }

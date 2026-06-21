@@ -1,5 +1,6 @@
 package mct.extra.ai.translator
 
+import arrow.atomic.AtomicBoolean
 import arrow.core.raise.context.Raise
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
@@ -47,6 +48,7 @@ class TermExtractor(
 
         val chunks = source.chunkedByToken(tokenThreshold)
         coroutineScope {
+            val cancelled = AtomicBoolean(false)
             chunks.asIterable().forEachConcurrently(
                 concurrency,
                 Dispatchers.IO,
@@ -66,7 +68,9 @@ class TermExtractor(
                 } catch (e: CancellationException) {
                     try {
                         withContext(NonCancellable) {
-                            onCancel(terms)
+                            if (cancelled.compareAndSet(false, true)) {
+                                onCancel(terms)
+                            }
                         }
                     } finally {
                         throw e
