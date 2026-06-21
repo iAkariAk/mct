@@ -4,9 +4,7 @@ import arrow.core.Option
 import arrow.core.raise.Raise
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -16,10 +14,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import mct.Env
 import mct.EnvHolder
-import mct.extra.ai.ChatCompletionCall
-import mct.extra.ai.ChatCompletionCallError
-import mct.extra.ai.TOKEN_COUNT_THRESHOLD
-import mct.extra.ai.chunkedByToken
+import mct.extra.ai.*
 import mct.model.patch.*
 import mct.notify
 import mct.serializer.MCTJson
@@ -112,8 +107,10 @@ Kaguya => 辉夜姬
 - 保留所有结构：字段名、键名、对象/数组、方括号/花括号/逗号、引号类型
 - 保留所有转义序列（如 \n、\"、\\）
 - 输出必须是结构合法的 JSON/SNBT
-- 不翻译命令关键字等非文本部分（如命令中的 spawner）${if (prompts.handleGradientAggressively) """
-- 唯一例外：启用「渐变色激进策略」时，允许对渐变文本组件的颜色数组进行插值调整（见规则 3 补充条款），其他结构保护不变""" else ""}
+- 不翻译命令关键字等非文本部分（如命令中的 spawner）${
+        if (prompts.handleGradientAggressively) """
+- 唯一例外：启用「渐变色激进策略」时，允许对渐变文本组件的颜色数组进行插值调整（见规则 3 补充条款），其他结构保护不变""" else ""
+    }
 
 ### 规则 2 — 翻译范围
 只翻译字符串值中的 **自然语言** 部分。
@@ -206,11 +203,13 @@ ${prompts.literatureStyle}
 - 宁可少翻译一行，也不能破坏数据结构的完整性
 
 ## 本次输入类型
-${when (kind) {
-    FormatKind.PlainStr -> "纯文本或 Minecraft 命令等字面量"
-    FormatKind.JsonStr -> "JSON 格式"
-    FormatKind.SnbtStr, FormatKind.Nbt -> "SNBT 格式"
-}}
+${
+        when (kind) {
+            FormatKind.PlainStr -> "纯文本或 Minecraft 命令等字面量"
+            FormatKind.JsonStr -> "JSON 格式"
+            FormatKind.SnbtStr, FormatKind.Nbt -> "SNBT 格式"
+        }
+    }
 
 """
 
@@ -331,32 +330,21 @@ class Translator internal constructor(
             notifier.notify<TranslateSign> { TranslateSign.Progress(pct) }
         }
 
-        suspend fun processChunkAndCancellation(
-            chunkIndex: Int,
-            chunk: MutableList<IndexedValue<String>>
-        ) {
+        chunks.withIndex().forEachConcurrently<IndexedValue<MutableList<IndexedValue<String>>>, Unit>(
+            concurrency,
+            Dispatchers.IO,
+            { _ -> },
+        ) { (chunkIndex, chunk), _ ->
             try {
                 processChunk(chunkIndex, chunk)
             } catch (e: CancellationException) {
                 logger.error { "Translation was cancelled." }
-                withContext(NonCancellable) {
-                    onCancel(translated)
-                }
-                throw e
-            }
-        }
-
-        if (concurrency <= 1) {
-            for ((chunkIndex, chunk) in chunks.withIndex()) {
-                processChunkAndCancellation(chunkIndex, chunk)
-            }
-        } else {
-            val semaphore = Semaphore(concurrency)
-            for ((chunkIndex, chunk) in chunks.withIndex()) {
-                launch(Dispatchers.IO) {
-                    semaphore.withPermit {
-                        processChunkAndCancellation(chunkIndex, chunk)
+                try {
+                    withContext(NonCancellable) {
+                        onCancel(translated)
                     }
+                } finally {
+                    throw e
                 }
             }
         }

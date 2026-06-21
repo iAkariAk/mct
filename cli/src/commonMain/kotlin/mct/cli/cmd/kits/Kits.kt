@@ -17,10 +17,7 @@ import mct.cli.*
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
-import mct.extra.ai.translator.CustomizedPrompts
-import mct.extra.ai.translator.TermTable
-import mct.extra.ai.translator.Translator
-import mct.extra.ai.translator.translate
+import mct.extra.ai.translator.*
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
@@ -32,7 +29,7 @@ import mct.util.unreachable
 
 class Kit : SuspendingCliktCommand(name = "kit") {
     init {
-        subcommands(ExportSnbt(), ReplaceAll(), TextPool(), AITranslate())
+        subcommands(ExportSnbt(), ReplaceAll(), TextPool(), TermExtract(), AITranslate())
     }
 
     override fun help(context: Context) = "Some helpful tool"
@@ -142,6 +139,92 @@ private class ReplaceAll : BaseCommand(name = "replace-all") {
     }
 }
 
+private class TermExtract : BaseCommand(
+    name = "term-extract",
+    help = "Extract term from text pool"
+) {
+    val input by option("--input", "-i", help = "The path to the JSON file oftext pool").path().required()
+    val termCaches by option(
+        "--term-caches",
+        "-c",
+        help = "The term file exported by the follow `--output`. Default: no terms"
+    ).path()
+    val output by option("--output", "-o", help = "The output path for the term table JSON").path().required()
+    val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
+    val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
+    val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
+    val useStreamApi by option(
+        "--use-stream-api",
+        envvar = "OPENAI_STREAM_API",
+        help = "Using streaming API can solve some api empty response, but maybe will slow down translation."
+    ).flag(default = false)
+    val tokenThreshold by option(
+        "--token-treshold",
+        envvar = "OPENAI_TOKEN_THRESHOLD",
+        help = "The token threshold amount per request."
+    ).int().default(TOKEN_COUNT_THRESHOLD)
+
+    val enableHttpLogging by option("--http-logging", envvar = "Enable all HTTP logging").flag()
+    val concurrency: Int by option(
+        "--concurrency",
+        "-C",
+        envvar = "CONCURRENCY",
+        help = "Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective)"
+    ).int().default(1)
+
+    val targetLanguage by option(
+        "--target-language",
+        envvar = "TARGET_LANGUAGE",
+        help = "Target language for translation (e.g. 简体中文, English, 日本語)"
+    ).default(
+        CustomizedPrompts.targetLanguage
+    )
+
+    val temperature by option(
+        "--temperature",
+        envvar = "OPENAI_TEMPERATURE",
+        help = "Temperature for the model (0.0-2.0)"
+    ).double()
+
+
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        logger.info { "Loading text from $input" }
+        val texts = input.jsonFile<TranslationPool>()
+        val termCaches = this@TermExtract.termCaches.jsonFile<TermTable>(emptySet())
+        var consumedTokenCount = 0
+        NotifierHooks.onAiSign {
+            if (it is AiSign.ConsumeToken) {
+                consumedTokenCount += it.count
+            }
+        }
+
+        val extractor = context(env) {
+            val call = ChatCompletionCall(
+                apiUrl = apiUrl,
+                token = token,
+                model = model,
+                useStreamApi = useStreamApi,
+                temperature = temperature,
+                logLevel = if (enableHttpLogging) LogLevel.All else LogLevel.None,
+            )
+            TermExtractor(
+                call = call,
+                defaultTerms = termCaches,
+                tokenThreshold = tokenThreshold,
+                concurrency = concurrency,
+            )
+        }
+
+        logger.info { "Starting extraction..." }
+        val terms = extractor.extract(texts) { terms ->
+            logger.info { "Salvage ${terms.size} terms" }
+        }
+        output.writeJson(terms)
+        logger.info { "Extraction done, ${terms.size} terms, and consume $consumedTokenCount tokens." }
+    }
+}
+
 private class AITranslate : BaseCommand(
     name = "translate",
     help = "Translate via OpenAI api"
@@ -208,7 +291,6 @@ private class AITranslate : BaseCommand(
         envvar = "HANDLE_GRADIENT",
         help = "Enable aggressive gradient text handling"
     ).flag()
-
 
 
     context(_: Raise<MCTError>)
