@@ -26,7 +26,7 @@ subprojects {
                 "-Xcontext-parameters",
                 "-Xcollection-literals",
                 "-Xintrinsic-const-evaluation",
-                "-Xwarning-level=NOTHING_TO_INLINE:disabled"
+                "-Xwarning-level=NOTHING_TO_INLINE:disabled,EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING:disabled"
             )
             optIn.addAll(
                 "kotlinx.coroutines.ExperimentalCoroutinesApi",
