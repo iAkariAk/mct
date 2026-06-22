@@ -29,7 +29,8 @@ class SnbtLexer(private val string: String) {
         val ch = peek()!!
         return when (ch) {
             '"', '\'' -> readString(ch)
-            '-', '.', in '0'..'9' -> readNumber()
+            '.' -> if (peek(1)?.isDigit() ?: false) readNumber() else readLiteral()
+            '-', in '0'..'9' -> readNumber()
             ',' -> singleChar(SnbtTokenType.COMMA)
             ':' -> singleChar(SnbtTokenType.COLON)
             ';' -> singleChar(SnbtTokenType.SEMICOLON)

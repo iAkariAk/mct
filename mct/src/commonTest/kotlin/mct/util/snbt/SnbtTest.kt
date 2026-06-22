@@ -78,4 +78,10 @@ class SnbtTest : FreeSpec({
             parseTest("""{Name:generic.max_health,Base:10}""")
         }
     }
+
+    "dot literal list" {
+        parseTest("""
+            {Dialog:[I,t," ",w,i,l,l," ",b,e," ",w,o,n,d,e,r,f,u,l,.]}
+        """.trimIndent())
+    }
 })
