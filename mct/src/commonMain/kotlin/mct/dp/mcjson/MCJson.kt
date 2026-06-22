@@ -35,7 +35,7 @@ internal fun extractTextMCJ(
     json: String,
     source: String,
     path: String,
-    patterns: List<DataPointerPattern>? = BuiltinMCJPatterns
+    patterns: List<DataPointerPattern>? = BuiltinMCJPatterns,
 ): Sequence<MCJsonExtraction> = try {
     val standard = standardizeMCJson(json)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standard)
@@ -86,25 +86,35 @@ internal fun standardizeMCJson(mcjson: String): String {
     while (i < mcjson.length) {
         val c = chars[i]
         when (c) {
-            '\'' if !inDoubleQuote -> {
-                inSingleQuote = !inSingleQuote
-                result.append('"')
-            }
-
-            '"' -> when {
-                inSingleQuote -> result.append("\\\"")
-                inDoubleQuote -> {
-                    result.append("\"")
-                    inDoubleQuote = !inDoubleQuote
+            '\'' if !inDoubleQuote -> when {
+                inSingleQuote -> {
+                    inSingleQuote = false
+                    result.append('"')
                 }
 
-                else -> result.append("\"")
+                !inSingleQuote -> {
+                    inSingleQuote = true
+                    result.append('"')
+                }
             }
 
-            '\\' if inSingleQuote && i + 1 < mcjson.length && chars[i + 1] == '\'' -> {
-                result.append('\'')
-                i++
+            '"'  -> when {
+                inSingleQuote -> {
+                    result.append("\\\"")
+                }
+
+                inDoubleQuote -> {
+                    inDoubleQuote = false
+                    result.append(c)
+                }
+
+                !inDoubleQuote -> {
+                    inDoubleQuote = true
+                    result.append(c)
+                }
             }
+
+            '\\' if inSingleQuote && i + 1 < chars.size && chars[i + 1] != '\'' -> result.append("\\\\")
 
             else -> result.append(c)
         }
