@@ -4,7 +4,6 @@ import arrow.core.raise.Raise
 import com.aallam.openai.api.logging.LogLevel
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.Context
-import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
@@ -104,14 +103,14 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     val projectConfig by lazy {
         val toml = projectDir / "mct.toml"
         if (!fs.exists(toml)) {
-            throw PrintMessage("Not a project directory (mct.toml not found). Run 'project init' first.")
+            panic("Not a project directory (mct.toml not found). Run 'project init' first.")
         }
         toml.readToml<ProjectConfig>()
     }
     val patterns get() = projectConfig.patterns
     val ai by lazy {
         if (projectConfig.ai.token.isBlank() || projectConfig.ai.token == AIConfig.Default.token) {
-            throw PrintMessage("AI token not configured. Set [ai.token] in mct.toml")
+            panic("AI token not configured. Set [ai.token] in mct.toml")
         }
         projectConfig.ai
     }

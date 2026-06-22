@@ -7,7 +7,6 @@ import arrow.core.raise.either
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.Context
-import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.groups.default
 import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
@@ -58,7 +57,7 @@ abstract class BaseCommand(
             }
         }
     } catch (_: CancellationException) {
-    } catch (e: PrintMessage) {
+    } catch (e: Panic) {
         terminal.println(TextColors.red(e.message ?: ""))
     }
 
