@@ -20,10 +20,7 @@ import kotlinx.coroutines.flow.toList
 import mct.MCTError
 import mct.MCTPattern
 import mct.MCTWorkspace
-import mct.cli.BaseCommand
-import mct.cli.NotifierHooks
-import mct.cli.panic
-import mct.cli.path
+import mct.cli.*
 import mct.cli.util.CURRENT_PATH
 import mct.command.BuiltinMCFPatterns
 import mct.command.BuiltinMCFunctionDataPatterns
@@ -35,11 +32,9 @@ import mct.dp.extractFromDatapack
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
-import mct.extra.ai.translator.CustomizedPrompts
-import mct.extra.ai.translator.TermTable
-import mct.extra.ai.translator.Translator
-import mct.extra.ai.translator.translate
+import mct.extra.ai.translator.*
 import mct.kit.TranslationMapping
+import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
 import mct.model.patch.*
 import mct.nbt.BuiltinNbtPatterns
@@ -60,7 +55,7 @@ private const val DATAPACK_REPLACEMENTS = "datapack_replacements.json"
 
 class Project : SuspendingCliktCommand(name = "project") {
     init {
-        subcommands(Init(), Update(), Translate(), Build())
+        subcommands(Init(), Update(), TermExtract(), Translate(), Build())
     }
 
     override fun help(context: Context) = "Project manager"
@@ -93,14 +88,14 @@ private class Init : BaseCommand(name = "init") {
         try {
             context(fs) { mapDir.copyToRecursively(srcTarget) }
         } catch (e: Exception) {
-            terminal.println(red("Failed to copy world: ${e.message ?: "unknown error"}"))
+            printlnRed("Failed to copy world: ${e.message ?: "unknown error"}")
             panic("Failed to copy world: ${e.message ?: "unknown error"}")
         }
         val config = ProjectConfig(
             name = projectName,
         )
         (projectDir / "mct.toml").writeToml(config)
-        terminal.println(green("Project '$projectName' created at $projectDir"))
+        printlnGreen("Project '$projectName' created at $projectDir")
     }
 }
 
@@ -113,7 +108,19 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
         }
         toml.readToml<ProjectConfig>()
     }
+    val patterns get() = projectConfig.patterns
+    val ai by lazy {
+        if (projectConfig.ai.token.isBlank() || projectConfig.ai.token == AIConfig.Default.token) {
+            throw PrintMessage("AI token not configured. Set [ai.token] in mct.toml")
+        }
+        projectConfig.ai
+    }
     val srcDir = projectDir / "src"
+    val missingFile = projectDir / MISSING
+    val regionFile by lazy { cache(REGION_CACHE) }
+    val datapackFile by lazy { cache(DATAPACK_CACHE) }
+    val termsFile get() = projectDir / projectConfig.terms
+    val mappingFile get() = projectDir / projectConfig.mappings
 
     context(_: Raise<MCTError>)
     fun workspace(dir: Path = srcDir): MCTWorkspace {
@@ -129,7 +136,69 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     }
 
     fun ensureCache() = fs.createDirectories(projectDir / "cache")
+
+    context(_: Raise<MCTError>)
+    fun ensureExtracted() {
+        if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
+            panic("No extractions found in cache. Run 'project update' first.")
+        }
+    }
+
+    context(_: Raise<MCTError>)
+    suspend fun createCall() = context(env) {
+        ChatCompletionCall(
+            apiUrl = ai.apiUrl,
+            token = ai.token,
+            model = ai.model,
+            useStreamApi = ai.useStreamApi,
+            temperature = ai.temperature,
+            logLevel = if (ai.enableHttpLogging) LogLevel.All else LogLevel.None,
+        )
+    }
+
+    fun registerLLMOutput(): LLMOutput {
+        val output = object : LLMOutput {
+            override var totalConsumedTokenCount = 0
+            override val thinkings = mutableMapOf<Int, StringBuilder>()
+        }
+        NotifierHooks.onAiSign {
+            when (it) {
+                is AiSign.Reasoning if ai.enableThinkingOutput -> {
+                    val sb = output.thinkings.getOrPut(it.id) { StringBuilder() }
+                    if (it.terminated) {
+                        val content = sb.toString()
+                        if (content.isNotEmpty()) {
+                            terminal.println(
+                                Panel(
+                                    title = Text(blue("Thinking (${it.id})")),
+                                    content = Text(content),
+                                    bottomTitle = Text(yellow("Consume ${it.consumeTokenCount ?: "null"} tokens")),
+                                    bottomTitleAlign = TextAlign.RIGHT,
+                                )
+                            )
+                        }
+                        output.thinkings.remove(it.id)
+                    } else {
+                        sb.append(it.reasoningContent)
+                    }
+                }
+
+                is AiSign.ConsumeToken -> {
+                    output.totalConsumedTokenCount += it.count
+                }
+
+                else -> Unit
+            }
+        }
+        return output
+    }
 }
+
+private interface LLMOutput {
+    val totalConsumedTokenCount: Int
+    val thinkings: Map<Int, StringBuilder>
+}
+
 
 private class Update : ProjectCommand("update", "Update extraction pool") {
     context(_: Raise<MCTError>)
@@ -140,29 +209,28 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             return p
         }
 
-        val regionPatterns = projectConfig.patterns.regions.flatMap {
+        val regionPatterns = patterns.regions.flatMap {
             requirePath(it, "Region").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinNbtPatterns }
 
-        val mcfPatterns = projectConfig.patterns.mcfunction.map {
+        val mcfPatterns = patterns.mcfunction.map {
             requirePath(it, "MCFunction").readJson<CommandExtractPattern>()
         }.let { if (it.isEmpty()) BuiltinMCFPatterns else it.compile() }
 
-        val mcfDataPatterns = projectConfig.patterns.mcfunctionData.flatMap {
+        val mcfDataPatterns = patterns.mcfunctionData.flatMap {
             requirePath(it, "MCFunction data").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCFunctionDataPatterns }
 
-        val mcjPatterns = projectConfig.patterns.mcjson.flatMap {
+        val mcjPatterns = patterns.mcjson.flatMap {
             requirePath(it, "MCJson").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinMCJPatterns }
 
-        val mcfunctionRegexPatterns = projectConfig.patterns.mcfunctionRegex.flatMap {
-            requirePath(it, "MCFunction regex").readJson<List<RegexPattern>>()
+        val mcfunctionRegexPatterns = patterns.mcfunctionRegex.flatMap {
+            requirePath(it, "MCFunction Regex").readJson<List<RegexPattern>>()
         }
 
         val w = workspace()
 
-        val mappingFile = projectDir / projectConfig.mappings
         val existingMapping = if (fs.exists(mappingFile)) {
             mappingFile.readJson<TranslationMapping>()
         } else {
@@ -171,74 +239,115 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 
         val pool = coroutineScope {
             val regionJob = async(Dispatchers.IO) {
-                val groups = w.extractFromRegion(MCTPattern(
-                    nbt = regionPatterns,
-                    mcfunction = mcfPatterns,
-                    mcfunctionData = mcfDataPatterns,
-                    mcfunctionRegex = mcfunctionRegexPatterns
-                )).toList()
-                cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
-                terminal.println(
-                    green("Extracted ") + (green + bold)("${groups.size}") + green(
-                        " groups from region"
+                val groups = w.extractFromRegion(
+                    MCTPattern(
+                        nbt = regionPatterns,
+                        mcfunction = mcfPatterns,
+                        mcfunctionData = mcfDataPatterns,
+                        mcfunctionRegex = mcfunctionRegexPatterns
                     )
-                )
+                ).toList()
+                cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                printlnGreen("Extracted " + bold("${groups.size}") + " groups from region")
                 groups
             }
             val datapackJob = async(Dispatchers.IO) {
-                val groups = w.extractFromDatapack(MCTPattern(
-                    mcfunction = mcfPatterns,
-                    mcfunctionData = mcfDataPatterns,
-                    mcjson = mcjPatterns,
-                    mcfunctionRegex = mcfunctionRegexPatterns
-                )).toList()
-                cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
-                terminal.println(
-                    green("Extracted ") + (green + bold)("${groups.size}") + green(
-                        " groups from datapack"
+                val groups = w.extractFromDatapack(
+                    MCTPattern(
+                        mcfunction = mcfPatterns,
+                        mcfunctionData = mcfDataPatterns,
+                        mcjson = mcjPatterns,
+                        mcfunctionRegex = mcfunctionRegexPatterns
                     )
-                )
+                ).toList()
+                cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                printlnGreen("Extracted " + bold("${groups.size}") + " groups from datapack")
                 groups
             }
             (regionJob.await() + datapackJob.await()).exportIntoPool(simply = false)
         }
         val missingPool = pool.filter { it !in existingMapping }
         if (missingPool.isNotEmpty()) {
-            terminal.println(
-                yellow("Missing ") + (yellow + bold)("${missingPool.size}") + yellow(
-                    " items (${pool.size} total extracted)"
-                )
-            )
-            (projectDir / MISSING).writeJson(missingPool, projectConfig.prettyJson)
+            printlnYellow("Missing " + bold("${missingPool.size}") + " items (${pool.size} total extracted)")
+            missingFile.writeJson(missingPool, projectConfig.prettyJson)
         } else {
-            terminal.println(green("No new items found (${pool.size} total extracted, all mapped)"))
+            printlnGreen("No new items found (${pool.size} total extracted, all mapped)")
         }
     }
 }
 
+private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        ensureExtracted()
+
+        if (!fs.exists(missingFile)) {
+            panic("No $missingFile can be extracted")
+        }
+        val missingPool = missingFile.readJson<TranslationPool>()
+
+        val termsFile = projectDir / projectConfig.terms
+        val existingTerms = if (fs.exists(termsFile)) {
+            termsFile.readJson<TermTable>()
+        } else {
+            emptySet()
+        }
+        terminal.println(cyan("Loaded ${existingTerms.size} existing terms"))
+
+        val extractor = TermExtractor(
+            call = createCall(),
+            defaultTerms = existingTerms,
+            targetLanguage = ai.targetLanguage,
+            tokenThreshold = ai.tokenThreshold,
+            concurrency = ai.concurrency
+        )
+
+        val output = registerLLMOutput()
+
+        terminal.println(cyan("Starting extraction using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
+        val terms = extractor.extract(missingPool) { salvaged ->
+            termsFile.writeJson(existingTerms + salvaged, projectConfig.prettyJson)
+
+            if (salvaged.isNotEmpty()) {
+                termsFile.writeJson(salvaged, projectConfig.prettyJson)
+            }
+
+            printlnRed(
+                "Extraction was cancelled; salvaged ${bold(salvaged.size.toString())} terms to $termsFile."
+            )
+        }
+
+        printlnGreen("Extracted " + bold("${terms.size - existingTerms.size}") + " new terms")
+
+        if (terms.isNotEmpty()) {
+            termsFile.writeJson(terms, projectConfig.prettyJson)
+            printlnGreen("${terms.size} terms saved to $termsFile")
+        }
+
+        printlnGreen("Extraction completed, consumed " + bold("${output.totalConsumedTokenCount}") + " tokens.")
+    }
+}
+
+
 private class Translate : ProjectCommand("translate", "Translate extractions via AI") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val regionFile = cache(REGION_CACHE)
-        val datapackFile = cache(DATAPACK_CACHE)
-
-        if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
-            panic("No extractions found in cache. Run 'project update' first.")
-        }
+        ensureExtracted()
 
         val extractionGroups = mutableListOf<ExtractionGroup>()
         if (fs.exists(regionFile)) {
             extractionGroups += regionFile.readJson<List<ExtractionGroup>>()
-            terminal.println(green("Loaded region extractions"))
+            printlnGreen("Loaded region extractions")
         }
         if (fs.exists(datapackFile)) {
             extractionGroups += datapackFile.readJson<List<ExtractionGroup>>()
-            terminal.println(green("Loaded datapack extractions"))
+            printlnGreen("Loaded datapack extractions")
         }
 
         if (extractionGroups.isEmpty()) {
             panic("All cache files are empty. Run 'project update' first.")
         }
+
         terminal.println(cyan("Total ${extractionGroups.size} extraction groups loaded"))
 
         val mappingFile = projectDir / projectConfig.mappings
@@ -249,112 +358,55 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         }
         terminal.println(cyan("Loaded ${existingMapping.size} existing mappings"))
 
-        val termFile = projectDir / projectConfig.terms
-        val existingTerms = if (fs.exists(termFile)) {
-            termFile.readJson<TermTable>()
+        val existingTerms = if (fs.exists(termsFile)) {
+            termsFile.readJson<TermTable>()
         } else {
             emptySet()
         }
         terminal.println(cyan("Loaded ${existingTerms.size} existing terms"))
 
-        val ai = projectConfig.ai
-        if (ai.token.isBlank() || ai.token == AIConfig.Default.token) {
-            panic("AI token not configured. Set [ai.token] in mct.toml")
-        }
+        val translator = Translator(
+            call = createCall(),
+            customizedPrompts = CustomizedPrompts(
+                literatureStyle = ai.literatureStyle,
+                targetLanguage = ai.targetLanguage,
+                handleGradientAggressively = ai.handleGradientAggressively,
+            ),
+            defaultTerms = existingTerms,
+            tokenThreshold = ai.tokenThreshold,
+            concurrency = ai.concurrency
+        )
 
-        val translator = context(env) {
-            val call = ChatCompletionCall(
-                apiUrl = ai.apiUrl,
-                token = ai.token,
-                model = ai.model,
-                useStreamApi = ai.useStreamApi,
-                temperature = ai.temperature,
-                logLevel = if (ai.enableHttpLogging) LogLevel.All else LogLevel.None,
-            )
-            Translator(
-                call = call,
-                customizedPrompts = CustomizedPrompts(
-                    literatureStyle = ai.literatureStyle,
-                    targetLanguage = ai.targetLanguage,
-                    handleGradientAggressively = ai.handleGradientAggressively,
-                ),
-                defaultTerms = existingTerms,
-                tokenThreshold = ai.tokenThreshold,
-                concurrency = ai.concurrency
-            )
-        }
-
-        var totalConsumedTokenCount = 0
-        val thinkings = mutableMapOf<Int, StringBuilder>()
-        fun outputThinking(id: Int, thinking: String, consumedTokenCount: Int) {
-            terminal.println(
-                Panel(
-                    title = Text(blue("Thinking ($id)")),
-                    content = Text(thinking),
-                    bottomTitle = Text(yellow("Consume $consumedTokenCount tokens")),
-                    bottomTitleAlign = TextAlign.RIGHT,
-                )
-            )
-        }
-        NotifierHooks.onAiSign {
-            when (it) {
-                is AiSign.Reasoning -> {
-                    val sb = thinkings.getOrPut(it.id) { StringBuilder() }
-                    if (it.terminated) {
-                        val content = sb.toString()
-                        if (content.isNotEmpty()) {
-                            outputThinking(it.id, content, it.consumeTokenCount!!)
-                        }
-                        thinkings.remove(it.id)
-                    } else {
-                        sb.append(it.reasoningContent)
-                    }
-                }
-
-                is AiSign.ConsumeToken -> {
-                    totalConsumedTokenCount += it.count
-                }
-            }
-        }
+        val output = registerLLMOutput()
 
         terminal.println(cyan("Starting translation using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
         val mapping = translator.translate(extractionGroups, existingMapping, ai.concurrentByKind) { terms, salvaged ->
             mappingFile.writeJson(existingMapping + salvaged, projectConfig.prettyJson)
-            terminal.println(green("Mapping saved to $mappingFile"))
+            printlnGreen("Mapping saved to $mappingFile")
 
             if (translator.terms.isNotEmpty()) {
-                termFile.writeJson(translator.terms, projectConfig.prettyJson)
+                termsFile.writeJson(translator.terms, projectConfig.prettyJson)
             }
 
-            terminal.println(
-                red(
-                    "Translation was cancelled; salvaged ${bold(terms.size.toString())} terms and ${
-                        bold(salvaged.size.toString())
-                    } translated items."
-                )
+            printlnRed(
+                "Translation was cancelled; salvaged ${bold(terms.size.toString())} terms and ${
+                    bold(salvaged.size.toString())
+                } translated items."
             )
         }
 
         val totalMapping = existingMapping + mapping
-        terminal.println(
-            green("Translated ") + (green + bold)("${mapping.size}") + green(
-                " new items (${totalMapping.size} total)"
-            )
-        )
+        printlnGreen("Translated " + bold("${mapping.size}") + " new items (${totalMapping.size} total)")
 
         mappingFile.writeJson(totalMapping, projectConfig.prettyJson)
-        terminal.println(green("Mapping saved to $mappingFile"))
+        printlnGreen("Mapping saved to $mappingFile")
 
         if (translator.terms.isNotEmpty()) {
-            termFile.writeJson(translator.terms, projectConfig.prettyJson)
-            terminal.println(green("${translator.terms.size} terms saved to $termFile"))
+            termsFile.writeJson(translator.terms, projectConfig.prettyJson)
+            printlnGreen("${translator.terms.size} terms saved to $termsFile")
         }
 
-        terminal.println(
-            green("Translation complete, consumed ") + (green + bold)("$totalConsumedTokenCount") + green(
-                " tokens."
-            )
-        )
+        printlnGreen("Translation completed, consumed " + bold("${output.totalConsumedTokenCount}") + " tokens.")
     }
 }
 
@@ -362,12 +414,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 private class Build : ProjectCommand("build", "Build translated world") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val regionFile = cache(REGION_CACHE)
-        val datapackFile = cache(DATAPACK_CACHE)
-
-        if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
-            panic("No extractions found in cache. Run 'project update' first.")
-        }
+        ensureExtracted()
 
         val mappingFile = projectDir / projectConfig.mappings
         if (!fs.exists(mappingFile)) {
@@ -397,11 +444,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val regionReplacements = if (regionGroups.isNotEmpty()) {
             @Suppress("UNCHECKED_CAST") (regionGroups.replace(mapping) as List<RegionReplacementGroup>).also {
                 cache(REGION_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
-                terminal.println(
-                    green("Generated ") + (green + bold)("${it.size}") + green(
-                        " region replacement groups"
-                    )
-                )
+                printlnGreen("Generated " + bold("${it.size}") + " region replacement groups")
             }
         } else {
             emptyList()
@@ -410,11 +453,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
         val datapackReplacements = if (datapackGroups.isNotEmpty()) {
             @Suppress("UNCHECKED_CAST") (datapackGroups.replace(mapping) as List<DatapackReplacementGroup>).also {
                 cache(DATAPACK_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
-                terminal.println(
-                    green("Generated ") + (green + bold)("${it.size}") + green(
-                        " datapack replacement groups"
-                    )
-                )
+                printlnGreen("Generated " + bold("${it.size}") + " datapack replacement groups")
             }
         } else {
             emptyList()
@@ -431,10 +470,10 @@ private class Build : ProjectCommand("build", "Build translated world") {
         try {
             context(fs) { srcDir.copyToRecursively(targetDir) }
         } catch (e: Exception) {
-            terminal.println(red("Failed to copy world: ${e.message ?: "unknown error"}"))
+            printlnRed("Failed to copy world: ${e.message ?: "unknown error"}")
             panic("Failed to copy world: ${e.message ?: "unknown error"}")
         }
-        terminal.println(green("World copied."))
+        printlnGreen("World copied.")
 
         val buildWorkspace = workspace(targetDir)
 
@@ -449,9 +488,9 @@ private class Build : ProjectCommand("build", "Build translated world") {
                             )
                         )
                         buildWorkspace.backfillRegion(regionReplacements)
-                        terminal.println(green("Region backfill complete."))
+                        printlnGreen("Region backfill complete.")
                     } catch (e: Exception) {
-                        terminal.println(red("Region backfill failed: ${e.stackTraceToString()}"))
+                        printlnRed("Region backfill failed: ${e.stackTraceToString()}")
                         hasBackfillErrors = true
                     }
                 }
@@ -465,9 +504,9 @@ private class Build : ProjectCommand("build", "Build translated world") {
                             )
                         )
                         buildWorkspace.backfillDatapack(datapackReplacements)
-                        terminal.println(green("Datapack backfill complete."))
+                        printlnGreen("Datapack backfill complete.")
                     } catch (e: Exception) {
-                        terminal.println(red("Datapack backfill failed: ${e.stackTraceToString()}"))
+                        printlnRed("Datapack backfill failed: ${e.stackTraceToString()}")
                         hasBackfillErrors = true
                     }
                 }
@@ -475,13 +514,9 @@ private class Build : ProjectCommand("build", "Build translated world") {
         }
 
         if (hasBackfillErrors) {
-            terminal.println(yellow("Build completed with errors. Check logs above."))
+            printlnYellow("Build completed with errors. Check logs above.")
         } else {
-            terminal.println(
-                green("Build complete. Translated world at ") + (green + bold)(
-                    "$targetDir"
-                )
-            )
+            printlnGreen("Build complete. Translated world at " + bold("$targetDir"))
         }
     }
 }

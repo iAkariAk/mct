@@ -82,3 +82,7 @@ abstract class WorkspaceCommand(
     }
 }
 
+fun BaseCommand.printlnGreen(message: Any?) = terminal.println(TextColors.green(message.toString()))
+fun BaseCommand.printlnYellow(message: Any?) = terminal.println(TextColors.yellow(message.toString()))
+fun BaseCommand.printlnBlue(message: Any?) = terminal.println(TextColors.blue(message.toString()))
+fun BaseCommand.printlnRed(message: Any?) = terminal.println(TextColors.red(message.toString()))
