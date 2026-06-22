@@ -58,7 +58,7 @@ fun SectionTitle(text: String, icon: ImageVector? = null) {
 fun PathRow(
     label: String, placeholder: String,
     value: String, onValueChange: (String) -> Unit,
-    onBrowse: () -> Unit
+    onBrowse: () -> Unit,
 ) {
     Column {
         Text(

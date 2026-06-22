@@ -69,7 +69,7 @@ fun ReasoningSheet(
                     )
                 }
             } else {
-                itemsIndexed(entries) { _, (id, content) ->
+                itemsIndexed(entries, key = { index, (id, _) -> id }) { _, (id, content) ->
                     ListItem(
                         headlineContent = {
                             Text(

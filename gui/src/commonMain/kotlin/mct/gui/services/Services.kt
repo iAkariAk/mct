@@ -58,7 +58,7 @@ val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
  * - Sign messages are silently dropped (they are intercepted upstream by `onSign<>` wrappers).
  */
 class GuiLogger(
-    private val onLog: (LogEntry) -> Unit
+    private val onLog: (LogEntry) -> Unit,
 ) : Logger(LoggerLevel.Verbose) {
     override fun log(level: LoggerLevel, message: String) {
         println(message)
@@ -129,12 +129,14 @@ suspend fun runExtraction(
                             else BuiltinMCFunctionDataPatterns
                         }
 
-                    workspace.extractFromRegion(MCTPattern(
-                        nbt = patterns,
-                        mcfunction = mcfPatterns,
-                        mcfunctionData = mcfDataPatterns,
-                        mcfunctionRegex = mcfunctionRegexPatterns
-                    )).toList() as List<ExtractionGroup>
+                    workspace.extractFromRegion(
+                        MCTPattern(
+                            nbt = patterns,
+                            mcfunction = mcfPatterns,
+                            mcfunctionData = mcfDataPatterns,
+                            mcfunctionRegex = mcfunctionRegexPatterns
+                        )
+                    ).toList() as List<ExtractionGroup>
                 }
 
                 "datapack" -> {
@@ -170,12 +172,14 @@ suspend fun runExtraction(
                             if (userPatterns != null) MCJBuiltinPatterns + userPatterns
                             else MCJBuiltinPatterns
                         }
-                    workspace.extractFromDatapack(MCTPattern(
-                        mcfunction = mcfPatterns,
-                        mcfunctionData = mcfDataPatterns,
-                        mcjson = mcjPatterns,
-                        mcfunctionRegex = mcfunctionRegexPatterns
-                    )).toList() as List<ExtractionGroup>
+                    workspace.extractFromDatapack(
+                        MCTPattern(
+                            mcfunction = mcfPatterns,
+                            mcfunctionData = mcfDataPatterns,
+                            mcjson = mcjPatterns,
+                            mcfunctionRegex = mcfunctionRegexPatterns
+                        )
+                    ).toList() as List<ExtractionGroup>
                 }
 
                 else -> error("未知模式: $mode")
@@ -216,7 +220,7 @@ suspend fun runTranslation(
     temperature: Double? = null,
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
-    onCancel: OnTranslateCancel = { _, _ -> }
+    onCancel: OnTranslateCancel = { _, _ -> },
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
@@ -272,7 +276,12 @@ suspend fun runTranslation(
 
     withContext(Dispatchers.IO) {
         try {
-            val mapping = translator.translate(extractionGroups, caches, concurrentByKind = GuiSettings.concurrentByKind, onCancel = wrappedOnCancel)
+            val mapping = translator.translate(
+                extractionGroups,
+                caches,
+                concurrentByKind = GuiSettings.concurrentByKind,
+                onCancel = wrappedOnCancel
+            )
             val replacements = extractionGroups.replace(mapping)
 
             output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
@@ -284,7 +293,18 @@ suspend fun runTranslation(
             env.logger.info { "映射文件已写入: $mappingOutput" }
             env.logger.info { "术语表已写入: $termOutput" }
             env.logger.info { "完成。" }
-            apiSetting.save(ApiSettings(apiUrl ?: "", model, token, GuiSettings.useStreamApi, GuiSettings.tokenThreshold, temperature, GuiSettings.concurrency, GuiSettings.concurrentByKind))
+            apiSetting.save(
+                ApiSettings(
+                    apiUrl ?: "",
+                    model,
+                    token,
+                    GuiSettings.useStreamApi,
+                    GuiSettings.tokenThreshold,
+                    temperature,
+                    GuiSettings.concurrency,
+                    GuiSettings.concurrentByKind
+                )
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -383,7 +403,9 @@ suspend fun runPointerTest(
 private fun decodePointerSafely(pointerStr: String, patterns: List<DataPointerPattern>): Boolean = try {
     val pointer = MCTJson.decodeFromString<DataPointer>(MCTJson.encodeToString(pointerStr))
     pointer.matches(patterns)
-} catch (_: Exception) { false }
+} catch (_: Exception) {
+    false
+}
 
 /**
  * Export all region NBT data as SNBT text files to the given directory.

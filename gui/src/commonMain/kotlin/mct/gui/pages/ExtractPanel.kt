@@ -26,13 +26,14 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import mct.gui.components.*
 import mct.gui.model.ExtractState
 import mct.gui.model.RunMode
+import mct.gui.util.ensureJsonExt
 
 @Composable
 fun ExtractPanel(
     state: ExtractState,
     onStateChange: (ExtractState) -> Unit,
     isRunning: Boolean,
-    onRun: () -> Unit
+    onRun: () -> Unit,
 ) {
     val dirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
         file?.let { onStateChange(state.copy(input = it.absolutePath())) }
@@ -59,7 +60,11 @@ fun ExtractPanel(
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
-        PathRow("Minecraft 存档目录", "选择包含 level.dat 的文件夹...", state.input, { onStateChange(state.copy(input = it)) }) {
+        PathRow(
+            "Minecraft 存档目录",
+            "选择包含 level.dat 的文件夹...",
+            state.input,
+            { onStateChange(state.copy(input = it)) }) {
             dirPicker.launch()
         }
         PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
@@ -74,8 +79,14 @@ fun ExtractPanel(
         SectionTitle("提取选项", Icons.Outlined.Tune)
 
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            ModeRadio(RunMode.Region.label, state.mode == RunMode.Region) { onStateChange(state.copy(mode = RunMode.Region)) }
-            ModeRadio(RunMode.Datapack.label, state.mode == RunMode.Datapack) { onStateChange(state.copy(mode = RunMode.Datapack)) }
+            ModeRadio(
+                RunMode.Region.label,
+                state.mode == RunMode.Region
+            ) { onStateChange(state.copy(mode = RunMode.Region)) }
+            ModeRadio(
+                RunMode.Datapack.label,
+                state.mode == RunMode.Datapack
+            ) { onStateChange(state.copy(mode = RunMode.Datapack)) }
         }
 
         TextSwitch(
@@ -134,5 +145,3 @@ fun ExtractPanel(
     }
 }
 
-private fun ensureJsonExt(path: String): String =
-    if (path.endsWith(".json", ignoreCase = true)) path else "$path.json"

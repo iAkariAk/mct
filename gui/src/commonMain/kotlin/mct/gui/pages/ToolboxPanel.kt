@@ -83,7 +83,7 @@ fun ToolboxPanel(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = if (state.pointerResult == "true") MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.errorContainer,
+                    else MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.height(44.dp),
                 ) {
                     Box(
@@ -95,7 +95,7 @@ fun ToolboxPanel(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (state.pointerResult == "true") MaterialTheme.colorScheme.onPrimaryContainer
-                                    else MaterialTheme.colorScheme.onErrorContainer,
+                            else MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
                 }
@@ -113,15 +113,28 @@ fun ToolboxPanel(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PathRow("Minecraft 存档目录", "选择包含 level.dat 的文件夹...", state.exportInput, { onStateChange(state.copy(exportInput = it)) }) {
+        PathRow(
+            "Minecraft 存档目录",
+            "选择包含 level.dat 的文件夹...",
+            state.exportInput,
+            { onStateChange(state.copy(exportInput = it)) }) {
             dirPicker.launch()
         }
-        PathRow("SNBT 导出目录", "选择保存位置...", state.exportOutput, { onStateChange(state.copy(exportOutput = it)) }) {
+        PathRow(
+            "SNBT 导出目录",
+            "选择保存位置...",
+            state.exportOutput,
+            { onStateChange(state.copy(exportOutput = it)) }) {
             outputDirPicker.launch()
         }
 
         Spacer(Modifier.height(4.dp))
 
-        ActionButton("导出 SNBT", isRunning, onRunExportSnbt, enabled = state.exportInput.isNotBlank() && state.exportOutput.isNotBlank())
+        ActionButton(
+            "导出 SNBT",
+            isRunning,
+            onRunExportSnbt,
+            enabled = state.exportInput.isNotBlank() && state.exportOutput.isNotBlank()
+        )
     }
 }

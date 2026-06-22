@@ -46,8 +46,9 @@ fun FrameWindowScope.WindowTitleBar(
         scope.launch {
             val screen = window.graphicsConfiguration.bounds
             val from = window.bounds
-            val to = if (isMax) { savedBounds.value = from; screen }
-                     else savedBounds.value ?: java.awt.Rectangle(100, 100, 820, 760)
+            val to = if (isMax) {
+                savedBounds.value = from; screen
+            } else savedBounds.value ?: java.awt.Rectangle(100, 100, 820, 760)
             anim.snapTo(0f)
             anim.animateTo(1f, tween(130)) {
                 val v = value
@@ -104,7 +105,10 @@ fun FrameWindowScope.WindowTitleBar(
                         label = "max-btn"
                     ) { maxd ->
                         if (maxd)
-                            Box(Modifier.size(12.dp).border(2.dp, Color.White, RectangleShape).padding(2.dp).then(Modifier.fillMaxSize()).background(Color.White, RectangleShape))
+                            Box(
+                                Modifier.size(12.dp).border(2.dp, Color.White, RectangleShape).padding(2.dp)
+                                    .then(Modifier.fillMaxSize()).background(Color.White, RectangleShape)
+                            )
                         else
                             Box(Modifier.size(12.dp).border(2.dp, Color.White, RectangleShape))
                     }

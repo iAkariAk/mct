@@ -28,7 +28,7 @@ fun BackfillPanel(
     state: BackfillState,
     onStateChange: (BackfillState) -> Unit,
     isRunning: Boolean,
-    onRun: () -> Unit
+    onRun: () -> Unit,
 ) {
     val dirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
         file?.let { onStateChange(state.copy(input = it.absolutePath())) }
@@ -40,10 +40,18 @@ fun BackfillPanel(
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
-        PathRow("Minecraft 存档目录", "选择包含 level.dat 的文件夹...", state.input, { onStateChange(state.copy(input = it)) }) {
+        PathRow(
+            "Minecraft 存档目录",
+            "选择包含 level.dat 的文件夹...",
+            state.input,
+            { onStateChange(state.copy(input = it)) }) {
             dirPicker.launch()
         }
-        PathRow("替换文件 JSON（来自步骤②）", "选择 replacements.json...", state.replacements, { onStateChange(state.copy(replacements = it)) }) {
+        PathRow(
+            "替换文件 JSON（来自步骤②）",
+            "选择 replacements.json...",
+            state.replacements,
+            { onStateChange(state.copy(replacements = it)) }) {
             filePicker.launch()
         }
 
@@ -55,8 +63,14 @@ fun BackfillPanel(
         SectionTitle("回填模式", Icons.Outlined.Tune)
 
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            ModeRadio(RunMode.Region.label, state.mode == RunMode.Region) { onStateChange(state.copy(mode = RunMode.Region)) }
-            ModeRadio(RunMode.Datapack.label, state.mode == RunMode.Datapack) { onStateChange(state.copy(mode = RunMode.Datapack)) }
+            ModeRadio(
+                RunMode.Region.label,
+                state.mode == RunMode.Region
+            ) { onStateChange(state.copy(mode = RunMode.Region)) }
+            ModeRadio(
+                RunMode.Datapack.label,
+                state.mode == RunMode.Datapack
+            ) { onStateChange(state.copy(mode = RunMode.Datapack)) }
         }
 
         Card(
@@ -84,6 +98,11 @@ fun BackfillPanel(
 
         Spacer(Modifier.height(4.dp))
 
-        ActionButton("开始回填", isRunning, onRun, enabled = state.input.isNotBlank() && state.replacements.isNotBlank())
+        ActionButton(
+            "开始回填",
+            isRunning,
+            onRun,
+            enabled = state.input.isNotBlank() && state.replacements.isNotBlank()
+        )
     }
 }

@@ -8,3 +8,6 @@ fun Int.renderWithUnit() = when {
     this <= 1000 -> "$this"
     else -> "%.2fk".format(this.k)
 }
+
+fun ensureJsonExt(path: String): String =
+    if (path.endsWith(".json", ignoreCase = true)) path else "$path.json"

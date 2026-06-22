@@ -90,14 +90,18 @@ fun SettingsSheet(
                     Spacer(Modifier.height(12.dp))
 
                     val sliderRange = 256f..8192f
-                    var sliderValue by remember { mutableFloatStateOf(GuiSettings.tokenThreshold.toFloat().coerceIn(sliderRange)) }
+                    var sliderValue by remember {
+                        mutableFloatStateOf(
+                            GuiSettings.tokenThreshold.toFloat().coerceIn(sliderRange)
+                        )
+                    }
 
                     Slider(
                         value = sliderValue,
                         onValueChange = { sliderValue = it },
                         onValueChangeFinished = { GuiSettings.tokenThreshold = sliderValue.toInt() },
                         valueRange = sliderRange,
-                        steps = 15,
+                        steps = 30,
                     )
                     Text(
                         "${sliderValue.toInt()}",
@@ -121,7 +125,11 @@ fun SettingsSheet(
                     )
                     Spacer(Modifier.height(12.dp))
 
-                    var sliderTemp by remember { mutableFloatStateOf((GuiSettings.temperature ?: 1.0).toFloat().coerceIn(0f, 2f)) }
+                    var sliderTemp by remember {
+                        mutableFloatStateOf(
+                            (GuiSettings.temperature ?: 1.0).toFloat().coerceIn(0f, 2f)
+                        )
+                    }
 
                     Slider(
                         value = sliderTemp,
@@ -131,12 +139,19 @@ fun SettingsSheet(
                         steps = 19,
                     )
                     Text(
-                        "%.1f  —  %s".format(
-                            GuiSettings.temperature ?: 1.0,
-                            if (GuiSettings.temperature == null) "默认" else if (GuiSettings.temperature!! < 0.5) "更确定性" else if (GuiSettings.temperature!! > 1.5) "更具创造性" else "平衡"
-                        ),
+                        "%.1f".format(sliderTemp),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                    Text(
+                        when {
+                            sliderTemp < 0.5f -> "更确定性"
+                            sliderTemp > 1.5f -> "更具创造性"
+                            else -> "平衡"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
 
@@ -156,7 +171,11 @@ fun SettingsSheet(
                     Spacer(Modifier.height(12.dp))
 
                     val concurrencyRange = 1f..20f
-                    var sliderConc by remember { mutableFloatStateOf(GuiSettings.concurrency.toFloat().coerceIn(concurrencyRange)) }
+                    var sliderConc by remember {
+                        mutableFloatStateOf(
+                            GuiSettings.concurrency.toFloat().coerceIn(concurrencyRange)
+                        )
+                    }
 
                     Slider(
                         value = sliderConc,

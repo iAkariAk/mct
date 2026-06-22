@@ -29,10 +29,12 @@ fun coloredLogAnnotatedString(logLines: List<LogEntry>) = buildAnnotatedString {
             LoggerLevel.Error -> Color(0xFFFFCDD2)
             LoggerLevel.Debug -> Color(0xFFB0BEC5)
         }
-        withStyle(SpanStyle(
-            color = Color.White, background = badgeColor,
-            fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
-        )) { append(" $badgeLetter ") }
+        withStyle(
+            SpanStyle(
+                color = Color.White, background = badgeColor,
+                fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+            )
+        ) { append(" $badgeLetter ") }
         append(" ")
         withStyle(SpanStyle(color = textColor)) { append(entry.message) }
     }
