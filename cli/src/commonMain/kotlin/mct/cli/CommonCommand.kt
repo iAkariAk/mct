@@ -18,8 +18,6 @@ import mct.*
 import mct.util.SystemFileSystem
 import okio.Path.Companion.toPath
 
-private class MCTException(val error: MCTError) : Exception(error.message)
-
 abstract class BaseCommand(
     val name: String? = null,
     private val help: String? = null,
