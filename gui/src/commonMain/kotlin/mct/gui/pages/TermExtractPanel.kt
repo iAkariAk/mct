@@ -3,11 +3,7 @@ package mct.gui.pages
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,6 +28,7 @@ fun TermExtractPanel(
     onStateChange: (TermExtractState) -> Unit,
     isRunning: Boolean,
     onRun: () -> Unit,
+    onCancel: () -> Unit = {},
 ) {
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
@@ -175,6 +172,7 @@ fun TermExtractPanel(
             running = isRunning,
             onClick = onRun,
             enabled = state.input.isNotBlank() && state.output.isNotBlank(),
+            onCancel = if (isRunning) onCancel else null,
         )
     }
 }

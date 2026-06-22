@@ -15,16 +15,15 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReasoningSheet(
-    reasoningContents: Map<Int, StringBuilder>,
-    reasoningContentVersion: Int,
+    reasoningContents: Map<Int, String>,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    val entries = remember(reasoningContentVersion) {
+    val entries = remember(reasoningContents) {
         reasoningContents.entries
             .sortedBy { it.key }
-            .mapIndexed { index, (_, value) -> index + 1 to value.toString() }
+            .mapIndexed { index, (_, value) -> index + 1 to value }
     }
 
     ModalBottomSheet(

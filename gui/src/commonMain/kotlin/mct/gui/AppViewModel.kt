@@ -3,10 +3,7 @@ package mct.gui
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import arrow.core.raise.either
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import mct.Env
 import mct.LoggerLevel
 import mct.Notifier
@@ -27,15 +24,25 @@ import okio.FileSystem
  * that the [App] composable and its children call in response to user actions.
  */
 class AppViewModel(
-    val scope: CoroutineScope,
     val clientManager: ClientManager,
 ) {
+    /**
+     * Internal scope tied to this ViewModel's lifetime.  Cancelled
+     * when the composable that created us leaves the composition.
+     */
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /** Must be called by the owning composable's `DisposableEffect` cleanup. */
+    fun dispose() {
+        scope.cancel()
+    }
+
     // ── Tab ────────────────────────────────────────────────────
     var selectedTab by mutableStateOf(Tab.Extract)
 
     // ── Operation state ─────────────────────────────────────────
     var isRunning by mutableStateOf(false)
-    var currentJob by mutableStateOf<Job?>(null)
+    private var _currentJob: Job? = null  // not observable – only cancelJob / launchOp touch it
 
     // ── Panel data states ───────────────────────────────────────
     var extractState by mutableStateOf(ExtractState())
@@ -53,8 +60,7 @@ class AppViewModel(
     var totalTokenConsume by mutableIntStateOf(0)
 
     // ── Reasoning sheet ─────────────────────────────────────────
-    val reasoningContents = mutableStateMapOf<Int, StringBuilder>()
-    var reasoningContentVersion by mutableIntStateOf(0)
+    val reasoningContents = mutableStateMapOf<Int, String>()
     var showReasoning by mutableStateOf(false)
 
     // ── Log console ─────────────────────────────────────────────
@@ -86,10 +92,10 @@ class AppViewModel(
                 }
 
                 is AiSign.Reasoning -> {
-                    val reasoningContent = reasoningContents.getOrPut(sign.id, ::StringBuilder)
-                    if (!GuiSettings.useStreamApi) reasoningContent.clear()
-                    reasoningContent.append(sign.reasoningContent)
-                    reasoningContentVersion++
+                    val key = sign.id
+                    val prev = reasoningContents[key] ?: ""
+                    reasoningContents[key] = if (GuiSettings.useStreamApi) prev + sign.reasoningContent
+                    else sign.reasoningContent
                 }
             }
         }
@@ -99,12 +105,13 @@ class AppViewModel(
     // ── Operations ──────────────────────────────────────────────
 
     /**
-     * Launch a long-running operation in [scope], managing [isRunning] / [currentJob]
+     * Launch a long-running operation in [scope], managing [isRunning] / job
      * lifecycle and routing exceptions to logs / snackbar.
      */
     fun launchOp(prelude: () -> Unit, block: suspend CoroutineScope.() -> Unit) {
+        _currentJob?.cancel()
         prelude()
-        currentJob = scope.launch {
+        _currentJob = scope.launch {
             try {
                 block()
             } catch (e: CancellationException) {
@@ -115,33 +122,38 @@ class AppViewModel(
                 scope.launch { snackbarHostState.showSnackbar(e.message ?: "未知错误") }
             } finally {
                 isRunning = false
-                currentJob = null
+                _currentJob = null
             }
         }
     }
 
     /** Cancel the currently running job. */
     fun cancelJob() {
-        currentJob?.cancel()
+        _currentJob?.cancel()
     }
 
     // ── API Settings ────────────────────────────────────────────
 
     /** Read persisted settings into UI state. */
-    suspend fun loadSettings() {
+    suspend fun loadSettings() = withContext(Dispatchers.IO) {
         val saved = apiSetting.load()
-        translateState = translateState.copy(
-            apiUrl = saved.apiUrl,
-            model = saved.model,
-            apiToken = saved.apiToken,
-        )
-        GuiSettings.temperature = saved.temperature
-        GuiSettings.useStreamApi = saved.useStreamApi
-        GuiSettings.tokenThreshold = saved.tokenThreshold
-        GuiSettings.concurrency = saved.concurrency
-        GuiSettings.concurrentByKind = saved.concurrentByKind
-        if (saved.apiUrl.isNotBlank() || saved.apiToken.isNotBlank())
-            logLines.add(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
+        val theme = themeSetting.load()
+        withContext(Dispatchers.Main) {
+            translateState = translateState.copy(
+                apiUrl = saved.apiUrl,
+                model = saved.model,
+                apiToken = saved.apiToken,
+            )
+            GuiSettings.temperature = saved.temperature
+            GuiSettings.useStreamApi = saved.useStreamApi
+            GuiSettings.tokenThreshold = saved.tokenThreshold
+            GuiSettings.concurrency = saved.concurrency
+            GuiSettings.concurrentByKind = saved.concurrentByKind
+            GuiSettings.seedColorArgb = theme.seedColorArgb
+            if (theme.seedColorArgb != 0) GuiSettings.isDynamicThemeEnabled = true
+            if (saved.apiUrl.isNotBlank() || saved.apiToken.isNotBlank())
+                logLines.add(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
+        }
     }
 
     /** Persist current settings. */
@@ -159,24 +171,30 @@ class AppViewModel(
     )
 
     /** Probe the configured API URL / token and fetch available models. */
-    suspend fun setupApiClient() {
+    suspend fun setupApiClient() = withContext(Dispatchers.IO) {
         clientManager.chatCompletionCall = null
         val url = translateState.apiUrl.ifBlank { null }
         val token = translateState.apiToken
-        if (url == null || token.isBlank()) return
+        if (url == null || token.isBlank()) return@withContext
 
-        translateState = translateState.copy(isModelsLoading = true)
+        withContext(Dispatchers.Main) {
+            translateState = translateState.copy(isModelsLoading = true)
+        }
         runCatching {
             with(env) {
                 clientManager.openAIClient = createOpenAIClient(url, token)
                 clientManager.openAIClient!!.listModels()
             }
         }.onSuccess { models ->
-            translateState = translateState.copy(availableModels = models, isModelsLoading = false)
-            if (translateState.model in models) setupChatCompletion()
+            withContext(Dispatchers.Main) {
+                translateState = translateState.copy(availableModels = models, isModelsLoading = false)
+                if (translateState.model in models) setupChatCompletion()
+            }
         }.onFailure { e ->
-            translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
-            logLines.add(LogEntry(LoggerLevel.Error, "API 连接失败: ${e.message}"))
+            withContext(Dispatchers.Main) {
+                translateState = translateState.copy(availableModels = emptyList(), isModelsLoading = false)
+                logLines.add(LogEntry(LoggerLevel.Error, "API 连接失败: ${e.message}"))
+            }
         }
     }
 

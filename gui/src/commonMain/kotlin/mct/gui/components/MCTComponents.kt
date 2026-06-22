@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -114,6 +115,7 @@ fun ActionButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val hasCancel = onCancel != null
+    val density = LocalDensity.current
 
     // MD3 expressive: animate container color smoothly between primary and error
     val containerColor by animateColorAsState(
@@ -135,31 +137,32 @@ fun ActionButton(
         label = "cancelBtnContentColor"
     )
 
-    // MD3 expressive: pulsing scale animation on hover for cancel button
-    val infiniteTransition = rememberInfiniteTransition(label = "cancelPulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.02f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "cancelPulseScale"
-    )
-
-    // MD3 expressive: subtle scale bounce on hover for cancel button
-    val scale by animateFloatAsState(
-        targetValue = if (isHovered && running && hasCancel) pulseScale else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 350f),
-        label = "cancelScale"
-    )
-
-    // MD3 expressive: elevation shadow for depth on hover (using float animation)
-    val elevation by animateFloatAsState(
-        targetValue = if (isHovered && running && hasCancel) 12f else 0f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
-        label = "cancelElevation"
-    )
+    // MD3 expressive: pulsing scale + elevation on hover for the cancel state only
+    val scale: Float
+    val elevation: Float
+    if (running && hasCancel) {
+        val infiniteTransition = rememberInfiniteTransition(label = "cancelPulse")
+        val pulseScale by infiniteTransition.animateFloat(
+            initialValue = 1.02f, targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+            label = "cancelPulseScale"
+        )
+        val s by animateFloatAsState(
+            targetValue = if (isHovered) pulseScale else 1f,
+            animationSpec = spring(dampingRatio = 0.5f, stiffness = 350f),
+            label = "cancelScale"
+        )
+        scale = s
+        val e by animateFloatAsState(
+            targetValue = if (isHovered) 12f else 0f,
+            animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+            label = "cancelElevation"
+        )
+        elevation = e
+    } else {
+        scale = 1f
+        elevation = 0f
+    }
 
     Button(
         onClick = {
@@ -174,7 +177,7 @@ fun ActionButton(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                shadowElevation = elevation
+                shadowElevation = with(density) { elevation.toDp().toPx() }
                 shape = RoundedCornerShape(12.dp)
                 clip = true
             },

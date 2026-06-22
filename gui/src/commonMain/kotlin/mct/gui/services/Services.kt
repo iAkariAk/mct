@@ -51,6 +51,13 @@ data class ApiSettings(
 
 val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
 
+@Serializable
+data class ThemeSettings(
+    val seedColorArgb: Int = 0,
+)
+
+val themeSetting = setting<ThemeSettings>("theme-settings", ::ThemeSettings)
+
 // ---- 统一日志器 ---------------------------------------------------------
 
 /**
@@ -262,7 +269,7 @@ suspend fun runTranslation(
             handleGradientAggressively = handleGradientAggressively,
         ),
         tokenThreshold = GuiSettings.tokenThreshold,
-        concurrency = GuiSettings.concurrency,
+        concurrency = concurrency,
     )
 
     val wrappedOnCancel: OnTranslateCancel = { terms, salvaged ->
@@ -296,14 +303,14 @@ suspend fun runTranslation(
             env.logger.info { "完成。" }
             apiSetting.save(
                 ApiSettings(
-                    apiUrl ?: "",
-                    model,
-                    token,
-                    GuiSettings.useStreamApi,
-                    GuiSettings.tokenThreshold,
-                    temperature,
-                    GuiSettings.concurrency,
-                    GuiSettings.concurrentByKind
+                    apiUrl = apiUrl ?: "",
+                    model = model,
+                    apiToken = token,
+                    useStreamApi = GuiSettings.useStreamApi,
+                    tokenThreshold = GuiSettings.tokenThreshold,
+                    temperature = temperature,
+                    concurrency = concurrency,
+                    concurrentByKind = GuiSettings.concurrentByKind,
                 )
             )
         } catch (e: CancellationException) {

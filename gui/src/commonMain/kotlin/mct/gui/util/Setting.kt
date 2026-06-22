@@ -28,7 +28,7 @@ inline fun <reified T> setting(name: String, crossinline default: () -> T): Sett
             }
         } else default()
     } catch (e: Exception) {
-        println("[MCT] 加载API设置失败: ${e.message}")
+        println("[MCT] 加载设置失败 (${path.name}): ${e.message}")
         default()
     }
 
@@ -39,7 +39,7 @@ inline fun <reified T> setting(name: String, crossinline default: () -> T): Sett
         }
         true
     } catch (e: Exception) {
-        println("[MCT] 保存API设置失败: ${e.message}")
+        println("[MCT] 保存设置失败 (${path.name}): ${e.message}")
         false
     }
 

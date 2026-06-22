@@ -8,25 +8,50 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import io.github.vinceglb.filekit.PlatformFile
+import io.github.vinceglb.filekit.absolutePath
+import io.github.vinceglb.filekit.dialogs.FileKitMode
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import kotlinx.coroutines.launch
 import mct.gui.components.TextSwitch
 import mct.gui.model.GuiSettings
+import mct.gui.util.getWallpaperPath
+import mct.gui.util.rememberImageThemeState
 
 @Composable
 fun SettingsSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
 ) {
+    val imageThemeState = rememberImageThemeState()
+    val scope = rememberCoroutineScope()
+
+    val imagePicker = rememberFilePickerLauncher(
+        type = FileKitType.File(),
+        mode = FileKitMode.Single,
+    ) { file: PlatformFile? ->
+        if (file != null) {
+            scope.launch { imageThemeState.loadFromPath(file.absolutePath()) }
+        }
+    }
+
     AnimatedVisibility(
         visible = visible,
         enter = slideInHorizontally { it },
@@ -44,7 +69,7 @@ fun SettingsSheet(
             Box(
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()
-                    .width(280.dp)
+                    .width(300.dp)
                     .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(20.dp)
@@ -220,6 +245,155 @@ fun SettingsSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error.copy(alpha = .8f),
                     )
+
+                    // ── Dynamic Theme ────────────────────────────────
+                    Spacer(Modifier.height(24.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(16.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                            }
+                        }
+                        Text(
+                            "动态主题",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+
+                    // Source selection buttons (always visible, top)
+                    Button(
+                        onClick = { imagePicker.launch() },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        ),
+                        enabled = !imageThemeState.isProcessing,
+                    ) {
+                        if (imageThemeState.isProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                        } else {
+                            Icon(Icons.Outlined.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("从图像选取")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            val path = getWallpaperPath()
+                            if (path != null) {
+                                scope.launch { imageThemeState.loadFromPath(path) }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !imageThemeState.isProcessing,
+                    ) {
+                        if (imageThemeState.isProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(Icons.Outlined.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("从壁纸获取")
+                        }
+                    }
+
+                    // Error message (inline)
+                    if (imageThemeState.errorMessage != null) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            imageThemeState.errorMessage!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    // Seed color preview card (only when set)
+                    GuiSettings.seedColor?.let { activeColor ->
+                        Spacer(Modifier.height(12.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(activeColor)
+                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "当前主题色",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Text(
+                                            "#%08X".format(activeColor.toArgb()),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Switch(
+                                        checked = GuiSettings.isDynamicThemeEnabled,
+                                        onCheckedChange = { GuiSettings.isDynamicThemeEnabled = it },
+                                    )
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                TextButton(
+                                    onClick = { imageThemeState.reset() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("重置为默认主题", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Rainbow gradient theme ────────────────────────
+                    Spacer(Modifier.height(12.dp))
+                    TextSwitch(
+                        modifier = Modifier.fillMaxWidth(),
+                        checked = GuiSettings.isRainbowTheme,
+                        onCheckedChange = { GuiSettings.isRainbowTheme = it },
+                        text = "🌈 七彩渐变主题",
+                    )
+
+                    Spacer(Modifier.height(16.dp))
                 }
             }
         }

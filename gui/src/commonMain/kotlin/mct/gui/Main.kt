@@ -1,6 +1,8 @@
 package mct.gui
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -16,6 +19,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import arrow.core.raise.either
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamicColorScheme
 import kotlinx.coroutines.launch
 import mct.gui.components.DraggableSplitPane
 import mct.gui.components.LogConsole
@@ -26,6 +31,7 @@ import mct.gui.model.LogEntry
 import mct.gui.model.Tab
 import mct.gui.pages.*
 import mct.gui.services.*
+import mct.gui.util.ThemeState
 import org.koin.compose.koinInject
 import org.koin.core.context.startKoin
 
@@ -41,9 +47,29 @@ fun main() = application {
         undecorated = true,
         transparent = true,
     ) {
-        LaunchedEffect(Unit) { window.minimumSize = java.awt.Dimension(400, 300) }
+        val isDark = isSystemInDarkTheme()
 
-        MaterialTheme(colorScheme = darkColorScheme()) {
+        LaunchedEffect(isDark) {
+            window.minimumSize = java.awt.Dimension(400, 300)
+            ThemeState.restoreFromSettings(isDark)
+        }
+
+        val colorScheme = if (GuiSettings.isRainbowTheme) {
+            val rainbow = rememberInfiniteTransition(label = "rainbow")
+            val hue by rainbow.animateFloat(
+                initialValue = 0f, targetValue = 360f,
+                animationSpec = infiniteRepeatable(tween(8000), RepeatMode.Restart),
+                label = "rainbowHue"
+            )
+            dynamicColorScheme(
+                seedColor = Color.hsv(hue, 0.9f, 1f),
+                isDark = isDark,
+                style = PaletteStyle.Vibrant,
+            )
+        } else {
+            ThemeState.colorScheme ?: if (isDark) darkColorScheme() else lightColorScheme()
+        }
+        MaterialTheme(colorScheme = colorScheme) {
             Surface(
                 modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.background
@@ -72,9 +98,10 @@ fun main() = application {
 @Composable
 fun App(modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
-    val scope = rememberCoroutineScope()
     val clientManager = koinInject<ClientManager>()
-    val vm = remember { AppViewModel(scope, clientManager) }
+    val vm = remember { AppViewModel(clientManager) }
+
+    DisposableEffect(Unit) { onDispose { vm.dispose() } }
 
     // 1. Load persisted settings on startup
     LaunchedEffect(Unit) { vm.loadSettings() }
@@ -171,7 +198,7 @@ fun App(modifier: Modifier = Modifier) {
                                                         handleGradientAggressively = vm.translateState.handleGradientAggressively,
                                                         temperature = GuiSettings.temperature,
                                                         onFailure = {
-                                                            scope.launch {
+                                                            vm.scope.launch {
                                                                 vm.snackbarHostState.showSnackbar(it.message)
                                                             }
                                                         },
@@ -186,7 +213,7 @@ fun App(modifier: Modifier = Modifier) {
                                                         },
                                                     )
                                                 }
-                                            }.onLeft { scope.launch { vm.snackbarHostState.showSnackbar(it.message) } }
+                                            }.onLeft { vm.scope.launch { vm.snackbarHostState.showSnackbar(it.message) } }
                                         }
                                     },
                                     onCancel = { vm.cancelJob() },
@@ -219,7 +246,8 @@ fun App(modifier: Modifier = Modifier) {
                                                 )
                                             }
                                         }
-                                    })
+                                    },
+                                    onCancel = { vm.cancelJob() })
 
                                 Tab.Backfill -> BackfillPanel(
                                     state = vm.backfillState,
@@ -283,7 +311,6 @@ fun App(modifier: Modifier = Modifier) {
         if (vm.showReasoning) {
             ReasoningSheet(
                 reasoningContents = vm.reasoningContents,
-                reasoningContentVersion = vm.reasoningContentVersion,
                 onDismiss = { vm.showReasoning = false }
             )
         }

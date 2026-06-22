@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import mct.LoggerLevel
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 
@@ -14,6 +15,14 @@ object GuiSettings {
     var temperature by mutableStateOf<Double?>(null)
     var concurrency by mutableIntStateOf(1)
     var concurrentByKind by mutableStateOf(false)
+
+    // Dynamic theme
+    var isDynamicThemeEnabled by mutableStateOf(false)
+    var seedColorArgb by mutableIntStateOf(0) // 0 = not set
+    var isRainbowTheme by mutableStateOf(false)
+
+    val seedColor: Color?
+        get() = if (seedColorArgb != 0) Color(seedColorArgb) else null
 }
 
 data class LogEntry(

@@ -45,6 +45,9 @@ kotlin {
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
+            implementation(libs.material.kolor)
+            implementation(libs.kmpalette.core)
+            implementation(libs.kotlinx.coroutines.swing)
         }
     }
 }
