@@ -24,7 +24,7 @@ class TermExtractor(
         onCancel: OnTermExtractCancel,
     ): TermTable {
         val prompt = """
-        你是深资的翻译员，你需要提取下列输入中的术语（人名与专有名词）并翻译成$targetLanguage
+        你是专精 Minecraft 地图的翻译引擎，你需要提取下列输入中的术语（人名与专有名词）并翻译成$targetLanguage
         
         # 输出格式
         直接输出以下格式的 JSON 数组，不要输出多余的文字：
@@ -37,6 +37,7 @@ class TermExtractor(
         
         ## 人名、地名处理
         - 不提取翻译 驼峰、下划线、冒号命名：MainPoint、mainPoint、main_point、main:point
+        - 不提提取代码识别符：minecraft:command_block 等
         - 不可自然意译的名称（如 Asta）→ 符合目标语言风格的音译
         - 有明确语义且适合本地化（如 The Guardian）→ 可自然意译
         【音译原则】
