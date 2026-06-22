@@ -18,6 +18,11 @@ class SnbtLexer(private val string: String) {
 
     private fun advance(): Char = string.getOrNull(index++) ?: aheadEOF()
 
+    private fun skip(n: Int) {
+        index += n
+        if (index >= string.length) aheadEOF()
+    }
+
     private fun singleChar(type: SnbtTokenType): SnbtToken {
         return SnbtToken(type, index..index++)
     }
@@ -51,7 +56,7 @@ class SnbtLexer(private val string: String) {
 
         while (index < string.length) {
             val ch = peek() ?: break
-            if (ch.isLetterOrUnderscoreOrDot()) index++ else break
+            if (ch.isLetterOrDigitOrUnderscoreOrDot()) index++ else break
         }
 
         return SnbtToken(SnbtTokenType.LITERAL, start..<index)
@@ -64,9 +69,19 @@ class SnbtLexer(private val string: String) {
         while (index < string.length) {
             val ch = advance()
 
-            if (boundary != '\'' && ch == '\\') {
-                advance()
-                continue
+            if (ch == '\\') when (boundary) {
+                '"' -> {
+                    advance()
+                    continue
+                }
+                '\'' -> {
+                    peek()?.let {
+                        if (it in "\\'") {
+                            advance()
+                            continue
+                        }
+                    }
+                }
             }
 
             if (ch == boundary) {
@@ -96,3 +111,4 @@ class SnbtLexer(private val string: String) {
 
 private fun Char.isLetterOrUnderscore() = this.isLetter() || this == '_'
 private fun Char.isLetterOrUnderscoreOrDot() = this.isLetter() || this in "._"
+private fun Char.isLetterOrDigitOrUnderscoreOrDot() = this.isLetterOrDigit() || this in "._"

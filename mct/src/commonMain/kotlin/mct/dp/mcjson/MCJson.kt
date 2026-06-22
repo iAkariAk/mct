@@ -86,35 +86,51 @@ internal fun standardizeMCJson(mcjson: String): String {
     while (i < mcjson.length) {
         val c = chars[i]
         when (c) {
-            '\'' if !inDoubleQuote -> when {
-                inSingleQuote -> {
-                    inSingleQuote = false
-                    result.append('"')
-                }
-
-                !inSingleQuote -> {
-                    inSingleQuote = true
-                    result.append('"')
-                }
+            '\'' -> if (inDoubleQuote) {
+                result.append(c)
+            } else if (inSingleQuote) {
+                inSingleQuote = false
+                result.append('"')
+            } else {
+                inSingleQuote = true
+                result.append('"')
             }
 
-            '"'  -> when {
-                inSingleQuote -> {
-                    result.append("\\\"")
-                }
 
-                inDoubleQuote -> {
-                    inDoubleQuote = false
-                    result.append(c)
-                }
-
-                !inDoubleQuote -> {
-                    inDoubleQuote = true
-                    result.append(c)
-                }
+            '"' -> if (inSingleQuote) {
+                result.append("\\\"")
+            } else if (inDoubleQuote) {
+                inDoubleQuote = false
+                result.append(c)
+            } else {
+                inDoubleQuote = true
+                result.append(c)
             }
 
-            '\\' if inSingleQuote && i + 1 < chars.size && chars[i + 1] != '\'' -> result.append("\\\\")
+            '\\' if i + 1 < chars.size -> {
+                val next = chars[i + 1]
+                when {
+                    inSingleQuote -> {
+                        when (next) {
+                            '\'' -> result.append("'") // unescape
+                            '\\' -> result.append("\\\\")
+                            else -> {
+                                result.append('\\')
+                                result.append(next)
+                            }
+                        }
+                        i++
+                    }
+
+                    inDoubleQuote -> {
+                        result.append('\\')
+                        result.append(next)
+                        i++
+                    }
+
+                    else -> result.append(c)
+                }
+            }
 
             else -> result.append(c)
         }

@@ -34,7 +34,9 @@ fun arbNbt(depth: Int = 4): Arb<NbtTag> {
 }
 
 private fun parseTest(@Language("snbt") snbt: String) = shouldNotThrowAny {
-    SnbtTag.decodeFromString(snbt)
+    SnbtTag.decodeFromString(snbt).also {
+        println(it)
+    }
 }
 
 class SnbtTest : FreeSpec({
@@ -82,6 +84,30 @@ class SnbtTest : FreeSpec({
     "dot literal list" {
         parseTest("""
             {Dialog:[I,t," ",w,i,l,l," ",b,e," ",w,o,n,d,e,r,f,u,l,.]}
+        """.trimIndent())
+    }
+
+    "single quote escape" {
+        parseTest("""
+            'Shina\'s Mimi and Mimi\'s Shina \\\\ '   
+        """.trimIndent())
+    }
+
+    "tail comma" {
+        parseTest("""
+            {height:0.2f, width:0.65f ,}
+        """.trimIndent())
+
+        parseTest("""
+            [1,2,3,]
+        """.trimIndent())
+    }
+
+    "anyway" {
+        parseTest("""
+                {
+                        UUID2: [I;0,0,0,0]
+                }
         """.trimIndent())
     }
 })

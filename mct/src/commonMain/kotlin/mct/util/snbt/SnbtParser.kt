@@ -47,12 +47,11 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
     private fun parseCompound(): SnbtCompound {
         val obj = mutableMapOf<String, SnbtTag>()
         val startIndex = currentToken!!.indices.first
-        var i = 0
         while (currentToken?.type != SnbtTokenType.R_BRACE) {
             val next = advance()
-            if (i == 0 && next.type == SnbtTokenType.R_BRACE) return SnbtCompound(
+            if (next.type == SnbtTokenType.R_BRACE) return SnbtCompound(
                 startIndex..startIndex + 1,
-                emptyMap()
+                obj
             )
             val key = parseString()
             expectAny(SnbtTokenType.COLON)
@@ -60,7 +59,6 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
             val value = parseTag()
             obj[key.content] = value
             expectAny(SnbtTokenType.COMMA, SnbtTokenType.R_BRACE)
-            i++
         }
         val endIndex = currentToken!!.indices.last
 
@@ -74,9 +72,9 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
         var type: SnbtType? = null
         while (currentToken?.type != SnbtTokenType.R_BRACKET) {
             val next = advance()
-            if (i == 0 && next.type == SnbtTokenType.R_BRACKET) return SnbtList(
+            if (next.type == SnbtTokenType.R_BRACKET) return SnbtList(
                 startIndex..startIndex + 1,
-                emptyList()
+                list
             )
             val value = parseTag(Metadata(type))
             list += value
