@@ -20,6 +20,7 @@ import mct.extra.ai.translator.*
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
 import mct.gui.util.setting
+import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
 import mct.nbt.BuiltinNbtPatterns
@@ -367,6 +368,88 @@ suspend fun runBackfill(
                 }
             }
         )
+    }
+}
+
+// ── 术语提取 ──────────────────────────────────────────────────
+
+/**
+ * Run AI term extraction in the background.
+ *
+ * Loads [input] (extractions.json), converts it to a text pool,
+ * runs [TermExtractor] via the already-configured [clientManager.chatCompletionCall],
+ * and writes the extracted [TermTable] to [output].
+ */
+context(env: Env)
+suspend fun runTermExtraction(
+    clientManager: ClientManager,
+    input: String,
+    output: String,
+    termPath: String?,
+    targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
+    onCancel: OnTermExtractCancel = {},
+) {
+    env.logger.info { "正在加载提取结果: $input" }
+
+    val (extractionGroups, existingTerms) = withContext(Dispatchers.IO) {
+        val json = env.fs.read(input.toPath()) { readUtf8() }
+        val groups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
+        env.logger.info { "已加载 ${groups.size} 个提取分组" }
+
+        val terms: TermTable = if (termPath != null && env.fs.exists(termPath.toPath())) {
+            val termJson = env.fs.read(termPath.toPath()) { readUtf8() }
+            MCTJson.decodeFromString<TermTable>(termJson).also {
+                env.logger.info { "已加载 ${it.size} 个已有术语" }
+            }
+        } else emptySet()
+
+        groups to terms
+    }
+
+    val call = clientManager.chatCompletionCall
+    if (call == null) {
+        env.logger.error { "没有 API 连接，请先在设置中配置" }
+        return
+    }
+
+    val textPool = extractionGroups.exportIntoPool(simply = false)
+    env.logger.info { "共 ${textPool.size} 个待提取文本" }
+
+    val extractor = TermExtractor(
+        call = call,
+        tokenThreshold = GuiSettings.tokenThreshold,
+        targetLanguage = targetLanguage,
+        concurrency = GuiSettings.concurrency,
+        defaultTerms = existingTerms,
+    )
+
+    withContext(Dispatchers.IO) {
+        try {
+            val result = either {
+                extractor.extract(textPool) { partialTerms ->
+                    env.logger.info { "提取被取消，已保存 ${partialTerms.size} 条术语" }
+                    runCatching {
+                        output.toPath().writeJson(partialTerms, pretty = GuiSettings.prettyOutput)
+                    }
+                    onCancel(partialTerms)
+                }
+            }
+
+            result.fold(
+                ifLeft = { error -> env.logger.error { "提取失败: ${error.message}" } },
+                ifRight = { terms ->
+                    val newTerms = terms.size - existingTerms.size
+                    output.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
+                    env.logger.info { "提取了 ${terms.size} 条术语（新增 $newTerms）" }
+                    env.logger.info { "术语表已写入: $output" }
+                    env.logger.info { "完成。" }
+                },
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            env.logger.error { e.stackTraceToString() }
+        }
     }
 }
 

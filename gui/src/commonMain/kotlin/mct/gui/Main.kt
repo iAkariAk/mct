@@ -203,6 +203,24 @@ fun App(modifier: Modifier = Modifier) {
                                         vm.optimizePrompt(current)
                                     })
 
+                                Tab.TermExtract -> TermExtractPanel(
+                                    state = vm.termExtractState,
+                                    onStateChange = { vm.termExtractState = it },
+                                    isRunning = vm.isRunning,
+                                    onRun = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            with(vm.env) {
+                                                runTermExtraction(
+                                                    clientManager = vm.clientManager,
+                                                    input = vm.termExtractState.input,
+                                                    output = vm.termExtractState.output,
+                                                    termPath = vm.termExtractState.existingTermPath.takeIf { it.isNotBlank() },
+                                                    targetLanguage = vm.termExtractState.targetLanguage,
+                                                )
+                                            }
+                                        }
+                                    })
+
                                 Tab.Backfill -> BackfillPanel(
                                     state = vm.backfillState,
                                     onStateChange = { vm.backfillState = it },

@@ -40,6 +40,7 @@ class AppViewModel(
     // ── Panel data states ───────────────────────────────────────
     var extractState by mutableStateOf(ExtractState())
     var translateState by mutableStateOf(TranslateState())
+    var termExtractState by mutableStateOf(TermExtractState())
     var backfillState by mutableStateOf(BackfillState())
     var toolboxState by mutableStateOf(ToolboxState())
 

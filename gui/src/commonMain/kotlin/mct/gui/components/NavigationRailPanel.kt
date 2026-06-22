@@ -2,6 +2,7 @@ package mct.gui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Search
@@ -56,6 +57,11 @@ fun NavigationRailPanel(
             onClick = { onTabSelected(Tab.Translate) },
             icon = { Icon(Icons.Outlined.Translate, contentDescription = null) },
             label = { Text(Tab.Translate.label, style = MaterialTheme.typography.labelSmall) })
+        NavigationRailItem(
+            selected = selectedTab == Tab.TermExtract,
+            onClick = { onTabSelected(Tab.TermExtract) },
+            icon = { Icon(Icons.Outlined.Bookmark, contentDescription = null) },
+            label = { Text(Tab.TermExtract.label, style = MaterialTheme.typography.labelSmall) })
         NavigationRailItem(
             selected = selectedTab == Tab.Backfill,
             onClick = { onTabSelected(Tab.Backfill) },

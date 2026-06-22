@@ -48,6 +48,13 @@ data class BackfillState(
     val mode: RunMode = RunMode.Region,
 )
 
+data class TermExtractState(
+    val input: String = "extractions.json",
+    val output: String = "terms.json",
+    val existingTermPath: String = "",
+    val targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
+)
+
 data class ToolboxState(
     val pointerKind: PointerKind = PointerKind.Region,
     val pointerPatternPath: String = "",
