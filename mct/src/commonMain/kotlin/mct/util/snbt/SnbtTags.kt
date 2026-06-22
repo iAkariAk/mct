@@ -77,5 +77,27 @@ data class SnbtList(
     override fun toIR() = IRList(value.map { it.toIR() })
 }
 
+enum class SnbtType {
+    BOOLEAN,
+    BYTE,
+    SHORT,
+    INT,
+    LONG,
+    FLOAT,
+    DOUBLE,
+    STRING,
+    COMPOUND,
+    LIST;
 
-
+    companion object {
+        fun fromSign(sign: Char): SnbtType? = when (sign.lowercaseChar()) {
+            'b' -> BYTE
+            's' -> SHORT
+            'i' -> INT
+            'l' -> LONG
+            'f' -> FLOAT
+            'd' -> DOUBLE
+            else -> null
+        }
+    }
+}

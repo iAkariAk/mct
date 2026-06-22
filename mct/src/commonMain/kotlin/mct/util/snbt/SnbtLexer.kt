@@ -1,7 +1,5 @@
 package mct.util.snbt
 
-import korlibs.io.util.isLetter
-import korlibs.io.util.isLetterOrUnderscore
 
 class SnbtLexer(private val string: String) {
     private var index = 0
@@ -41,7 +39,7 @@ class SnbtLexer(private val string: String) {
             ']' -> singleChar(SnbtTokenType.R_BRACKET)
             '(' -> singleChar(SnbtTokenType.L_PAREN)
             ')' -> singleChar(SnbtTokenType.R_PAREN)
-            else -> if (ch.isLetterOrUnderscore()) {
+            else -> if (ch.isLetterOrUnderscoreOrDot()) {
                 readLiteral()
             } else parseError("Unknown char: $ch")
         }
@@ -52,14 +50,7 @@ class SnbtLexer(private val string: String) {
 
         while (index < string.length) {
             val ch = peek() ?: break
-            if (ch == ':') {
-                val forwardLooking = peek(1) ?: aheadEOF()
-                if (forwardLooking.isLetterOrUnderscore()) {
-                    index += 2
-                    continue
-                } else return SnbtToken(SnbtTokenType.LITERAL, start..<index)
-            }
-            if (ch.isLetterOrUnderscore()) index++ else break
+            if (ch.isLetterOrUnderscoreOrDot()) index++ else break
         }
 
         return SnbtToken(SnbtTokenType.LITERAL, start..<index)
@@ -102,4 +93,5 @@ class SnbtLexer(private val string: String) {
     }
 }
 
-private fun Char.isLetterOrUnderscore(): Boolean = this.isLetter() || this == '_'
+private fun Char.isLetterOrUnderscore() = this.isLetter() || this == '_'
+private fun Char.isLetterOrUnderscoreOrDot() = this.isLetter() || this in "._"

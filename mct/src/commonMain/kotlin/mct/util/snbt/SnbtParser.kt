@@ -1,5 +1,10 @@
 package mct.util.snbt
 
+import arrow.core.partially1
+
+private data class Metadata(
+    val type: SnbtType? = null,
+)
 
 class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
     private var currentToken: SnbtToken? = null
@@ -27,12 +32,13 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
         return parseTag()
     }
 
-    private fun parseTag(): SnbtTag {
+    private fun parseTag(metadata: Metadata? = null): SnbtTag {
+//        println(currentToken)
         val tag = when (currentToken!!.type) {
             SnbtTokenType.STRING -> parseString()
             SnbtTokenType.L_BRACE -> parseCompound()
             SnbtTokenType.L_BRACKET -> parseList()
-            SnbtTokenType.NUMBER -> parseNumber()
+            SnbtTokenType.NUMBER -> parseNumber(metadata)
             SnbtTokenType.LITERAL -> parseIdentifier()
             else -> illegalToken("Unexpected token ${currentToken!!.type} at ${currentToken!!.indices}")
         }
@@ -50,9 +56,11 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
                 emptyMap()
             )
             val key = parseString()
+            println(key)
             expectAny(SnbtTokenType.COLON)
             advance()
             val value = parseTag()
+            println(value)
             obj[key.content] = value
             expectAny(SnbtTokenType.COMMA, SnbtTokenType.R_BRACE)
             i++
@@ -66,17 +74,22 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
         val list = mutableListOf<SnbtTag>()
         val startIndex = currentToken!!.indices.first
         var i = 0
+        var type: SnbtType? = null
         while (currentToken?.type != SnbtTokenType.R_BRACKET) {
             val next = advance()
             if (i == 0 && next.type == SnbtTokenType.R_BRACKET) return SnbtList(
                 startIndex..startIndex + 1,
                 emptyList()
             )
-            val value = parseTag()
+            val value = parseTag(Metadata(type))
             list += value
             expectAny({ next2 ->
                 (i == 0 && next2.type == SnbtTokenType.SEMICOLON && value is SnbtString && value.indices.first == value.indices.last && value.raw.single() in "BIL").also {
-                    if (it) list.removeLast()
+                    if (it) {
+                        value as SnbtString
+                        list.removeLast()
+                        type = SnbtType.fromSign(value.raw.single())
+                    }
                 } // skip the type prefix of typed array
             }, SnbtTokenType.COMMA, SnbtTokenType.R_BRACKET)
             i++
@@ -104,26 +117,52 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
     }
 
 
-    private fun parseNumber(): SnbtTag {
+    private fun parseNumber(metadata: Metadata? = null): SnbtTag {
         val raw = currentView()
 
         val suffix = raw.takeLastWhile(Char::isLetter).lowercase()
 
         if (suffix.length > 1) parseError("Illegal suffix $suffix")
-        val dropLast = raw.dropLast(1).replace("_", "")
-        val num = when (suffix.firstOrNull()) {
-            'b' -> SnbtByte(currentToken!!.indices, dropLast.toByte())
-            's' -> SnbtShort(currentToken!!.indices, dropLast.toShort())
-            null -> SnbtInt(currentToken!!.indices, raw.replace("_", "").toInt())
-            'i' -> SnbtInt(currentToken!!.indices, dropLast.toInt())
-            'l' -> SnbtLong(currentToken!!.indices, dropLast.toLong())
-            'f' -> SnbtFloat(currentToken!!.indices, dropLast.toFloat())
-            'd' -> SnbtDouble(currentToken!!.indices, dropLast.toDouble())
+        val signOrNull = suffix.firstOrNull()
+        val inferredType =
+            signOrNull?.let { sign -> SnbtType.fromSign(sign) ?: parseError("Illegal suffix $signOrNull") }
+        val expectedType = metadata?.type
+        val numStr = raw.dropLast(1).replace("_", "")
+        if (expectedType != null && inferredType != null && expectedType != inferredType) parseError("Expected $expectedType, got $inferredType")
+        val num = when (inferredType) {
+            SnbtType.BYTE -> SnbtByte(currentToken!!.indices, numStr.toByte())
+            SnbtType.SHORT -> SnbtShort(currentToken!!.indices, numStr.toShort())
+            SnbtType.INT -> SnbtInt(currentToken!!.indices, numStr.toInt())
+            SnbtType.LONG -> SnbtLong(currentToken!!.indices, numStr.toLong())
+            SnbtType.FLOAT -> SnbtFloat(currentToken!!.indices, numStr.toFloat())
+            SnbtType.DOUBLE -> SnbtDouble(currentToken!!.indices, numStr.toDouble())
+            null -> {
+                val cleaned = raw.replace("_", "")
+                val parsed = tryParseNumber(cleaned, currentToken!!.indices, expectedType)
+                    ?: illegalNumber("Number $cleaned can be neither an integer nor a double")
+                return parsed
+            }
+
             else -> parseError("Illegal suffix $suffix")
         }
 
         return num
     }
+
+    // Refer to https://minecraft.wiki/w/NBT_format#Conversion_from_SNBT
+    private inline fun tryParseNumber(numStr: String, indices: IntRange, type: SnbtType? = null): SnbtTag? =
+        if (type == null)
+            if ('.' in numStr) numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
+            else numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
+        else when (type) {
+            SnbtType.BYTE -> numStr.toByteOrNull()?.let(::SnbtByte.partially1(indices))
+            SnbtType.SHORT -> numStr.toShortOrNull()?.let(::SnbtShort.partially1(indices))
+            SnbtType.INT -> numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
+            SnbtType.LONG -> numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
+            SnbtType.FLOAT -> numStr.toFloatOrNull()?.let(::SnbtFloat.partially1(indices))
+            SnbtType.DOUBLE -> numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
+            else -> null
+        }
 
     private fun parseIdentifier(): SnbtTag {
         return when (val literal = currentView()) {

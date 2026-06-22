@@ -10,6 +10,7 @@ import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtInt
 import net.benwoodworth.knbt.NbtString
 import net.benwoodworth.knbt.NbtTag
+import org.intellij.lang.annotations.Language
 
 
 fun arbNbt(depth: Int = 4): Arb<NbtTag> {
@@ -32,7 +33,7 @@ fun arbNbt(depth: Int = 4): Arb<NbtTag> {
     }
 }
 
-private fun parseTest(snbt: String) = shouldNotThrowAny {
+private fun parseTest(@Language("snbt") snbt: String) = shouldNotThrowAny {
     SnbtTag.decodeFromString(snbt)
 }
 
@@ -46,16 +47,35 @@ class SnbtTest : FreeSpec({
     }
 
     "typed array" {
-        parseTest("[I; 1, 2, 3]") shouldBe SnbtList(0..12, listOf(SnbtInt(4..4, 1), SnbtInt(7..7,2), SnbtInt(10..10, 3)))
-        parseTest("[B; 1, 2, 3]") shouldBe SnbtList(0..12, listOf(SnbtInt(4..4, 1), SnbtInt(7..7,2), SnbtInt(10..10, 3)))
+        parseTest("[I; 1, 2, 3]") shouldBe SnbtList(
+            0..12,
+            listOf(SnbtInt(4..4, 1), SnbtInt(7..7, 2), SnbtInt(10..10, 3))
+        )
+        parseTest("[B; 1, 2, 3]") shouldBe SnbtList(
+            0..12,
+            listOf(SnbtByte(4..4, 1), SnbtByte(7..7, 2), SnbtByte(10..10, 3))
+        )
+
+        shouldNotThrowAny {
+            parseTest("[B; 1b, 2b]")
+        }
+
+        shouldFail {
+            parseTest("[I; 1.0, 10.0]")
+        }
 
         shouldFail {
             parseTest("[X; 1, 2, 3]")
         }
     }
 
+    "infer type without suffix" {
+        parseTest("[0, 1, 2]") shouldBe SnbtList(0..8, listOf(SnbtInt(1..1, 0), SnbtInt(4..4, 1), SnbtInt(7..7, 2)))
+    }
 
-    "test parse" {
-        parseTest("""{Rotation:[0F,0F],Tags:["info"],brightness:{sky:15,block:15},transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[2f,2f,2f]},text:{"bold":true,"color":"#FFFFFF","italic":false,"text":"Multiplayer","underlined":false},background:1342177280}""")
+    "literal including dot" {
+        shouldNotThrowAny {
+            parseTest("""{Name:generic.max_health,Base:10}""")
+        }
     }
 })
