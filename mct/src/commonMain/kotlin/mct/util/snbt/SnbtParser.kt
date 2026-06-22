@@ -33,7 +33,6 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
     }
 
     private fun parseTag(metadata: Metadata? = null): SnbtTag {
-//        println(currentToken)
         val tag = when (currentToken!!.type) {
             SnbtTokenType.STRING -> parseString()
             SnbtTokenType.L_BRACE -> parseCompound()
@@ -56,11 +55,9 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
                 emptyMap()
             )
             val key = parseString()
-            println(key)
             expectAny(SnbtTokenType.COLON)
             advance()
             val value = parseTag()
-            println(value)
             obj[key.content] = value
             expectAny(SnbtTokenType.COMMA, SnbtTokenType.R_BRACE)
             i++
