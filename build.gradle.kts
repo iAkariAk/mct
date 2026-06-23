@@ -19,7 +19,7 @@ subprojects {
 
     plugins.withId("org.jetbrains.kotlin.multiplatform") {
         val kotlin = extensions.getByType<KotlinMultiplatformExtension>()
-        kotlin.jvmToolchain(21)
+        kotlin.jvmToolchain(25)
         @OptIn(ExperimentalKotlinGradlePluginApi::class, KotlinNativeCacheApi::class)
         kotlin.compilerOptions {
             freeCompilerArgs.addAll(

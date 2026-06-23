@@ -7,30 +7,30 @@ collections-immutable = "0.5.0"
 compose = "1.11.1"
 coroutines = "1.11.0"
 filekit = "0.14.1"
+graalvm-native = "1.1.2"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
+kmpalette = "4.0.0-beta02"
 knbt = "0.11.9"
 koin = "4.2.1"
 korlibs = "6.0.2"
 kotest = "6.1.11"
 kotlin = "2.4.0"
-proguard = "7.9.1"
 kotlinx-io = "0.9.0"
-kmpalette = "4.0.0-beta02"
 ksp = "2.3.9"
+ktoml = "0.7.1"
 ktor = "3.5.0"
 material-icons-extended = "1.7.3"
 material-kolor = "4.1.1"
 material3 = "1.12.0-alpha01"
+mordant = "3.0.2"
 okio = "3.17.0"
 openai-client = "4.1.0"
+proguard = "7.9.1"
 resources = "0.15.0"
 serialization = "1.11.0"
 shadow = "9.4.2"
-ktoml = "0.7.1"
-mordant = "3.0.2"
 slf4j = "2.0.18"
-graalvm-native = "1.1.2"
 
 [libraries]
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
@@ -38,10 +38,10 @@ androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecyc
 arrow-core = { module = "io.arrow-kt:arrow-core" }
 arrow-functions = { module = "io.arrow-kt:arrow-functions" }
 arrow-fx-coroutines = { module = "io.arrow-kt:arrow-fx-coroutines" }
-arrow-suspendapp = { module = "io.arrow-kt:suspendapp", version.ref = "arrow" }
 arrow-optics = { module = "io.arrow-kt:arrow-optics" }
 arrow-optics-ksp = { module = "io.arrow-kt:arrow-optics-ksp-plugin", version.ref = "arrow" }
 arrow-stack = { module = "io.arrow-kt:arrow-stack", version.ref = "arrow" }
+arrow-suspendapp = { module = "io.arrow-kt:suspendapp", version.ref = "arrow" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
@@ -54,6 +54,8 @@ filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose
 goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
+kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
+kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
@@ -77,17 +79,15 @@ ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotia
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
-okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
-okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
-openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
 material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "material-kolor" }
-kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
-kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
 mordant = { module = "com.github.ajalt.mordant:mordant", version.ref = "mordant" }
 mordant-coroutines = { module = "com.github.ajalt.mordant:mordant-coroutines", version.ref = "mordant" }
 mordant-markdown = { module = "com.github.ajalt.mordant:mordant-markdown", version.ref = "mordant" }
-slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
+openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
 proguard = { module = "com.guardsquare:proguard-gradle", version.ref = "proguard" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 
 [bundles]
 arrow = [
@@ -101,15 +101,14 @@ kotest = [
     "kotest-framework-engine",
     "kotest-property",
 ]
+ktoml = [
+    "ktoml-core",
+    "ktoml-file",
+]
 okio = [
     "okio",
     "okio-fakefilesystem",
 ]
-ktoml = [
-    "ktoml-core",
-    "ktoml-file"
-]
-
 
 [plugins]
 catelog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "catelog-update" }

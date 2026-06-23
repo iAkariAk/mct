@@ -15,8 +15,8 @@ import mct.cli.jsonFile
 import mct.cli.path
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.nbt.BuiltinNbtPatterns
+import mct.pointer.CustomizedDataPointerPattern
 import mct.pointer.DataPointer
-import mct.pointer.DataPointerPattern
 import mct.pointer.decodeFromString
 import mct.pointer.matches
 import mct.util.unreachable
@@ -40,7 +40,7 @@ private class DataPointerTest : BaseCommand(name = "pointer") {
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val extra = pattern.jsonFile<List<DataPointerPattern>>(emptyList())
+        val extra = pattern.jsonFile<List<CustomizedDataPointerPattern>>(emptyList()).map { it.compile() }
         val builtin =  when (kind) {
             "mcjson" -> BuiltinMCJPatterns
             "region" -> BuiltinNbtPatterns

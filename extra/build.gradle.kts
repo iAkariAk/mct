@@ -15,8 +15,6 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(21)
-
     jvm {
         testRuns.named("test") {
             executionTask.configure {

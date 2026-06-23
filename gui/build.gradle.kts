@@ -14,8 +14,6 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(21)
-
     jvm {
         mainRun {
             mainClass.set("mct.gui.MainKt")
