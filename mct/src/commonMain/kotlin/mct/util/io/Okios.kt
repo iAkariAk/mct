@@ -44,7 +44,9 @@ inline fun Path.writeText(content: String, fs: FileSystem) = fs.write(this) {
 context(fs: FileSystem)
 inline fun Path.writeText(content: String) = writeText(content, fs)
 
-suspend fun FileSystem.openZipReadOnly(path: Path): ZipFileSystem {
+expect suspend fun FileSystem.openZipReadOnly(path: Path): FileSystem
+
+internal suspend fun FileSystem.openZipReadOnlyCommon(path: Path): ZipFileSystem {
     val tfs = FakeFileSystem()
     val handle = openReadOnly(path)
     val astream = handle.asAsyncStreamBase().toAsyncStream()
