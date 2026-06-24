@@ -54,3 +54,13 @@ fun String.surroundedBy(separator: Char): Boolean =
 
 fun String.surroundedBy(separator: String): Boolean =
     length >= separator.length * 2 && startsWith(separator) && endsWith(separator)
+
+fun String.substringAfterOrNull(delimiter: Char): String? {
+    val index = indexOf(delimiter)
+    return if (index == -1) null else substring(index + 1, length)
+}
+
+fun String.substringAfterOrNull(delimiter: String): String? {
+    val index = indexOf(delimiter)
+    return if (index == -1) null else substring(index + 1, length)
+}

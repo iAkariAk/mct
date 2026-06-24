@@ -5,7 +5,6 @@ import arrow.core.raise.context.Raise
 import arrow.core.raise.context.either
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.raise
-import korlibs.io.util.substringAfterOrNull
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -14,6 +13,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import mct.MCTError
 import mct.model.patch.FormatKind
+import mct.util.substringAfterOrNull
 
 // {"abc": [{"abc": "def"}]}
 // Getting abc >#abc>0>abc

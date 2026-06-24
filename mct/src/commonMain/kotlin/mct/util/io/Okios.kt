@@ -1,21 +1,10 @@
 package mct.util.io
 
-import korlibs.io.file.VfsFile
-import korlibs.io.file.baseName
-import korlibs.io.file.readAsSyncStream
-import korlibs.io.file.std.MemoryVfs
-import korlibs.io.file.std.createZipFromTreeTo
-import korlibs.io.file.std.openAsZip
-import korlibs.io.lang.unsupported
-import korlibs.io.stream.openAsync
-import korlibs.io.stream.toAsyncStream
 import okio.BufferedSource
 import okio.FileSystem
 import okio.Path
+import okio.Path.Companion.DIRECTORY_SEPARATOR
 import okio.Path.Companion.toPath
-import okio.fakefilesystem.FakeFileSystem
-import kotlin.contracts.InvocationKind
-import kotlin.contracts.contract
 
 internal const val BUFFER_SIZE = 0x20000 // 128KiB
 
@@ -24,6 +13,9 @@ private val _ROOT = "/".toPath()
 
 val Path.Companion.ROOT: Path
     get() = _ROOT
+
+fun List<String>.toPath(): Path = joinToString(DIRECTORY_SEPARATOR).toPath()
+fun Path.appendAfterName(suffix: String): Path = (segments.subList(0, segments.size - 1) + (filename + suffix)).toPath()
 
 // aka. nameWithoutExtension
 val Path.filename get() = segments.lastOrNull()
@@ -43,115 +35,6 @@ inline fun Path.writeText(content: String, fs: FileSystem) = fs.write(this) {
 
 context(fs: FileSystem)
 inline fun Path.writeText(content: String) = writeText(content, fs)
-
-expect suspend fun FileSystem.openZipReadOnly(path: Path): FileSystem
-
-internal suspend fun FileSystem.openZipReadOnlyCommon(path: Path): ZipFileSystem {
-    val tfs = FakeFileSystem()
-    val handle = openReadOnly(path)
-    val astream = handle.asAsyncStreamBase().toAsyncStream()
-    val zipVfs = astream.openAsZip()
-    zipVfs.copyToRecursively(tfs, Path.ROOT)
-
-    return object : ZipFileSystem(tfs) {
-        override suspend fun closeAsync() {}
-    }
-}
-
-suspend fun FileSystem.openZipReadWrite(path: Path): ZipFileSystem {
-    val rfs = this
-    val tfs = FakeFileSystem()
-    val handle = openReadWrite(path)
-    val astream = handle.asAsyncStreamBase().toAsyncStream()
-    val zipVfs = astream.openAsZip()
-    zipVfs.copyToRecursively(tfs, Path.ROOT)
-
-    return object : ZipFileSystem(tfs) {
-        override suspend fun closeAsync() {
-            context(tfs) {
-                val mem = MemoryVfs()
-                Path.ROOT.copyToRecursively(mem)
-                rfs.write(path) {
-                    mem.createZipFromTreeTo(asAsyncOutputStream().toAsyncStream())
-                }
-            }
-
-            tfs.close()
-        }
-    }
-}
-
-// Note: No way to get the file which was modified
-suspend fun ByteArray.openZipReadWrite(): ZipFileSystem {
-    val tfs = FakeFileSystem()
-    val zipVfs = openAsync().openAsZip()
-    zipVfs.copyToRecursively(tfs, Path.ROOT)
-
-    return object : ZipFileSystem(tfs) {
-        override suspend fun closeAsync() {
-        }
-    }
-}
-
-suspend inline fun <R, FS : FileSystem> FS.useAsync(block: (FS) -> R): R {
-    contract {
-        callsInPlace(block, InvocationKind.EXACTLY_ONCE)
-    }
-    try {
-        return block(this)
-    } finally {
-        if (this is ZipFileSystem)
-            closeAsync()
-        else close()
-    }
-}
-
-
-abstract class ZipFileSystem(delegate: FileSystem) : DelegatedFileSystem(delegate) {
-    abstract suspend fun closeAsync()
-
-    override fun close() = unsupported("Replace with `closeAsync`")
-}
-
-
-private suspend fun VfsFile.copyToRecursively(
-    fs: FileSystem,
-    target: Path,
-) {
-    if (isDirectory()) {
-        fs.createDirectories(target, false)
-        list().collect {
-            it.copyToRecursively(fs, target / it.baseName)
-        }
-    } else {
-        readAsSyncStream().use { stream ->
-            fs.write(target) {
-                val buffer = ByteArray(BUFFER_SIZE)
-                var len = 0
-                while (stream.read(buffer, 0, BUFFER_SIZE).also { len = it } > 0) {
-                    write(buffer, 0, len)
-                }
-            }
-        }
-    }
-}
-
-context(fs: FileSystem)
-private suspend fun Path.copyToRecursively(
-    target: VfsFile,
-) {
-    if (fs.metadata(this).isDirectory) {
-        target.mkdirs()
-        fs.list(this).forEach {
-            it.copyToRecursively(target[it.name])
-        }
-    } else {
-        fs.read(this) {
-            target.writeStream(asAsyncInputStream())
-        }
-    }
-}
-
 
 context(fs: FileSystem)
 fun Path.copyToRecursively(target: Path) {

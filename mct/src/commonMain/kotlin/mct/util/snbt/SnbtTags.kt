@@ -1,9 +1,9 @@
 package mct.util.snbt
 
-import korlibs.io.lang.unreachable
 import mct.model.patch.SnbtSyntaxKind
 import mct.util.doubleUnquoted
 import mct.util.formatir.*
+import mct.util.unreachable
 
 sealed interface SnbtTag {
     val indices: IntRange

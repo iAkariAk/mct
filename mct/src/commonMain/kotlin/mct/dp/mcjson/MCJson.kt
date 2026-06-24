@@ -10,6 +10,7 @@ import mct.dp.MCJsonExtractError
 import mct.model.patch.FormatKind
 import mct.pointer.*
 import mct.util.isJson
+import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
 
 internal val MCJson = Json {
@@ -20,21 +21,27 @@ internal val MCJson = Json {
 
 internal fun MCJsonExtractor(
     pattern: MCTPattern,
-) = Extractor("MCJson", "json") { sourcePath, zfs, zpath ->
-    val text = zfs.read(zpath) { readUtf8() }
-    extractTextMCJ(
-        text,
-        source = sourcePath.name,
-        path = zpath.normalized().toString(),
-        pattern.mcjson
-    ).toList()
+) = Extractor("MCJson", "json") { sourcePath, (file, tmp) ->
+    val (getSource, close) = tmp
+    val source = getSource()
+    val text = source.readUtf8()
+    try {
+        extractTextMCJ(
+            text,
+            source = sourcePath.name,
+            path = file.path,
+            pattern.mcjson
+        ).toList()
+    } finally {
+        close(source)
+    }
 }
 
 context(_: Raise<MCJsonExtractError>)
 internal fun extractTextMCJ(
     json: String,
     source: String,
-    path: String,
+    path: Path,
     patterns: List<DataPointerPattern>? = BuiltinMCJPatterns,
 ): Sequence<MCJsonExtraction> = try {
     val standard = standardizeMCJson(json)

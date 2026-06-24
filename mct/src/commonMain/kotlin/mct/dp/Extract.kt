@@ -3,7 +3,6 @@ package mct.dp
 import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.context.either
-import arrow.core.raise.nullable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import mct.EnvHolder
@@ -13,11 +12,11 @@ import mct.command.CommandExtractPattern
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
 import mct.dp.nbt.NbtExtractor
+import mct.logger
 import mct.model.patch.DatapackExtraction
 import mct.model.patch.DatapackExtractionGroup
 import mct.util.IO
 import mct.util.io.*
-import okio.FileSystem
 import okio.Path
 import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
 
@@ -25,7 +24,7 @@ fun List<CommandExtractPattern>.compile(): Map<String, List<CommandExtractPatter
     MCFBuiltinPatterns + groupBy { it.command }.toMap()
 
 fun MCTWorkspace.extractFromDatapack(
-    pattern: MCTPattern = MCTPattern.Default
+    pattern: MCTPattern = MCTPattern.Default,
 ): Flow<DatapackExtractionGroup> {
     if (pattern.mcjson == null) logger.warning { "The filter was disabled, which causes export all string out of mcjson from the datapack" }
     logger.info { "Scanning datapacks in $datapackDir" }
@@ -33,7 +32,7 @@ fun MCTWorkspace.extractFromDatapack(
     val extractors = buildMap {
         fun add(constructExtractor: (pattern: MCTPattern) -> Extractor) {
             val extractor = constructExtractor(pattern)
-            put(extractor.targetExtension, constructExtractor(pattern))
+            put(extractor.targetExtension, extractor)
         }
         add(::MCFunctionExtractor)
         add(::MCJsonExtractor)
@@ -48,40 +47,36 @@ fun MCTWorkspace.extractFromDatapack(
     return fs.list(datapackDir)
         .asFlow()
         .mapNotNull {
-            nullable {
-                val metadata = fs.metadata(it)
-                val sfs = if (metadata.isDirectory) {
-                    fs.newRelativeFS(it)
-                } else if (it.endsWith(".zip")) {
-                    fs.openZipReadOnly(it)
-                } else null
-                sfs.bind() to it
-            }
-        }.flatMapMerge { (sfs, sourcePath) ->
+            val metadata = fs.metadata(it)
+            val walk = if (metadata.isDirectory) {
+                fs.walkDirectory(it)
+            } else if (it.endsWith(".zip")) {
+                fs.walkZip(it)
+            } else null
+            if (walk == null) return@mapNotNull null
+            it to walk
+        }.flatMapMerge { (sourcePath, walk) ->
             flow {
-                sfs.useAsync { sfs ->
-                    sfs.listRecursively(Path.ROOT)
-                        .asFlow()
-                        .filter { "__MACOSX" !in it.segments }
-                        .mapNotNull { zpath ->
-                            nullable {
-                                zpath to extractors[zpath.extension].bind()
-                            }
-                        }
-                        .flatMapMerge { (zpath, extractor) ->
-                            either {
-                                env.logger.debug {
-                                    "Extracting $zpath via $extractor"
-                                }
-                                flowOf(extractor.extractAsGroup(sourcePath, sfs, zpath))
-                            }.getOrElse { error ->
-                                env.logger.error { error.message }
-                                emptyFlow()
-                            }
-                        }
-                        .filter { it.extractions.isNotEmpty() }
-                        .collect { emit(it) }
+                val reading = walk.read { "__MACOSX" !in it.path.segments && it.size != 0L }
+                reading.mapNotNull { reading ->
+                    reading to (extractors[reading.file.path.extension] ?: return@mapNotNull null)
                 }
+                    .flatMap { (reading, extractor) ->
+                        either {
+                            env.logger.debug {
+                                "Extracting ${reading.file.path} via $extractor"
+                            }
+                            sequenceOf(extractor.extractAsGroup(sourcePath, reading))
+                        }.getOrElse { error ->
+                            env.logger.error { error.message }
+                            emptySequence()
+                        }
+                    }
+                    .filter { it.extractions.isNotEmpty() }
+                    .forEach {
+                        emit(it)
+                    }
+                reading.close()
             }
         }.flowOn(Dispatchers.IO)
 }
@@ -93,8 +88,7 @@ internal interface Extractor {
     context(_: Raise<ExtractError>, _: EnvHolder)
     fun extract(
         sourcePath: Path,
-        zfs: FileSystem,
-        zpath: Path
+        reading: StreamingFileReading,
     ): List<DatapackExtraction>
 }
 
@@ -103,18 +97,16 @@ internal fun Extractor(
     targetExtension: String,
     extract: context(Raise<ExtractError>, EnvHolder) (
         sourcePath: Path,
-        zfs: FileSystem,
-        zpath: Path
-    ) -> List<DatapackExtraction>
+        reading: StreamingFileReading,
+    ) -> List<DatapackExtraction>,
 ) = object : Extractor {
     override val targetExtension = targetExtension
 
     context(_: Raise<ExtractError>, _: EnvHolder)
     override fun extract(
         sourcePath: Path,
-        zfs: FileSystem,
-        zpath: Path
-    ): List<DatapackExtraction> = extract(sourcePath, zfs, zpath)
+        reading: StreamingFileReading,
+    ): List<DatapackExtraction> = extract(sourcePath, reading)
 
     override fun toString() = "Extractor($name)"
 }
@@ -122,10 +114,13 @@ internal fun Extractor(
 context(_: Raise<ExtractError>, _: EnvHolder)
 private fun Extractor.extractAsGroup(
     sourcePath: Path,
-    zfs: FileSystem,
-    zpath: Path
-) = DatapackExtractionGroup(
-    source = sourcePath.name,
-    path = zpath.normalized().toString(),
-    extract(sourcePath, zfs, zpath).toList()
-)
+    reading: StreamingFileReading,
+): DatapackExtractionGroup {
+    val extractions = extract(sourcePath, reading).toList()
+    logger.debug { "Extracted ${extractions.size} texts from ${reading.file.path}" }
+    return DatapackExtractionGroup(
+        source = sourcePath.name,
+        path = reading.file.path.toString(),
+        extractions
+    )
+}

@@ -1,7 +1,7 @@
 package mct.serializer
 
-import korlibs.io.lang.unreachable
 import kotlinx.serialization.json.*
+import mct.util.unreachable
 import net.benwoodworth.knbt.*
 
 fun NbtTag.toJsonElement(): JsonElement = when (this) {

@@ -11,6 +11,7 @@ graalvm-native = "1.1.2"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
 kmpalette = "4.0.0-beta02"
+kmp-zip = "0.12.1"
 knbt = "0.11.9"
 koin = "4.2.1"
 korlibs = "6.0.2"
@@ -56,6 +57,8 @@ jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "j
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
 kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
+kmpzip-core = { module = "no.synth:kmp-zip", version.ref = "kmp-zip" }
+kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }

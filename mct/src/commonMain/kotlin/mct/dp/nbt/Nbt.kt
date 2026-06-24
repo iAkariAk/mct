@@ -11,13 +11,17 @@ import mct.serializer.NbtGzip
 import net.benwoodworth.knbt.NbtTag
 import net.benwoodworth.knbt.decodeFromSource
 
-internal fun NbtExtractor(pattern: MCTPattern) = Extractor("Nbt", "nbt") { sourcePath, zfs, zpath ->
+internal fun NbtExtractor(pattern: MCTPattern) = Extractor("Nbt", "nbt") { sourcePath, (file, tmp) ->
+    val (getSource, close) = tmp
+    val source = getSource()
     try {
-        val nbt = zfs.read(zpath) { NbtGzip.decodeFromSource<NbtTag>(this) }
+        val nbt = NbtGzip.decodeFromSource<NbtTag>(source)
         nbt.extractTexts(pattern).map {
             DatapackExtraction.Nbt(it)
         }.toList()
     } catch (e: SerializationException) {
-        raise(NbtExtractError.NbtDecodeError(sourcePath.name, zpath.toString(), e))
+        raise(NbtExtractError.NbtDecodeError(sourcePath.name, file.path, e))
+    } finally {
+        close(source)
     }
 }

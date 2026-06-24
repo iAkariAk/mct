@@ -14,18 +14,18 @@ kotlin {
             }
         }
     }
-
-    js {
-        browser {
-            testTask {
-                useKarma {
-                    useChromeHeadless()
-                }
-            }
-        }
-        nodejs { testTask { useMocha() } }
-
-    }
+//
+//    js {
+//        browser {
+//            testTask {
+//                useKarma {
+//                    useChromeHeadless()
+//                }
+//            }
+//        }
+//        nodejs { testTask { useMocha() } }
+//
+//    }
 //        wasmJs {
 //            browser()
 //            nodejs()
@@ -40,10 +40,11 @@ kotlin {
             api(libs.kotlinx.coroutines.core)
             api(project.dependencies.platform((libs.arrow.stack)))
             api(libs.bundles.arrow)
-            api(libs.korlibs.io)
             api(libs.knbt)
             api(libs.bundles.okio)
             api(libs.jetbrains.annotations)
+            implementation(libs.kmpzip.core)
+            implementation(libs.kmpzip.okio)
         }
 
         commonTest.dependencies {
