@@ -11,6 +11,10 @@ val MCTJson = Json {
     ignoreUnknownKeys = true
     encodeDefaults = false
     explicitNulls = false
+    isLenient = true
+    allowStructuredMapKeys = true
+    allowComments = true
+    allowTrailingComma = true
 
     serializersModule = extractPatternModule
 }

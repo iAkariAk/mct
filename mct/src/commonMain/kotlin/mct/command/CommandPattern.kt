@@ -27,8 +27,10 @@ operator fun ExtractPatternSet.plus(other: ExtractPatternSet): ExtractPatternSet
 @Serializable
 data class CommandExtractPattern(
     val command: String,
+    @SerialName("pre")
     val preCondition: PreCondition,
-    val selected: IndexSelector,
+    val selector: IndexSelector,
+    @SerialName("post")
     val postCondition: PostCondition
 )
 
@@ -104,6 +106,7 @@ sealed interface IndexSelection {
 
     //brigadier:string
     @Serializable
+    @SerialName("plain_entire")
     data object PlainEntire : IndexSelection {
         context(_: Raise<IndexSelectError>)
         override fun select(
@@ -114,6 +117,7 @@ sealed interface IndexSelection {
 
     // minecraft:component || minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
     @Serializable
+    @SerialName("snbt_entire")
     data object SnbtEntire : IndexSelection {
         context(_: Raise<IndexSelectError>)
         override fun select(
@@ -163,7 +167,6 @@ sealed interface IndexSelector {
             indexes[pos]?.select(patterns, arg)
     }
 }
-
 
 fun interface PostCondition {
     fun matches(command: MCCommand, arg: MCCommand.Arg): Boolean

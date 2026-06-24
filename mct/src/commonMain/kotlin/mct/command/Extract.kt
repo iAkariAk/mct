@@ -33,7 +33,7 @@ data class ExtractedCommandSlice(
 ) : StringIndicesWithSyntax
 
 context(_: LoggerHolder)
-internal fun extractTextFromCommands(
+fun extractTextFromCommands(
     commandStr: String,
     mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
     mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
@@ -99,7 +99,7 @@ internal fun extractTextFromCommand(
     val fromPattern = (mcfPatterns[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
-            when (val selector = pattern.selected) {
+            when (val selector = pattern.selector) {
                 is IndexSelector.Greedy -> {
                     val (relRange, absRange) = computeGreedyRange(command, selector)
                     ExtractedCommandSlice(

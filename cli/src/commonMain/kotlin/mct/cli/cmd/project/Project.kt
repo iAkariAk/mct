@@ -21,7 +21,6 @@ import mct.MCTPattern
 import mct.MCTWorkspace
 import mct.cli.*
 import mct.cli.util.CURRENT_PATH
-import mct.command.BuiltinMCFPatterns
 import mct.command.BuiltinMCFunctionDataPatterns
 import mct.command.CommandExtractPattern
 import mct.command.RegexPattern
@@ -212,9 +211,9 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             requirePath(it, "Region").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
         }.ifEmpty { BuiltinNbtPatterns }
 
-        val mcfPatterns = patterns.mcfunction.map {
-            requirePath(it, "MCFunction").readJson<CommandExtractPattern>()
-        }.let { if (it.isEmpty()) BuiltinMCFPatterns else it.compile() }
+        val mcfPatterns = patterns.mcfunction.flatMap {
+            requirePath(it, "MCFunction").readJson<List<CommandExtractPattern>>()
+        }.let { it.compile(it.isEmpty()) }
 
         val mcfDataPatterns = patterns.mcfunctionData.flatMap {
             requirePath(it, "MCFunction data").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
