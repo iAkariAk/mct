@@ -37,6 +37,8 @@ val BuiltinNbtPatterns = PatternSet {
     listOf(
         "title",                // Book title
         "author",               // Book author
+        "pages",
+        "display",
         "filtered_pages",       // Censored/Filtered pages
         "filtered_title",       // Censored/Filtered title
     ).forEach {
