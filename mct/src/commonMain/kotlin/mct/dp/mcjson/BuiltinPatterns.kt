@@ -31,32 +31,18 @@ val BuiltinMCJPatterns = PatternSet {
     +RightPattern("#title")                           // Book title
     +RightPattern("#author")                          // Book author
 
-    // --- Painting Variants (title/author as text components) ---
-    // Painting variants store title/author as text components:
-    // {"title": {"text": "Alban"}, "author": {"text": "Kristoffer Zetterstrand"}}
-    +RegexPattern("""#(?:title|author)>#(?:text|translate|fallback)$""")
 
     // --- Loot Tables & Item Modifiers ---
     // set_name / set_custom_name: {"text": "..."} / {"translate": "..."}
-    +RegexPattern("""#functions>\d+>#name>#text$""")
-    +RegexPattern("""#functions>\d+>#name>#translate$""")
-    +RegexPattern("""#functions>\d+>#name>#fallback$""")
     // set_lore entries
-    +RegexPattern("""#functions>\d+>#lore>\d+>#text$""")
-    +RegexPattern("""#functions>\d+>#lore>\d+>#translate$""")
-    +RegexPattern("""#functions>\d+>#lore>\d+>#fallback$""")
+    +RegexPattern("""#functions>\d+>#(name|lore)$""")
     // set_attributes with custom names
-    +RegexPattern("""#functions>\d+>#entity>#name>#text$""")
-    +RegexPattern("""#functions>\d+>#entity>#name>#translate$""")
-    +RegexPattern("""#functions>\d+>#entity>#name>#fallback$""")
+    +RegexPattern("""#functions>\d+>#entity>#name$""")
     // set_attributes modifier names (for attribute-specific custom names)
-    +RegexPattern("""#functions>\d+>#modifiers>\d+>#name>#(?:text|translate|fallback)$""")
+    +RegexPattern("""#functions>\d+>#modifiers>\d+>#name$""")
 
     // --- Jukebox Songs (1.21+) ---
     // Song title/description as plain string, e.g. "Cat - C418"
+    // Or item desctiption
     +RightPattern("#description")
-
-    // --- Trim Patterns/Materials & Banner Patterns (1.21+) ---
-    // Description as text component: {"text": "..."} / {"translate": "..."} / {"fallback": "..."}
-    +RegexPattern("""#description>#(?:text|translate|fallback)$""")
 }

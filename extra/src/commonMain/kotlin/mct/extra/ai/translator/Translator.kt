@@ -9,7 +9,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -223,7 +222,7 @@ ${prompts.literatureStyle}
 ${
         when (kind) {
             FormatKind.PlainStr -> "纯文本或 Minecraft 命令等字面量"
-            FormatKind.JsonStr -> "JSON 格式"
+            FormatKind.JsonStr, FormatKind.JsonObj -> "JSON 格式"
             FormatKind.SnbtStr, FormatKind.Nbt -> "SNBT 格式"
         }
     }
@@ -404,7 +403,7 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
     var isList = false
     val compound = Option.catch {
         when (kind) {
-            FormatKind.JsonStr -> MCTJson.decodeFromString<JsonElement>(raw).let {
+            FormatKind.JsonStr, FormatKind.JsonObj -> MCTJson.decodeFromString<JsonElement>(raw).let {
                 if (it is JsonArray) {
                     it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
                 } else it
@@ -449,9 +448,8 @@ internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>):
                                 if (cs.isSingleList) IRList(e) else e
                             }
                             when (cs.sourceFormat) {
-                                FormatKind.JsonStr -> MCTJson.encodeToString(ir.toJsonElement())
-                                FormatKind.SnbtStr -> Snbt.encodeToString(ir.toNbtTag())
-                                FormatKind.Nbt -> ir.toNbtTag().toSnbt(false)
+                                FormatKind.JsonStr, FormatKind.JsonObj -> MCTJson.encodeToString(ir.toJsonElement())
+                                FormatKind.SnbtStr, FormatKind.Nbt -> ir.toNbtTag().toSnbt(false)
                             }
                         }
                     }

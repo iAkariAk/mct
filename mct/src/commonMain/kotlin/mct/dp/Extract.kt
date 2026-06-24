@@ -20,8 +20,10 @@ import mct.util.io.*
 import okio.Path
 import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
 
-fun List<CommandExtractPattern>.compile(): Map<String, List<CommandExtractPattern>> =
-    MCFBuiltinPatterns + groupBy { it.command }.toMap()
+fun List<CommandExtractPattern>.compile(hasBuiltin: Boolean = true): Map<String, List<CommandExtractPattern>> {
+    val new = groupBy { it.command }.toMap()
+    return if (hasBuiltin) MCFBuiltinPatterns + new else new
+}
 
 fun MCTWorkspace.extractFromDatapack(
     pattern: MCTPattern = MCTPattern.Default,

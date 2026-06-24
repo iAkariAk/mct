@@ -37,7 +37,10 @@ enum class FormatKind {
     @SerialName("json_str")
     JsonStr, // includes plain text without quote
 
-    @SerialName("nbt_binary")
+    @SerialName("json_obj")
+    JsonObj, // refer to MCJson
+
+    @SerialName("nbt_obj")
     Nbt // displayed as snbt
 }
 
@@ -78,11 +81,12 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
 fun FormatKind.isString(): Boolean =
     this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
 
-fun FormatKind.isBinary(): Boolean = this == FormatKind.Nbt
+fun FormatKind.isStructure(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
     FormatKind.Nbt -> value.isSnbt()
     FormatKind.SnbtStr -> value.isSnbt()
     FormatKind.JsonStr -> value.isJson()
+    FormatKind.JsonObj -> value.isJson()
     FormatKind.PlainStr -> true
 }

@@ -9,7 +9,10 @@ import mct.dp.Extractor
 import mct.dp.MCJsonExtractError
 import mct.model.patch.FormatKind
 import mct.pointer.*
+import mct.text.isTextCompound
+import mct.text.isTextCompoundShorthanded
 import mct.util.isJson
+import mct.util.toJson
 import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
 
@@ -47,7 +50,7 @@ internal fun extractTextMCJ(
     val standard = standardizeMCJson(json)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standard)
 
-    jsonElement.extractTextMCJ()
+    jsonElement.extractTextsByPointer()
         .filterPointer(patterns)
         .map { (pointer, content) ->
             MCJsonExtraction(
@@ -60,19 +63,51 @@ internal fun extractTextMCJ(
     raise(MCJsonExtractError.JsonSyntaxError(source, path, e))
 }
 
-internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when (this) {
-    is JsonArray -> asSequence().withIndex().flatMap { (index, element) ->
-        element.extractTextMCJ().map { it.markArray(index) }
+private data class PointerWithExtension(
+    val pointer: DataPointer,
+    val content: String,
+    val kind: FormatKind,
+)
+
+private fun Sequence<PointerWithExtension>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
+    filter { (ptr, _, _) -> ptr.matches(patterns) }
+
+// coped from NbtTag.PointerWithExtension
+private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {
+    is JsonArray -> if (isTextCompound()) {
+        sequenceOf(
+            PointerWithExtension(
+                DataPointer.Terminator,
+                toJson(),
+                FormatKind.JsonObj,
+            )
+        )
+    } else asSequence().withIndex().flatMap { (index, element) ->
+        element.extractTextsByPointer().map {
+            it.copy(pointer = it.pointer.markArray(index))
+        }
+    } // wrap inner pointer
+
+    is JsonObject -> if (isTextCompound()) {
+        sequenceOf(PointerWithExtension(DataPointer.Terminator, toJson(), FormatKind.JsonObj))
+    } else if (isTextCompoundShorthanded()) {
+        val map = toMutableMap()
+        val text = map.remove("")
+        map["text"] = text!!
+        val expanded = JsonObject(map)
+
+        sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toJson(), FormatKind.JsonObj))
+    } else {
+        asSequence().flatMap { (key, value) ->
+            value.extractTextsByPointer().map {
+                it.copy(pointer = it.pointer.markMap(key))
+            }
+        } // wrap inner pointer
     }
 
-    is JsonObject -> asSequence().flatMap { (key, value) ->
-        value.extractTextMCJ().map {
-            it.markMap(key)
-        }
-    }
 
     is JsonPrimitive if isString -> sequenceOf(
-        DataPointerWithValue(
+        PointerWithExtension(
             DataPointer.Terminator, content, when {
                 content.isJson() -> FormatKind.JsonStr
                 else -> FormatKind.PlainStr
@@ -80,7 +115,6 @@ internal fun JsonElement.extractTextMCJ(): Sequence<DataPointerWithValue> = when
         )
     )
 
-    JsonNull -> emptySequence()
     else -> emptySequence()
 }
 

@@ -4,6 +4,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import mct.serializer.MCTJson
+import mct.serializer.PrettyJson
 import mct.serializer.PrettySnbt
 import mct.serializer.Snbt
 import net.benwoodworth.knbt.NbtTag
@@ -19,6 +21,7 @@ inline fun <T> ArrayDeque<T>.peekOrNull() = lastOrNull()
 inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
 
+fun JsonElement.toJson(pretty: Boolean = false): String = (if (pretty) PrettyJson else MCTJson).encodeToString(this)
 fun NbtTag.toSnbt(pretty: Boolean = false): String = (if (pretty) PrettySnbt else Snbt).encodeToString(this)
 fun String.isSnbt() = runCatching { Snbt.decodeFromString<NbtTag>(this) }.isSuccess
 fun String.isJson() = runCatching { Json.decodeFromString<JsonElement>(this) }.isSuccess
