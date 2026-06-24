@@ -102,7 +102,7 @@ data class SelectResult(
 sealed interface IndexSelection {
     context(_: Raise<IndexSelectError>)
     // null: the entire isn't snbt
-    fun select(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): Sequence<SelectResult>?
+    fun select(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): List<SelectResult>?
 
     //brigadier:string
     @Serializable
@@ -112,7 +112,7 @@ sealed interface IndexSelection {
         override fun select(
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
-        ): Sequence<SelectResult>? = null
+        ): List<SelectResult>? = null
     }
 
     // minecraft:component || minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
@@ -123,7 +123,7 @@ sealed interface IndexSelection {
         override fun select(
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
-        ): Sequence<SelectResult>? {
+        ): List<SelectResult>? {
             val content = arg.content
             val tag = runCatching<SnbtTag> {
                 SnbtTag.decodeFromString(content)
@@ -138,7 +138,7 @@ sealed interface IndexSelection {
                         it.content,
                         it.syntax
                     )
-                }
+                }.toList().takeIf { it.isNotEmpty() }
         }
     }
 }
@@ -163,7 +163,7 @@ sealed interface IndexSelector {
             pos: Int,
             patterns: List<DataPointerPattern>?,
             arg: MCCommand.Arg
-        ): Sequence<SelectResult>? =
+        ): List<SelectResult>? =
             indexes[pos]?.select(patterns, arg)
     }
 }

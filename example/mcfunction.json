@@ -1,0 +1,55 @@
+[
+  {
+    "command": "data",
+    "pre": {
+      "type": "with_size",
+      "size": 7,
+      "strict": true
+    },
+    "selector": {
+      "type": "non_greedy",
+      "indexes": {
+        7: {
+          "type": "snbt_entire"
+        }
+      }
+    },
+    "post": {
+      "type": "and",
+      "conditions": [
+        {
+          "type": "at",
+          "position": 3,
+          "condition": {
+            "type": "equal",
+            "content": "asset:artifact"
+          }
+        },
+        {
+          "type": "at",
+          "position": 5,
+          "condition": {
+            "type": "equal",
+            "content": "set"
+          }
+        },
+        {
+          "type": "at",
+          "position": 6,
+          "condition": {
+            "type": "equal",
+            "content": "value"
+          }
+        },
+        {
+          "type": "at",
+          "position": 4,
+          "condition": {
+            "type": "regex",
+            "regex": "Name|Lore|ConsumeItem.Item"
+          }
+        }
+      ]
+    }
+  }
+]

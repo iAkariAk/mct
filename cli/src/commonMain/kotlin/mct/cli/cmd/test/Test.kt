@@ -62,10 +62,8 @@ private class MCFunctionTest : BaseCommand(name = "mcfunction", help = "Test mcf
     val mcfunctionPattern by option("--mcfunction-pattern", "-pF", help = "The pattern to match the test").path()
         .required()
     val mcfunctionDataPattern by option(
-        "--mcfunction-data-pattern",
-        "-pFD",
-        help = "The pattern to match the test"
-    ).path().required()
+        "--mcfunction-data-pattern", "-pFD", help = "The pattern to match the test"
+    ).path()
     val testedFile by option("--input", "-i", help = "A file which will be used to test the pattern").path().required()
     val noBuiltin by option("--no-builtin", "-N", help = "Disable builtin pattern").flag()
 
@@ -73,16 +71,15 @@ private class MCFunctionTest : BaseCommand(name = "mcfunction", help = "Test mcf
     override suspend fun App() {
         val testedContent = testedFile.readText()
         val extraMCFunctionPattern = mcfunctionPattern.readJson<List<CommandExtractPattern>>()
-        val extraMCFunctionDataPattern = mcfunctionDataPattern.readJson<List<DataPointerPattern>>()
+        val extraMCFunctionDataPattern = mcfunctionDataPattern?.readJson<List<DataPointerPattern>>()
         val combinedMCFunctionPattern = extraMCFunctionPattern.compile(!noBuiltin)
-        val combinedMCFunctionDataPattern =
-            if (noBuiltin) extraMCFunctionDataPattern else extraMCFunctionDataPattern + BuiltinMCFunctionDataPatterns
+        val combinedMCFunctionDataPattern = (if (noBuiltin) extraMCFunctionDataPattern else extraMCFunctionDataPattern?.let { it + BuiltinMCFunctionDataPatterns })
+                ?: emptyList()
         val matchResults = extractTextFromCommands(
-            testedContent, mcfPatterns = combinedMCFunctionPattern,
-            mcfDataPatterns = combinedMCFunctionDataPattern
-        )
+            testedContent, mcfPatterns = combinedMCFunctionPattern, mcfDataPatterns = combinedMCFunctionDataPattern
+        ).sortedByDescending { it.indices.first }
         val display = matchResults.fold(StringBuilder(testedContent)) { acc, r ->
-            acc.setRange(r.indices.first, r.indices.last - 1, TextColors.green(r.content))
+            acc.setRange(r.indices.first, r.indices.last + 1, TextColors.green(r.content))
             acc
         }
         terminal.println(display)

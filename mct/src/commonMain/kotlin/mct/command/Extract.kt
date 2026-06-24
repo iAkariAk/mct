@@ -129,7 +129,7 @@ internal fun extractTextFromCommand(
                                 arg.indices,
                                 arg.content,
                                 null
-                            ).let(::sequenceOf) // feedback
+                            ).let(::listOf) // feedback
                         }
             }
         }.toList()

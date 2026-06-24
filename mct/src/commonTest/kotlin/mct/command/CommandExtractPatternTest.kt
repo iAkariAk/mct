@@ -194,14 +194,14 @@ class CommandExtractPatternTest : FreeSpec({
                 val pattern = CommandExtractPattern(
                     command = "say",
                     preCondition = PreCondition.Companion.Any,
-                    selected = IndexSelector.Greedy(0),
+                    selector = IndexSelector.Greedy(0),
                     postCondition = PostCondition.Companion.Any,
                 )
                 pattern.command shouldBe "say"
                 pattern.preCondition.matches(cmd("say", "hi")) shouldBe true
                 // Greedy selector is handled via when-branch, not via .matches()
-                when (pattern.selected) {
-                    is IndexSelector.Greedy -> pattern.selected.position shouldBe 0
+                when (pattern.selector) {
+                    is IndexSelector.Greedy -> pattern.selector.position shouldBe 0
                     is IndexSelector.NonGreedy -> error("Expected Greedy")
                 }
             }
@@ -210,7 +210,7 @@ class CommandExtractPatternTest : FreeSpec({
                 val pattern = CommandExtractPattern(
                     command = "tellraw",
                     preCondition = PreCondition.Companion.WithSize(2),
-                    selected = IndexSelector.NonGreedy(mapOf(2 to null)),
+                    selector = IndexSelector.NonGreedy(mapOf(2 to null)),
                     postCondition = PostCondition.Companion.MatchRegex("""\{.*text.*}"""),
                 )
 
@@ -224,7 +224,7 @@ class CommandExtractPatternTest : FreeSpec({
                 pattern.preCondition.matches(validCmd) shouldBe true
                 pattern.preCondition.matches(tooManyArgsCmd) shouldBe false  // 4 args > WithSize(2)
 
-                val selector = pattern.selected as IndexSelector.NonGreedy
+                val selector = pattern.selector as IndexSelector.NonGreedy
                 selector.matches(2) shouldBe true
                 selector.matches(1) shouldBe false
 
