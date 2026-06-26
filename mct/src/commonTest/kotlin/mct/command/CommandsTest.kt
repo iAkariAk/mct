@@ -9,7 +9,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import mct.Logger
 import mct.TestFunctions
-import mct.dp.backfillMCFunction
+import mct.dp.mcfunction.backfillMCFunction
 import mct.mappings
 import mct.model.patch.*
 import mct.model.patch.DatapackReplacement.MCFunction

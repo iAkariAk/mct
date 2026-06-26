@@ -79,16 +79,3 @@ data class RegionReplacement(
 }
 
 
-inline fun Extraction.contents() = when (this) {
-    is DatapackExtraction.MCFunction -> sequenceOf(unquoted())
-    is DatapackExtraction.MCJson -> sequenceOf(content)
-    is RegionExtraction -> when (nbt) {
-        is NbtExtraction.Command -> nbt.locations.asSequence().map { it.unquoted() }
-        is NbtExtraction.Text -> sequenceOf(nbt.content)
-    }
-
-    is DatapackExtraction.Nbt -> when (nbt) {
-        is NbtExtraction.Command -> nbt.locations.asSequence().map { it.unquoted() }
-        is NbtExtraction.Text -> sequenceOf(nbt.content)
-    }
-}

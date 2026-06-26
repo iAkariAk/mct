@@ -14,6 +14,7 @@ import com.github.ajalt.mordant.rendering.TextColors
 import mct.MCTError
 import mct.cli.*
 import mct.command.BuiltinCommandDataPatterns
+import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
 import mct.command.extractTextFromCommands
 import mct.dp.compile
@@ -60,7 +61,6 @@ private class DataPointerTest : BaseCommand(name = "pointer") {
 
 private class CommandTest : BaseCommand(name = "command", help = "Test command pattern") {
     val commandPattern by option("--command-pattern", "-pF", help = "The pattern to match the test").path()
-        .required()
     val commandDataPattern by option(
         "--command-data-pattern", "-pFD", help = "The pattern to match the test"
     ).path()
@@ -70,9 +70,9 @@ private class CommandTest : BaseCommand(name = "command", help = "Test command p
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val testedContent = testedFile.readText()
-        val extraCommandPattern = commandPattern.readJson<List<CommandExtractPattern>>()
+        val extraCommandPattern = commandPattern?.readJson<List<CommandExtractPattern>>()
         val extraCommandDataPattern = commandDataPattern?.readJson<List<DataPointerPattern>>()
-        val combinedCommandPattern = extraCommandPattern.compile(!noBuiltin)
+        val combinedCommandPattern = extraCommandPattern?.compile(!noBuiltin) ?: BuiltinCommandPatterns
         val combinedCommandDataPattern =
             (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
                 ?: emptyList()

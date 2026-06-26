@@ -316,9 +316,7 @@ class Translator internal constructor(
             val (appendTerms, appendedTranslatedRaw) = requestTranslation(strips.size, message, kind) { (_, result) ->
                 val invalidated = result.withIndex().filter { (stripsIndex, value) ->
                     strips[stripsIndex].value is CompoundStrip.CannotStrip && value?.let {
-                        it.isNotEmpty() && !kind.validate(
-                            it
-                        )
+                        it.isNotEmpty() && !kind.validate(it)
                     } ?: false
                 }
                 if (invalidated.isNotEmpty()) {

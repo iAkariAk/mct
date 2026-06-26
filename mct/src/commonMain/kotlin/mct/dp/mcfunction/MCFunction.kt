@@ -4,6 +4,7 @@ import mct.MCTPattern
 import mct.command.extractTextFromCommands
 import mct.dp.Extractor
 import mct.model.patch.DatapackExtraction.MCFunction
+import mct.model.patch.DatapackReplacement
 
 
 internal fun MCFunctionExtractor(
@@ -27,3 +28,9 @@ internal fun MCFunctionExtractor(
 }
 
 
+internal fun String.backfillMCFunction(replacements: List<DatapackReplacement.MCFunction>) =
+    replacements
+        .sortedByDescending { it.indices.first }
+        .fold(StringBuilder(this)) { acc, e ->
+            acc.setRange(e.indices.first, e.indices.last + 1, e.replacement)
+        }.toString()

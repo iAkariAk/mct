@@ -3,19 +3,12 @@ package mct.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import mct.MCTWorkspace
-import mct.dp.mcjson.MCJson
-import mct.dp.mcjson.standardizeMCJson
+import mct.dp.mcfunction.backfillMCFunction
+import mct.dp.mcjson.backfillMCJson
 import mct.model.patch.DatapackReplacement
 import mct.model.patch.DatapackReplacementGroup
-import mct.model.patch.FormatKind
 import mct.nbt.transform
-import mct.pointer.DataPointer
-import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
 import mct.serializer.NbtGzip
@@ -108,79 +101,3 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
     }
 }
 
-
-internal fun String.backfillMCFunction(replacements: List<DatapackReplacement.MCFunction>) =
-    replacements
-        .sortedByDescending { it.indices.first }
-        .fold(StringBuilder(this)) { acc, e ->
-            acc.setRange(e.indices.first, e.indices.last + 1, e.replacement)
-        }.toString()
-
-internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson>): String {
-    val standardizedJson = standardizeMCJson(this)
-    val jsonElement = MCJson.decodeFromString<JsonElement>(standardizedJson)
-    val pointerDatapackReplacementGroups =
-        replacements.map { DataPointerWithValue(it.pointer, it.replacement, FormatKind.JsonStr) }.toReplacementGroups()
-    val backfilledJsonElement = jsonElement.transform(pointerDatapackReplacementGroups)
-    return MCJson.encodeToString(backfilledJsonElement)
-}
-
-
-private fun JsonElement.transform(pointer: DataPointer, replacement: String): JsonElement = when (pointer) {
-    is DataPointer.List -> {
-        if (this !is JsonArray) return this
-        if (size <= pointer.point) return this
-        val transformed = toMutableList()
-        transformed[pointer.point] = transformed[pointer.point].transform(pointer.value, replacement)
-        JsonArray(transformed)
-    }
-
-    is DataPointer.Map -> {
-        if (this !is JsonObject) return this
-        if (!containsKey(pointer.point)) return this
-        val transformed = toMutableMap()
-        transformed[pointer.point] = transformed[pointer.point]!!.transform(pointer.value, replacement)
-        JsonObject(transformed)
-    }
-
-    DataPointer.Terminator -> {
-        return JsonPrimitive(replacement)
-    }
-}
-
-private fun JsonElement.transform(
-    pointers: List<DataPointerReplacementGroup>,
-): JsonElement = when (this) {
-    is JsonArray -> {
-        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.List>()
-            .filter { it.point < size }
-        if (isEmpty()) return this // safely first to infer type
-        val transformed = toMutableList()
-        pointers.forEach { pointer ->
-            transformed[pointer.point] = transformed[pointer.point].transform(pointer.values)
-        }
-        JsonArray(transformed)
-    }
-
-    is JsonObject -> {
-        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Map>()
-
-        val transformed = toMutableMap()
-        pointers.forEach { pointer ->
-            transformed[pointer.point]?.let {
-                transformed[pointer.point] = it.transform(pointer.values)
-            }
-        }
-        JsonObject(transformed)
-    }
-
-    is JsonPrimitive if isString -> {
-        val pointers = pointers.filterIsInstance<DataPointerReplacementGroup.Terminator>()
-
-        val pointer = pointers.firstOrNull() ?: return this
-
-        JsonPrimitive(pointer.replacement)
-    }
-
-    else -> this
-}
