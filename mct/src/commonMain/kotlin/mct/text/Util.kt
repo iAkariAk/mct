@@ -3,6 +3,8 @@ package mct.text
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import mct.util.snbt.SnbtCompound
+import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
 import mct.util.toRegex2
 import net.benwoodworth.knbt.NbtCompound
@@ -64,9 +66,9 @@ internal fun Map<String, *>.isTextCompound() =
 internal fun List<*>.isTextCompound(): Boolean = all {
     @Suppress("UNCHECKED_CAST")
     when {
-        it is String || it is NbtString || (it is JsonPrimitive && it.isString) -> true
-        it is List<*> || it is NbtList<*> || it is JsonArray -> it.isTextCompound()
-        it is Map<*, *> || it is NbtCompound || it is JsonObject -> it.keys.all { it is String } && (it as Map<String, *>).isTextCompound()
+        it is String || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) -> true
+        it is List<*> || it is NbtList<*> || it is SnbtList || it is JsonArray -> it.isTextCompound()
+        it is Map<*, *> || it is NbtCompound || it is SnbtCompound || it is JsonObject -> it.keys.all { it is String } && (it as Map<String, *>).isTextCompound()
         else -> false
     }
 }

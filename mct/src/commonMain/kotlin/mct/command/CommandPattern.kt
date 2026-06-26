@@ -104,7 +104,7 @@ sealed interface IndexSelection {
     // null: the entire isn't snbt
     fun select(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): List<SelectResult>?
 
-    //brigadier:string
+    // brigadier:string
     @Serializable
     @SerialName("plain_entire")
     data object PlainEntire : IndexSelection {
@@ -130,7 +130,7 @@ sealed interface IndexSelection {
             }.getOrElse {
                 raise(IndexSelectError.Parse(content, it))
             }
-            return tag.extractTexts(content)
+            return tag.extractTextsByPointer(content)
                 .filterPointer(patterns)
                 .map {
                     SelectResult(
@@ -152,7 +152,7 @@ sealed interface IndexSelector {
     @Serializable
     @SerialName("non_greedy")
     data class NonGreedy(
-        val indexes: Map<Int, IndexSelection?>,
+        val indexes: Map<Int, IndexSelection?>, // null is select entire
     ) : IndexSelector {
         // 1-based index
         fun matches(pos: Int) = pos in indexes

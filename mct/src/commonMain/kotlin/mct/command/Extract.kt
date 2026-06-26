@@ -161,11 +161,13 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String): Sequence<PointerWithEx
                 syntax = SnbtSyntaxKind.List
             )
         )
-    } else asSequence().withIndex().flatMap { (index, tag) ->
-        tag.extractTextsByPointer(snbt).map {
-            it.copy(pointer = it.pointer.markArray(index))
-        }
-    } // wrap inner pointer
+    } else {
+        asSequence().withIndex().flatMap { (index, tag) ->
+            tag.extractTextsByPointer(snbt).map {
+                it.copy(pointer = it.pointer.markArray(index))
+            }
+        } // wrap inner pointer
+    }
 
     is SnbtCompound -> if (isTextCompound() || isTextCompoundShorthanded()) {
         sequenceOf(

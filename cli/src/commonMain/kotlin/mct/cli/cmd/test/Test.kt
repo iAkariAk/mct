@@ -75,7 +75,8 @@ private class CommandTest : BaseCommand(name = "command", help = "Test command p
         val combinedCommandPattern = extraCommandPattern?.compile(!noBuiltin) ?: BuiltinCommandPatterns
         val combinedCommandDataPattern =
             (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
-                ?: emptyList()
+                ?: BuiltinCommandDataPatterns
+        printlnBlue(combinedCommandDataPattern)
         val matchResults = extractTextFromCommands(
             testedContent, commandPatterns = combinedCommandPattern, commandDataPatterns = combinedCommandDataPattern
         ).sortedByDescending { it.indices.first }

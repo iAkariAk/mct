@@ -344,7 +344,7 @@ val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     dependsOn(BuiltinNbtPatterns)
 
     // ── Display entity text ──────────────────────────────────────
-    +RightPattern(""">#text""")
+    +RightPattern(">#text")
 
     // ── CustomName ───────────────────────────────────────────────
     // CustomName text components in NBT (entities, block entities, etc.)
@@ -353,17 +353,15 @@ val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     // ── Dialog SNBT fields ───────────────────────────────────────
     // /dialog show <targets> {type:"...",title:{...},...}
     // title and external_title are text components
-    +RegexPattern("""^>#(?:title|external_title)(?:>\d+(?:>#(?:text|translate))?)?$""")
+    +RegexPattern("""^>#(?:title|external_title)$""")
     // button labels and tooltips
-    +RegexPattern("""^>#(?:yes|no|exit_action)>#(?:label|tooltip)(?:>#(?:text|translate))?$""")
-    // action buttons
-    +RegexPattern("""^>#actions>\d+>#(?:label|tooltip)(?:>#(?:text|translate))?$""")
+    +RegexPattern("""^>#(?:yes|no|exit_action|actions>\d+)>#(?:label|tooltip)$""")
     // body contents (plain_message)
-    +RegexPattern("""^>#body>\d+>#contents(?:>#(?:text|translate))?$""")
+    +RegexPattern("""^>#body>\d+>#contents$""")
     // dialogs list in dialog_list type
-    +RegexPattern("""^>#dialogs>\d+>#(?:title|external_title)(?:>\d+(?:>#(?:text|translate))?)?$""")
+    +RegexPattern("""^>#dialogs>\d+>#(?:title|external_title)$""")
     // input control labels
-    +RegexPattern("""^>#inputs>\d+>#label(?:>#(?:text|translate))?$""")
+    +RegexPattern("""^>#inputs>\d+>#label$""")
     // item description in body items
-    +RegexPattern("""^>#body>\d+>#description(?:>\d+(?:>#(?:text|translate))?)?$""")
+    +RegexPattern("""^>#body>\d+>#description$""")
 }
