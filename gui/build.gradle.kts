@@ -59,6 +59,8 @@ compose.desktop {
             packageVersion = "0.0.1"
         }
 
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
+
         buildTypes.release {
             proguard {
                 version = libs.versions.proguard
