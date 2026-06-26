@@ -118,7 +118,7 @@ private class ExportSnbt : WorkspaceCommand(
 private class ExportScheme : BaseCommand("export-scheme", help = "The JSON-scheme generated for kinds of mct pattern") {
     val kind by option("--kind", "-K").choice("command", "data_pointer", "command_regex").required()
     val output by option("--output", "-o", help = "The path to generated JSON Scheme").path().required()
-    val pretty by option("--pretty", "-P", help = "Enable pretty json output").flag()
+    val pretty by option("--pretty", "-P", help = "Enable pretty JSON output").flag()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -216,7 +216,7 @@ private class TermExtract : AICommand(
     override suspend fun App() {
         logger.info { "Loading text from $input" }
         val texts = input.jsonFile<TranslationPool>()
-        val termCaches = this@TermExtract.termCaches.jsonFile<TermTable>(emptySet())
+        val termCaches = this@TermExtract.termCaches.jsonFile<TermTable>(emptyMap())
         var consumedTokenCount = 0
         NotifierHooks.onAiSign {
             if (it is AiSign.ConsumeToken) {
@@ -276,7 +276,7 @@ private class AITranslate : AICommand(
     override suspend fun App() {
         logger.info { "Loading extractions from $input" }
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
-        val terms = term.jsonFile<TermTable>(emptySet())
+        val terms = term.jsonFile<TermTable>(emptyMap())
         val caches = caches.jsonFile<Map<String, String>>(emptyMap())
         var consumedTokenCount = 0
         NotifierHooks.onAiSign {

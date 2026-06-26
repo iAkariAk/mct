@@ -6,8 +6,6 @@ import arrow.core.raise.Raise
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -35,20 +33,7 @@ import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
 
 
-typealias TermTable = Set<Term>
-
-@Serializable
-data class Term(val source: String, val target: String, val type: TermType)
-
-@Serializable
-enum class TermType {
-    @SerialName("name")
-    Name,
-
-    @SerialName("term")
-    Term
-}
-
+typealias TermTable = Map<String, String>
 
 data class CustomizedPrompts(
     val literatureStyle: String = Defaults.literatureStyle,
@@ -177,7 +162,7 @@ Kaguya => 辉夜姬
 【不翻译】
 - 驼峰、下划线、冒号命名：MainPoint、mainPoint、main_point、main:point
 【必须】
-- 新增人名/地名后以 name 类型写入术语表
+- 新增人名/地名后写入术语表
 - 不可自然意译的名称（如 Asta）→ 符合目标语言风格的音译
 - 有明确语义且适合本地化（如 The Guardian）→ 可自然意译
 【音译原则】
@@ -201,19 +186,30 @@ ${prompts.literatureStyle}
 > 译文内容的格式必须与原始输入保持一致。原文是 JSON → 译文也必须是相同结构的 JSON，只替换 "text"、"fallback" 等字段的值。
 
 -- MCT-CLI:TERMS --
-[
-  {"source": "原文", "target": "译文", "type": "name"},
-  {"source": "原文2", "target": "译文2", "type": "term"}
-]
+{
+"原文": "译文",
+"原文2": "译文2"
+}
 -- MCT-CLI:END --
 
 关键约束：
 - "-- MCT-CLI:TRANSLATED --"、"-- MCT-CLI:TERMS --"、"-- MCT-CLI:END --" 三个标记必须逐字原样出现
 - TRANSLATED 部分的行数 **必须等于** 输入行数
-- TERMS 必须是合法 JSON 数组，元素包含 source、target、type（name=人名/地名，term=专有名词）
+- TERMS 必须是合法 JSON Object，且String -> String
 - **仅新发现的术语**放入 TERMS，已存在于术语表中的不要重复
-- 没有新术语时 TERMS 写空数组 []
+- 没有新术语时 TERMS 写空Map {}
 
+## 术语提取原则
+1. **只提取“命名性”文本块**，即用来称呼、标识某个事物等的固定名称，如：
+   - 物品名：Sword of Light
+   - 技能/效果名：Mars's Madness, Absorption
+   - 人名/地名：Asta, The Guardian
+2. **不提取任何功能性、描述性、条件性文本**，即使它们以短语形式存在。判断标准：
+   - 如果文本的作用是**说明某物的效果、持续时长、触发条件、属性变化、操作说明**等，一律忽略。
+   - 例如：冷却时间说明、伤害数值、范围描述、持有限制、属性加成列表、状态触发方式等，均不提取。
+3. 若输入文本结构为“名称：描述”，只提取冒号前的名称部分（若该名称为有效术语），冒号后的所有内容视为描述并丢弃。
+4. 忽略所有代码式标识符（如 minecraft:command_block）、驼峰/下划线/冒号命名（如 MainPoint, main_point, main:point）以及单独的槽位词（如 MainHand）。但若它们作为复合术语的一部分且已自然语言化（如 “MainHand Power”），则可整体提取。
+            
 ## 失败处理
 - 对某行的结构安全性有疑问时 → 优先保留原文
 - 宁可少翻译一行，也不能破坏数据结构的完整性
@@ -229,7 +225,7 @@ ${
 
 """
 
-private fun Iterable<Term>.render() = joinToString("\n") { (source, target, _) ->
+private fun TermTable.render() = entries.joinToString("\n") { (source, target) ->
     "${source.trim()} => ${target.trim()}"
 }
 
@@ -251,7 +247,7 @@ class Translator internal constructor(
     companion object {
         operator fun invoke(
             call: ChatCompletionCall,
-            defaultTerms: TermTable = emptySet(),
+            defaultTerms: TermTable = emptyMap(),
             customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
             tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
             concurrency: Int = 1,
@@ -274,7 +270,7 @@ class Translator internal constructor(
 
     override val env get() = call.env
 
-    val terms: MutableSet<Term> = defaultTerms.toMutableSet()
+    val terms: MutableMap<String, String> = defaultTerms.toMutableMap()
 
     private val mutex = Mutex()
 
@@ -295,8 +291,8 @@ class Translator internal constructor(
             val strippedCount = strips.count { (_, strip) -> strip is CompoundStrip.Success }
             logger.debug { "Chunk $chunkIndex: ${strippedCount}/${strips.size} items stripped to plain text" }
             val chunkAsStr = chunk.joinToString("\n") { it.value }
-            val termSnapshot = mutex.withLock { terms.toList() }
-            val availableTerms = termSnapshot.filter { chunkAsStr.contains(it.source, true) }
+            val termSnapshot = mutex.withLock { terms.toMap() }
+            val availableTerms = termSnapshot.filter { (source, _) -> chunkAsStr.contains(source, true) }
             val message = buildString {
                 if (availableTerms.isNotEmpty()) {
                     append(availableTerms.render())

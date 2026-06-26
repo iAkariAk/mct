@@ -241,7 +241,7 @@ suspend fun runTranslation(
             MCTJson.decodeFromString<TermTable>(termJson).also {
                 env.logger.info { "已加载 ${it.size} 个已有术语" }
             }
-        } else emptySet()
+        } else emptyMap()
 
         val caches = if (cachesPath != null && env.fs.exists(cachesPath.toPath())) {
             val cacheJson = env.fs.read(cachesPath.toPath()) { readUtf8() }
@@ -407,7 +407,7 @@ suspend fun runTermExtraction(
             MCTJson.decodeFromString<TermTable>(termJson).also {
                 env.logger.info { "已加载 ${it.size} 个已有术语" }
             }
-        } else emptySet()
+        } else emptyMap()
 
         groups to terms
     }

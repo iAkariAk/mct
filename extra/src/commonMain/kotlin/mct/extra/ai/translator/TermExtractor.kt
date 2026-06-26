@@ -14,9 +14,9 @@ class TermExtractor(
     val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
     val concurrency: Int = 1,
-    defaultTerms: TermTable = emptySet(),
+    defaultTerms: TermTable = emptyMap(),
 ) {
-    private val terms = defaultTerms.toMutableSet()
+    private val terms = defaultTerms.toMutableMap()
 
     context(_: Raise<ChatCompletionCallError>)
     suspend fun extract(
@@ -27,12 +27,12 @@ class TermExtractor(
             你是专精 Minecraft 地图的翻译引擎。你需要从输入文本中**仅提取具有命名性质的术语**（人名与专有名词），并翻译成$targetLanguage。
             
             # 输出格式
-            直接输出以下格式的 JSON 数组，不要输出多余的文字：
-            [
-              {"source": "原文", "target": "译文", "type": "name"},
-              {"source": "原文2", "target": "译文2", "type": "term"}
-            ]
-            其中 type=name 代表人物名称，type=term 代表专有名词（如物品名、技能名、地名、状态效果名等）。
+            直接输出以下格式的 JSON Object，不要输出多余的文字：
+            {
+            "原文": "译文",
+            "原文2": "译文2"
+            }
+            若没有提取到术语则返回空Map: {}
             
             ## 核心提取原则
             1. **只提取“命名性”文本块**，即用来称呼、标识某个事物的固定名称，如：
@@ -62,7 +62,7 @@ class TermExtractor(
             chunks.asIterable().forEachConcurrently(
                 concurrency,
                 Dispatchers.IO,
-                { terms.addAll(it) }
+                { terms.putAll(it) }
             ) { chunk, add ->
                 try {
                     val message = chunk.joinToString("\n")
@@ -72,7 +72,7 @@ class TermExtractor(
                         {
                             Json.decodeFromString<TermTable>(it)
                         },
-                        validate = { terms -> terms.all { it.source.isNotBlank() && it.target.isNotBlank() } },
+                        validate = { terms -> terms.all { (source, target) -> source.isNotBlank() && target.isNotBlank() } },
                     )
                     add(subterms)
                 } catch (e: CancellationException) {

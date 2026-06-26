@@ -288,9 +288,8 @@ private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
         val termsFile = projectDir / projectConfig.terms
         val existingTerms = if (fs.exists(termsFile)) {
             termsFile.readJson<TermTable>()
-        } else {
-            emptySet()
-        }
+        } else emptyMap()
+
         terminal.println(cyan("Loaded ${existingTerms.size} existing terms"))
 
         val extractor = TermExtractor(
@@ -359,9 +358,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 
         val existingTerms = if (fs.exists(termsFile)) {
             termsFile.readJson<TermTable>()
-        } else {
-            emptySet()
-        }
+        } else emptyMap()
         terminal.println(cyan("Loaded ${existingTerms.size} existing terms"))
 
         val translator = Translator(
