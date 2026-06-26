@@ -150,46 +150,48 @@ internal data class PointerWithExtensionForSnbt(
 internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
     filter { (ptr, _, _) -> ptr.matches(patterns) }
 
-internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
-    is SnbtList -> {
-        if (isTextCompound()) {
-            sequenceOf(
-                PointerWithExtensionForSnbt(
-                    DataPointer.Terminator,
-                    indices,
-                    snbt.substring(indices),
-                    FormatKind.SnbtStr,
-                    syntax = SnbtSyntaxKind.List
-                )
+internal fun SnbtTag.extractTextsByPointer(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
+    is SnbtList -> if (isTextCompound()) {
+        sequenceOf(
+            PointerWithExtensionForSnbt(
+                DataPointer.Terminator,
+                indices,
+                snbt.substring(indices),
+                FormatKind.SnbtStr,
+                syntax = SnbtSyntaxKind.List
             )
-        } else asSequence().withIndex().flatMap { (index, tag) ->
-            tag.extractTexts(snbt).map {
-                it.copy(pointer = it.pointer.markArray(index))
-            }
+        )
+    } else asSequence().withIndex().flatMap { (index, tag) ->
+        tag.extractTextsByPointer(snbt).map {
+            it.copy(pointer = it.pointer.markArray(index))
+        }
+    } // wrap inner pointer
+
+    is SnbtCompound -> if (isTextCompound() || isTextCompoundShorthanded()) {
+        sequenceOf(
+            PointerWithExtensionForSnbt(
+                DataPointer.Terminator,
+                indices,
+                snbt.substring(indices),
+                FormatKind.SnbtStr,
+                syntax = SnbtSyntaxKind.Compound
+            )
+        )
+    } else asSequence().flatMap { (key, value) ->
+        value.extractTextsByPointer(snbt).map {
+            it.copy(pointer = it.pointer.markMap(key))
         } // wrap inner pointer
     }
 
-    is SnbtCompound -> {
-        if (isTextCompound() || isTextCompoundShorthanded()) {
-            sequenceOf(
-                PointerWithExtensionForSnbt(
-                    DataPointer.Terminator,
-                    indices,
-                    snbt.substring(indices),
-                    FormatKind.SnbtStr,
-                    syntax = SnbtSyntaxKind.Compound
-                )
-            )
-        } else asSequence().flatMap { (key, value) ->
-            value.extractTexts(snbt).map {
-                it.copy(pointer = it.pointer.markMap(key))
-            } // wrap inner pointer
-        }
-    }
-
-    is SnbtString -> {
-        sequenceOf(PointerWithExtensionForSnbt(DataPointer.Terminator, indices, raw, FormatKind.PlainStr, syntaxKind))
-    }
+    is SnbtString -> sequenceOf(
+        PointerWithExtensionForSnbt(
+            DataPointer.Terminator,
+            indices,
+            raw,
+            FormatKind.PlainStr,
+            syntaxKind
+        )
+    )
 
     else -> emptySequence()
 }

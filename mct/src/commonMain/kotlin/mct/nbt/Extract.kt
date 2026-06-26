@@ -80,22 +80,20 @@ private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = whe
         val expanded = NbtCompound(map)
 
         sequenceOf(PointerWithExtension(DataPointer.Terminator, expanded.toSnbt(), FormatKind.Nbt))
-    } else {
-        asSequence().flatMap { (key, value) ->
-            if (key == "Command" && value is NbtString) {
-                val pwe = PointerWithExtension(
-                    DataPointer.Map("Command", DataPointer.Terminator),
-                    value.value,
-                    FormatKind.PlainStr,
-                    PointerWithExtension.Type.Command
-                )
-                return@flatMap sequenceOf(pwe)
-            }
-            value.extractTextsByPointer().map {
-                it.copy(pointer = it.pointer.markMap(key))
-            }
-        } // wrap inner pointer
-    }
+    } else asSequence().flatMap { (key, value) ->
+        if (key == "Command" && value is NbtString) {
+            val pwe = PointerWithExtension(
+                DataPointer.Map("Command", DataPointer.Terminator),
+                value.value,
+                FormatKind.PlainStr,
+                PointerWithExtension.Type.Command
+            )
+            return@flatMap sequenceOf(pwe)
+        }
+        value.extractTextsByPointer().map {
+            it.copy(pointer = it.pointer.markMap(key))
+        }
+    } // wrap inner pointer
 
 
     is NbtString -> sequenceOf(PointerWithExtension(DataPointer.Terminator, value, FormatKind.PlainStr))
