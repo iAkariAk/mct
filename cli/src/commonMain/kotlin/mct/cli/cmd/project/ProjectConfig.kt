@@ -38,21 +38,21 @@ data class ProjectConfig(
 @SerialName("patterns")
 data class PatternsConfig(
     @TomlComments("Paths to region data-pointer pattern JSON files (extract texts from block entities, signs, etc.)")
-    val regions: Set<String> = emptySet(),
+    val nbt: Set<String> = emptySet(),
 
-    @TomlComments("Paths to mcfunction command-extract pattern JSON files")
-    val mcfunction: Set<String> = emptySet(),
+    @TomlComments("Paths to command extract pattern JSON files")
+    val command: Set<String> = emptySet(),
 
-    @SerialName("mcfunction_data")
-    @TomlComments("Paths to mcfunction SNBT data-pointer pattern JSON files (extract data from command arguments)")
-    val mcfunctionData: Set<String> = emptySet(),
+    @SerialName("command_data")
+    @TomlComments("Paths to command SNBT data-pointer pattern JSON files (extract data from command arguments)")
+    val commandData: Set<String> = emptySet(),
 
     @TomlComments("Paths to mcjson data-pointer pattern JSON files")
     val mcjson: Set<String> = emptySet(),
 
-    @SerialName("mcfunction_regex")
-    @TomlComments("Paths to mcfunction regex pattern JSON files")
-    val mcfunctionRegex: Set<String> = emptySet(),
+    @SerialName("command_regex")
+    @TomlComments("Paths to command regex pattern JSON files")
+    val commandRegex: Set<String> = emptySet(),
 ) {
     companion object {
         val Empty = PatternsConfig()

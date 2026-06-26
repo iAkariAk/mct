@@ -5,7 +5,7 @@ import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 import mct.text.isTextComponent
 
-val BuiltinMCFPatterns = PatternSet {
+val BuiltinCommandPatterns = PatternSet {
     // ── Plain text message commands (greedy) ──────────────────────
     // say <message>
     // me <action>
@@ -340,7 +340,7 @@ val BuiltinMCFPatterns = PatternSet {
 }
 
 
-val BuiltinMCFunctionDataPatterns = mct.pointer.PatternSet {
+val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     dependsOn(BuiltinNbtPatterns)
 
     // ── Display entity text ──────────────────────────────────────

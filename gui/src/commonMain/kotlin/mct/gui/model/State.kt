@@ -18,10 +18,10 @@ data class ExtractState(
     val mode: RunMode = RunMode.Region,
     val disableFilter: Boolean = false,
     val regionPatternPath: String = "",
-    val mcfPatternPath: String = "",
-    val mcfDataPatternPath: String = "",
+    val commandPatternPath: String = "",
+    val commandDataPatternPath: String = "",
     val mcjPatternPath: String = "",
-    val mcfunctionRegexPatternPath: String = "",
+    val commandRegexPatternPath: String = "",
 )
 
 data class TranslateState(

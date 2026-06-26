@@ -159,10 +159,10 @@ fun App(modifier: Modifier = Modifier) {
                                                     vm.extractState.mode.key,
                                                     vm.extractState.disableFilter,
                                                     vm.extractState.regionPatternPath,
-                                                    vm.extractState.mcfPatternPath,
-                                                    vm.extractState.mcfDataPatternPath,
+                                                    vm.extractState.commandPatternPath,
+                                                    vm.extractState.commandDataPatternPath,
                                                     vm.extractState.mcjPatternPath,
-                                                    vm.extractState.mcfunctionRegexPatternPath,
+                                                    vm.extractState.commandRegexPatternPath,
                                                 )
                                             }
                                         }

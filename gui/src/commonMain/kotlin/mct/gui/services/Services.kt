@@ -8,9 +8,10 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import mct.*
-import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.BuiltinCommandDataPatterns
+import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
-import mct.command.RegexPattern
+import mct.command.CommandRegexPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
@@ -33,7 +34,6 @@ import mct.region.extractFromRegion
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import okio.Path.Companion.toPath
-import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
 import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
 
 
@@ -86,10 +86,10 @@ suspend fun runExtraction(
     mode: String,
     disableFilter: Boolean,
     regionPatternPath: String = "",
-    mcfPatternPath: String = "",
-    mcfDataPatternPath: String = "",
+    commandPatternPath: String = "",
+    commandDataPatternPath: String = "",
     mcjPatternPath: String = "",
-    mcfunctionRegexPatternPath: String = "",
+    commandRegexPatternPath: String = "",
 ) {
     withContext(Dispatchers.IO) {
         env.logger.info { "正在打开: $input" }
@@ -98,10 +98,10 @@ suspend fun runExtraction(
         @Suppress("UNCHECKED_CAST")
         val result = either<MCTError, List<ExtractionGroup>> {
             val workspace = MCTWorkspace(inputPath, env)
-            val mcfunctionRegexPatterns: List<RegexPattern> = mcfunctionRegexPatternPath.takeIf { it.isNotBlank() }
+            val commandRegexPatterns: List<CommandRegexPattern> = commandRegexPatternPath.takeIf { it.isNotBlank() }
                 ?.let { p ->
                     env.fs.read(p.toPath()) { readUtf8() }
-                        .let { MCTJson.decodeFromString<List<RegexPattern>>(it) }
+                        .let { MCTJson.decodeFromString<List<CommandRegexPattern>>(it) }
                 } ?: emptyList()
             when (mode) {
                 "region" -> {
@@ -117,55 +117,55 @@ suspend fun runExtraction(
                         else BuiltinNbtPatterns.toList()
                     }
 
-                    val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
+                    val commandPatterns = commandPatternPath.takeIf { it.isNotBlank() }
                         ?.let { p ->
                             env.fs.read(p.toPath()) { readUtf8() }
                                 .let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
                                 .compile()
-                        } ?: MCFBuiltinPatterns
+                        } ?: BuiltinCommandPatterns
 
-                    val mcfDataPatterns: List<mct.pointer.DataPointerPattern>? =
+                    val commandDataPatterns: List<mct.pointer.DataPointerPattern>? =
                         if (disableFilter) null
                         else {
-                            val userPatterns = mcfDataPatternPath.takeIf { it.isNotBlank() }
+                            val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
                                         .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
                                         .map { it.compile() }
                                 }
-                            if (userPatterns != null) BuiltinMCFunctionDataPatterns + userPatterns
-                            else BuiltinMCFunctionDataPatterns
+                            if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
+                            else BuiltinCommandDataPatterns
                         }
 
                     workspace.extractFromRegion(
                         MCTPattern(
                             nbt = patterns,
-                            mcfunction = mcfPatterns,
-                            mcfunctionData = mcfDataPatterns,
-                            mcfunctionRegex = mcfunctionRegexPatterns
+                            command = commandPatterns,
+                            commandData = commandDataPatterns,
+                            commandRegex = commandRegexPatterns
                         )
                     ).toList() as List<ExtractionGroup>
                 }
 
                 "datapack" -> {
-                    val mcfPatterns = mcfPatternPath.takeIf { it.isNotBlank() }
+                    val commandPatterns = commandPatternPath.takeIf { it.isNotBlank() }
                         ?.let { p ->
                             env.fs.read(p.toPath()) { readUtf8() }
                                 .let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
                                 .compile()
-                        } ?: MCFBuiltinPatterns
+                        } ?: BuiltinCommandPatterns
 
-                    val mcfDataPatterns: List<mct.pointer.DataPointerPattern>? =
+                    val commandDataPatterns: List<mct.pointer.DataPointerPattern>? =
                         if (disableFilter) null
                         else {
-                            val userPatterns = mcfDataPatternPath.takeIf { it.isNotBlank() }
+                            val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
                                         .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
                                         .map { it.compile() }
                                 }
-                            if (userPatterns != null) BuiltinMCFunctionDataPatterns + userPatterns
-                            else BuiltinMCFunctionDataPatterns
+                            if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
+                            else BuiltinCommandDataPatterns
                         }
 
                     val mcjPatterns: List<mct.pointer.DataPointerPattern>? =
@@ -182,10 +182,10 @@ suspend fun runExtraction(
                         }
                     workspace.extractFromDatapack(
                         MCTPattern(
-                            mcfunction = mcfPatterns,
-                            mcfunctionData = mcfDataPatterns,
+                            command = commandPatterns,
+                            commandData = commandDataPatterns,
                             mcjson = mcjPatterns,
-                            mcfunctionRegex = mcfunctionRegexPatterns
+                            commandRegex = commandRegexPatterns
                         )
                     ).toList() as List<ExtractionGroup>
                 }

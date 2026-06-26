@@ -47,9 +47,9 @@ Write more patterns for the following files. Each file uses a different pattern 
 **Argument parsing details:** The MCFunction parser tracks bracket states (`[]`, `{}`) and quote states (`'`, `"`) globally, so `@e[tag=foo]` or `{"text":"hello"}` each count as a single arg. The `MCCommand.get(Int)` operator is **1-based**: `cmd[1]` = `args[0]`, `cmd[2]` = `args[1]`, etc.
 
 **SNBT selection (`IndexSelection.SnbtEntire`):**
-When `Positions(N to IndexSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTexts()` extracts text components and leaf strings from the NBT tree. Results are filtered through `BuiltinMCFunctionDataPatterns`. Only `FormatKind.Nbt` entries survive the final filter — plain strings (FormatKind.Str) from NBT are **excluded**.
+When `Positions(N to IndexSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTexts()` extracts text components and leaf strings from the NBT tree. Results are filtered through `BuiltinCommandDataPatterns`. Only `FormatKind.Nbt` entries survive the final filter — plain strings (FormatKind.Str) from NBT are **excluded**.
 
-Use `withAry()` on the index selector to apply `BuiltinMCFunctionDataPatterns` (which has specific patterns for display entity text, CustomName, and dialog SNBT fields). Without `withAry()`, use a `Matches` postCondition to filter manually.
+Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (which has specific patterns for display entity text, CustomName, and dialog SNBT fields). Without `withAry()`, use a `Matches` postCondition to filter manually.
 
 **Common commands with text components (Java Edition):**
 
@@ -90,7 +90,7 @@ Use `withAry()` on the index selector to apply `BuiltinMCFunctionDataPatterns` (
 If you use `Positions(N to SnbtEntire)` + a `Matches` postCondition (without `withAry()`), the flow is:
 1. PostCondition filters the raw arg
 2. SnbtEntire tries to parse the arg as SNBT
-3. If SNBT parsing succeeds, text component leaves are extracted and filtered through `BuiltinMCFunctionDataPatterns`; the `filter { it.kind == FormatKind.Nbt }` step removes plain strings
+3. If SNBT parsing succeeds, text component leaves are extracted and filtered through `BuiltinCommandDataPatterns`; the `filter { it.kind == FormatKind.Nbt }` step removes plain strings
 4. If SNBT parsing fails, falls back to `PlainEntire` which returns the whole arg (which then gets extracted as-is if Matches passed)
 
 **References:**
@@ -227,7 +227,7 @@ java -jar cli/build/libs/cli-0.0-SNAPSHOT-all.jar region extract \
 When the SNBT selection test (`test snbt selecting`) counts change, investigate by:
 1. Checking which files/functions have changed extraction counts
 2. Understanding that `isTextCompound()` determines whether the root NBT is extracted as a whole vs recursed into
-3. Verifying `BuiltinMCFunctionDataPatterns` paths match the actual pointer paths produced by `SnbtTag.extractTexts()`
+3. Verifying `BuiltinCommandDataPatterns` paths match the actual pointer paths produced by `SnbtTag.extractTexts()`
 
 ### Common pitfalls
 

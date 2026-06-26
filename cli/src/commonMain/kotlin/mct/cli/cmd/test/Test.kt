@@ -13,7 +13,7 @@ import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.mordant.rendering.TextColors
 import mct.MCTError
 import mct.cli.*
-import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.BuiltinCommandDataPatterns
 import mct.command.CommandExtractPattern
 import mct.command.extractTextFromCommands
 import mct.dp.compile
@@ -26,7 +26,7 @@ import mct.util.unreachable
 
 class Test : SuspendingCliktCommand(name = "test") {
     init {
-        subcommands(DataPointerTest(), MCFunctionTest())
+        subcommands(DataPointerTest(), CommandTest())
     }
 
     override suspend fun run() = Unit
@@ -58,11 +58,11 @@ private class DataPointerTest : BaseCommand(name = "pointer") {
     }
 }
 
-private class MCFunctionTest : BaseCommand(name = "mcfunction", help = "Test mcfunction pattern") {
-    val mcfunctionPattern by option("--mcfunction-pattern", "-pF", help = "The pattern to match the test").path()
+private class CommandTest : BaseCommand(name = "command", help = "Test command pattern") {
+    val commandPattern by option("--command-pattern", "-pF", help = "The pattern to match the test").path()
         .required()
-    val mcfunctionDataPattern by option(
-        "--mcfunction-data-pattern", "-pFD", help = "The pattern to match the test"
+    val commandDataPattern by option(
+        "--command-data-pattern", "-pFD", help = "The pattern to match the test"
     ).path()
     val testedFile by option("--input", "-i", help = "A file which will be used to test the pattern").path().required()
     val noBuiltin by option("--no-builtin", "-N", help = "Disable builtin pattern").flag()
@@ -70,13 +70,13 @@ private class MCFunctionTest : BaseCommand(name = "mcfunction", help = "Test mcf
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val testedContent = testedFile.readText()
-        val extraMCFunctionPattern = mcfunctionPattern.readJson<List<CommandExtractPattern>>()
-        val extraMCFunctionDataPattern = mcfunctionDataPattern?.readJson<List<DataPointerPattern>>()
-        val combinedMCFunctionPattern = extraMCFunctionPattern.compile(!noBuiltin)
-        val combinedMCFunctionDataPattern = (if (noBuiltin) extraMCFunctionDataPattern else extraMCFunctionDataPattern?.let { it + BuiltinMCFunctionDataPatterns })
+        val extraCommandPattern = commandPattern.readJson<List<CommandExtractPattern>>()
+        val extraCommandDataPattern = commandDataPattern?.readJson<List<DataPointerPattern>>()
+        val combinedCommandPattern = extraCommandPattern.compile(!noBuiltin)
+        val combinedCommandDataPattern = (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
                 ?: emptyList()
         val matchResults = extractTextFromCommands(
-            testedContent, mcfPatterns = combinedMCFunctionPattern, mcfDataPatterns = combinedMCFunctionDataPattern
+            testedContent, commandPatterns = combinedCommandPattern, commandDataPatterns = combinedCommandDataPattern
         ).sortedByDescending { it.indices.first }
         val display = matchResults.fold(StringBuilder(testedContent)) { acc, r ->
             acc.setRange(r.indices.first, r.indices.last + 1, TextColors.green(r.content))

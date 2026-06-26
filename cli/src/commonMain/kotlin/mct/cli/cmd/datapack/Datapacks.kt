@@ -13,10 +13,10 @@ import mct.MCTPattern
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
-import mct.command.BuiltinMCFPatterns
-import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.BuiltinCommandDataPatterns
+import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
-import mct.command.RegexPattern
+import mct.command.CommandRegexPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
@@ -40,10 +40,10 @@ class Datapack : SuspendingCliktCommand(name = "datapack") {
 
 private class ExtractDatapack : WorkspaceCommand(name = "extract") {
     val output by option("--output", "-o", help = "The JSON output path for extracted texts").path().required()
-    val mcfPatternsPath by option(
-        "--mcfunction-patterns",
+    val commandPatternsPath by option(
+        "--command-patterns",
         "-pF",
-        help = "Append patterns to filter specified text for mcfunction"
+        help = "Append patterns to filter specified text for command"
     ).path()
     val mcjPatternsPath by option(
         "--mcjson-patterns",
@@ -51,32 +51,32 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         help = "Append patterns to filter specified text for mcjson"
     ).path()
 
-    val mcfDataPatternsPath by option(
-        "--mcfunction-data-patterns",
+    val commandDataPatternsPath by option(
+        "--command-data-patterns",
         "-pD",
-        help = "Append patterns to filter mcfunction snbt args"
+        help = "Append patterns to filter command snbt args"
     ).path()
     val disableMCJFilter by option(
         "--disable-mcjson-filter",
         help = "Disable mcjson filter, extract all strings from JSON files"
     ).flag()
-    val disableMCFDFilter by option(
-        "--disable-mcfunction-data-filter",
-        help = "Disable mcfunction snbt arg filter, extract all strings from JSON files"
+    val disableCommandDataFilter by option(
+        "--disable-command-data-filter",
+        help = "Disable command snbt arg filter, extract all strings from JSON files"
     ).flag()
-    val mcfunctionRegexPatternsPath by option(
-        "--mcfunction-regex-patterns",
+    val commandRegexPatternsPath by option(
+        "--command-regex-patterns",
         "-pR",
-        help = "Append regex patterns to extract text from mcfunction"
+        help = "Append regex patterns to extract text from command"
     ).path()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        val mcfPatterns = mcfPatternsPath?.jsonFile<List<CommandExtractPattern>>()
+        val commandPatterns = commandPatternsPath?.jsonFile<List<CommandExtractPattern>>()
         val userMcjPatterns = mcjPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }
-        val userMcfDataPatterns = mcfDataPatternsPath?.readText()?.let {
+        val userCommandDataPatterns = commandDataPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }
         val mcjPatterns = when {
@@ -84,21 +84,21 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
             userMcjPatterns != null -> BuiltinMCJPatterns + userMcjPatterns
             else -> BuiltinMCJPatterns
         }
-        val mcfDataPatterns = when {
-            disableMCFDFilter -> null
-            userMcfDataPatterns != null -> BuiltinMCFunctionDataPatterns + userMcfDataPatterns
-            else -> BuiltinMCFunctionDataPatterns
+        val commandDataPatterns = when {
+            disableCommandDataFilter -> null
+            userCommandDataPatterns != null -> BuiltinCommandDataPatterns + userCommandDataPatterns
+            else -> BuiltinCommandDataPatterns
         }
 
-        val mcfunctionRegexPatterns = mcfunctionRegexPatternsPath?.jsonFile<List<RegexPattern>>() ?: emptyList()
+        val commandRegexPatterns = commandRegexPatternsPath?.jsonFile<List<CommandRegexPattern>>() ?: emptyList()
 
         logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
             workspace.extractFromDatapack(MCTPattern(
-                mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
-                mcfunctionData = mcfDataPatterns,
+                command = commandPatterns?.compile() ?: BuiltinCommandPatterns,
+                commandData = commandDataPatterns,
                 mcjson = mcjPatterns,
-                mcfunctionRegex = mcfunctionRegexPatterns
+                commandRegex = commandRegexPatterns
             )).toList()
         logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)

@@ -27,9 +27,9 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                     raw = content,
                     locations = extractTextFromCommands(
                         commandStr = content,
-                        mcfPatterns = pattern.mcfunction,
-                        mcfDataPatterns = pattern.mcfunctionData,
-                        regexPatterns = pattern.mcfunctionRegex
+                        commandPatterns = pattern.command,
+                        commandDataPatterns = pattern.commandData,
+                        commandRegexPatterns = pattern.commandRegex
                     ).takeIf { it.isNotEmpty() }?.map {
                         NbtExtraction.Command.Location(
                             it.indices, it.content, it.syntax

@@ -15,9 +15,9 @@ internal fun MCFunctionExtractor(
     try {
         extractTextFromCommands(
             commandStr = text,
-            mcfPatterns = pattern.mcfunction,
-            mcfDataPatterns = pattern.mcfunctionData,
-            regexPatterns = pattern.mcfunctionRegex
+            commandPatterns = pattern.command,
+            commandDataPatterns = pattern.commandData,
+            commandRegexPatterns = pattern.commandRegex
         ).map { extracted ->
             MCFunction(indices = extracted.indices, content = extracted.content, syntax = extracted.syntax)
         }.toList()

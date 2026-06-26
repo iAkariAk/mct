@@ -35,21 +35,21 @@ data class ExtractedCommandSlice(
 context(_: LoggerHolder)
 fun extractTextFromCommands(
     commandStr: String,
-    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
-    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
-    regexPatterns: List<RegexPattern> = emptyList()
+    commandPatterns: ExtractPatternSet = BuiltinCommandPatterns,
+    commandDataPatterns: List<DataPointerPattern>? = BuiltinCommandDataPatterns,
+    commandRegexPatterns: List<CommandRegexPattern> = emptyList()
 ): List<ExtractedCommandSlice> {
     val commands = parseCommands(commandStr)
     val fromCommandPattern = commands.flatMap { command ->
         either {
-            extractTextFromCommand(command, mcfPatterns, mcfDataPatterns)
+            extractTextFromCommand(command, commandPatterns, commandDataPatterns)
         }.getOrElse {
             logger.error { "Skip $command due to ${it.message}" }
             emptyList()
         }
     }
-    return if (regexPatterns.isNotEmpty()) {
-        val fromRegex = regexPatterns.flatMap { p ->
+    return if (commandRegexPatterns.isNotEmpty()) {
+        val fromRegex = commandRegexPatterns.flatMap { p ->
             p.regex.findAll(commandStr).flatMap { result ->
                 p.groups.mapNotNull { (group, syntax) ->
                     result.groups2[group]?.let {
@@ -71,8 +71,8 @@ fun extractTextFromCommands(
 context(_: Raise<IndexSelectError>, _: LoggerHolder)
 internal fun extractTextFromCommand(
     command: MCCommand,
-    mcfPatterns: ExtractPatternSet = BuiltinMCFPatterns,
-    mcfDataPatterns: List<DataPointerPattern>? = BuiltinMCFunctionDataPatterns,
+    commandPatterns: ExtractPatternSet = BuiltinCommandPatterns,
+    commandDataPatterns: List<DataPointerPattern>? = BuiltinCommandDataPatterns,
 ): List<ExtractedCommandSlice> {
     // return run <command> (1.21+) — similar recursive subcommand extraction
     if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`
@@ -93,10 +93,10 @@ internal fun extractTextFromCommand(
             )
         }
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
-        return extractTextFromCommand(subCommand, mcfPatterns, mcfDataPatterns)
+        return extractTextFromCommand(subCommand, commandPatterns, commandDataPatterns)
     }
-    val fromIntrinsic = MCFExtractorIntrinsic.extract(command)
-    val fromPattern = (mcfPatterns[command.name]?.asSequence() ?: emptySequence())
+    val fromIntrinsic = CommandExtractorIntrinsic.extract(command)
+    val fromPattern = (commandPatterns[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
             when (val selector = pattern.selector) {
@@ -117,7 +117,7 @@ internal fun extractTextFromCommand(
                         .flatMap { (index, arg) ->
                             recover(
                                 block = {
-                                    selector.select(index + 1, mcfDataPatterns, arg)?.map {
+                                    selector.select(index + 1, commandDataPatterns, arg)?.map {
                                         ExtractedCommandSlice(it.indices, it.content, it.syntax)
                                     }
                                 },
@@ -213,7 +213,7 @@ private fun computeGreedyRange(
 }
 
 
-internal object MCFExtractorIntrinsic {
+internal object CommandExtractorIntrinsic {
     // https://minecraft.wiki/w/Target_selectors
     private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
     private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")

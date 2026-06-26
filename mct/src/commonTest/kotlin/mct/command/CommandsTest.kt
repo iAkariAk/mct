@@ -254,7 +254,7 @@ class CommandsTest : StringSpec({
     }
 
     "test snbt extraction via data merge entity carries SnbtSyntaxKind" {
-        // data merge entity uses SnbtEntire at position 4 with BuiltinMCFunctionDataPatterns
+        // data merge entity uses SnbtEntire at position 4 with BuiltinCommandDataPatterns
         // Should extract at least one text from the NBT
         val extraction = extractText("""data merge entity @e[limit=1] {CustomName:"Hello"}""")
             .filterIsInstance<DatapackExtraction.MCFunction>()

@@ -43,5 +43,5 @@ class NbtDataPointerPatternTest : FreeSpec({
 | `mct/nbt/NbtDataPointerPatternTest.kt` | `mct.nbt` | BuiltinNbtPatterns (region patterns) |
 | `mct/nbt/NbtExtractPatternTest.kt` | `mct.nbt` | NBT extraction pattern selection |
 | `mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `mct.dp.mcjson` | BuiltinMCJPatterns (datapack JSON patterns) |
-| `mct/command/CommandExtractPatternTest.kt` | `mct.command` | BuiltinMCFPatterns, BuiltinMCFunctionDataPatterns |
-| `mct/command/CommandMCFunctionTest.kt` | `mct.command` | Full extraction→backfill pipeline integration tests |
+| `mct/command/CommandExtractPatternTest.kt` | `mct.command` | BuiltinCommandPatterns, BuiltinCommandDataPatterns |
+| `mct/command/CommandsTest.kt` | `mct.command` | Full extraction→backfill pipeline integration tests |

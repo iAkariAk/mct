@@ -16,7 +16,7 @@ import kotlinx.schema.generator.json.serialization.SerializationClassJsonSchemaG
 import mct.MCTError
 import mct.cli.*
 import mct.command.CommandExtractPattern
-import mct.command.RegexPattern
+import mct.command.CommandRegexPattern
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
@@ -116,16 +116,16 @@ private class ExportSnbt : WorkspaceCommand(
 }
 
 private class ExportScheme : BaseCommand("export-scheme", help = "The JSON-scheme generated for kinds of mct pattern") {
-    val kind by option("--kind", "-K").choice("mcfunction", "data_pointer", "mcfunction_regex").required()
+    val kind by option("--kind", "-K").choice("command", "data_pointer", "command_regex").required()
     val output by option("--output", "-o", help = "The path to generated JSON Scheme").path().required()
     val pretty by option("--pretty", "-P", help = "Enable pretty json output").flag()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val descriptor = when (kind) {
-            "mcfunction" -> CommandExtractPattern.serializer().descriptor
+            "command" -> CommandExtractPattern.serializer().descriptor
             "data_pointer" -> CustomizedDataPointerPattern.serializer().descriptor
-            "mcfunction_regex" -> RegexPattern.serializer().descriptor
+            "command_regex" -> CommandRegexPattern.serializer().descriptor
             else -> unreachable
         }
         val generator = SerializationClassJsonSchemaGenerator(json = MCTJson)

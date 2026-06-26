@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.*
 import mct.EnvHolder
 import mct.MCTPattern
 import mct.MCTWorkspace
+import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
@@ -18,11 +19,10 @@ import mct.model.patch.DatapackExtractionGroup
 import mct.util.IO
 import mct.util.io.*
 import okio.Path
-import mct.command.BuiltinMCFPatterns as MCFBuiltinPatterns
 
 fun List<CommandExtractPattern>.compile(hasBuiltin: Boolean = true): Map<String, List<CommandExtractPattern>> {
     val new = groupBy { it.command }.toMap()
-    return if (hasBuiltin) MCFBuiltinPatterns + new else new
+    return if (hasBuiltin) BuiltinCommandPatterns + new else new
 }
 
 fun MCTWorkspace.extractFromDatapack(

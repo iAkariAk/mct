@@ -14,10 +14,10 @@ import mct.MCTPattern
 import mct.cli.WorkspaceCommand
 import mct.cli.jsonFile
 import mct.cli.path
-import mct.command.BuiltinMCFPatterns
-import mct.command.BuiltinMCFunctionDataPatterns
+import mct.command.BuiltinCommandDataPatterns
+import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
-import mct.command.RegexPattern
+import mct.command.CommandRegexPattern
 import mct.dp.compile
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.RegionReplacementGroup
@@ -44,24 +44,24 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
     val patternsPath by option("--pattern", "-p", help = "Custom region filter patterns JSON file").path()
 
     val disableFilter by option("--disable-filter", help = "Disable built-in filter, extract all strings").flag()
-    val mcfPatternsPath by option(
-        "--mcfunction-patterns",
+    val commandPatternsPath by option(
+        "--command-patterns",
         "-pF",
-        help = "Append patterns to filter specified text for mcfunction"
+        help = "Append patterns to filter specified text for command"
     ).path()
-    val mcfDataPatternsPath by option(
-        "--mcfunction-data-patterns",
+    val commandDataPatternsPath by option(
+        "--command-data-patterns",
         "-pD",
-        help = "Append patterns to filter mcfunction snbt args"
+        help = "Append patterns to filter command snbt args"
     ).path()
-    val disableMCFDFilter by option(
-        "--disable-mcfunction-data-filter",
-        help = "Disable mcfunction snbt arg filter, extract all strings"
+    val disableCommandDataFilter by option(
+        "--disable-command-data-filter",
+        help = "Disable command snbt arg filter, extract all strings"
     ).flag()
-    val mcfunctionRegexPatternsPath by option(
-        "--mcfunction-regex-patterns",
+    val commandRegexPatternsPath by option(
+        "--command-regex-patterns",
         "-pR",
-        help = "Append regex patterns to extract text from mcfunction"
+        help = "Append regex patterns to extract text from command"
     ).path()
 
     context(_: Raise<MCTError>)
@@ -75,24 +75,24 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
             else -> BuiltinNbtPatterns.toList()
         }
 
-        val mcfPatterns = mcfPatternsPath?.jsonFile<List<CommandExtractPattern>>()
-        val userMcfDataPatterns = mcfDataPatternsPath?.readText()?.let {
+        val commandPatterns = commandPatternsPath?.jsonFile<List<CommandExtractPattern>>()
+        val userCommandDataPatterns = commandDataPatternsPath?.readText()?.let {
             MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
         }
-        val mcfDataPatterns = when {
-            disableMCFDFilter -> null
-            userMcfDataPatterns != null -> BuiltinMCFunctionDataPatterns + userMcfDataPatterns
-            else -> BuiltinMCFunctionDataPatterns
+        val commandDataPatterns = when {
+            disableCommandDataFilter -> null
+            userCommandDataPatterns != null -> BuiltinCommandDataPatterns + userCommandDataPatterns
+            else -> BuiltinCommandDataPatterns
         }
 
-        val mcfunctionRegexPatterns = mcfunctionRegexPatternsPath?.jsonFile<List<RegexPattern>>() ?: emptyList()
+        val commandRegexPatterns = commandRegexPatternsPath?.jsonFile<List<CommandRegexPattern>>() ?: emptyList()
 
         env.logger.info { "Extracting from region..." }
         val extractions: List<ExtractionGroup> = workspace.extractFromRegion(MCTPattern(
             nbt = patterns,
-            mcfunction = mcfPatterns?.compile() ?: BuiltinMCFPatterns,
-            mcfunctionData = mcfDataPatterns,
-            mcfunctionRegex = mcfunctionRegexPatterns
+            command = commandPatterns?.compile() ?: BuiltinCommandPatterns,
+            commandData = commandDataPatterns,
+            commandRegex = commandRegexPatterns
         )).toList()
         env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
 

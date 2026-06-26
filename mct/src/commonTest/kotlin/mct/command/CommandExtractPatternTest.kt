@@ -233,7 +233,7 @@ class CommandExtractPatternTest : FreeSpec({
             }
         }
 
-        "BuiltinMCFPatterns" - {
+        "BuiltinCommandPatterns" - {
             fun matchCmd(cmd: MCCommand) = shouldNotRaise {
                 context(Logger.Console()) {
                     extractTextFromCommand(cmd)
@@ -333,7 +333,7 @@ class CommandExtractPatternTest : FreeSpec({
     "TargetSelector" - {
         fun extractTargetSelector(mcf: String): List<ExtractedCommandSlice> {
             val cmds = parseMCFunction(mcf)
-            return cmds.flatMap { MCFExtractorIntrinsic.extractFromTargetSelector(it.args) }
+            return cmds.flatMap { CommandExtractorIntrinsic.extractFromTargetSelector(it.args) }
         }
 
         "extracts literal name" {
