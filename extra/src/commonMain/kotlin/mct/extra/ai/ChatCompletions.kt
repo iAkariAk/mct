@@ -91,7 +91,7 @@ interface ChatCompletionCall : EnvHolder {
 context(_: Raise<ChatCompletionCallError>)
 suspend fun ChatCompletionCall.chatRaw(
     prompt: String,
-    message: String
+    message: String,
 ): String = chat(
     prompt = prompt,
     message = message,
@@ -107,7 +107,7 @@ suspend fun ChatCompletionCall(
     maxRetry: Int = MAX_RETRY,
     strict: Boolean = false, // if validate model exists
     temperature: Double? = null,
-    logLevel: LogLevel = LogLevel.None
+    logLevel: LogLevel = LogLevel.None,
 ): ChatCompletionCall {
     val client = createOpenAIClient(apiUrl, token, logLevel)
     return ChatCompletionCall(
@@ -241,7 +241,7 @@ private fun EnvHolder.postReasoning(
     reasoningContent: String?,
     id: Int,
     terminated: Boolean,
-    consumeTokenCount: Int? = null
+    consumeTokenCount: Int? = null,
 ) {
     if (reasoningContent != null || terminated) {
         notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent ?: "", id, terminated, consumeTokenCount) })

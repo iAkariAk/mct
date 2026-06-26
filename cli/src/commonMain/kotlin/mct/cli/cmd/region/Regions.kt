@@ -88,12 +88,14 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
         val commandRegexPatterns = commandRegexPatternsPath?.jsonFile<List<CommandRegexPattern>>() ?: emptyList()
 
         env.logger.info { "Extracting from region..." }
-        val extractions: List<ExtractionGroup> = workspace.extractFromRegion(MCTPattern(
-            nbt = patterns,
-            command = commandPatterns?.compile() ?: BuiltinCommandPatterns,
-            commandData = commandDataPatterns,
-            commandRegex = commandRegexPatterns
-        )).toList()
+        val extractions: List<ExtractionGroup> = workspace.extractFromRegion(
+            MCTPattern(
+                nbt = patterns,
+                command = commandPatterns?.compile() ?: BuiltinCommandPatterns,
+                commandData = commandDataPatterns,
+                commandRegex = commandRegexPatterns
+            )
+        ).toList()
         env.logger.info { "Extracted ${extractions.size} groups, writing to $output" }
 
         output.writeJson(extractions)

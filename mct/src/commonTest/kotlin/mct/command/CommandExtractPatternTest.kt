@@ -11,7 +11,7 @@ import mct.model.patch.SnbtSyntaxKind
 
 class CommandExtractPatternTest : FreeSpec({
     fun parseMCFunction(mcf: String): List<MCCommand> =
-        context(Logger.None) { mct.command.parseCommands(mcf) }
+        context(Logger.None) { parseCommands(mcf) }
 
     /**
      * Creates a simple mock MCCommand for unit testing conditions.

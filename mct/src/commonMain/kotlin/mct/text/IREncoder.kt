@@ -22,7 +22,10 @@ fun List<TextCompound>.simplify(vararg prefixes: IRElement, remainList: Boolean 
 }
 
 private fun IRObjectBuilder.commonPut(value: TextCompound, simplify: Boolean = true) {
-    putIfPresent("extra", if (simplify) value.extra.simplify() else value.extra.map { it.encodeToIR(simplify) }.let(::IRList))
+    putIfPresent(
+        "extra",
+        if (simplify) value.extra.simplify() else value.extra.map { it.encodeToIR(simplify) }.let(::IRList)
+    )
     putIfPresent("color", value.color)
     putIfPresent("bold", value.bold)
     putIfPresent("italic", value.italic)

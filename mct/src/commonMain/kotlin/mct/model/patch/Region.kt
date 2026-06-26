@@ -41,7 +41,7 @@ data class RegionExtractionGroup(
 @SerialName("region")
 data class RegionExtraction(
     val index: Int,
-    val nbt: NbtExtraction
+    val nbt: NbtExtraction,
 ) : Extraction {
     inline fun substitute(replace: (NbtExtraction) -> NbtReplacement) = RegionReplacement(index, replace(nbt))
 }
@@ -72,7 +72,7 @@ data class RegionReplacementGroup(
 @SerialName("region")
 data class RegionReplacement(
     val index: Int,
-    val nbt: NbtReplacement
+    val nbt: NbtReplacement,
 ) : Replacement {
     override val replacement: String
         get() = nbt.replacement

@@ -14,7 +14,7 @@ import kotlin.reflect.typeOf
 open class BaseRegion<T : ChunkData>(
     internal var raw: RawRegion,
     val kind: ChunkDataKind,
-    identifier: KType
+    identifier: KType,
 ) : Region by raw {
     init {
         require(kind.isTypeOf(identifier))
@@ -23,7 +23,7 @@ open class BaseRegion<T : ChunkData>(
     companion object {
         inline operator fun <reified T : ChunkData> invoke(
             raw: RawRegion,
-            kind: ChunkDataKind = ChunkDataKind.of<T>()
+            kind: ChunkDataKind = ChunkDataKind.of<T>(),
         ): BaseRegion<T> =
             BaseRegion(raw, kind = kind, typeOf<T>())
     }
@@ -57,7 +57,7 @@ open class BaseRegion<T : ChunkData>(
 class BaseRegionManager<T : ChunkData> private constructor(
     val raw: RawRegionManager,
     val kind: ChunkDataKind,
-    private val identifier: KType
+    private val identifier: KType,
 ) : RegionManager<BaseRegion<T>>(raw.env, raw.path) {
     companion object {
         context(_: Raise<ConstructionError>)
@@ -65,7 +65,7 @@ class BaseRegionManager<T : ChunkData> private constructor(
             env: Env,
             path: Path,
             kind: ChunkDataKind,
-            identifier: KType
+            identifier: KType,
         ): BaseRegionManager<T> {
             return invoke(RawRegionManager(env, path), kind, identifier)
         }
@@ -75,7 +75,7 @@ class BaseRegionManager<T : ChunkData> private constructor(
         operator fun <T : ChunkData> invoke(
             raw: RawRegionManager,
             kind: ChunkDataKind,
-            identifier: KType
+            identifier: KType,
         ): BaseRegionManager<T> {
             ensure(raw.fs.exists(raw.path)) {
                 ConstructionError.DirNotFound(raw.path)
@@ -87,7 +87,7 @@ class BaseRegionManager<T : ChunkData> private constructor(
         context(_: Raise<ConstructionError>)
         inline operator fun <reified T : ChunkData> invoke(
             raw: RawRegionManager,
-            kind: ChunkDataKind = ChunkDataKind.of<T>()
+            kind: ChunkDataKind = ChunkDataKind.of<T>(),
         ): BaseRegionManager<T> =
             invoke(raw, kind = kind, typeOf<T>())
 
@@ -95,7 +95,7 @@ class BaseRegionManager<T : ChunkData> private constructor(
         inline operator fun <reified T : ChunkData> invoke(
             env: Env,
             path: Path,
-            kind: ChunkDataKind = ChunkDataKind.of<T>()
+            kind: ChunkDataKind = ChunkDataKind.of<T>(),
         ): BaseRegionManager<T> =
             invoke(RawRegionManager(env, path), kind = kind, typeOf<T>())
     }

@@ -21,7 +21,7 @@ sealed interface OpenError : MCTError {
 }
 
 class MCTWorkspace private constructor(
-    val rootDir: Path, override val env: Env
+    val rootDir: Path, override val env: Env,
 ) : EnvHolder {
     companion object {
         context(_: Raise<OpenError>)
@@ -70,14 +70,14 @@ class MCTWorkspace private constructor(
 interface DimensionProvider : Map<String, Dimension>
 
 class Dimension(
-    internal val workspace: MCTWorkspace, val id: String, val path: Path
+    internal val workspace: MCTWorkspace, val id: String, val path: Path,
 ) {
     val poiDir = path / "poi"
     val regionDir = path / "region"
     val entitiesDir = path / "entities"
 
     private inline fun <T> raiseAsNull(
-        action: context(Raise<ConstructionError>) () -> T
+        action: context(Raise<ConstructionError>) () -> T,
     ) = either { action() }.getOrNull()
 
     val regionRawMgr = raiseAsNull { RawRegionManager(workspace.env, regionDir) }

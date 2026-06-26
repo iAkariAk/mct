@@ -74,6 +74,7 @@ class SnbtLexer(private val string: String) {
                     advance()
                     continue
                 }
+
                 '\'' -> {
                     peek()?.let {
                         if (it in "\\'") {

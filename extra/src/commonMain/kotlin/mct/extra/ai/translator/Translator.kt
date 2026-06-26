@@ -282,7 +282,7 @@ class Translator internal constructor(
     suspend fun translate(
         kind: FormatKind,
         sources: List<String>,
-        onCancel: (List<String?>) -> Unit = {}
+        onCancel: (List<String?>) -> Unit = {},
     ): List<String> = coroutineScope {
         val chunks = sources.withIndex().chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
@@ -499,7 +499,7 @@ suspend fun Translator.translate(
     groups: List<ExtractionGroup>,
     caches: Map<String, String> = emptyMap(),
     concurrentByKind: Boolean = false,
-    onCancel: OnTranslateCancel = { _, _ -> }
+    onCancel: OnTranslateCancel = { _, _ -> },
 ): Map<String, String> = coroutineScope {
     if (groups.isEmpty()) {
         logger.debug { "Skipping empty group" }
@@ -527,6 +527,7 @@ suspend fun Translator.translate(
             }
         } else block(mapping::putAll)
     }
+
     val cancelled = AtomicBoolean(false)
     extractions.forEach { (kind, extractions) ->
         execute { append ->

@@ -7,7 +7,7 @@ inline fun FileSystem.newRelativeFS(dir: Path) = RelativeFileSystem(dir, this)
 
 class RelativeFileSystem(
     val baseDir: Path,
-    private val delegate: FileSystem
+    private val delegate: FileSystem,
 ) : FileSystem() {
     private fun resolve(path: Path): Path {
         val normalized = canonicalize(path)
@@ -54,7 +54,7 @@ class RelativeFileSystem(
     override fun openReadWrite(
         file: Path,
         mustCreate: Boolean,
-        mustExist: Boolean
+        mustExist: Boolean,
     ): FileHandle {
         return delegate.openReadWrite(resolve(file), mustCreate, mustExist)
     }

@@ -13,6 +13,6 @@ sealed class AiSign : Sign {
         val reasoningContent: String,
         val id: Int,
         val terminated: Boolean = false,
-        val consumeTokenCount: Int? = null
+        val consumeTokenCount: Int? = null,
     ) : AiSign()
 }

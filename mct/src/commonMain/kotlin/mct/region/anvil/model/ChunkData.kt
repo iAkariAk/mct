@@ -14,12 +14,14 @@ sealed interface ChunkData {
 
 @Serializable
 enum class ChunkDataKind(
-    internal val gettingSerializer: SerializersModule.() -> KSerializer<*>
+    internal val gettingSerializer: SerializersModule.() -> KSerializer<*>,
 ) {
     @SerialName("region")
     Terrain({ serializer<TerrainChunkData>() }),
+
     @SerialName("entities")
     Entities({ serializer<EntitiesChunkData>() }),
+
     @SerialName("poi")
     Poi({ serializer<PoiChunkData>() });
 

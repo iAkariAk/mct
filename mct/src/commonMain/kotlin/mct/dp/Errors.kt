@@ -7,7 +7,7 @@ import okio.Path
 
 sealed interface DBError : MCTError
 
-sealed interface BackfillError : DBError {}
+sealed interface BackfillError : DBError
 
 sealed interface ExtractError : DBError
 sealed interface MCFunctionExtractError : ExtractError

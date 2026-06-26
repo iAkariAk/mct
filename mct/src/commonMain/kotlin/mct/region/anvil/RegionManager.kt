@@ -12,13 +12,13 @@ import okio.Path
 @Serializable
 data class Coord(
     val x: Int,
-    val z: Int
+    val z: Int,
 )
 
 abstract class RegionManager<T : Region>(
     override val env: Env,
-    internal val path: Path
-) : EnvHolder{
+    internal val path: Path,
+) : EnvHolder {
 
     init {
         require(fs.exists(path))

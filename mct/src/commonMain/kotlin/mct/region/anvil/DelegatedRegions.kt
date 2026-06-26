@@ -8,13 +8,13 @@ import mct.region.anvil.model.PoiChunkData
 import mct.region.anvil.model.TerrainChunkData
 
 class TerrainRegion(
-    internal val base: BaseRegion<TerrainChunkData>
+    internal val base: BaseRegion<TerrainChunkData>,
 ) : Region by base {
     val data get() = base.data
 }
 
 class TerrainRegionManager(
-    private val delegate: BaseRegionManager<TerrainChunkData>
+    private val delegate: BaseRegionManager<TerrainChunkData>,
 ) : RegionManager<TerrainRegion>(delegate.env, delegate.path) {
     context(_: Raise<LoadError>)
     override fun load(coord: Coord): TerrainRegion = TerrainRegion(delegate.load(coord))
@@ -33,13 +33,13 @@ fun TerrainRegionManager(raw: RawRegionManager): TerrainRegionManager {
 
 
 class EntitiesRegion(
-    internal val base: BaseRegion<EntitiesChunkData>
+    internal val base: BaseRegion<EntitiesChunkData>,
 ) : Region by base {
     val data get() = base.data
 }
 
 class EntitiesRegionManager(
-    private val delegate: BaseRegionManager<EntitiesChunkData>
+    private val delegate: BaseRegionManager<EntitiesChunkData>,
 ) : RegionManager<EntitiesRegion>(delegate.env, delegate.path) {
     context(_: Raise<LoadError>)
     override fun load(coord: Coord): EntitiesRegion = EntitiesRegion(delegate.load(coord))
@@ -57,15 +57,14 @@ fun EntitiesRegionManager(raw: RawRegionManager): EntitiesRegionManager {
 }
 
 
-
 class PoiRegion(
-    internal val base: BaseRegion<PoiChunkData>
+    internal val base: BaseRegion<PoiChunkData>,
 ) : Region by base {
     val data get() = base.data
 }
 
 class PoiRegionManager(
-    private val delegate: BaseRegionManager<PoiChunkData>
+    private val delegate: BaseRegionManager<PoiChunkData>,
 ) : RegionManager<PoiRegion>(delegate.env, delegate.path) {
     context(_: Raise<LoadError>)
     override fun load(coord: Coord): PoiRegion = PoiRegion(delegate.load(coord))

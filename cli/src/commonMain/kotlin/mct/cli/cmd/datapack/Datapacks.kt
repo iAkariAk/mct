@@ -94,12 +94,14 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 
         logger.info { "Extracting from datapack..." }
         val extractions: List<ExtractionGroup> =
-            workspace.extractFromDatapack(MCTPattern(
-                command = commandPatterns?.compile() ?: BuiltinCommandPatterns,
-                commandData = commandDataPatterns,
-                mcjson = mcjPatterns,
-                commandRegex = commandRegexPatterns
-            )).toList()
+            workspace.extractFromDatapack(
+                MCTPattern(
+                    command = commandPatterns?.compile() ?: BuiltinCommandPatterns,
+                    commandData = commandDataPatterns,
+                    mcjson = mcjPatterns,
+                    commandRegex = commandRegexPatterns
+                )
+            ).toList()
         logger.info { "Extracted ${extractions.size} groups, writing to $output" }
         output.writeJson(extractions)
     }

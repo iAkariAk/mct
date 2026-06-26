@@ -96,7 +96,7 @@ suspend fun runExtraction(
         val inputPath = input.toPath()
 
         @Suppress("UNCHECKED_CAST")
-        val result = either<MCTError, List<ExtractionGroup>> {
+        val result = either {
             val workspace = MCTWorkspace(inputPath, env)
             val commandRegexPatterns: List<CommandRegexPattern> = commandRegexPatternPath.takeIf { it.isNotBlank() }
                 ?.let { p ->
@@ -124,7 +124,7 @@ suspend fun runExtraction(
                                 .compile()
                         } ?: BuiltinCommandPatterns
 
-                    val commandDataPatterns: List<mct.pointer.DataPointerPattern>? =
+                    val commandDataPatterns: List<DataPointerPattern>? =
                         if (disableFilter) null
                         else {
                             val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
@@ -155,20 +155,19 @@ suspend fun runExtraction(
                                 .compile()
                         } ?: BuiltinCommandPatterns
 
-                    val commandDataPatterns: List<mct.pointer.DataPointerPattern>? =
-                        if (disableFilter) null
-                        else {
-                            val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
-                                ?.let { p ->
-                                    env.fs.read(p.toPath()) { readUtf8() }
-                                        .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
-                                        .map { it.compile() }
-                                }
-                            if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
-                            else BuiltinCommandDataPatterns
-                        }
+                    val commandDataPatterns: List<DataPointerPattern>? = if (disableFilter) null
+                    else {
+                        val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
+                            ?.let { p ->
+                                env.fs.read(p.toPath()) { readUtf8() }
+                                    .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
+                                    .map { it.compile() }
+                            }
+                        if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
+                        else BuiltinCommandDataPatterns
+                    }
 
-                    val mcjPatterns: List<mct.pointer.DataPointerPattern>? =
+                    val mcjPatterns: List<DataPointerPattern>? =
                         if (disableFilter) null
                         else {
                             val userPatterns = mcjPatternPath.takeIf { it.isNotBlank() }
@@ -222,9 +221,9 @@ suspend fun runTranslation(
     token: String,
     model: String,
     termPath: String?,
-    literatureStyle: String = CustomizedPrompts.Defaults.literatureStyle,
-    targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
-    handleGradientAggressively: Boolean = CustomizedPrompts.Defaults.handleGradientAggressively,
+    literatureStyle: String = CustomizedPrompts.literatureStyle,
+    targetLanguage: String = CustomizedPrompts.targetLanguage,
+    handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
     temperature: Double? = null,
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
@@ -340,7 +339,7 @@ suspend fun runBackfill(
 
         val inputPath = input.toPath()
 
-        val openResult = either<OpenError, MCTWorkspace> {
+        val openResult = either {
             MCTWorkspace(inputPath, env)
         }
 
@@ -393,7 +392,7 @@ suspend fun runTermExtraction(
     input: String,
     output: String,
     termPath: String?,
-    targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
+    targetLanguage: String = CustomizedPrompts.targetLanguage,
     onCancel: OnTermExtractCancel = {},
 ) {
     env.logger.info { "正在加载提取结果: $input" }
@@ -510,7 +509,7 @@ suspend fun runExportSnbt(
         val inputPath = input.toPath()
         val outputPath = output.toPath()
 
-        either<OpenError, MCTWorkspace> {
+        either {
             MCTWorkspace(inputPath, env)
         }.fold(
             ifLeft = { env.logger.error { it.message } },

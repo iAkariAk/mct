@@ -23,7 +23,7 @@ value class ChunkOffsetTable(
 ) {
     companion object {
         fun fromSource(source: BufferedSource): ChunkOffsetTable {
-            val raw = Array(Region.Companion.CHUNK_COUNT) {
+            val raw = Array(Region.CHUNK_COUNT) {
                 val raw = source.readInt().toUInt()
                 ChunkOffset(raw)
             }
@@ -77,11 +77,11 @@ value class ChunkOffset(
 
 @JvmInline
 value class TimestampTable(
-    internal val raw: UIntArray
+    internal val raw: UIntArray,
 ) {
     companion object {
         fun fromSource(source: BufferedSource): TimestampTable {
-            val raw = UIntArray(Region.Companion.CHUNK_COUNT) {
+            val raw = UIntArray(Region.CHUNK_COUNT) {
                 source.readInt().toUInt()
             }
             return TimestampTable(raw)
@@ -89,7 +89,7 @@ value class TimestampTable(
     }
 
     init {
-        require(raw.size == Region.Companion.CHUNK_COUNT)
+        require(raw.size == Region.CHUNK_COUNT)
     }
 
     fun writeTo(sink: BufferedSink) {

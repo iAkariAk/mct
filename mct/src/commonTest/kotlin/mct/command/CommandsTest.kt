@@ -247,8 +247,8 @@ class CommandsTest : StringSpec({
         // should carry the correct syntax kind
         val extraction =
             extractText("""dialog show @a {"type":"minecraft:notice","title":{"text":"Hello","color":"red"}}""")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
-            .find { "Hello" in it.content }
+                .filterIsInstance<DatapackExtraction.MCFunction>()
+                .find { "Hello" in it.content }
         extraction shouldNotBe null
         extraction!!.syntax shouldBe SnbtSyntaxKind.Compound
     }

@@ -6,7 +6,7 @@ actual typealias Destructured = MatchResult.Destructured
 
 actual class MatchGroup2 actual constructor(
     actual val value: String,
-    actual val range: IntRange
+    actual val range: IntRange,
 )
 
 actual interface MatchGroupCollection2 : Collection<MatchGroup2?> {
@@ -26,7 +26,7 @@ actual val MatchResult2.groups2: MatchGroupCollection2
 
 actual class Regex2 actual constructor(
     pattern: String,
-    actual val options: Set<RegexOption>
+    actual val options: Set<RegexOption>,
 ) {
     private val regExp: RegExp = RegExp(pattern, buildFlags(options))
 
@@ -154,7 +154,9 @@ private fun buildFlags(options: Set<RegexOption>): String {
 
 private fun String.jsEscape(): String = buildString {
     for (c in this@jsEscape) {
-        if (c == '$') { append('$'); append('$') } else append(c)
+        if (c == '$') {
+            append('$'); append('$')
+        } else append(c)
     }
 }
 
@@ -180,10 +182,12 @@ private fun matchResultFrom(match: dynamic, regex: RegExp, input: String): Match
         override val groups: MatchGroupCollection = groups
         override val groupValues: List<String> =
             (0 until match.length).map { i -> (match[i] as? String) ?: "" }
+
         override fun next(): MatchResult? {
             val m = regex.exec(input) ?: return null
             return matchResultFrom(m, regex, input)
         }
+
         override val groups2: MatchGroupCollection2 = groups2
     }
 }

@@ -31,7 +31,7 @@ data class CommandExtractPattern(
     val preCondition: PreCondition,
     val selector: IndexSelector,
     @SerialName("post")
-    val postCondition: PostCondition
+    val postCondition: PostCondition,
 )
 
 fun interface PreCondition {
@@ -82,7 +82,7 @@ fun interface PreCondition {
 sealed interface IndexSelectError : MCTError {
     data class Parse(
         val raw: String,
-        val reason: Throwable
+        val reason: Throwable,
     ) : IndexSelectError {
         override val message = "When parsing $raw, get ${reason.message}"
     }
@@ -95,7 +95,7 @@ sealed interface IndexSelectError : MCTError {
 data class SelectResult(
     override val indices: IntRange, // absolute
     override val content: String,
-    override val syntax: SnbtSyntaxKind?
+    override val syntax: SnbtSyntaxKind?,
 ) : StringIndicesWithSyntax
 
 @Serializable
@@ -111,7 +111,7 @@ sealed interface IndexSelection {
         context(_: Raise<IndexSelectError>)
         override fun select(
             patterns: List<DataPointerPattern>?,
-            arg: MCCommand.Arg
+            arg: MCCommand.Arg,
         ): List<SelectResult>? = null
     }
 
@@ -122,7 +122,7 @@ sealed interface IndexSelection {
         context(_: Raise<IndexSelectError>)
         override fun select(
             patterns: List<DataPointerPattern>?,
-            arg: MCCommand.Arg
+            arg: MCCommand.Arg,
         ): List<SelectResult>? {
             val content = arg.content
             val tag = runCatching<SnbtTag> {
@@ -162,7 +162,7 @@ sealed interface IndexSelector {
         fun select(
             pos: Int,
             patterns: List<DataPointerPattern>?,
-            arg: MCCommand.Arg
+            arg: MCCommand.Arg,
         ): List<SelectResult>? =
             indexes[pos]?.select(patterns, arg)
     }

@@ -29,7 +29,7 @@ interface StringIndicesWithSyntax : StringIndices {
 data class ExtractedCommandSlice(
     override val indices: IntRange, // absolute
     override val content: String,
-    override val syntax: SnbtSyntaxKind? // null represents the slice isn't a snbt
+    override val syntax: SnbtSyntaxKind?, // null represents the slice isn't a snbt
 ) : StringIndicesWithSyntax
 
 context(_: LoggerHolder)
@@ -37,7 +37,7 @@ fun extractTextFromCommands(
     commandStr: String,
     commandPatterns: ExtractPatternSet = BuiltinCommandPatterns,
     commandDataPatterns: List<DataPointerPattern>? = BuiltinCommandDataPatterns,
-    commandRegexPatterns: List<CommandRegexPattern> = emptyList()
+    commandRegexPatterns: List<CommandRegexPattern> = emptyList(),
 ): List<ExtractedCommandSlice> {
     val commands = parseCommands(commandStr)
     val fromCommandPattern = commands.flatMap { command ->
@@ -144,7 +144,7 @@ internal data class PointerWithExtensionForSnbt(
     override val indices: IntRange, // relate to the arg
     override val content: String,
     val kind: FormatKind,
-    override val syntax: SnbtSyntaxKind
+    override val syntax: SnbtSyntaxKind,
 ) : StringIndicesWithSyntax
 
 internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
@@ -196,7 +196,7 @@ internal fun SnbtTag.extractTexts(snbt: String): Sequence<PointerWithExtensionFo
 
 private fun computeGreedyRange(
     command: MCCommand,
-    selector: IndexSelector.Greedy
+    selector: IndexSelector.Greedy,
 ): Pair<IntRange, IntRange> {
     val commandBeginIndex = command.indices.first
     val beginIndexRelative =

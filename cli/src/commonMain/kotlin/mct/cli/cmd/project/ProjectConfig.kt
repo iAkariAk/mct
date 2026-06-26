@@ -109,9 +109,7 @@ data class AIConfig(
     @TomlComments("Translate different kinds of extraction concurrently. (WARN: parallelism will cause terms to be ineffective; default: false)")
     @SerialName("concurrent_by_kind")
     val concurrentByKind: Boolean = false,
-
-
-) {
+    ) {
     companion object {
         val Default = AIConfig()
     }

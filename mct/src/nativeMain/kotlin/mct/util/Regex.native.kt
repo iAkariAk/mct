@@ -1,6 +1,7 @@
 package mct.util
 
 actual typealias MatchResult2 = MatchResult
+
 actual val MatchResult2.groups2 get(): MatchGroupCollection2 = groups
 actual typealias MatchGroupCollection2 = MatchGroupCollection
 actual typealias MatchGroup2 = MatchGroup
@@ -8,7 +9,7 @@ actual typealias Destructured = MatchResult.Destructured
 
 actual class Regex2 actual constructor(
     pattern: String,
-    actual val options: Set<RegexOption>
+    actual val options: Set<RegexOption>,
 ) {
     private val inner: Regex = Regex(pattern, options)
 

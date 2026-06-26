@@ -73,7 +73,8 @@ private class CommandTest : BaseCommand(name = "command", help = "Test command p
         val extraCommandPattern = commandPattern.readJson<List<CommandExtractPattern>>()
         val extraCommandDataPattern = commandDataPattern?.readJson<List<DataPointerPattern>>()
         val combinedCommandPattern = extraCommandPattern.compile(!noBuiltin)
-        val combinedCommandDataPattern = (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
+        val combinedCommandDataPattern =
+            (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
                 ?: emptyList()
         val matchResults = extractTextFromCommands(
             testedContent, commandPatterns = combinedCommandPattern, commandDataPatterns = combinedCommandDataPattern

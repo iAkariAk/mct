@@ -92,7 +92,7 @@ class RootBuilderScope {
         command: String,
         preCondition: PreCondition,
         indexSelector: IndexSelector,
-        postCondition: PostCondition
+        postCondition: PostCondition,
     ) {
         val p = patterns(command)
         p.add(CommandExtractPattern(command, preCondition, indexSelector, postCondition))
@@ -100,7 +100,7 @@ class RootBuilderScope {
 
     fun command(
         command: String,
-        builder: CommandBuilderPreConditionScope.() -> Unit
+        builder: CommandBuilderPreConditionScope.() -> Unit,
     ) {
         val scope = CommandBuilderPreConditionScope(command)
         context(this) {

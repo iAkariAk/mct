@@ -8,7 +8,7 @@ import okio.use
 
 class RawRegionManager private constructor(
     env: Env,
-    path: Path
+    path: Path,
 ) : RegionManager<RawRegion>(env, path) {
     companion object {
         context(_: Raise<ConstructionError>)

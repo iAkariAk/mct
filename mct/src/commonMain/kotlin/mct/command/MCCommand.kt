@@ -31,7 +31,7 @@ data class MCCommand(
     data class Arg(
         val relativeIndices: IntRange,
         override val indices: IntRange,
-        override val content: String
+        override val content: String,
     ) : StringIndices
 
     companion object
@@ -83,13 +83,13 @@ fun parseCommands(content: String): List<MCCommand> {
                     '#' -> {
                         if (isMarco) {
                             invaliChar()
-                            return@line
-                        } else return@line // skip comments
+                            return
+                        } else return // skip comments
                     }
 
                     ' ' -> if (isMarco) {
                         invaliChar()
-                        return@line
+                        return
                     } else continue
 
                     '$' -> {
@@ -109,7 +109,7 @@ fun parseCommands(content: String): List<MCCommand> {
                         logger.error {
                             "Invali char($c) is found at $line, in that command should start with letter"
                         }
-                        return@line
+                        return
                     }
                 }
             }
@@ -151,7 +151,7 @@ fun parseCommands(content: String): List<MCCommand> {
                         logger.error {
                             "The excepted terminator is $excepted but actual $peekedState"
                         }
-                        return@line
+                        return
                     }
 
                     stateStack.pop()

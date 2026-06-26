@@ -113,7 +113,7 @@ data class BelowZeroRetrogen(
      * 不包含 "empty"
      */
     @SerialName("target_status")
-    val targetStatus: String
+    val targetStatus: String,
 ) {
     companion object
 }
@@ -138,7 +138,7 @@ data class BlendingData(
 
     /** 最低子区块 Y 坐标 */
     @SerialName("min_section")
-    val minSection: Int
+    val minSection: Int,
 ) {
     companion object
 }
@@ -166,7 +166,7 @@ data class Heightmaps(
     val worldSurface: LongArray? = null,
 
     @SerialName("WORLD_SURFACE_WG")
-    val worldSurfaceWg: LongArray? = null
+    val worldSurfaceWg: LongArray? = null,
 ) {
     companion object
 }
@@ -196,7 +196,7 @@ data class Section(
 
     /** 子区块 Y 坐标 */
     @SerialName("Y")
-    val y: Byte
+    val y: Byte,
 ) {
     companion object
 }
@@ -214,7 +214,7 @@ data class PaletteContainer<T>(
 
     /** 调色板列表 */
     @SerialName("palette")
-    val palette: List<T>? = null
+    val palette: List<T>? = null,
 ) {
     companion object
 }
@@ -230,7 +230,7 @@ data class BlockState(
     val name: String,
 
     @SerialName("Properties")
-    val properties: Map<String, String>? = null
+    val properties: Map<String, String>? = null,
 ) {
     companion object
 }
@@ -254,7 +254,7 @@ data class Structures(
      * key = 结构命名空间ID
      */
     @SerialName("starts")
-    val starts: Map<String, StructureStart> = emptyMap()
+    val starts: Map<String, StructureStart> = emptyMap(),
 ) {
     companion object
 }
@@ -279,7 +279,7 @@ data class StructureStart(
     val id: String,
 
     @SerialName("references")
-    val references: Int? = null
+    val references: Int? = null,
 ) {
     companion object
 }
@@ -308,7 +308,7 @@ data class UpgradeData(
      * 位顺序：北、东北、东、东南、南、西南、西、西北
      */
     @SerialName("Sides")
-    val sides: Byte
+    val sides: Byte,
 ) {
     companion object
 }
@@ -321,7 +321,7 @@ data class StructurePiece(
     @SerialName("id")
     val id: String,
     @SerialName("pointer")
-    val data: NbtCompound? = null
+    val data: NbtCompound? = null,
 ) {
     companion object
 }
@@ -348,7 +348,7 @@ data class Tick(
     val delay: Int? = null,
 
     @SerialName("p")
-    val priority: Int? = null
+    val priority: Int? = null,
 ) {
     companion object
 }

@@ -23,7 +23,7 @@ internal fun Iterable<IndexedValue<String>>.chunkedByToken(tokenSizePerChunk: In
 
 private inline fun <T> Iterable<T>.chunkedByTokenImpl(
     tokenSizePerChunk: Int = TOKEN_COUNT_THRESHOLD,
-    crossinline content: (T) -> String
+    crossinline content: (T) -> String,
 ): Sequence<MutableList<T>> = sequence {
     val tmp = mutableListOf<T>()
     var tokenCount = 0
@@ -47,7 +47,7 @@ internal suspend inline fun <T, E> Iterable<T>.forEachConcurrently(
     concurrency: Int,
     dispatcher: CoroutineDispatcher,
     noinline access: (E) -> Unit,
-    crossinline block: suspend (T, access: suspend (E) -> Unit) -> Unit
+    crossinline block: suspend (T, access: suspend (E) -> Unit) -> Unit,
 ) = coroutineScope {
     val mutex = Mutex()
     require(concurrency > 0)

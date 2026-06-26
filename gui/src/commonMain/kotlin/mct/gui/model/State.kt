@@ -39,7 +39,7 @@ data class TranslateState(
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
     val isOptimizing: Boolean = false,
-    val handleGradientAggressively: Boolean = CustomizedPrompts.Defaults.handleGradientAggressively,
+    val handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
 )
 
 data class BackfillState(
@@ -52,7 +52,7 @@ data class TermExtractState(
     val input: String = "extractions.json",
     val output: String = "terms.json",
     val existingTermPath: String = "",
-    val targetLanguage: String = CustomizedPrompts.Defaults.targetLanguage,
+    val targetLanguage: String = CustomizedPrompts.targetLanguage,
 )
 
 data class ToolboxState(

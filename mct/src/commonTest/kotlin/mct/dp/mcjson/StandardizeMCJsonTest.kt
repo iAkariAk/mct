@@ -1,4 +1,3 @@
-
 package mct.dp.mcjson
 
 import io.kotest.assertions.throwables.shouldNotThrow
@@ -14,7 +13,7 @@ private val J = Json {
     isLenient = true
 }
 
-private fun shouldBeParsed(@Language("json")  json: String) {
+private fun shouldBeParsed(@Language("json") json: String) {
     val std = standardizeMCJson(json)
 
     withClue(std) {
@@ -32,25 +31,31 @@ class StandardizeMCJsonTest : FreeSpec({
     }
 
     "single quote in double quote" {
-        shouldBeParsed("""
+        shouldBeParsed(
+            """
             "{Name: 'yachiyo'}"
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     "escape single quote" {
         @Suppress("JsonStandardCompliance")
-        shouldBeParsed("""
+        shouldBeParsed(
+            """
             'Ma\'am \\Ugh'
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     "nested json" {
-        shouldBeParsed("""
+        shouldBeParsed(
+            """
             {
               "function": "set_nbt",
               "tag": "{display:{Name:'{\"text\":\"Aurastaff of Permafrost\",\"color\":\"green\",\"italic\":\"false\",\"underlined\":\"true\"}',Lore:['{\"text\":\"Loe and Lai were once the greatest of \"}','{\"text\":\"friends, and together designed many powerful\"}','{\"text\":\"devices for the Tehrmari with divine magic\"}','{\"text\":\"from the fabled forge, Soletta. Though few in\"}','{\"text\":\"number and no longer in production, these\"}','{\"text\":\"staves are immaculately maintained and \"}','{\"text\":\"priceless to the residents of Lo\\'Dahr.\"}','{\"text\":\" \"}','{\"text\":\"Selective Hypothermia\",\"color\":\"green\",\"italic\":\"false\"}','{\"text\":\"When placed, prevents naturally spawning enemies\",\"color\":\"dark_gray\"}','{\"text\":\"from spawning within a 32-block radius around\",\"color\":\"dark_gray\"}','{\"text\":\"itself. Does not work in the overworld.\",\"color\":\"dark_gray\"}','{\"text\":\"\"}','{\"text\":\"Trinket\",\"color\":\"green\",\"italic\":\"false\"}']},WardStaff:1b,CustomModelData:810001,EntityTag:{id:marker,Tags:[\"ward_staff_place\"]}}"
             }
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     "should work" {
@@ -103,6 +108,7 @@ class StandardizeMCJsonTest : FreeSpec({
             }
         ]
     }
-            """)
+            """
+        )
     }
 })

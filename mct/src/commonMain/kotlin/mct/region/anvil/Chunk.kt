@@ -17,7 +17,7 @@ class RawChunk(
     val index: Int,
     val compressKind: Byte,
     val data: NbtTag,
-    internal val rawData: ByteArray
+    internal val rawData: ByteArray,
 ) : Chunk {
     companion object {
         const val COMPRESS_GZIP: Byte = 1
@@ -68,7 +68,7 @@ class RawChunk(
 class ParsedChunk<T : ChunkData> private constructor(
     val raw: RawChunk,
     val decodedData: T,
-    internal val dataDeserializer: KSerializer<T>
+    internal val dataDeserializer: KSerializer<T>,
 ) : Chunk {
     constructor(raw: RawChunk, dataDeserializer: KSerializer<T>) : this(
         raw,

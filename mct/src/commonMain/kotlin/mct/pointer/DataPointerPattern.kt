@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName", "UnusedReceiverParameter")
+
 package mct.pointer
 
 import mct.util.Regex2

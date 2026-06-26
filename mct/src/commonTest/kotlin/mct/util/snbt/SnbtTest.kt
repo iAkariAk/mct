@@ -82,32 +82,42 @@ class SnbtTest : FreeSpec({
     }
 
     "dot literal list" {
-        parseTest("""
+        parseTest(
+            """
             {Dialog:[I,t," ",w,i,l,l," ",b,e," ",w,o,n,d,e,r,f,u,l,.]}
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     "single quote escape" {
-        parseTest("""
+        parseTest(
+            """
             'Shina\'s Mimi and Mimi\'s Shina \\\\ '   
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     "tail comma" {
-        parseTest("""
+        parseTest(
+            """
             {height:0.2f, width:0.65f ,}
-        """.trimIndent())
+        """.trimIndent()
+        )
 
-        parseTest("""
+        parseTest(
+            """
             [1,2,3,]
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     "anyway" {
-        parseTest("""
+        parseTest(
+            """
                 {
                         UUID2: [I;0,0,0,0]
                 }
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 })

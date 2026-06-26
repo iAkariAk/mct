@@ -1,8 +1,5 @@
 package mct.util
 
-import kotlinx.serialization.Serializable
-import mct.serializer.Regex2Serializer
-
 fun String.toRegex2(vararg options: RegexOption): Regex2 = Regex2(this, options.toSet())
 
 expect class Regex2 {
@@ -42,6 +39,7 @@ expect interface MatchResult2 {
 }
 
 expect val MatchResult2.groups2: MatchGroupCollection2
+
 @Suppress("CAST_NEVER_SUCCEEDS")
 val MatchResult2.destructured: Destructured
     get() = (this as MatchResult).destructured as Destructured

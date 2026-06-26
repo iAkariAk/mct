@@ -15,7 +15,7 @@ enum class LoggerLevel {
 }
 
 abstract class Logger(
-    val enabledLevels: List<LoggerLevel>
+    val enabledLevels: List<LoggerLevel>,
 ) : LoggerHolder {
     companion object {
         val None = object : Logger(emptyList()) {

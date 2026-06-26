@@ -14,35 +14,45 @@ sealed interface IRElement
 data class IRByte(val value: Byte) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRShort(val value: Short) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRInt(val value: Int) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRLong(val value: Long) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRFloat(val value: Float) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRDouble(val value: Double) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRBoolean(val value: Boolean) : IRElement {
     override fun toString() = value.toString()
 }
+
 data class IRString(val value: String) : IRElement {
     override fun toString() = value
 }
+
 data class IRObject(val value: Map<String, IRElement>) : IRElement, Map<String, IRElement> by value {
     override fun toString() = value.toString()
 }
+
 data class IRList(val value: List<IRElement>) : IRElement, List<IRElement> by value {
     constructor(vararg element: IRElement) : this(listOf(*element))
 
     override fun toString() = value.toString()
 }
+
 data object IRNull : IRElement {
     override fun toString() = "null"
 }

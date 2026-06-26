@@ -33,7 +33,7 @@ data class BlockEntity(
      * 这里使用 JsonElement 以支持动态扩展
      */
     @SerialName("pointer")
-    val data: NbtCompound? = null
+    val data: NbtCompound? = null,
 ) {
     companion object
 }

@@ -18,6 +18,6 @@ enum class SnbtTokenType {
 
 data class SnbtToken(
     val type: SnbtTokenType,
-    val indices: IntRange
+    val indices: IntRange,
 )
 

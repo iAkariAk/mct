@@ -13,5 +13,6 @@ sealed interface BackfillError : RegionError {
     data class DimensionNotFound(val dimensionId: String) : BackfillError {
         override val message = "Dimension $dimensionId not found in the workspace"
     }
+
     data class Internal(val error: AnvilError) : BackfillError, MCTError by error
 }

@@ -28,7 +28,7 @@ data class EntitiesChunkData(
      * 本区块内的所有实体。
      */
     @SerialName("Entities")
-    val entities: List<Entity>
+    val entities: List<Entity>,
 ) : ChunkData {
     companion object
 }
@@ -91,7 +91,7 @@ data class Entity(
      * 而是嵌套在根实体内。
      */
     @SerialName("Passengers")
-    val passengers: List<Entity>? = null
+    val passengers: List<Entity>? = null,
 ) {
     companion object
 }

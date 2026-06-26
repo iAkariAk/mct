@@ -24,7 +24,7 @@ open class DelegatedFileSystem(private val delegate: FileSystem) : FileSystem() 
     override fun openReadWrite(
         file: Path,
         mustCreate: Boolean,
-        mustExist: Boolean
+        mustExist: Boolean,
     ): FileHandle = delegate.openReadWrite(file, mustCreate, mustExist)
 
     override fun source(file: Path): Source = delegate.source(file)

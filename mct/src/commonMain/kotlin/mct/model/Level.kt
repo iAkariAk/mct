@@ -16,7 +16,7 @@ object DataVersions {
 @SerialName("")
 data class LevelRoot(
     /** 存档基础数据 */
-    @SerialName("Data") val data: LevelData
+    @SerialName("Data") val data: LevelData,
 )
 
 @Serializable

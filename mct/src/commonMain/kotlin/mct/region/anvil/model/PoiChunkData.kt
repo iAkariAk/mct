@@ -39,7 +39,7 @@ data class PoiChunkData(
      * 如果不存在则游戏认为所有子区块中不存在数据。
      */
     @SerialName("Sections")
-    val sections: Map<String, PoiSection>? = null
+    val sections: Map<String, PoiSection>? = null,
 ) : ChunkData {
     companion object
 }
@@ -71,7 +71,7 @@ data class PoiSection(
      * 如果不存在游戏默认为 false。
      */
     @SerialName("Valid")
-    val valid: Boolean? = null
+    val valid: Boolean? = null,
 ) {
     companion object
 }
@@ -111,7 +111,7 @@ data class PoiRecord(
      * 兴趣点类型。
      */
     @SerialName("type")
-    val type: String
+    val type: String,
 ) {
     companion object
 }
