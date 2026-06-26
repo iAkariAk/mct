@@ -38,5 +38,17 @@ subprojects {
                 "kotlinx.serialization.InternalSerializationApi"
             )
         }
+
+        kotlin.testableTargets.forEach { target ->
+            target.compilations.configureEach {
+                compileTaskProvider.configure {
+                    compilerOptions {
+                        freeCompilerArgs.addAll(
+                            "-Xwarning-level=ReplacePrintlnWithLogging:disabled"
+                        )
+                    }
+                }
+            }
+        }
     }
 }
