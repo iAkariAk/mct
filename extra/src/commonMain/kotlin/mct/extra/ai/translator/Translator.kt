@@ -294,10 +294,12 @@ class Translator internal constructor(
             val strips = chunk.stripWithIndex(kind)
             val strippedCount = strips.count { (_, strip) -> strip is CompoundStrip.Success }
             logger.debug { "Chunk $chunkIndex: ${strippedCount}/${strips.size} items stripped to plain text" }
+            val chunkAsStr = chunk.joinToString("\n") { it.value }
             val termSnapshot = mutex.withLock { terms.toList() }
+            val availableTerms = termSnapshot.filter { chunkAsStr.contains(it.source, true) }
             val message = buildString {
-                if (termSnapshot.isNotEmpty()) {
-                    append(termSnapshot.render())
+                if (availableTerms.isNotEmpty()) {
+                    append(availableTerms.render())
                     appendLine()
                 }
                 appendLine("-- MCT-CLI:START --")
