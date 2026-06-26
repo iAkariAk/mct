@@ -43,8 +43,9 @@ kotlin {
             api(libs.knbt)
             api(libs.bundles.okio)
             api(libs.jetbrains.annotations)
-            implementation(libs.kmpzip.core)
-            implementation(libs.kmpzip.okio)
+            api(libs.kmpzip.core)
+            api(libs.kmpzip.okio)
+            api(libs.kotlinx.schema.generator.json)
         }
 
         commonTest.dependencies {

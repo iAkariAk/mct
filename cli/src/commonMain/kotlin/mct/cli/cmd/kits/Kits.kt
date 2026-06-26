@@ -12,8 +12,11 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.int
+import kotlinx.schema.generator.json.serialization.SerializationClassJsonSchemaGenerator
 import mct.MCTError
 import mct.cli.*
+import mct.command.CommandExtractPattern
+import mct.command.RegexPattern
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
@@ -24,13 +27,15 @@ import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
+import mct.pointer.CustomizedDataPointerPattern
+import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import mct.util.unreachable
 
 
 class Kit : SuspendingCliktCommand(name = "kit") {
     init {
-        subcommands(ExportSnbt(), ReplaceAll(), TextPool(), TermExtract(), AITranslate())
+        subcommands(ExportSnbt(), ExportScheme(), ReplaceAll(), TextPool(), TermExtract(), AITranslate())
     }
 
     override fun help(context: Context) = "Some helpful tool"
@@ -107,6 +112,25 @@ private class ExportSnbt : WorkspaceCommand(
         logger.info { "Exporting region SNBT to $output" }
         workspace.exportRegionSnbt(output)
         logger.info { "Done." }
+    }
+}
+
+private class ExportScheme : BaseCommand("export-scheme", help = "The JSON-scheme generated for kinds of mct pattern") {
+    val kind by option("--kind", "-K").choice("mcfunction", "data_pointer", "mcfunction_regex").required()
+    val output by option("--output", "-o", help = "The path to generated JSON Scheme").path().required()
+    val pretty by option("--pretty", "-P", help = "Enable pretty json output").flag()
+
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        val descriptor = when (kind) {
+            "mcfunction" -> CommandExtractPattern.serializer().descriptor
+            "data_pointer" -> CustomizedDataPointerPattern.serializer().descriptor
+            "mcfunction_regex" -> RegexPattern.serializer().descriptor
+            else -> unreachable
+        }
+        val generator = SerializationClassJsonSchemaGenerator(json = MCTJson)
+        val scheme = generator.generateSchema(descriptor)
+        output.writeJson(scheme, pretty)
     }
 }
 

@@ -54,6 +54,7 @@ kotlin {
             implementation(libs.mordant.coroutines)
             implementation(libs.mordant.markdown)
             implementation(libs.kotlinx.serialization.json.okio)
+            implementation(libs.kotlinx.schema.generator.json)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.io.okio)
             implementation(libs.ktoml.core)
