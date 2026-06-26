@@ -75,10 +75,17 @@ class SnbtTest : FreeSpec({
         parseTest("[0, 1, 2]") shouldBe SnbtList(0..8, listOf(SnbtInt(1..1, 0), SnbtInt(4..4, 1), SnbtInt(7..7, 2)))
     }
 
-    "literal including dot" {
+    "literal" {
         shouldNotThrowAny {
-            parseTest("""{Name:generic.max_health,Base:10}""")
+            parseTest("""{Name:generic.max_health,Base:10, ObjK: X-ray}""")
         }
+    }
+
+    "integer promotion" {
+        val int = "114514"
+        val long = "11451419198100000"
+        parseTest(int) shouldBe SnbtInt(int.indices, int.toInt())
+        parseTest(long) shouldBe SnbtLong(long.indices, long.toLong())
     }
 
     "dot literal list" {

@@ -149,6 +149,7 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
         if (type == null)
             if ('.' in numStr) numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
             else numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
+                ?: numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
         else when (type) {
             SnbtType.BYTE -> numStr.toByteOrNull()?.let(::SnbtByte.partially1(indices))
             SnbtType.SHORT -> numStr.toShortOrNull()?.let(::SnbtShort.partially1(indices))

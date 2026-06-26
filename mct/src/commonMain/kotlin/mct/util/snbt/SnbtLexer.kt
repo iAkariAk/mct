@@ -45,7 +45,7 @@ class SnbtLexer(private val string: String) {
             ']' -> singleChar(SnbtTokenType.R_BRACKET)
             '(' -> singleChar(SnbtTokenType.L_PAREN)
             ')' -> singleChar(SnbtTokenType.R_PAREN)
-            else -> if (ch.isLetterOrUnderscoreOrDot()) {
+            else -> if (ch.isIdentifier()) {
                 readLiteral()
             } else parseError("Unknown char: $ch")
         }
@@ -56,7 +56,7 @@ class SnbtLexer(private val string: String) {
 
         while (index < string.length) {
             val ch = peek() ?: break
-            if (ch.isLetterOrDigitOrUnderscoreOrDot()) index++ else break
+            if (ch.isIdentifierOrDigit()) index++ else break
         }
 
         return SnbtToken(SnbtTokenType.LITERAL, start..<index)
@@ -111,5 +111,5 @@ class SnbtLexer(private val string: String) {
 }
 
 private fun Char.isLetterOrUnderscore() = this.isLetter() || this == '_'
-private fun Char.isLetterOrUnderscoreOrDot() = this.isLetter() || this in "._"
-private fun Char.isLetterOrDigitOrUnderscoreOrDot() = this.isLetterOrDigit() || this in "._"
+private fun Char.isIdentifier() = this.isLetter() || this in "._-"
+private fun Char.isIdentifierOrDigit() = this.isLetterOrDigit() || this in "._-"
