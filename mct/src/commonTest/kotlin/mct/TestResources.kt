@@ -66,7 +66,7 @@ suspend fun TestMapWorkspace(): MCTWorkspace {
     return ZipInputStream(buffer.asInputStream()).use { from ->
         fs.unzipFrom(from, ".".toPath())
         val env = Env(
-            fs = fs,
+            fs = fs.locked(),
             logger = Logger.Console()
         )
         either {
