@@ -42,7 +42,7 @@ graalvmNative {
 
             useFatJar = true
             buildArgs.add("--link-at-build-time")
-            buildArgs.add("--initialize-at-run-time=io.github.oshai.kotlinlogging")
+            buildArgs.add("--initialize-at-build-time=io.github.oshai.kotlinlogging")
 
             buildArgs.add("-O4")
             buildArgs.add("-H:+UnlockExperimentalVMOptions")
