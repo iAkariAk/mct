@@ -19,31 +19,57 @@ sealed interface Region {
 
 @JvmInline
 value class ChunkOffsetTable(
-    val offsets: Array<ChunkOffset>
+    val raw: UIntArray
 ) {
     companion object {
         fun fromSource(source: BufferedSource): ChunkOffsetTable {
-            val raw = Array(Region.CHUNK_COUNT) {
-                val raw = source.readInt().toUInt()
-                ChunkOffset(raw)
+            val raw = UIntArray(Region.CHUNK_COUNT) {
+                source.readInt().toUInt()
             }
             return ChunkOffsetTable(raw)
         }
     }
 
     init {
-        require(offsets.size == Region.CHUNK_COUNT)
+        require(raw.size == Region.CHUNK_COUNT)
+    }
+
+    inline fun forEach(block: (ChunkOffset) -> Unit) {
+        raw.forEach { raw ->
+            val offset = ChunkOffset(raw)
+            block(offset)
+        }
+    }
+
+    inline fun forEachIndexed(block: (index: Int, offset: ChunkOffset) -> Unit) {
+        raw.forEachIndexed { index, raw ->
+            val offset = ChunkOffset(raw)
+            block(index, offset)
+        }
+    }
+
+    inline fun necessarySectorCount(): UInt {
+        var maxSectorCount = 2u
+        for (rawOffset in raw) {
+            val offset = ChunkOffset(rawOffset)
+            if (offset.isEmpty()) continue
+            val sectorOffset = offset.sectorOffset + offset.sectorUsedCount
+            if (sectorOffset > maxSectorCount) {
+                maxSectorCount = sectorOffset
+            }
+        }
+        return maxSectorCount
     }
 
     fun writeTo(sink: BufferedSink) {
-        offsets.forEach {
+        forEach {
             it.writeTo(sink)
         }
     }
 
-    fun chunkCount() = offsets.count { !it.isEmpty() }
+    fun chunkCount() = raw.count { it != ChunkOffset.EMPTY_RAW }
 
-    operator fun get(index: Int) = offsets[index]
+    operator fun get(index: Int) = ChunkOffset(raw[index])
 
     override fun toString() = "ChunkOffsetTable[...]"
 }
@@ -56,7 +82,8 @@ value class ChunkOffset(
     val sectorUsedCount: UByte get() = (raw and 0xFFu).toUByte()
 
     companion object {
-        val EMPTY = ChunkOffset(0x00000000u)
+        val EMPTY_RAW = 0x00000000u
+        val EMPTY = ChunkOffset(EMPTY_RAW)
 
         inline fun ChunkOffset(sectorOffset: UInt, sectorUsedCount: UByte): ChunkOffset {
             require(sectorOffset <= 0xFFFFFFu) // uint24

@@ -7,6 +7,7 @@ import mct.region.anvil.model.ChunkData
 import mct.serializer.NbtGzip
 import mct.serializer.NbtNone
 import mct.serializer.NbtZlib
+import mct.util.NonLazyNull
 import net.benwoodworth.knbt.NbtTag
 import okio.BufferedSink
 
@@ -24,6 +25,8 @@ class RawChunk(
         const val COMPRESS_ZLIB: Byte = 2
         const val COMPRESS_NONE: Byte = 3
         const val COMPRESS_LZ4: Byte = 4
+
+        internal val NonLazyNull = NonLazyNull<RawChunk>()
 
         internal fun getNbtSerializer(kind: Byte) = when (kind) {
             COMPRESS_GZIP -> NbtGzip
@@ -50,6 +53,7 @@ class RawChunk(
 
     inline fun modify(modify: (NbtTag) -> NbtTag): RawChunk {
         val modified = modify(data)
+        if (modified === data) return this
         return RawChunk(index, compressKind, modified, nbtSerializer.encodeToByteArray(modified))
     }
 

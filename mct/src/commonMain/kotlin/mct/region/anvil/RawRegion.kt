@@ -7,12 +7,12 @@ import mct.region.anvil.ChunkOffset.Companion.ChunkOffset
 import mct.region.anvil.RawRegion.Companion.SECTOR_SIZE
 import mct.region.anvil.Region.Companion.CHUNK_COUNT
 import mct.util.divCeil
+import mct.util.flatten
 import net.benwoodworth.knbt.NbtTag
 import okio.FileHandle
 import okio.IOException
 import okio.buffer
 import okio.use
-import kotlin.math.min
 import kotlin.time.Clock
 
 class RawRegion internal constructor(
@@ -39,12 +39,13 @@ class RawRegion internal constructor(
             }
             val chunks = List(CHUNK_COUNT) { index ->
                 val offset = offsets[index]
-                if (offset.isEmpty()) return@List null
+                if (offset.isEmpty()) return@List RawChunk.NonLazyNull
                 val fileOffset = offset.sectorOffset.toLong() * SECTOR_SIZE
-                if (fileOffset >= handle.size()) return@List null
+                if (fileOffset >= handle.size()) return@List RawChunk.NonLazyNull
 
                 handle.source(fileOffset).buffer().use { source ->
-                    val size = source.readInt() // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
+                    val size =
+                        source.readInt() // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
                     require(size >= 0) { "Illegal negative chunk size $size" }
                     val actualSectorByteCount = offset.sectorUsedCount.toLong() * SECTOR_SIZE
                     val usedSize = 4 + size.toLong()
@@ -58,21 +59,21 @@ class RawRegion internal constructor(
                     val bytes = try {
                         source.readByteArray(size.toLong() - 1)
                     } catch (_: IOException) {
-                        return@List null
+                        return@List RawChunk.NonLazyNull
                     }
 
-                    val paddingSize =
-                        min(handle.size() - handle.position(source), actualSectorByteCount - usedSize)
-                    source.skip(paddingSize)
+                    // padding: min(handle.size() - handle.position(source), actualSectorByteCount - usedSize)
 
-                    val data = try {
-                        nbtSerializer.decodeFromByteArray<NbtTag>(bytes)
-                    } catch (_: IOException) {
-                        return@List null
+                    lazy {
+                        val data = try {
+                            nbtSerializer.decodeFromByteArray<NbtTag>(bytes)
+                        } catch (_: IOException) {
+                            return@lazy null
+                        }
+                        RawChunk(index, compressKind, data, bytes)
                     }
-                    RawChunk(index, compressKind, data, bytes)
                 }
-            }
+            }.flatten()
             return RawRegion(
                 regionX,
                 regionZ,
@@ -90,15 +91,10 @@ class RawRegion internal constructor(
             offsets.writeTo(sink)
             timestamps.writeTo(sink)
         }
-        val necessarySectorCount = offsets.offsets
-            .asSequence()
-            .filter { !it.isEmpty() }
-            .maxOfOrNull { it.sectorOffset + it.sectorUsedCount }?.toLong()
-            ?: 2
-
+        val necessarySectorCount = offsets.necessarySectorCount().toLong()
         handle.resize(necessarySectorCount * SECTOR_SIZE)
 
-        offsets.offsets.forEachIndexed { index, offset ->
+        offsets.forEachIndexed { index, offset ->
             if (offset.isEmpty()) return@forEachIndexed
             val chunk = chunks[index] ?: return@forEachIndexed
             handle.sink(offset.sectorOffset.toLong() * SECTOR_SIZE).buffer()
@@ -114,8 +110,8 @@ class RawRegion internal constructor(
         var currentSector = 2u // header
         val newTimestamps = timestamps.raw.copyOf()
         val currentTimestamps = Clock.System.now().epochSeconds.toUInt()
-        val newOffsets = Array(CHUNK_COUNT) { index ->
-            val chunk = modified[index] ?: return@Array ChunkOffset.EMPTY
+        val newOffsets = UIntArray(CHUNK_COUNT) { index ->
+            val chunk = modified[index] ?: return@UIntArray ChunkOffset.EMPTY_RAW
 
             newTimestamps[index] = currentTimestamps
 
@@ -123,7 +119,7 @@ class RawRegion internal constructor(
 
             ChunkOffset(currentSector, sectorCount).also {
                 currentSector += sectorCount
-            }
+            }.raw
         }
 
 
