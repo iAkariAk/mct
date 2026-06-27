@@ -35,7 +35,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
                 x
             } catch (e: Throwable) {
                 logger.error {
-                    "Cannot decode ${terminator.replacement} as JSON: ${e.message}"
+                    "Cannot decode ${terminator.replacement} as JSON (${terminator.kind}): ${e.message}"
                 }
                 null
             }

@@ -33,7 +33,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
                 Snbt.decodeFromString<T>(terminator.replacement)
             } catch (e: Throwable) {
                 logger.error {
-                    "Cannot decode ${terminator.replacement} as SNBT: ${e.message}"
+                    "Cannot decode ${terminator.replacement} as SNBT (${terminator.kind}): ${e.message}"
                 }
                 null
             }

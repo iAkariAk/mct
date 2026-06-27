@@ -36,9 +36,7 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                         )
                     } ?: return@mapNotNull null)
 
-            PointerWithExtension.Type.Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(
-                pointer = pointer, kind = kind, content = content
-            )
+            PointerWithExtension.Type.Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(pointer, kind, content)
 
             else -> null
         }
