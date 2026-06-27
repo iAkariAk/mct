@@ -53,11 +53,13 @@ class TranslatorTest : FreeSpec({
             [1] b
             [2] c
             -- MCT-CLI:TERMS --
-            [{"source":"Iroha","target":"彩叶","type":"name"}]
+            {
+            "Iroha": "彩叶"
+            }
             -- MCT-CLI:END --
         """.trimIndent()
             val (terms, translated) = parseLLMResponse(response, 3)
-            terms shouldBe setOf(Term("Iroha", "彩叶", TermType.Name))
+            terms shouldBe mapOf("Iroha" to "彩叶")
             translated shouldBe listOf("a", "b", "c")
         }
 
@@ -116,7 +118,7 @@ class TranslatorTest : FreeSpec({
                 val translator = Translator(
                     call = mockCall,
                     requestTranslation = mockChat,
-                    defaultTerms = emptySet(),
+                    defaultTerms = emptyMap(),
                 )
 
                 shouldNotRaise {
@@ -134,7 +136,7 @@ class TranslatorTest : FreeSpec({
             -- MCT-CLI:END --
         """.trimIndent()
 
-                val existingTerms = setOf(Term("Kaguya", "辉夜姬", TermType.Name))
+                val existingTerms = mapOf("Kaguya" to "辉夜姬")
                 val mockChat = mockChatCompletion(mockResponse)
                 val translator = Translator(
                     call = mockCall,
@@ -154,7 +156,9 @@ class TranslatorTest : FreeSpec({
             -- MCT-CLI:TRANSLATED --
             [0] 彩叶在散步
             -- MCT-CLI:TERMS --
-            [{"source":"Iroha","target":"彩叶","type":"name"}]
+            {
+            "Iroha": "彩叶"
+            }
             -- MCT-CLI:END --
         """.trimIndent()
 
@@ -162,13 +166,13 @@ class TranslatorTest : FreeSpec({
                 val translator = Translator(
                     call = mockCall,
                     requestTranslation = mockChat,
-                    defaultTerms = emptySet(),
+                    defaultTerms = emptyMap(),
                 )
 
                 shouldNotRaise {
                     val result = translator.translate(FormatKind.JsonStr, listOf("Iroha is walking"))
                     result shouldBe listOf("彩叶在散步")
-                    translator.terms shouldBe setOf(Term("Iroha", "彩叶", TermType.Name))
+                    translator.terms shouldBe mapOf("Iroha" to "彩叶")
                 }
             }
 
@@ -185,7 +189,7 @@ class TranslatorTest : FreeSpec({
                 val translator = Translator(
                     call = mockCall,
                     requestTranslation = mockChat,
-                    defaultTerms = emptySet(),
+                    defaultTerms = emptyMap(),
                 )
 
                 shouldNotRaise {
@@ -219,7 +223,7 @@ class TranslatorTest : FreeSpec({
                 val translator = Translator(
                     call = mockCall,
                     requestTranslation = mockChat,
-                    defaultTerms = emptySet(),
+                    defaultTerms = emptyMap(),
                 )
 
                 shouldNotRaise {

@@ -8,7 +8,7 @@ import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
 
-typealias TranslationMapping = Map<String, String>
+typealias TranslationMapping = Map<String, String?>
 typealias TranslationPool = Set<String>
 
 private fun trySimply(text: String): String = runCatching {

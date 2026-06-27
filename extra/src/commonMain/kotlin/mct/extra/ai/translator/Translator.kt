@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import mct.EnvHolder
 import mct.extra.ai.*
+import mct.kit.TranslationMapping
 import mct.model.patch.*
 import mct.notify
 import mct.serializer.MCTJson
@@ -234,7 +235,7 @@ typealias RequestTranslation = suspend context(Raise<ChatCompletionCallError>)(
     validate: (Pair<TermTable, List<String?>>) -> Boolean
 ) -> Pair<TermTable, List<String?>>
 
-typealias OnTranslateCancel = (terms: TermTable, salvaged: Map<String, String>) -> Unit
+typealias OnTranslateCancel = (terms: TermTable, salvaged: TranslationMapping) -> Unit
 
 class Translator internal constructor(
     private val call: ChatCompletionCall,
@@ -491,10 +492,10 @@ private val REGEX_LLM_OUTPUT =
 context(_: Raise<ChatCompletionCallError>)
 suspend fun Translator.translate(
     groups: List<ExtractionGroup>,
-    caches: Map<String, String> = emptyMap(),
+    caches: TranslationMapping = emptyMap(),
     concurrentByKind: Boolean = false,
     onCancel: OnTranslateCancel = { _, _ -> },
-): Map<String, String> = coroutineScope {
+): TranslationMapping = coroutineScope {
     if (groups.isEmpty()) {
         logger.debug { "Skipping empty group" }
         return@coroutineScope emptyMap()
@@ -507,10 +508,10 @@ suspend fun Translator.translate(
             is DatapackExtraction.Nbt -> it.nbt.kind
         }
     }
-    val mapping = mutableMapOf<String, String>()
+    val mapping = mutableMapOf<String, String?>()
     val mappingMutex = Mutex()
 
-    suspend fun execute(block: suspend (append: suspend (Iterable<Pair<String, String>>) -> Unit) -> Unit) {
+    suspend fun execute(block: suspend (append: suspend (Iterable<Pair<String, String?>>) -> Unit) -> Unit) {
         if (concurrentByKind) {
             launch(Dispatchers.IO) {
                 block { others ->
@@ -529,7 +530,7 @@ suspend fun Translator.translate(
                 it.contents().filter(String::isNotBlank)
             }.distinct().filter { it !in caches }.toList()
             val translated = translate(kind, sources) { translated ->
-                val salvaged = buildMap {
+                val salvaged = buildMap<String, String?> {
                     translated.forEachIndexed { index, translated ->
                         translated?.let {
                             put(sources[index], translated)

@@ -30,8 +30,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
         ?.let { terminator ->
             terminator as DataPointerReplacementGroup.Terminator
             try {
-                val x = Snbt.decodeFromString<T>(terminator.replacement)
-                x
+                Snbt.decodeFromString<T>(terminator.replacement)
             } catch (e: Throwable) {
                 logger.error {
                     "Cannot decode ${terminator.replacement} as SNBT: ${e.message}"
