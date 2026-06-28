@@ -189,9 +189,8 @@ class ChatCompletionCallImpl internal constructor(
                     .mapNotNull { chatCompletionChunk ->
                         val choice = chatCompletionChunk.choices.firstOrNull() ?: return@mapNotNull null
                         val delta = choice.delta ?: return@mapNotNull null
-                        val usage = chatCompletionChunk.usage
                         val terminated = choice.finishReason != null
-                        postReasoning(delta.reasoningContent, callId, terminated, usage?.totalTokens)
+                        postReasoning(delta.reasoningContent, callId, terminated)
                         delta.content
                     }
                     .fold(StringBuilder()) { acc, content -> acc.append(content) }
@@ -201,7 +200,7 @@ class ChatCompletionCallImpl internal constructor(
                     val usage = chatCompletion.usage
                     noticeTokenConsume(usage)
                     val chatMessage = chatCompletion.choices.first().message
-                    postReasoning(chatMessage.reasoningContent, callId, true, usage?.totalTokens)
+                    postReasoning(chatMessage.reasoningContent, callId, true)
                     chatMessage.content!!
                 }
             }.getOrElse { e ->
@@ -241,9 +240,8 @@ private fun EnvHolder.postReasoning(
     reasoningContent: String?,
     id: Int,
     terminated: Boolean,
-    consumeTokenCount: Int? = null,
 ) {
     if (reasoningContent != null || terminated) {
-        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent ?: "", id, terminated, consumeTokenCount) })
+        notifier.notify<AiSign>({ AiSign.Reasoning(reasoningContent ?: "", id, terminated) })
     }
 }

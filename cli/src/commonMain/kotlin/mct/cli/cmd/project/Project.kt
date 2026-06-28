@@ -171,7 +171,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
                                 Panel(
                                     title = Text(blue("Thinking (${it.id})")),
                                     content = Text(content),
-                                    bottomTitle = Text(yellow("Consume ${it.consumeTokenCount ?: "null"} tokens")),
+                                    bottomTitle = Text(green("Thinking finished.")),
                                     bottomTitleAlign = TextAlign.RIGHT,
                                 )
                             )
