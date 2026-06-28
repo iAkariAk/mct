@@ -1,15 +1,17 @@
 package mct.kit
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import mct.MCTWorkspace
+import mct.util.IO
 import mct.util.toSnbt
 import okio.Path
 
 suspend fun MCTWorkspace.exportRegionSnbt(outputDir: Path) = coroutineScope {
     dimensions.forEach { (_, dimension) ->
         listOfNotNull(dimension.regionRawMgr, dimension.poiRawMgr, dimension.entitiesRawMgr).forEach { mgr ->
-            launch {
+            launch(Dispatchers.IO) {
                 val relative = mgr.path.relativeTo(rootDir)
                 val dir = outputDir / relative
                 fs.createDirectories(dir)
