@@ -50,7 +50,7 @@ fun Collection<String>.generateMTLX(): String {
         tmp[false]?.forEach { (_, raw) ->
             append(raw.escapeMTLLiteral())
             append(" ==> ")
-            append("TODO")
+            append("|TODO|")
             appendLine()
         }
     }

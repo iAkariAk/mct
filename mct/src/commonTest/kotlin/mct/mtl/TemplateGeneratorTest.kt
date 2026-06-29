@@ -338,8 +338,8 @@ class TemplateGeneratorTest : FreeSpec({
             ).generateMTLX()
 
             result shouldContain MTLX.SEPARATOR_RAW
-            // Raw section uses bare "TODO" (not piped) as placeholder right side
-            result shouldContain """|{"translate":"item.name"}| ==> TODO"""
+            // Raw section uses |TODO| as placeholder right side
+            result shouldContain """|{"translate":"item.name"}| ==> |TODO|"""
         }
 
         "mixed plain and translatable should populate both sections" {

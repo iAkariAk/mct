@@ -82,7 +82,7 @@ class MTLPaser(private val lexer: MTLLexer, private val str: String) {
 
     private fun parseLiteral(): MTLLiteral {
         require(currentToken.kind == LITERAL)
-        val unescaped = currentView().unescapeMTLLiteral()
+        val unescaped = currentView().unwrappedMTLLiteral()
         return MTLLiteral(currentToken.indices, unescaped)
     }
 

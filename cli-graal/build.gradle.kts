@@ -23,6 +23,10 @@ application {
 
 tasks.shadowJar {
     archiveClassifier.set("all")
+    // kotlin-logging 8.0.01 ships with GraalVM substitution classes that reference
+    // KLoggerFactory$Companion which was refactored away. Exclude them to avoid
+    // native-image build errors.
+    exclude("io/github/oshai/kotlinlogging/internal/Target_**")
 }
 
 graalvmNative {
