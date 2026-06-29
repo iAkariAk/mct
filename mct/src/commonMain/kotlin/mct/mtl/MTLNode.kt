@@ -6,15 +6,43 @@ import mct.text.one
 
 sealed interface MTLNode {
     val indices: IntRange?
+
+    fun render(): String
 }
 
 sealed interface MTLExpression : MTLNode
 
-data class MTLLiteral(override val indices: IntRange?, val content: String) : MTLExpression
-data class MTLList(override val indices: IntRange?, val exprs: List<MTLExpression>) : MTLExpression
-data class MTLPair(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLExpression
+data class MTLLiteral(override val indices: IntRange?, val content: String) : MTLExpression {
+    override fun render() = content.escapeMTLLiteral()
+}
 
-data class MTLMapping(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLNode
+data class MTLList(override val indices: IntRange?, val exprs: List<MTLExpression>) : MTLExpression {
+    override fun render() = buildString {
+        append('[')
+        appendLine()
+        exprs.forEach { e ->
+            append(e.render())
+            appendLine()
+        }
+        append(']')
+    }
+}
+
+data class MTLPair(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLExpression {
+    override fun render() = buildString {
+        append('(')
+        appendLine()
+        append(left.render())
+        appendLine()
+        append(right.render())
+        appendLine()
+        append(')')
+    }
+}
+
+data class MTLMapping(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLNode {
+    override fun render() = "${left.render()} ==> ${right.render()}"
+}
 
 typealias MTLMappings = List<MTLMapping>
 

@@ -82,19 +82,7 @@ class MTLPaser(private val lexer: MTLLexer, private val str: String) {
 
     private fun parseLiteral(): MTLLiteral {
         require(currentToken.kind == LITERAL)
-        val raw = currentView()
-        val unescaped = buildString {
-            var i = 1
-            while (i < raw.lastIndex) {
-                val ch = raw[i]
-                if (ch == '&') {
-                    i += 2
-                    continue
-                }
-                append(ch)
-                i++
-            }
-        }
+        val unescaped = currentView().unescapeMTLLiteral()
         return MTLLiteral(currentToken.indices, unescaped)
     }
 
@@ -111,7 +99,7 @@ class MTLPaser(private val lexer: MTLLexer, private val str: String) {
         val next = if (skipNewline()) {
             require(R_PARENTHESIS)
             currentToken
-        } else  {
+        } else {
             expect(R_PARENTHESIS)
         }
         val endIndex = next.indices.last
