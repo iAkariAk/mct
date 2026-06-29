@@ -3,6 +3,7 @@ package mct.mtl
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
+import mct.kit.TranslationPool
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.replaceSimply
 import mct.serializer.MCTJson
@@ -28,6 +29,12 @@ fun List<ExtractionGroup>.replaceByMTL(
 }
 
 fun List<ExtractionGroup>.replaceByMTLX(mtlx: MTLX) = replaceByMTL(mtlx.mtlMappings, mtlx.rawMappings::get)
+
+fun TranslationPool.translateByMTLX(mtlx: MTLX) = associateWith {
+    it.tryTransformTextCompound { compound ->
+        mtlx.mtlMappings.find(compound)?.right?.let(compound::replace)
+    } ?: mtlx.rawMappings[it]
+}
 
 private inline fun String.tryTransformTextCompound(
     transform: (TextCompoundOneOrMany) -> TextCompoundOneOrMany?
