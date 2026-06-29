@@ -25,6 +25,7 @@ subprojects {
             freeCompilerArgs.addAll(
                 "-Xcontext-parameters",
                 "-Xcollection-literals",
+                "-Xcontext-sensitive-resolution",
                 "-Xintrinsic-const-evaluation",
                 "-Xwarning-level=NOTHING_TO_INLINE:disabled,EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING:disabled"
             )

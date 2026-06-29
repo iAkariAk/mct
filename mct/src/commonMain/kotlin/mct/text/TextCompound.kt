@@ -3,6 +3,7 @@ package mct.text
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.jvm.JvmInline
 
 fun TextCompound.isPlainStyle() =
     color == null && bold == null && italic == null && underlined == null && strikethrough == null && obfuscated == null
@@ -23,6 +24,16 @@ inline fun TextCompound.replaceText(text: String): TextCompound = when (this) {
     else -> this
 }
 
+sealed interface TextCompoundOneOrMany {
+    @JvmInline
+    value class One(val value: TextCompound) : TextCompoundOneOrMany
+    @JvmInline
+    value class Many(val value: List<TextCompound>) : TextCompoundOneOrMany
+}
+
+inline fun TextCompound.one() = TextCompoundOneOrMany.One(this)
+inline fun List<TextCompound>.many() = TextCompoundOneOrMany.Many(this)
+
 @Serializable(TextCompoundSerializer::class)
 sealed interface TextCompound {
     val extra: List<TextCompound>
@@ -35,6 +46,8 @@ sealed interface TextCompound {
     val obfuscated: Boolean?
 
     operator fun plus(extras: List<TextCompound>): TextCompound
+
+    fun substituteExtra(extra: List<TextCompound>): TextCompound
 
     @Serializable
     @SerialName("text")
@@ -50,6 +63,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 
     @Serializable
@@ -68,6 +82,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 
     @Serializable
@@ -84,6 +99,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 
     @Serializable
@@ -100,6 +116,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
 
         @Serializable
         data class Info(
@@ -123,6 +140,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 
     @Serializable
@@ -146,6 +164,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 
     @Serializable
@@ -163,6 +182,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 
     @Serializable
@@ -179,6 +199,7 @@ sealed interface TextCompound {
         override val obfuscated: Boolean? = null,
     ) : TextCompound {
         override fun plus(extras: List<TextCompound>) = copy(extra = extra + extras)
+        override fun substituteExtra(extra: List<TextCompound>) = copy(extra = extra)
     }
 }
 

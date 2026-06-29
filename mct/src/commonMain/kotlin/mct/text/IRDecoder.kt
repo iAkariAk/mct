@@ -12,6 +12,13 @@ private fun TextCompound.flatten(): List<TextCompound> = when (val compound = th
     else -> listOf(compound)
 }
 
+fun IRElement.decodeToTextCompoundOneOrMany(): TextCompoundOneOrMany = when (this) {
+    is IRString -> TextCompound.Plain(value).one()
+    is IRList -> map { it.decodeToCompound() }.many()
+    is IRObject -> decodeToCompound().one()
+
+    else -> error("Illegal element type")
+}
 
 fun IRElement.decodeToCompound(): TextCompound = when (this) {
     is IRString -> TextCompound.Plain(value)
@@ -203,3 +210,4 @@ private inline fun IRObject.optionalBoolean(key: String): Boolean? =
         is IRByte -> v.value == 1.toByte()
         else -> error("Expected boolean(byte) but found ${this::class} in $key")
     }
+

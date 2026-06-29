@@ -1,11 +1,14 @@
 package mct.util
 
+import org.intellij.lang.annotations.Language
+
+@Language("RegExp")
 fun String.toRegex2(vararg options: RegexOption): Regex2 = Regex2(this, options.toSet())
 
 expect class Regex2 {
-    constructor(pattern: String)
-    constructor(pattern: String, option: RegexOption)
-    constructor(pattern: String, options: Set<RegexOption>)
+    constructor(@Language("RegExp") pattern: String)
+    constructor(@Language("RegExp") pattern: String, option: RegexOption)
+    constructor(@Language("RegExp") pattern: String, options: Set<RegexOption>)
 
     val pattern: String
     val options: Set<RegexOption>

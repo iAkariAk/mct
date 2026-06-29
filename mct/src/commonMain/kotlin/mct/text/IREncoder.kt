@@ -102,3 +102,8 @@ fun TextCompound.encodeToIR(simplify: Boolean = false): IRElement {
         }
     }
 }
+
+fun TextCompoundOneOrMany.encodeToIR(simplify: Boolean = false) = when (this) {
+    is TextCompoundOneOrMany.Many -> IRList(value.map { it.encodeToIR() })
+    is TextCompoundOneOrMany.One -> value.encodeToIR()
+}
