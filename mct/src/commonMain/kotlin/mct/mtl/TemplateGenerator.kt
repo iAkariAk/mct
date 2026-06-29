@@ -31,7 +31,7 @@ internal inline fun String.tryDecodeAsTextCompoound() = runCatching {
 }
 
 
-fun List<String>.generateMTLX(): String {
+fun Collection<String>.generateMTLX(): String {
     val tmp = asSequence()
         .map(String::tryDecodeAsTextCompoound)
         .map { it?.mtlize() }

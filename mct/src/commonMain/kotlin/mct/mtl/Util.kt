@@ -12,10 +12,24 @@ internal fun String.escapeMTLLiteral() = buildString {
     append('|')
 }
 
-internal fun String.unescapeMTLLiteral() = buildString {
-    val raw = this@unescapeMTLLiteral
+internal fun String.unwrappedMTLLiteral() = buildString {
+    val raw = this@unwrappedMTLLiteral
     var i = 1
     while (i < raw.lastIndex) {
+        val ch = raw[i]
+        if (ch == '&') {
+            i += 2
+            continue
+        }
+        append(ch)
+        i++
+    }
+}
+
+internal fun String.unescapedMTLLiteral() = buildString {
+    val raw = this@unescapedMTLLiteral
+    var i = 0
+    while (i < raw.length) {
         val ch = raw[i]
         if (ch == '&') {
             i += 2

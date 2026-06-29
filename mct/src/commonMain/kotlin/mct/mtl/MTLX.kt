@@ -35,5 +35,5 @@ private fun parseRaw(raw: String): Pair<String, String>? {
     if (trim.isEmpty() || trim.startsWith('#')) return null
     val mr = RAW_REGEX.matchEntire(raw)
     val (_, l, r) = mr?.groupValues ?: error("No mapping item")
-    return l.unescapeMTLLiteral() to r.unescapeMTLLiteral()
+    return l.unescapedMTLLiteral() to r.unescapedMTLLiteral()
 }

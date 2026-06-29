@@ -15,13 +15,12 @@ import mct.text.many
 import mct.text.one
 
 class TemplateGeneratorTest : FreeSpec({
-
     "TextCompound.mtlize()" - {
         "Plain text without extra should convert to MTLLiteral" {
             val result = TextCompound.Plain("Hello World").mtlize()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLLiteral>()
-            (result as MTLLiteral).content shouldBe "Hello World"
+            result.content shouldBe "Hello World"
             result.indices shouldBe null
         }
 
@@ -34,11 +33,10 @@ class TemplateGeneratorTest : FreeSpec({
 
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLPair>()
-            val pair = result as MTLPair
-            (pair.left as MTLLiteral).content shouldBe "Hello"
+            (result.left as MTLLiteral).content shouldBe "Hello"
 
-            pair.right.shouldBeInstanceOf<MTLList>()
-            val list = pair.right as MTLList
+            result.right.shouldBeInstanceOf<MTLList>()
+            val list = result.right
             list.exprs.size shouldBe 1
             (list.exprs[0] as MTLLiteral).content shouldBe "World"
         }
@@ -55,10 +53,9 @@ class TemplateGeneratorTest : FreeSpec({
 
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLPair>()
-            val pair = result as MTLPair
-            (pair.left as MTLLiteral).content shouldBe "A"
+            (result.left as MTLLiteral).content shouldBe "A"
 
-            val list = pair.right as MTLList
+            val list = result.right as MTLList
             list.exprs.size shouldBe 2
             (list.exprs[0] as MTLLiteral).content shouldBe "B"
             (list.exprs[1] as MTLLiteral).content shouldBe "C"
@@ -75,14 +72,12 @@ class TemplateGeneratorTest : FreeSpec({
 
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLPair>()
-            val pair = result as MTLPair
-            (pair.left as MTLLiteral).content shouldBe "Outer"
+            (result.left as MTLLiteral).content shouldBe "Outer"
 
-            val innerExpr = (pair.right as MTLList).exprs[0]
+            val innerExpr = (result.right as MTLList).exprs[0]
             innerExpr.shouldBeInstanceOf<MTLPair>()
-            val innerPair = innerExpr as MTLPair
-            (innerPair.left as MTLLiteral).content shouldBe "Inner"
-            ((innerPair.right as MTLList).exprs[0] as MTLLiteral).content shouldBe "Deep"
+            (innerExpr.left as MTLLiteral).content shouldBe "Inner"
+            ((innerExpr.right as MTLList).exprs[0] as MTLLiteral).content shouldBe "Deep"
         }
 
         "Plain text with formatting properties still converts (formatting is ignored)" {
@@ -93,7 +88,7 @@ class TemplateGeneratorTest : FreeSpec({
             ).mtlize()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLLiteral>()
-            (result as MTLLiteral).content shouldBe "Runic Catalyst"
+            result.content shouldBe "Runic Catalyst"
         }
 
         "Translatable text should return null" {
@@ -128,7 +123,7 @@ class TemplateGeneratorTest : FreeSpec({
             val result = TextCompound.Plain("").mtlize()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLLiteral>()
-            (result as MTLLiteral).content shouldBe ""
+            result.content shouldBe ""
         }
     }
 
@@ -137,14 +132,14 @@ class TemplateGeneratorTest : FreeSpec({
             val result = TextCompound.Plain("Hello").one().mtlize()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLLiteral>()
-            (result as MTLLiteral).content shouldBe "Hello"
+            result.content shouldBe "Hello"
         }
 
         "One(Plain with extra) should delegate and return MTLPair" {
             val result = TextCompound.Plain("A", extra = listOf(TextCompound.Plain("B"))).one().mtlize()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLPair>()
-            (result as MTLPair).left.let { (it as MTLLiteral).content shouldBe "A" }
+            result.left.let { (it as MTLLiteral).content shouldBe "A" }
         }
 
         "One(non-Plain) should return null" {
@@ -161,11 +156,10 @@ class TemplateGeneratorTest : FreeSpec({
 
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLList>()
-            val list = result as MTLList
-            list.exprs.size shouldBe 3
-            (list.exprs[0] as MTLLiteral).content shouldBe "A"
-            (list.exprs[1] as MTLLiteral).content shouldBe "B"
-            (list.exprs[2] as MTLLiteral).content shouldBe "C"
+            result.exprs.size shouldBe 3
+            (result.exprs[0] as MTLLiteral).content shouldBe "A"
+            (result.exprs[1] as MTLLiteral).content shouldBe "B"
+            (result.exprs[2] as MTLLiteral).content shouldBe "C"
         }
 
         "Many with a mix of plain and compound texts" {
@@ -177,11 +171,10 @@ class TemplateGeneratorTest : FreeSpec({
 
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLList>()
-            val list = result as MTLList
-            list.exprs.size shouldBe 2
+            result.exprs.size shouldBe 2
 
-            (list.exprs[0] as MTLLiteral).content shouldBe "A"
-            (list.exprs[1] as MTLPair).left.let { (it as MTLLiteral).content shouldBe "B" }
+            (result.exprs[0] as MTLLiteral).content shouldBe "A"
+            (result.exprs[1] as MTLPair).left.let { (it as MTLLiteral).content shouldBe "B" }
         }
 
         "Many with non-Plain element should return null for entire list" {
@@ -196,7 +189,7 @@ class TemplateGeneratorTest : FreeSpec({
             val result = emptyList<TextCompound>().many().mtlize()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<MTLList>()
-            (result as MTLList).exprs.size shouldBe 0
+            result.exprs.size shouldBe 0
         }
     }
 
@@ -205,21 +198,21 @@ class TemplateGeneratorTest : FreeSpec({
             val result = "\"Hello World\"".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
-            ((result as TextCompoundOneOrMany.One).value as TextCompound.Plain).text shouldBe "Hello World"
+            (result.value as TextCompound.Plain).text shouldBe "Hello World"
         }
 
         "JSON object with text field" {
             val result = """{"text":"Hello"}""".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
-            ((result as TextCompoundOneOrMany.One).value as TextCompound.Plain).text shouldBe "Hello"
+            (result.value as TextCompound.Plain).text shouldBe "Hello"
         }
 
         "JSON with text and formatting properties" {
             val result = """{"text":"Runic Catalyst","color":"aqua","italic":false}""".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
-            val plain = (result as TextCompoundOneOrMany.One).value as TextCompound.Plain
+            val plain = result.value as TextCompound.Plain
             plain.text shouldBe "Runic Catalyst"
             plain.color shouldBe "aqua"
             plain.italic shouldBe false
@@ -229,17 +222,16 @@ class TemplateGeneratorTest : FreeSpec({
             val result = """["Hello","World"]""".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.Many>()
-            val many = result as TextCompoundOneOrMany.Many
-            many.value.size shouldBe 2
-            (many.value[0] as TextCompound.Plain).text shouldBe "Hello"
-            (many.value[1] as TextCompound.Plain).text shouldBe "World"
+            result.value.size shouldBe 2
+            (result.value[0] as TextCompound.Plain).text shouldBe "Hello"
+            (result.value[1] as TextCompound.Plain).text shouldBe "World"
         }
 
         "JSON object with extra field should decode to Plain with extras" {
             val result = """{"text":"A","extra":[{"text":"B"},{"text":"C"}]}""".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
-            val plain = (result as TextCompoundOneOrMany.One).value as TextCompound.Plain
+            val plain = result.value as TextCompound.Plain
             plain.text shouldBe "A"
             plain.extra.size shouldBe 2
             (plain.extra[0] as TextCompound.Plain).text shouldBe "B"
@@ -250,20 +242,20 @@ class TemplateGeneratorTest : FreeSpec({
             val result = """{"translate":"item.name"}""".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
-            ((result as TextCompoundOneOrMany.One).value as TextCompound.Translatable).translate shouldBe "item.name"
+            (result.value as TextCompound.Translatable).translate shouldBe "item.name"
         }
 
         "JSON array of text objects with formatting" {
-            val result = """[{"text":"Hello","color":"dark_purple"},{"text":"World","color":"gold"}]""".tryDecodeAsTextCompoound()
+            val result =
+                """[{"text":"Hello","color":"dark_purple"},{"text":"World","color":"gold"}]""".tryDecodeAsTextCompoound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.Many>()
-            val many = result as TextCompoundOneOrMany.Many
-            many.value.size shouldBe 2
-            (many.value[0] as TextCompound.Plain).also {
+            result.value.size shouldBe 2
+            (result.value[0] as TextCompound.Plain).also {
                 it.text shouldBe "Hello"
                 it.color shouldBe "dark_purple"
             }
-            (many.value[1] as TextCompound.Plain).also {
+            (result.value[1] as TextCompound.Plain).also {
                 it.text shouldBe "World"
                 it.color shouldBe "gold"
             }
@@ -397,7 +389,7 @@ class TemplateGeneratorTest : FreeSpec({
             val mapping = parsed.mtlMappings.first()
             // Should be: (|A| [|B|]) ==> (|A| [|B|])
             mapping.left.shouldBeInstanceOf<MTLPair>()
-            val pair = mapping.left as MTLPair
+            val pair = mapping.left
             (pair.left as MTLLiteral).content shouldBe "A"
             (pair.right as MTLList).exprs.let { exprs ->
                 exprs.size shouldBe 1
