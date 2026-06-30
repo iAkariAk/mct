@@ -7,6 +7,7 @@ import mct.serializer.Snbt
 import mct.text.TextCompound
 import mct.text.TextCompoundOneOrMany
 import mct.text.decodeToTextCompoundOneOrMany
+import mct.util.buildIndentedString
 import mct.util.formatir.toIR
 import net.benwoodworth.knbt.NbtTag
 
@@ -22,7 +23,7 @@ fun TextCompoundOneOrMany.mtlize(): MTLExpression? = when (this) {
     is TextCompoundOneOrMany.One -> value.mtlize()
 }
 
-internal inline fun String.tryDecodeAsTextCompoound() = runCatching {
+internal inline fun String.tryDecodeAsTextCompound() = runCatching {
     MCTJson.decodeFromString<JsonElement>(this).toIR().decodeToTextCompoundOneOrMany()
 }.getOrElse {
     runCatching {
@@ -33,16 +34,16 @@ internal inline fun String.tryDecodeAsTextCompoound() = runCatching {
 
 fun Collection<String>.generateMTLX(): String {
     val tmp = asSequence()
-        .map(String::tryDecodeAsTextCompoound)
+        .map(String::tryDecodeAsTextCompound)
         .map { it?.mtlize() }
         .zip(asSequence())
         .groupBy { (it, _) -> it != null }
-    return buildString {
+    return buildIndentedString {
         append(MTLX.SEPARATOR_MTL)
         appendLine()
         tmp[true]?.forEach { (expr, _) ->
-            val mapping = MTLMapping(null, expr!!, expr)
-            append(mapping.render())
+            val mapping = MTLMapping(null, expr!!, MTLLiteral(null, "TODO"))
+            appendLines(mapping.render())
             appendLine()
         }
         append(MTLX.SEPARATOR_RAW)

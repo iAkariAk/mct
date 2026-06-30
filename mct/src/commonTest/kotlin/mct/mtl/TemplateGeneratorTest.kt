@@ -195,21 +195,21 @@ class TemplateGeneratorTest : FreeSpec({
 
     "String.tryDecodeAsTextCompoound()" - {
         "JSON string literal should decode to Plain text" {
-            val result = "\"Hello World\"".tryDecodeAsTextCompoound()
+            val result = "\"Hello World\"".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
             (result.value as TextCompound.Plain).text shouldBe "Hello World"
         }
 
         "JSON object with text field" {
-            val result = """{"text":"Hello"}""".tryDecodeAsTextCompoound()
+            val result = """{"text":"Hello"}""".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
             (result.value as TextCompound.Plain).text shouldBe "Hello"
         }
 
         "JSON with text and formatting properties" {
-            val result = """{"text":"Runic Catalyst","color":"aqua","italic":false}""".tryDecodeAsTextCompoound()
+            val result = """{"text":"Runic Catalyst","color":"aqua","italic":false}""".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
             val plain = result.value as TextCompound.Plain
@@ -219,7 +219,7 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "JSON array should decode to Many TextCompounds" {
-            val result = """["Hello","World"]""".tryDecodeAsTextCompoound()
+            val result = """["Hello","World"]""".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.Many>()
             result.value.size shouldBe 2
@@ -228,7 +228,7 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "JSON object with extra field should decode to Plain with extras" {
-            val result = """{"text":"A","extra":[{"text":"B"},{"text":"C"}]}""".tryDecodeAsTextCompoound()
+            val result = """{"text":"A","extra":[{"text":"B"},{"text":"C"}]}""".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
             val plain = result.value as TextCompound.Plain
@@ -239,7 +239,7 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "JSON with translatable component" {
-            val result = """{"translate":"item.name"}""".tryDecodeAsTextCompoound()
+            val result = """{"translate":"item.name"}""".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.One>()
             (result.value as TextCompound.Translatable).translate shouldBe "item.name"
@@ -247,7 +247,7 @@ class TemplateGeneratorTest : FreeSpec({
 
         "JSON array of text objects with formatting" {
             val result =
-                """[{"text":"Hello","color":"dark_purple"},{"text":"World","color":"gold"}]""".tryDecodeAsTextCompoound()
+                """[{"text":"Hello","color":"dark_purple"},{"text":"World","color":"gold"}]""".tryDecodeAsTextCompound()
             result.shouldNotBeNull()
             result.shouldBeInstanceOf<TextCompoundOneOrMany.Many>()
             result.value.size shouldBe 2
@@ -262,11 +262,11 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "Invalid string should return null" {
-            "\"".tryDecodeAsTextCompoound().shouldBeNull()
+            "\"".tryDecodeAsTextCompound().shouldBeNull()
         }
 
         "Empty string should return null" {
-            "".tryDecodeAsTextCompoound().shouldBeNull()
+            "".tryDecodeAsTextCompound().shouldBeNull()
         }
     }
 
@@ -279,8 +279,8 @@ class TemplateGeneratorTest : FreeSpec({
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain MTLX.SEPARATOR_RAW
-            result shouldContain "|Hello| ==> |Hello|"
-            result shouldContain "|World| ==> |World|"
+            result shouldContain "|Hello| ==> |TODO|"
+            result shouldContain "|World| ==> |TODO|"
         }
 
         "empty list should produce only separators" {
@@ -315,12 +315,11 @@ class TemplateGeneratorTest : FreeSpec({
             ).generateMTLX()
 
             result shouldContain MTLX.SEPARATOR_MTL
-            result shouldContain "|Runic Catalyst| ==> |Runic Catalyst|"
-            result shouldContain "|Simple name| ==> |Simple name|"
+            result shouldContain "|Runic Catalyst| ==> |TODO|"
+            result shouldContain "|Simple name| ==> |TODO|"
         }
 
         "JSON array of text objects with formatting should produce MTL section" {
-            // Real-world pattern from Drehmal map: array of styled text objects
             val result = listOf(
                 """[{"text":"Hello","color":"dark_purple"},{"text":"World","color":"gold"}]""",
             ).generateMTLX()
@@ -351,10 +350,10 @@ class TemplateGeneratorTest : FreeSpec({
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain MTLX.SEPARATOR_RAW
-            result shouldContain "|Hello| ==> |Hello|"
-            result shouldContain "|World| ==> |World|"
+            result shouldContain "|Hello| ==> |TODO|"
+            result shouldContain "|World| ==> |TODO|"
             // The translatable one should NOT be in MTL section
-            result shouldNotContain "|item.name| ==> |item.name|"
+            result shouldNotContain "|item.name| ==> |TODO|"
         }
 
         "output should be parseable by MTLX.fromString for plain text data" {
@@ -369,11 +368,11 @@ class TemplateGeneratorTest : FreeSpec({
             parsed.mtlMappings.size shouldBe 2
             parsed.mtlMappings[0].let { mapping ->
                 (mapping.left as MTLLiteral).content shouldBe "Hello"
-                (mapping.right as MTLLiteral).content shouldBe "Hello"
+                (mapping.right as MTLLiteral).content shouldBe "TODO"
             }
             parsed.mtlMappings[1].let { mapping ->
                 (mapping.left as MTLLiteral).content shouldBe "World"
-                (mapping.right as MTLLiteral).content shouldBe "World"
+                (mapping.right as MTLLiteral).content shouldBe "TODO"
             }
             parsed.rawMappings.size shouldBe 0
         }

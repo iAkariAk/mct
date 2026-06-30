@@ -3,6 +3,8 @@ package mct.mtl
 import mct.text.TextCompoundOneOrMany
 import mct.text.many
 import mct.text.one
+import mct.util.buildIndentedString
+import mct.util.withBlock
 
 sealed interface MTLNode {
     val indices: IntRange?
@@ -17,30 +19,27 @@ data class MTLLiteral(override val indices: IntRange?, val content: String) : MT
 }
 
 data class MTLList(override val indices: IntRange?, val exprs: List<MTLExpression>) : MTLExpression {
-    override fun render() = buildString {
-        append('[')
-        appendLine()
-        exprs.forEach { e ->
-            append(e.render())
-            appendLine()
+    override fun render() = buildIndentedString {
+        withBlock("[", "]", appendTail = false) {
+            exprs.forEach { e ->
+                appendLine(e.render())
+            }
         }
-        append(']')
     }
 }
 
 data class MTLPair(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLExpression {
-    override fun render() = buildString {
-        append('(')
-        appendLine()
-        append(left.render())
-        appendLine()
-        append(right.render())
-        appendLine()
-        append(')')
+    override fun render() = buildIndentedString {
+        withBlock("(", ")") {
+            append(left.render())
+            appendLine()
+            append(right.render())
+        }
     }
 }
 
-data class MTLMapping(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLNode {
+data class MTLMapping(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) :
+    MTLNode {
     override fun render() = "${left.render()} ==> ${right.render()}"
 }
 
@@ -50,7 +49,10 @@ fun MTLMapping.isConsistent() = left.isConsistentBetweenWith(right)
 
 fun MTLExpression.isConsistentBetweenWith(other: MTLExpression): Boolean = when (this) {
     is MTLList if other is MTLList -> exprs.zip(other.exprs).all { (l, r) -> l.isConsistentBetweenWith(r) }
-    is MTLPair if other is MTLPair -> left.isConsistentBetweenWith(other.left) && right.isConsistentBetweenWith(other.right)
+    is MTLPair if other is MTLPair -> left.isConsistentBetweenWith(other.left) && right.isConsistentBetweenWith(
+        other.right
+    )
+
     is MTLLiteral if other is MTLLiteral -> true
     else -> false
 }
