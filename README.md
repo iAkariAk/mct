@@ -1,18 +1,24 @@
 # MCT
 
-MCT is a toolkit to provide useful function for Minecraft hardcoded map translation, which is written by Kotlin and support multiplatform.
+English | [简体中文](README.zh-CN.md)
 
-The tool can help you extract text(in `TextCompound` form) from datapack and region file MCA,
-and backfill the replacement.
+MCT is a revolutionary Minecraft hardcoded map translation tool, completely changing the way to translate a map and pushing translation efficiency to new heights.
 
-The project is currently under development.
+Unlike traditional manual translation, MCT eliminates the need to handle extracting and backfilling text from datapacks and region files, which is tedious, repetitive and error-prone work.
 
-You can get articles from CI, where there're cli and gui version.
+## Features
+- 📦 Automatic extraction and backfilling of translatable text
+- 🤖 Built-in AI translation support
+- 📝 MTLX DSL designed for map translators
+- 🎯 Supports datapacks, region files, and other Minecraft resources
+- 🔌 Extensible architecture for custom extraction patterns
 
-## CLI or GUI?
 
-cli version offers more useful tools such as:
-- project manager (which is quiet practical for persistent maintenance)
-- pattern test
+## Quick Start
+> **⚠️ Work in Progress**
+MCT is under development. Breaking changes may occur at any time.
+You can download the latest build from CI, where you can find cli and gui artifacts.
 
-gui version merely offers basic extraction, ai translation, and backfilling, which is friendly for beginner
+## Need help?
+If you encounter a bug, have a question, or need help to use MCT, feel free to open an issue
+Contributions, feature requests, and feedback are always welcome!
