@@ -1,6 +1,5 @@
 package mct.cli
 
-import arrow.continuations.SuspendApp
 import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.either
@@ -13,7 +12,6 @@ import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.mordant.rendering.TextColors
-import kotlinx.coroutines.CancellationException
 import mct.*
 import mct.util.SystemFileSystem
 import okio.Path.Companion.toPath
@@ -46,15 +44,12 @@ abstract class BaseCommand(
 
     val cacheDir by option("--cache-dir", help = "Path to cache directory").path().default(".".toPath())
 
-    override suspend fun run(): Unit = try {
-        SuspendApp {
-            either {
-                App()
-            }.getOrElse {
-                terminal.println(TextColors.red(it.message))
-            }
+    override suspend fun run() = try {
+        either {
+            App()
+        }.getOrElse {
+            terminal.println(TextColors.red(it.message))
         }
-    } catch (_: CancellationException) {
     } catch (e: Panic) {
         terminal.println(TextColors.red(e.message ?: ""))
     }
