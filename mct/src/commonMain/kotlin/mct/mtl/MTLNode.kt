@@ -50,7 +50,7 @@ fun MTLMapping.isConsistent() = left.isConsistentBetweenWith(right)
 
 fun MTLExpression.isConsistentBetweenWith(other: MTLExpression): Boolean = when (this) {
     is MTLList if other is MTLList -> exprs.zip(other.exprs).all { (l, r) -> l.isConsistentBetweenWith(r) }
-    is MTLPair if other is MTLPair -> right.isConsistentBetweenWith(other.right)
+    is MTLPair if other is MTLPair -> left.isConsistentBetweenWith(other.left) && right.isConsistentBetweenWith(other.right)
     is MTLLiteral if other is MTLLiteral -> true
     else -> false
 }
