@@ -62,7 +62,7 @@ fun FileSystem.walkDirectory(dir: Path): StreamingFileWalk {
 }
 
 private class FileSystemFileWalkStream(private val dir: Path, private val fs: FileSystem) : StreamingFileWalk {
-    private fun walk() = fs.listRecursively(dir).mapNotNull {
+    private fun walk() = fs.listRecursively(Path.ROOT).mapNotNull {
         val metadata = fs.metadata(it)
         if (metadata.isDirectory) return@mapNotNull null
         it.toStreamingFile(metadata)
