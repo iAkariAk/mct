@@ -44,7 +44,8 @@ graalvmNative {
             richOutput = false
             quickBuild = false
 
-            useFatJar = true
+            useFatJar = false
+            classpath.setFrom(tasks.shadowJar)
             buildArgs.add("--link-at-build-time")
             buildArgs.add("--initialize-at-build-time=io.github.oshai.kotlinlogging")
 
