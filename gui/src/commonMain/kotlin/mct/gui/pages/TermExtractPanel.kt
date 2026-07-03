@@ -3,7 +3,11 @@ package mct.gui.pages
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -92,7 +96,7 @@ fun TermExtractPanel(
         )
 
         // ── 提取选项 ────────────────────────────────────────────
-        SectionTitle("提取选项", Icons.Outlined.TextSnippet)
+        SectionTitle("提取选项", Icons.AutoMirrored.Outlined.TextSnippet)
 
         Surface(
             shape = RoundedCornerShape(12.dp),
