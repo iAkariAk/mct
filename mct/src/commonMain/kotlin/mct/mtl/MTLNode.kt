@@ -15,7 +15,7 @@ sealed interface MTLNode {
 sealed interface MTLExpression : MTLNode
 
 data class MTLLiteral(override val indices: IntRange?, val content: String) : MTLExpression {
-    override fun render() = content.escapeMTLLiteral()
+    override fun render() = content.wrappedMTLLiteral()
 }
 
 data class MTLList(override val indices: IntRange?, val exprs: List<MTLExpression>) : MTLExpression {

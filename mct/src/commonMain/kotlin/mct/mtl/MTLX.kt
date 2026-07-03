@@ -2,8 +2,9 @@ package mct.mtl
 
 import mct.kit.TranslationMapping
 import mct.util.Regex2
+import mct.util.buildIndentedString
 
-private val RAW_REGEX = Regex2("""^\s*\|(.*?)\|\s*==>\s*\|(.*?)\|\s*""")
+private val RAW_REGEX = Regex2("""^\s*\|(.*?)\|\s*==>\s*\|(.*?)\|\s*$""")
 
 // MTL MTC Translation Language
 // MTLX MTC Translation Language extension
@@ -26,6 +27,23 @@ data class MTLX(
             val mtl = MTLPaser.parse(mtlStr).toList()
             val raw = rawStr.lines().mapNotNull(::parseRaw).toMap()
             return MTLX(mtl, raw)
+        }
+    }
+
+    fun render() = buildIndentedString {
+        append(SEPARATOR_MTL)
+        appendLine()
+        mtlMappings.forEach { m ->
+            appendLines(m.render())
+            appendLine()
+        }
+        append(SEPARATOR_RAW)
+        appendLine()
+        rawMappings.forEach { (raw, new) ->
+            append(raw.wrappedMTLLiteral())
+            append(" ==> ")
+            append((new ?: raw).wrappedMTLLiteral())
+            appendLine()
         }
     }
 }

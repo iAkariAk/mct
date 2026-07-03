@@ -1,7 +1,7 @@
 package mct.mtl
 
-internal fun String.escapeMTLLiteral() = buildString {
-    val content = this@escapeMTLLiteral
+internal fun String.wrappedMTLLiteral() = buildString {
+    val content = this@wrappedMTLLiteral
     append('|')
     content.forEach { ch ->
         when (ch) {

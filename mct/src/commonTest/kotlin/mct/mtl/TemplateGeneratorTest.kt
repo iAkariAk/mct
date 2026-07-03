@@ -275,7 +275,7 @@ class TemplateGeneratorTest : FreeSpec({
             val result = listOf(
                 """{"text":"Hello"}""",
                 """{"text":"World"}""",
-            ).generateMTLX()
+            ).generateMTLXTemplate().render()
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain MTLX.SEPARATOR_RAW
@@ -284,7 +284,7 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "empty list should produce only separators" {
-            val result = emptyList<String>().generateMTLX()
+            val result = emptyList<String>().generateMTLXTemplate().render()
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain MTLX.SEPARATOR_RAW
@@ -295,7 +295,7 @@ class TemplateGeneratorTest : FreeSpec({
         "valid JSON array input should produce MTL section with list mapping" {
             val result = listOf(
                 """["Hello","World"]""",
-            ).generateMTLX()
+            ).generateMTLXTemplate().render()
 
             result shouldContain MTLX.SEPARATOR_MTL
             // The JSON array decodes to Many([Plain("Hello"), Plain("World")])
@@ -312,7 +312,7 @@ class TemplateGeneratorTest : FreeSpec({
             val result = listOf(
                 """{"text":"Runic Catalyst","color":"aqua","italic":false}""",
                 """{"text":"Simple name"}"""
-            ).generateMTLX()
+            ).generateMTLXTemplate().render()
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain "|Runic Catalyst| ==> |TODO|"
@@ -322,7 +322,7 @@ class TemplateGeneratorTest : FreeSpec({
         "JSON array of text objects with formatting should produce MTL section" {
             val result = listOf(
                 """[{"text":"Hello","color":"dark_purple"},{"text":"World","color":"gold"}]""",
-            ).generateMTLX()
+            ).generateMTLXTemplate().render()
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain "["
@@ -334,10 +334,10 @@ class TemplateGeneratorTest : FreeSpec({
         "translatable input should go to raw section with TODO" {
             val result = listOf(
                 """{"translate":"item.name"}""",
-            ).generateMTLX()
+            ).generateMTLXTemplate().render()
 
+            result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain MTLX.SEPARATOR_RAW
-            // Raw section uses |TODO| as placeholder right side
             result shouldContain """|{"translate":"item.name"}| ==> |TODO|"""
         }
 
@@ -346,7 +346,7 @@ class TemplateGeneratorTest : FreeSpec({
                 """{"text":"Hello"}""",
                 """{"translate":"item.name"}""",
                 """{"text":"World"}""",
-            ).generateMTLX()
+            ).generateMTLXTemplate().render()
 
             result shouldContain MTLX.SEPARATOR_MTL
             result shouldContain MTLX.SEPARATOR_RAW
@@ -361,7 +361,7 @@ class TemplateGeneratorTest : FreeSpec({
                 """{"text":"Hello"}""",
                 """{"text":"World"}""",
             )
-            val generated = input.generateMTLX()
+            val generated = input.generateMTLXTemplate().render()
 
             // Round-trip: parse the generated MTLX back
             val parsed = MTLX.fromString(generated)
@@ -381,7 +381,7 @@ class TemplateGeneratorTest : FreeSpec({
             val input = listOf(
                 """{"text":"A","extra":[{"text":"B"}]}""",
             )
-            val generated = input.generateMTLX()
+            val generated = input.generateMTLXTemplate().render()
 
             val parsed = MTLX.fromString(generated)
             parsed.mtlMappings.size shouldBe 1

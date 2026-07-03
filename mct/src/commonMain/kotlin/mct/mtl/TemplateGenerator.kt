@@ -2,12 +2,12 @@ package mct.mtl
 
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonElement
+import mct.kit.TranslationMapping
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
 import mct.text.TextCompound
 import mct.text.TextCompoundOneOrMany
 import mct.text.decodeToTextCompoundOneOrMany
-import mct.util.buildIndentedString
 import mct.util.formatir.toIR
 import net.benwoodworth.knbt.NbtTag
 
@@ -32,27 +32,19 @@ internal inline fun String.tryDecodeAsTextCompound() = runCatching {
 }
 
 
-fun Collection<String>.generateMTLX(): String {
-    val tmp = asSequence()
-        .map(String::tryDecodeAsTextCompound)
-        .map { it?.mtlize() }
-        .zip(asSequence())
-        .groupBy { (it, _) -> it != null }
-    return buildIndentedString {
-        append(MTLX.SEPARATOR_MTL)
-        appendLine()
-        tmp[true]?.forEach { (expr, _) ->
-            val mapping = MTLMapping(null, expr!!, MTLLiteral(null, "TODO"))
-            appendLines(mapping.render())
-            appendLine()
-        }
-        append(MTLX.SEPARATOR_RAW)
-        appendLine()
-        tmp[false]?.forEach { (_, raw) ->
-            append(raw.escapeMTLLiteral())
-            append(" ==> ")
-            append("|TODO|")
-            appendLine()
-        }
-    }
+fun Collection<String>.generateMTLXTemplate(placeholder: String = "TODO"): MTLX {
+    val placeholderExpr = MTLLiteral(null, placeholder)
+    val (_mtls, _raws) = asSequence()
+        .map { it.tryDecodeAsTextCompound()?.mtlize() ?: it }
+        .partition { it is MTLExpression }
+
+    @Suppress("UNCHECKED_CAST")
+    val mtls = _mtls.map { MTLMapping(null, it as MTLExpression, placeholderExpr) }
+
+    @Suppress("UNCHECKED_CAST")
+    val raws = _raws.associateWith { placeholder } as TranslationMapping
+    return MTLX(
+        mtlMappings = mtls,
+        rawMappings = raws
+    )
 }

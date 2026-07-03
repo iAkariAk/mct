@@ -27,7 +27,7 @@ import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
-import mct.mtl.generateMTLX
+import mct.mtl.generateMTLXTemplate
 import mct.mtl.translateByMTLX
 import mct.pointer.CustomizedDataPointerPattern
 import mct.serializer.MCTJson
@@ -145,9 +145,9 @@ private class MTLXKit : BaseCommand("mtlx", "MTLX Toolkit") {
         override suspend fun App() {
             val pool = poolPath.readJson<TranslationPool>()
             logger.info { "Pool has ${pool.size} entries" }
-            val mtlx = pool.generateMTLX()
-            logger.info { "Generated MTLX (${mtlx.length} chars)" }
-            output.writeText(mtlx)
+            val mtlx = pool.generateMTLXTemplate()
+            logger.info { "Generated MTLX (${mtlx.mtlMappings.size} mtls; ${mtlx.rawMappings.size} raws)" }
+            output.writeText(mtlx.render())
             logger.info { "Written to $output" }
         }
     }
