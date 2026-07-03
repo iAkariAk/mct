@@ -23,9 +23,10 @@ data class MTLX(
             require(rawStart != -1) { "Please add $SEPARATOR_RAW" }
             require(mtlStart < rawStart) { "mtl must be the front of raw" }
             val mtlStr = mtlx.substring(mtlStart + SEPARATOR_MTL.length + 1, rawStart)
-            val rawStr = mtlx.substring(rawStart + SEPARATOR_RAW.length + 1)
+            val rawStrStartIndex = rawStart + SEPARATOR_RAW.length + 1
+            val rawStr = if (rawStrStartIndex >= mtlx.length) null else mtlx.substring(rawStrStartIndex)
             val mtl = MTLPaser.parse(mtlStr).toList()
-            val raw = rawStr.lines().mapNotNull(::parseRaw).toMap()
+            val raw = rawStr?.lines()?.mapNotNull(::parseRaw)?.toMap() ?: emptyMap()
             return MTLX(mtl, raw)
         }
     }
