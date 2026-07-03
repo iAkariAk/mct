@@ -36,18 +36,22 @@ import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
 import mct.model.patch.*
+import mct.mtl.MTLX
+import mct.mtl.translateByMTLX
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.CustomizedDataPointerPattern
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.copyToRecursively
 import mct.util.io.readJson
+import mct.util.io.readText
 import mct.util.io.writeJson
 import okio.Path
 import okio.Path.Companion.toPath
 
-private const val REGION_CACHE = "region_extractions.json"
-private const val DATAPACK_CACHE = "datapack_extractions.json"
+private const val POOL_CACHE = "all_texts.json"
+private const val REGION_EXTRACTION_CACHE = "region_extractions.json"
+private const val DATAPACK_EXTRACTION_CACHE = "datapack_extractions.json"
 private const val MISSING = "missing.json"
 private const val REGION_REPLACEMENTS = "region_replacements.json"
 private const val DATAPACK_REPLACEMENTS = "datapack_replacements.json"
@@ -116,10 +120,12 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     }
     val srcDir = projectDir / "src"
     val missingFile = projectDir / MISSING
-    val regionFile by lazy { cache(REGION_CACHE) }
-    val datapackFile by lazy { cache(DATAPACK_CACHE) }
+    val poolFile by lazy { cache(POOL_CACHE) }
+    val regionExtractionFile by lazy { cache(REGION_EXTRACTION_CACHE) }
+    val datapackExtractionFile by lazy { cache(DATAPACK_EXTRACTION_CACHE) }
     val termsFile get() = projectDir / projectConfig.terms
     val mappingFile get() = projectDir / projectConfig.mappings
+    val mtlxFile get() = projectConfig.mtlx?.let { projectDir / it }
 
     context(_: Raise<MCTError>)
     fun workspace(dir: Path = srcDir): MCTWorkspace {
@@ -138,8 +144,8 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
 
     context(_: Raise<MCTError>)
     fun ensureExtracted() {
-        if (!fs.exists(regionFile) && !fs.exists(datapackFile)) {
-            panic("No extractions found in cache. Run 'project update' first.")
+        if (!fs.exists(regionExtractionFile) && !fs.exists(datapackExtractionFile) && !fs.exists(poolFile)) {
+            panic("No extractions found in cache. Run `project update` first.")
         }
     }
 
@@ -246,7 +252,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                         commandRegex = commandRegexPatterns
                     )
                 ).toList()
-                cache(REGION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                cache(REGION_EXTRACTION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 printlnGreen("Extracted " + bold("${groups.size}") + " groups from region")
                 groups
             }
@@ -259,12 +265,13 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
                         commandRegex = commandRegexPatterns
                     )
                 ).toList()
-                cache(DATAPACK_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                cache(DATAPACK_EXTRACTION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 printlnGreen("Extracted " + bold("${groups.size}") + " groups from datapack")
                 groups
             }
             (regionJob.await() + datapackJob.await()).exportIntoPool(simply = false)
         }
+        cache(POOL_CACHE).writeJson(pool, projectConfig.prettyJson)
         val missingPool = pool.filter { it !in existingMapping }
         if (missingPool.isNotEmpty()) {
             printlnYellow("Missing " + bold("${missingPool.size}") + " items (${pool.size} total extracted)")
@@ -333,12 +340,12 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         ensureExtracted()
 
         val extractionGroups = mutableListOf<ExtractionGroup>()
-        if (fs.exists(regionFile)) {
-            extractionGroups += regionFile.readJson<List<ExtractionGroup>>()
+        if (fs.exists(regionExtractionFile)) {
+            extractionGroups += regionExtractionFile.readJson<List<ExtractionGroup>>()
             printlnGreen("Loaded region extractions")
         }
-        if (fs.exists(datapackFile)) {
-            extractionGroups += datapackFile.readJson<List<ExtractionGroup>>()
+        if (fs.exists(datapackExtractionFile)) {
+            extractionGroups += datapackExtractionFile.readJson<List<ExtractionGroup>>()
             printlnGreen("Loaded datapack extractions")
         }
 
@@ -414,22 +421,34 @@ private class Build : ProjectCommand("build", "Build translated world") {
 
         val mappingFile = projectDir / projectConfig.mappings
         if (!fs.exists(mappingFile)) {
-            panic("No mapping found. Run 'project translate' first.")
+            panic("No mapping found. Run `project translate` first.")
         }
-        val mapping = mappingFile.readJson<TranslationMapping>()
+
+        val mapping = mappingFile.readJson<MutableMap<String, String?>>()
         terminal.println(
             cyan("Loaded mapping with ") + (cyan + bold)("${mapping.size}") + cyan(
                 " entries"
             )
         )
 
-        val regionGroups = if (fs.exists(regionFile)) {
-            regionFile.readJson<List<ExtractionGroup>>()
+        if (mtlxFile != null) {
+            val mtlx = MTLX.fromString(mtlxFile!!.readText())
+            printlnGreen("Compile ${bold(mtlx.mtlMappings.size.toString())} mtl items and ${bold(mtlx.rawMappings.size.toString())} raw item.")
+            val pool = poolFile.readJson<TranslationPool>()
+            val extraMapping = pool.translateByMTLX(mtlx).filterValues { it != null }
+            printlnGreen("Reinsert ${extraMapping.size} items by $mtlxFile")
+            mapping += extraMapping
+        }
+
+        cache("build_mappings.json").writeJson(mapping)
+
+        val regionGroups = if (fs.exists(regionExtractionFile)) {
+            regionExtractionFile.readJson<List<ExtractionGroup>>()
         } else {
             emptyList()
         }
-        val datapackGroups = if (fs.exists(datapackFile)) {
-            datapackFile.readJson<List<ExtractionGroup>>()
+        val datapackGroups = if (fs.exists(datapackExtractionFile)) {
+            datapackExtractionFile.readJson<List<ExtractionGroup>>()
         } else {
             emptyList()
         }

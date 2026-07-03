@@ -20,6 +20,9 @@ data class ProjectConfig(
     @TomlComments("Path to the translation mapping JSON file (source -> target)")
     val mappings: String = "mappings.json",
 
+    @TomlComments("Path to the MTLX file (default: null -> not to use MTLX")
+    val mtlx: String? = null,
+
     @TomlComments("Path to the term table JSON file")
     val terms: String = "terms.json",
 

@@ -22,4 +22,20 @@ class MTLXTest : FreeSpec({
         right.content shouldBe "Shimamura"
         mtlx.rawMappings shouldBe mapOf("Adachi" to "Shimamura")
     }
+
+    "MTLX replace" {
+        val mtlx = MTLX.fromString(
+            """
+                    ---mtl---
+                    # JSON Literal
+                    |Shimamura| ==> |岛村|
+                    ---raw---
+                    |Adachi| ==> |安达|
+                """.trimIndent()
+        )
+
+        val texts = setOf("Adachi", "Shimamura")
+        val mapping = texts.translateByMTLX(mtlx)
+        mapping shouldBe mapOf("Adachi" to "安达", "Shimamura" to "{\"text\":\"岛村\"}")
+    }
 })
