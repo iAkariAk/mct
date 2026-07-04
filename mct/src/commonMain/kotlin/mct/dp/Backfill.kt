@@ -12,7 +12,6 @@ import mct.nbt.transform
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
 import mct.serializer.NbtGzip
-import mct.serializer.NbtNone
 import mct.util.IO
 import mct.util.io.endsWith
 import mct.util.io.extension
@@ -83,7 +82,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                             val handled = origin.transform(ddrg) ?: origin
                             runCatching {
                                 val sink = getSink()
-                                NbtNone.encodeToSink(handled, sink)
+                                NbtGzip.encodeToSink(handled, sink)
                                 closeSink(sink)
                             }.getOrElse {
                                 logger.error { "Skip $path because Failed to encode: ${it.message}" }
