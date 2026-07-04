@@ -9,9 +9,9 @@ import io.kotest.matchers.shouldBe
 
 class DataPointerTest : FreeSpec({
     "codec test" - {
-        val testPointerString = ">#a>0>#b>#op&>="
+        val testPointerString = ">#a>0>#b>#op&>=&a&"
         val testPointer = DataPointer {
-            map("a", array(0, map("b", map("op>=", terminate()))))
+            map("a", array(0, map("b", map("op>=&a&", terminate()))))
         }
 
         "encodeToShould" {
@@ -19,6 +19,7 @@ class DataPointerTest : FreeSpec({
             withClue("Encode from $testPointer") {
                 testPointerString shouldBeEqual encoded
             }
+
         }
 
         "decodeFromString" - {
@@ -30,7 +31,7 @@ class DataPointerTest : FreeSpec({
                 }
             }
             "should work on continuous >" {
-                val testPointerString2 = ">>>>>>>>#a>0>>>>#b>>>>>>#op&>="
+                val testPointerString2 = ">>>>>>>>#a>0>>>>#b>>>>>>#op&>=&a&"
                 shouldNotRaise {
                     withClue("Decode from $testPointerString") {
                         DataPointer.decodeFromString(testPointerString2) shouldBeEqual testPointer

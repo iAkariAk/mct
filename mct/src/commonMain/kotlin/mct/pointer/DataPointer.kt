@@ -106,22 +106,25 @@ fun DataPointer.Companion.decodeFromString(str: String): DataPointer {
     val segments = mutableListOf<String>()
 
     var lastIsAmp = false
-    val chars = str.toCharArray()
     val buffer = StringBuilder()
-    for (i in chars.indices) {
-        val c = chars[i]
+    for (i in str.indices) {
+        val c = str[i]
         if (lastIsAmp) {
             if (c == '>') {
-                lastIsAmp = false
                 buffer.append(c)
             } else {
-                lastIsAmp = false
                 buffer.append('&')
+                buffer.append(c)
             }
+            lastIsAmp = false
             continue
         }
 
         if (c == '&') {
+            if (i == str.lastIndex) {
+                buffer.append('&')
+                break
+            }
             lastIsAmp = true
             continue
         }
