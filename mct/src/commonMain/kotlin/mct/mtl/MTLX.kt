@@ -35,7 +35,8 @@ data class MTLX(
         append(SEPARATOR_MTL)
         appendLine()
         mtlMappings.forEach { m ->
-            appendLines(m.render())
+            m.renderAppendTo(this)
+            appendLine()
             appendLine()
         }
         append(SEPARATOR_RAW)

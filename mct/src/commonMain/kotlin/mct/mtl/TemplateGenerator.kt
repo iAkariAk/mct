@@ -39,7 +39,7 @@ fun Collection<String>.generateMTLXTemplate(placeholder: String = "TODO"): MTLX 
         .partition { it is MTLExpression }
 
     @Suppress("UNCHECKED_CAST")
-    val mtls = _mtls.map { MTLMapping(null, it as MTLExpression, placeholderExpr) }
+    val mtls = _mtls.map { MTLMapping(null, it as MTLExpression, it.replaceWith(placeholderExpr)) }
 
     @Suppress("UNCHECKED_CAST")
     val raws = _raws.associateWith { placeholder } as TranslationMapping
@@ -47,4 +47,10 @@ fun Collection<String>.generateMTLXTemplate(placeholder: String = "TODO"): MTLX 
         mtlMappings = mtls,
         rawMappings = raws
     )
+}
+
+private fun MTLExpression.replaceWith(placeholder: MTLLiteral): MTLExpression = when (this) {
+    is MTLList -> copy(exprs = exprs.map { it.replaceWith(placeholder) })
+    is MTLLiteral -> placeholder
+    is MTLPair -> copy(left = left.replaceWith(placeholder), right = right.replaceWith(placeholder))
 }

@@ -16,23 +16,24 @@ class IndentStringBuilder(
     }
 
     fun appendIndent() = apply {
-        if (level > 0) sb.append(indent.repeat(level))
+        if (level > 0) repeat(level) { sb.append(indent) }
     }
 
     fun append(char: Char) = apply {
-        appendIndent()
         sb.append(char)
     }
 
     fun append(str: CharSequence) = apply {
-        appendIndent()
         sb.append(str)
     }
 
-    fun appendLine() = apply { sb.appendLine() }
-    fun appendLine(str: CharSequence) = apply {
+    fun appendLine() = apply {
+        sb.appendLine()
         appendIndent()
+    }
+    fun appendLine(str: CharSequence) = apply {
         sb.appendLine(str)
+        appendIndent()
     }
 
     fun appendLines(str: CharSequence) = apply {
@@ -53,13 +54,13 @@ inline fun IndentStringBuilder.withIndent(block: IndentStringBuilder.() -> Unit)
 inline fun IndentStringBuilder.withBlock(
     start: String,
     end: String,
-    appendTail: Boolean = true,
     block: IndentStringBuilder.() -> Unit
 ) {
-    append(start)
+    indent()
+    appendLine(start)
+    block()
+    unindent()
     appendLine()
-    withIndent(block)
-    if (appendTail) appendLine()
     append(end)
 }
 

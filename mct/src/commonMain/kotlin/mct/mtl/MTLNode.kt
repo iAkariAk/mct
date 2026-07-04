@@ -3,44 +3,52 @@ package mct.mtl
 import mct.text.TextCompoundOneOrMany
 import mct.text.many
 import mct.text.one
-import mct.util.buildIndentedString
+import mct.util.IndentStringBuilder
 import mct.util.withBlock
 
 sealed interface MTLNode {
     val indices: IntRange?
 
-    fun render(): String
+    fun renderAppendTo(builder: IndentStringBuilder)
 }
 
 sealed interface MTLExpression : MTLNode
 
 data class MTLLiteral(override val indices: IntRange?, val content: String) : MTLExpression {
-    override fun render() = content.wrappedMTLLiteral()
+    override fun renderAppendTo(builder: IndentStringBuilder): Unit = builder.run {
+        append(content.wrappedMTLLiteral())
+    }
 }
 
 data class MTLList(override val indices: IntRange?, val exprs: List<MTLExpression>) : MTLExpression {
-    override fun render() = buildIndentedString {
-        withBlock("[", "]", appendTail = false) {
-            exprs.forEach { e ->
-                appendLine(e.render())
+    override fun renderAppendTo(builder: IndentStringBuilder): Unit = builder.run {
+        withBlock("[", "]") {
+            exprs.forEachIndexed { index, expression  ->
+                expression.renderAppendTo(this)
+                if (index != exprs.lastIndex) appendLine()
             }
         }
     }
 }
 
 data class MTLPair(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) : MTLExpression {
-    override fun render() = buildIndentedString {
+    override fun renderAppendTo(builder: IndentStringBuilder): Unit = builder.run {
         withBlock("(", ")") {
-            append(left.render())
+            left.renderAppendTo(this)
             appendLine()
-            append(right.render())
+            right.renderAppendTo(this)
         }
     }
 }
 
 data class MTLMapping(override val indices: IntRange?, val left: MTLExpression, val right: MTLExpression) :
     MTLNode {
-    override fun render() = "${left.render()} ==> ${right.render()}"
+    override fun renderAppendTo(builder: IndentStringBuilder): Unit = builder.run {
+        appendIndent()
+        left.renderAppendTo(this)
+        append(" ==> ")
+        right.renderAppendTo(this)
+    }
 }
 
 typealias MTLMappings = List<MTLMapping>
@@ -48,7 +56,9 @@ typealias MTLMappings = List<MTLMapping>
 fun MTLMapping.isConsistent() = left.isConsistentBetweenWith(right)
 
 fun MTLExpression.isConsistentBetweenWith(other: MTLExpression): Boolean = when (this) {
-    is MTLList if other is MTLList -> exprs.size == other.exprs.size && exprs.zip(other.exprs).all { (l, r) -> l.isConsistentBetweenWith(r) }
+    is MTLList if other is MTLList -> exprs.size == other.exprs.size && exprs.zip(other.exprs)
+        .all { (l, r) -> l.isConsistentBetweenWith(r) }
+
     is MTLPair if other is MTLPair -> left.isConsistentBetweenWith(other.left) && right.isConsistentBetweenWith(
         other.right
     )
@@ -63,8 +73,9 @@ fun MTLMappings.find(text: TextCompoundOneOrMany): MTLMapping? = find { mapping 
 
 fun TextCompoundOneOrMany.matches(expr: MTLExpression): Boolean = when (this) {
     is One -> (expr is MTLLiteral && value is Plain && value.extra.isEmpty() && value.text == expr.content)
-            || (expr is MTLPair && expr.left is MTLLiteral && value is Plain && expr.left.content == value.text && value.extra.many().matches(expr.right))
+            || (expr is MTLPair && expr.left is MTLLiteral && value is Plain && expr.left.content == value.text && value.extra.many()
+        .matches(expr.right))
 
-    is Many -> expr is MTLList && value.size == expr.exprs.size &&  value.zip(expr.exprs)
+    is Many -> expr is MTLList && value.size == expr.exprs.size && value.zip(expr.exprs)
         .all { (actual, expected) -> actual.one().matches(expected) }
 }
