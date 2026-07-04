@@ -57,7 +57,7 @@ abstract class RegionManager<T : Region>(
     fun modifyRegions(modify: (T) -> T) {
         regions().forEach {
             logger.debug { "Save region(${it.regionX}, ${it.regionZ})" }
-            save(Coord(it.regionX, it.regionZ), it)
+            save(Coord(it.regionX, it.regionZ), modify(it))
         }
     }
 
