@@ -1,5 +1,7 @@
 package mct.util
 
+import kotlin.math.roundToInt
+
 private val ESCAPE_REGEX = """\\(.)""".toRegex2()
 
 fun String.unescaped() = ESCAPE_REGEX.replace(this) {
@@ -70,4 +72,18 @@ fun String.substringAfterOrNull(delimiter: Char): String? {
 fun String.substringAfterOrNull(delimiter: String): String? {
     val index = indexOf(delimiter)
     return if (index == -1) null else substring(index + 1, length)
+}
+
+fun StringBuilder.appendEscaped(string: CharSequence) {
+    ensureCapacity(length + (string.length * 1.1).roundToInt())
+
+    for (ch in string) {
+        when (ch) {
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            '\\' -> append("\\\\")
+            else -> append(ch)
+        }
+    }
 }

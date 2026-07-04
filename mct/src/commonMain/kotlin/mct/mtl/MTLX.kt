@@ -42,7 +42,7 @@ data class MTLX(
         append(SEPARATOR_RAW)
         appendLine()
         rawMappings.forEach { (raw, new) ->
-            append(raw.wrappedMTLLiteral())
+            appendEscaped(raw.wrappedMTLLiteral())
             append(" ==> ")
             append((new ?: raw).wrappedMTLLiteral())
             appendLine()

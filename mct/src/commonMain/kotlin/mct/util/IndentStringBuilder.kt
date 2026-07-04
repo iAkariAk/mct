@@ -27,10 +27,15 @@ class IndentStringBuilder(
         sb.append(str)
     }
 
+    fun appendEscaped(str: CharSequence) = apply {
+        sb.appendEscaped(str)
+    }
+
     fun appendLine() = apply {
         sb.appendLine()
         appendIndent()
     }
+
     fun appendLine(str: CharSequence) = apply {
         sb.appendLine(str)
         appendIndent()
