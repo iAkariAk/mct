@@ -40,7 +40,7 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
                             }.toReplacementGroups()
                             val chunk = chunks[index] ?: return@forEach
                             chunks[index] = chunk.modify {
-                                it.transform(ddrg) ?: it
+                                it?.transform(ddrg) ?: it
                             }
                         }
                     region.modifyChunks(chunks)

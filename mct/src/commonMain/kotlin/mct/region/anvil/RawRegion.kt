@@ -2,13 +2,10 @@
 
 package mct.region.anvil
 
-import kotlinx.serialization.decodeFromByteArray
 import mct.region.anvil.ChunkOffset.Companion.ChunkOffset
 import mct.region.anvil.RawRegion.Companion.SECTOR_SIZE
 import mct.region.anvil.Region.Companion.CHUNK_COUNT
 import mct.util.divCeil
-import mct.util.flatten
-import net.benwoodworth.knbt.NbtTag
 import okio.FileHandle
 import okio.IOException
 import okio.buffer
@@ -39,9 +36,9 @@ class RawRegion internal constructor(
             }
             val chunks = List(CHUNK_COUNT) { index ->
                 val offset = offsets[index]
-                if (offset.isEmpty()) return@List RawChunk.NonLazyNull
+                if (offset.isEmpty()) return@List null
                 val fileOffset = offset.sectorOffset.toLong() * SECTOR_SIZE
-                if (fileOffset >= handle.size()) return@List RawChunk.NonLazyNull
+                if (fileOffset >= handle.size()) return@List null
 
                 handle.source(fileOffset).buffer().use { source ->
                     val size =
@@ -59,21 +56,14 @@ class RawRegion internal constructor(
                     val bytes = try {
                         source.readByteArray(size.toLong() - 1)
                     } catch (_: IOException) {
-                        return@List RawChunk.NonLazyNull
+                        return@List null
                     }
 
                     // padding: min(handle.size() - handle.position(source), actualSectorByteCount - usedSize)
 
-                    lazy {
-                        val data = try {
-                            nbtSerializer.decodeFromByteArray<NbtTag>(bytes)
-                        } catch (_: IOException) {
-                            return@lazy null
-                        }
-                        RawChunk(index, compressKind, data, bytes)
-                    }
+                    RawChunk(index, compressKind, bytes)
                 }
-            }.flatten()
+            }
             return RawRegion(
                 regionX,
                 regionZ,

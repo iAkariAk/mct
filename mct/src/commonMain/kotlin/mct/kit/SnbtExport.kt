@@ -19,7 +19,14 @@ suspend fun MCTWorkspace.exportRegionSnbt(outputDir: Path) = coroutineScope {
                     val target = dir / ("${region.inferFilename()}.txt")
                     fs.write(target) {
                         val output = region.chunks.withIndex().joinToString("\n\n") { (index, chunk) ->
-                            val data = chunk?.data?.toSnbt(true) ?: "<empty_chunk>"
+                            val data = chunk?.data?.fold(
+                                ifLeft = { e ->
+                                    e.printStackTrace()
+                                },
+                                ifRight = { data ->
+                                    data.toSnbt(true)
+                                }
+                            ) ?: "<empty_chunk>"
                             "Index $index:\n$data"
                         }
                         writeUtf8(output)

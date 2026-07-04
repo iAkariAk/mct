@@ -61,6 +61,8 @@ class LazyList<T>(private val wrapper: List<Lazy<T>>) : List<T> {
     override fun lastIndexOf(element: T) = wrapper.indexOfLast { it.value == element }
 
     override fun subList(fromIndex: Int, toIndex: Int) = LazyList(wrapper.subList(fromIndex, toIndex))
+
+    fun isInitialized(index: Int) = wrapper[index].isInitialized()
 }
 
 inline fun <T> List<Lazy<T>>.flatten(): LazyList<T> = LazyList(this)

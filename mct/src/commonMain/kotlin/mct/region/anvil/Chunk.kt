@@ -1,6 +1,8 @@
 package mct.region.anvil
 
+import arrow.core.Either
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.serializer
 import mct.region.anvil.model.ChunkData
@@ -17,8 +19,7 @@ sealed interface Chunk
 class RawChunk(
     val index: Int,
     val compressKind: Byte,
-    val data: NbtTag,
-    internal val rawData: ByteArray,
+    val rawData: ByteArray,
 ) : Chunk {
     companion object {
         const val COMPRESS_GZIP: Byte = 1
@@ -51,10 +52,17 @@ class RawChunk(
 
     val nbtSerializer get() = getNbtSerializer(compressKind)
 
-    inline fun modify(modify: (NbtTag) -> NbtTag): RawChunk {
-        val modified = modify(data)
+    val data by lazy {
+        Either.catch {
+            nbtSerializer.decodeFromByteArray<NbtTag>(rawData)
+        }
+    }
+
+    inline fun modify(modify: (NbtTag?) -> NbtTag?): RawChunk {
+        val modified = modify(data.getOrNull())
         if (modified === data) return this
-        return RawChunk(index, compressKind, modified, nbtSerializer.encodeToByteArray(modified))
+        val modifiedBytes = modified?.let(nbtSerializer::encodeToByteArray) ?: rawData
+        return RawChunk(index, compressKind, modifiedBytes)
     }
 
     fun writeTo(sink: BufferedSink): Long {
@@ -71,12 +79,12 @@ class RawChunk(
 
 class ParsedChunk<T : ChunkData> private constructor(
     val raw: RawChunk,
-    val decodedData: T,
+    val decodedData: T?,
     internal val dataDeserializer: KSerializer<T>,
 ) : Chunk {
     constructor(raw: RawChunk, dataDeserializer: KSerializer<T>) : this(
         raw,
-        raw.nbtSerializer.decodeFromNbtTag(dataDeserializer, raw.data),
+        raw.data.getOrNull()?.let { raw.nbtSerializer.decodeFromNbtTag(dataDeserializer, it) },
         dataDeserializer
     )
 
@@ -86,10 +94,12 @@ class ParsedChunk<T : ChunkData> private constructor(
     }
 
 
-    fun modify(modify: (T) -> T): ParsedChunk<T> {
+    fun modify(modify: (T?) -> T?): ParsedChunk<T> {
         val new = modify(decodedData)
         val modifiedChunk = raw.modify {
-            raw.nbtSerializer.encodeToNbtTag(dataDeserializer, new)
+            new?.let {
+                raw.nbtSerializer.encodeToNbtTag(dataDeserializer, new)
+            }
         }
         return ParsedChunk(modifiedChunk, new, dataDeserializer)
     }

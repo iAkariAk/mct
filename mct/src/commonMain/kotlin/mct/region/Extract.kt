@@ -31,9 +31,17 @@ fun MCTWorkspace.extractFromRegion(
                     val extractions = region.chunks.asSequence()
                         .filterNotNull()
                         .flatMap { chunk ->
-                            chunk.data.extractTexts(pattern).map {
-                                RegionExtraction(index = chunk.index, nbt = it)
-                            }
+                            chunk.data.fold(
+                                ifLeft = {
+                                    logger.error { "Cannot decode data from $dimension/$kind/${region.inferFilename()}: ${it.message}" }
+                                    emptySequence()
+                                },
+                                ifRight = { data ->
+                                    data.extractTexts(pattern).map {
+                                        RegionExtraction(index = chunk.index, nbt = it)
+                                    }
+                                }
+                            )
                         }
                     flowOf(
                         RegionExtractionGroup(
