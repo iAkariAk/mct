@@ -3,9 +3,12 @@ package mct.text
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import mct.util.isJson
+import mct.util.isSnbt
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
+import mct.util.surroundedBy
 import mct.util.toRegex2
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
@@ -86,4 +89,13 @@ internal fun List<*>.isTextCompound(): Boolean = all {
 //  }
 //],
 internal fun Map<String, *>.isTextCompoundShorthanded() =
-    "text" !in this && (this[""]?.let { it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString)  } ?: false)
+    "text" !in this && (this[""]?.let { it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
+        ?: false)
+
+fun String.isTextCompoundSnbt() = trim().run {
+    surroundedBy('"') || surroundedBy('\'') || surroundedBy('[', ']') || surroundedBy('{', '}')
+} && isSnbt()
+
+fun String.isTextCompoundJson() = trim().run {
+    surroundedBy('"') || surroundedBy('[', ']') || surroundedBy('{', '}')
+} && isJson()

@@ -2,7 +2,12 @@ package mct.model.patch
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.util.*
+import mct.text.isTextCompoundJson
+import mct.text.isTextCompoundSnbt
+import mct.util.doubleQuoted
+import mct.util.doubleUnquoted
+import mct.util.singleQuoted
+import mct.util.singleUnquoted
 
 
 @Serializable
@@ -35,7 +40,7 @@ enum class FormatKind {
     SnbtStr,
 
     @SerialName("json_str")
-    JsonStr, // includes plain text without quote
+    JsonStr, // includes plain text without quote, i.e. JsonLiteral
 
     @SerialName("json_obj")
     JsonObj, // refer to MCJson
@@ -84,10 +89,8 @@ fun FormatKind.isString(): Boolean =
 fun FormatKind.isStructure(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
-    Nbt -> value.isSnbt()
-    SnbtStr -> value.isSnbt()
-    JsonStr -> value.isJson()
-    JsonObj -> value.isJson()
+    Nbt, SnbtStr -> value.isTextCompoundSnbt()
+    JsonObj, JsonStr -> value.isTextCompoundJson()
     PlainStr -> true
 }
 

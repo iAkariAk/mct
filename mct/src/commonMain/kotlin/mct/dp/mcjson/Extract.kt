@@ -11,8 +11,8 @@ import mct.dp.MCJsonExtractError
 import mct.model.patch.FormatKind
 import mct.pointer.*
 import mct.text.isTextCompound
+import mct.text.isTextCompoundJson
 import mct.text.isTextCompoundShorthanded
-import mct.util.isJson
 import mct.util.toJson
 import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
@@ -78,7 +78,7 @@ private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> 
     is JsonPrimitive if isString -> sequenceOf(
         PointerWithExtension(
             DataPointer.Terminator, content, when {
-                content.isJson() -> FormatKind.JsonStr
+                content.isTextCompoundJson() -> FormatKind.JsonStr
                 else -> FormatKind.PlainStr
             }
         )

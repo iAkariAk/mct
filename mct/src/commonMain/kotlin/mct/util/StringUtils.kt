@@ -49,6 +49,13 @@ fun String.doubleUnquoted(): String {
     return substring(1, length - 1).unescaped()
 }
 
+fun String.surroundedBy(first: Char, last: Char): Boolean =
+    length >= 2 && startsWith(first) && endsWith(last)
+
+fun String.surroundedBy(first: String, last: String): Boolean =
+    length >= first.length + last.length && startsWith(first) && endsWith(last)
+
+
 fun String.surroundedBy(separator: Char): Boolean =
     length >= 2 && startsWith(separator) && endsWith(separator)
 
