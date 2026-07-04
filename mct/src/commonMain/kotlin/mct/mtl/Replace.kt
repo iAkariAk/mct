@@ -59,8 +59,10 @@ internal fun TextCompound.replace(expr: MTLExpression): TextCompound {
         replaceText(expr.content)
     } else {
         require(expr is MTLPair) { "expr should be MTLPair" }
+        require(expr.left is MTLLiteral) { "expr.left should be MTLLiteral" }
         require(expr.right is MTLList) { "expr.right should be MTLList" }
-        substituteExtra(extra.zip(expr.right.exprs).map { (orig, expr) -> orig.replace(expr) })
+        require(extra.size == expr.right.exprs.size)
+        substitute(expr.left.content, extra.zip(expr.right.exprs).map { (orig, expr) -> orig.replace(expr) })
     }
 }
 

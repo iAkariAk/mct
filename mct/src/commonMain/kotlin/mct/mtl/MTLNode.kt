@@ -48,7 +48,7 @@ typealias MTLMappings = List<MTLMapping>
 fun MTLMapping.isConsistent() = left.isConsistentBetweenWith(right)
 
 fun MTLExpression.isConsistentBetweenWith(other: MTLExpression): Boolean = when (this) {
-    is MTLList if other is MTLList -> exprs.zip(other.exprs).all { (l, r) -> l.isConsistentBetweenWith(r) }
+    is MTLList if other is MTLList -> exprs.size == other.exprs.size && exprs.zip(other.exprs).all { (l, r) -> l.isConsistentBetweenWith(r) }
     is MTLPair if other is MTLPair -> left.isConsistentBetweenWith(other.left) && right.isConsistentBetweenWith(
         other.right
     )
@@ -62,9 +62,9 @@ fun MTLMappings.find(text: TextCompoundOneOrMany): MTLMapping? = find { mapping 
 }
 
 fun TextCompoundOneOrMany.matches(expr: MTLExpression): Boolean = when (this) {
-    is One -> (expr is MTLLiteral && value is Plain && value.extra.isEmpty() && value.text == expr.content) || (expr is MTLPair && value.extra.many()
-        .matches(expr.right))
+    is One -> (expr is MTLLiteral && value is Plain && value.extra.isEmpty() && value.text == expr.content)
+            || (expr is MTLPair && expr.left is MTLLiteral && value is Plain && expr.left.content == value.text && value.extra.many().matches(expr.right))
 
-    is Many -> expr is MTLList && value.zip(expr.exprs)
+    is Many -> expr is MTLList && value.size == expr.exprs.size &&  value.zip(expr.exprs)
         .all { (actual, expected) -> actual.one().matches(expected) }
 }

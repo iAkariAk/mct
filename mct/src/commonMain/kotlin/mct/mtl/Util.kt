@@ -18,8 +18,12 @@ internal fun String.unwrappedMTLLiteral() = buildString {
     while (i < raw.lastIndex) {
         val ch = raw[i]
         if (ch == '&') {
-            i += 1
-            continue
+            if (i + 1 < raw.lastIndex) {
+                val next = raw[i + 1]
+                append(next)
+                i += 2
+                continue
+            }
         }
         append(ch)
         i++
@@ -32,8 +36,12 @@ internal fun String.unescapedMTLLiteral() = buildString {
     while (i < raw.length) {
         val ch = raw[i]
         if (ch == '&') {
-            i += 1
-            continue
+            if (i + 1 < raw.length) {
+                val next = raw[i + 1]
+                append(next)
+                i += 2
+                continue
+            }
         }
         append(ch)
         i++
