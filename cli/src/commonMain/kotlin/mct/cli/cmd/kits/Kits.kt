@@ -354,7 +354,7 @@ private class AITranslate : AICommand(
 
         logger.info { "Starting translation..." }
         val mapping = translator.translate(extractionGroups, caches, concurrentByKind) { terms, salvaged ->
-            mappingOutput.writeJson(salvaged)
+            mappingOutput.writeJson(caches + salvaged)
             termOutput.writeJson(terms)
         }
         val replacements = extractionGroups.replace(mapping)

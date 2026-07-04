@@ -292,7 +292,7 @@ suspend fun runTranslation(
             val replacements = extractionGroups.replace(mapping)
 
             output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
-            mappingOutput.toPath().writeJson(mapping, pretty = GuiSettings.prettyOutput)
+            mappingOutput.toPath().writeJson(caches + mapping, pretty = GuiSettings.prettyOutput)
             termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
 
             env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
