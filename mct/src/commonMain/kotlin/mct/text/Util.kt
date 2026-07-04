@@ -86,4 +86,4 @@ internal fun List<*>.isTextCompound(): Boolean = all {
 //  }
 //],
 internal fun Map<String, *>.isTextCompoundShorthanded() =
-    "text" !in this && (this[""]?.let { it is NbtString || it is SnbtString } ?: false)
+    "text" !in this && (this[""]?.let { it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString)  } ?: false)
