@@ -27,14 +27,15 @@ private class LockedFileSystem(private val delegate: FileSystem) : FileSystem() 
 
     override fun listOrNull(dir: Path): List<Path>? = synchronized(mark) { delegate.listOrNull(dir) }
 
-    override fun openReadOnly(file: Path): FileHandle = synchronized(mark) { delegate.openReadOnly(file) }
+    override fun openReadOnly(file: Path): LockedFileHandle =
+        synchronized(mark) { LockedFileHandle(mark, delegate.openReadOnly(file)) }
 
 
     override fun openReadWrite(
         file: Path,
         mustCreate: Boolean,
         mustExist: Boolean,
-    ): FileHandle = synchronized(mark) { delegate.openReadWrite(file, mustCreate, mustExist) }
+    ): LockedFileHandle = synchronized(mark) { LockedFileHandle(mark, delegate.openReadWrite(file, mustCreate, mustExist)) }
 
     override fun source(file: Path): Source = synchronized(mark) { delegate.source(file) }
 
@@ -55,5 +56,30 @@ private class LockedFileSystem(private val delegate: FileSystem) : FileSystem() 
         synchronized(mark) { delegate.createSymlink(source, target) }
 
     override fun close() = synchronized(mark) { delegate.close() }
+}
+
+private class LockedFileHandle(private val mark: SynchronizedObject, private val delegate: FileHandle) :
+    FileHandle(delegate.readWrite) {
+    override fun protectedRead(
+        fileOffset: Long,
+        array: ByteArray,
+        arrayOffset: Int,
+        byteCount: Int
+    ): Int = synchronized(mark) { delegate.read(fileOffset, array, arrayOffset, byteCount) }
+
+    override fun protectedWrite(
+        fileOffset: Long,
+        array: ByteArray,
+        arrayOffset: Int,
+        byteCount: Int
+    ) = synchronized(mark) { delegate.write(fileOffset, array, arrayOffset, byteCount) }
+
+    override fun protectedFlush() = synchronized(mark) { delegate.flush() }
+
+    override fun protectedResize(size: Long) = synchronized(mark) { delegate.resize(size) }
+
+    override fun protectedSize(): Long = synchronized(mark) { delegate.size() }
+
+    override fun protectedClose() = synchronized(mark) { delegate.close() }
 
 }
