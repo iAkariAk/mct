@@ -21,7 +21,7 @@ context(_: LoggerHolder)
 internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
     extractTextsByPointer().mapNotNull { (pointer, content, kind, type) ->
         when (type) {
-            PointerWithExtension.Type.Command ->
+            Command ->
                 NbtExtraction.Command(
                     pointer = pointer,
                     raw = content,
@@ -36,7 +36,7 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                         )
                     } ?: return@mapNotNull null)
 
-            PointerWithExtension.Type.Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(pointer, kind, content)
+            Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(pointer, kind, content)
 
             else -> null
         }
@@ -47,7 +47,7 @@ private data class PointerWithExtension(
     val pointer: DataPointer,
     val content: String,
     val kind: FormatKind,
-    val type: Type = Type.Text,
+    val type: Type = Text,
 ) {
     enum class Type {
         Command, Text
@@ -84,7 +84,7 @@ private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = whe
                 DataPointer.Map("Command", DataPointer.Terminator),
                 value.value,
                 FormatKind.PlainStr,
-                PointerWithExtension.Type.Command
+                Command
             )
             return@flatMap sequenceOf(pwe)
         }

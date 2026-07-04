@@ -29,22 +29,22 @@ class SnbtLexer(private val string: String) {
 
     fun nextToken(): SnbtToken {
         skipWhitespace()
-        if (index >= string.length) return SnbtToken(SnbtTokenType.EOF, string.length..<string.length)
+        if (index >= string.length) return SnbtToken(EOF, string.length..<string.length)
 
         val ch = peek()!!
         return when (ch) {
             '"', '\'' -> readString(ch)
             '.' -> if (peek(1)?.isDigit() ?: false) readNumber() else readLiteral()
             '-', in '0'..'9' -> readNumber()
-            ',' -> singleChar(SnbtTokenType.COMMA)
-            ':' -> singleChar(SnbtTokenType.COLON)
-            ';' -> singleChar(SnbtTokenType.SEMICOLON)
-            '{' -> singleChar(SnbtTokenType.L_BRACE)
-            '}' -> singleChar(SnbtTokenType.R_BRACE)
-            '[' -> singleChar(SnbtTokenType.L_BRACKET)
-            ']' -> singleChar(SnbtTokenType.R_BRACKET)
-            '(' -> singleChar(SnbtTokenType.L_PAREN)
-            ')' -> singleChar(SnbtTokenType.R_PAREN)
+            ',' -> singleChar(COMMA)
+            ':' -> singleChar(COLON)
+            ';' -> singleChar(SEMICOLON)
+            '{' -> singleChar(L_BRACE)
+            '}' -> singleChar(R_BRACE)
+            '[' -> singleChar(L_BRACKET)
+            ']' -> singleChar(R_BRACKET)
+            '(' -> singleChar(L_PAREN)
+            ')' -> singleChar(R_PAREN)
             else -> if (ch.isIdentifier()) {
                 readLiteral()
             } else parseError("Unknown char: $ch")
@@ -59,7 +59,7 @@ class SnbtLexer(private val string: String) {
             if (ch.isIdentifierOrDigit()) index++ else break
         }
 
-        return SnbtToken(SnbtTokenType.LITERAL, start..<index)
+        return SnbtToken(LITERAL, start..<index)
     }
 
     private fun readString(boundary: Char): SnbtToken {
@@ -86,7 +86,7 @@ class SnbtLexer(private val string: String) {
             }
 
             if (ch == boundary) {
-                return SnbtToken(SnbtTokenType.STRING, start..<index)
+                return SnbtToken(STRING, start..<index)
             }
         }
 
@@ -106,7 +106,7 @@ class SnbtLexer(private val string: String) {
                 break
             }
         }
-        return SnbtToken(SnbtTokenType.NUMBER, start..<index)
+        return SnbtToken(NUMBER, start..<index)
     }
 }
 

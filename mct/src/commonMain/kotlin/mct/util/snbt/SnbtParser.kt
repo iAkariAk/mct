@@ -34,11 +34,11 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
 
     private fun parseTag(metadata: Metadata? = null): SnbtTag {
         val tag = when (currentToken!!.type) {
-            SnbtTokenType.STRING -> parseString()
-            SnbtTokenType.L_BRACE -> parseCompound()
-            SnbtTokenType.L_BRACKET -> parseList()
-            SnbtTokenType.NUMBER -> parseNumber(metadata)
-            SnbtTokenType.LITERAL -> parseIdentifier()
+            STRING -> parseString()
+            L_BRACE -> parseCompound()
+            L_BRACKET -> parseList()
+            NUMBER -> parseNumber(metadata)
+            LITERAL -> parseIdentifier()
             else -> illegalToken("Unexpected token ${currentToken!!.type} at ${currentToken!!.indices}")
         }
         return tag
@@ -125,12 +125,12 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
         val numStr = raw.dropLast(1).replace("_", "")
         if (expectedType != null && inferredType != null && expectedType != inferredType) parseError("Expected $expectedType, got $inferredType")
         val num = when (inferredType) {
-            SnbtType.BYTE -> SnbtByte(currentToken!!.indices, numStr.toByte())
-            SnbtType.SHORT -> SnbtShort(currentToken!!.indices, numStr.toShort())
-            SnbtType.INT -> SnbtInt(currentToken!!.indices, numStr.toInt())
-            SnbtType.LONG -> SnbtLong(currentToken!!.indices, numStr.toLong())
-            SnbtType.FLOAT -> SnbtFloat(currentToken!!.indices, numStr.toFloat())
-            SnbtType.DOUBLE -> SnbtDouble(currentToken!!.indices, numStr.toDouble())
+            BYTE -> SnbtByte(currentToken!!.indices, numStr.toByte())
+            SHORT -> SnbtShort(currentToken!!.indices, numStr.toShort())
+            INT -> SnbtInt(currentToken!!.indices, numStr.toInt())
+            LONG -> SnbtLong(currentToken!!.indices, numStr.toLong())
+            FLOAT -> SnbtFloat(currentToken!!.indices, numStr.toFloat())
+            DOUBLE -> SnbtDouble(currentToken!!.indices, numStr.toDouble())
             null -> {
                 val cleaned = raw.replace("_", "")
                 val parsed = tryParseNumber(cleaned, currentToken!!.indices, expectedType)
@@ -151,12 +151,12 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
             else numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
                 ?: numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
         else when (type) {
-            SnbtType.BYTE -> numStr.toByteOrNull()?.let(::SnbtByte.partially1(indices))
-            SnbtType.SHORT -> numStr.toShortOrNull()?.let(::SnbtShort.partially1(indices))
-            SnbtType.INT -> numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
-            SnbtType.LONG -> numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
-            SnbtType.FLOAT -> numStr.toFloatOrNull()?.let(::SnbtFloat.partially1(indices))
-            SnbtType.DOUBLE -> numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
+            BYTE -> numStr.toByteOrNull()?.let(::SnbtByte.partially1(indices))
+            SHORT -> numStr.toShortOrNull()?.let(::SnbtShort.partially1(indices))
+            INT -> numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
+            LONG -> numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
+            FLOAT -> numStr.toFloatOrNull()?.let(::SnbtFloat.partially1(indices))
+            DOUBLE -> numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
             else -> null
         }
 

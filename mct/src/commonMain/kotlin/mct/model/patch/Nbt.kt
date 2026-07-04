@@ -47,6 +47,7 @@ sealed interface NbtExtraction {
 
         inline fun replace(replace: (List<String>) -> List<String?>): NbtReplacement.Command {
             val replacements = replace(locations.map { it.unquoted() })
+            require(locations.size == replacements.size) { "locations.size should equal replacements.size" }
             return NbtReplacement.Command(
                 pointer,
                 locations.asSequence()

@@ -11,7 +11,6 @@ import mct.model.patch.RegionReplacementGroup
 import mct.nbt.transform
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
-import mct.region.anvil.model.ChunkDataKind
 import mct.util.IO
 
 context(_: Raise<BackfillError>)
@@ -21,9 +20,9 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
         val dimension = dimensions[group.dimension]
             ?: raise(BackfillError.DimensionNotFound(group.dimension))
         val mgr = when (group.kind) {
-            ChunkDataKind.Terrain -> dimension.regionRawMgr
-            ChunkDataKind.Entities -> dimension.entitiesRawMgr
-            ChunkDataKind.Poi -> dimension.poiRawMgr
+            Terrain -> dimension.regionRawMgr
+            Entities -> dimension.entitiesRawMgr
+            Poi -> dimension.poiRawMgr
         }
         if (mgr == null) {
             logger.debug { "Skip ${group.dimension}/${group.kind}: manager unavailable" }

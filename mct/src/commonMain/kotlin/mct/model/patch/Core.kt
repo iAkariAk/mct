@@ -58,22 +58,22 @@ enum class SnbtSyntaxKind {
 
 
 fun String.unquoted(syntax: SnbtSyntaxKind?) = when (syntax) {
-    SnbtSyntaxKind.SingleQuoteString -> singleUnquoted()
-    SnbtSyntaxKind.DoubleQuoteString -> doubleUnquoted()
+    SingleQuoteString -> singleUnquoted()
+    DoubleQuoteString -> doubleUnquoted()
     else -> this
 }
 
 fun String.quoted(syntax: SnbtSyntaxKind?) = when (syntax) {
-    SnbtSyntaxKind.SingleQuoteString -> singleQuoted()
-    SnbtSyntaxKind.DoubleQuoteString -> doubleQuoted()
-    SnbtSyntaxKind.LiteralString -> doubleQuoted()
+    SingleQuoteString -> singleQuoted()
+    DoubleQuoteString -> doubleQuoted()
+    LiteralString -> doubleQuoted()
     else -> this
 }
 
 fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
-    SnbtSyntaxKind.SingleQuoteString -> doubleQuoted()
-    SnbtSyntaxKind.DoubleQuoteString -> doubleQuoted()
-    SnbtSyntaxKind.LiteralString -> doubleQuoted()
+    SingleQuoteString -> doubleQuoted()
+    DoubleQuoteString -> doubleQuoted()
+    LiteralString -> doubleQuoted()
     else -> this
 }
 
@@ -84,11 +84,11 @@ fun FormatKind.isString(): Boolean =
 fun FormatKind.isStructure(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
-    FormatKind.Nbt -> value.isSnbt()
-    FormatKind.SnbtStr -> value.isSnbt()
-    FormatKind.JsonStr -> value.isJson()
-    FormatKind.JsonObj -> value.isJson()
-    FormatKind.PlainStr -> true
+    Nbt -> value.isSnbt()
+    SnbtStr -> value.isSnbt()
+    JsonStr -> value.isJson()
+    JsonObj -> value.isJson()
+    PlainStr -> true
 }
 
 inline fun Extraction.contents() = when (this) {
