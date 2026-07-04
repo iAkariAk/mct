@@ -2,7 +2,8 @@ package mct.cli
 
 import arrow.continuations.SuspendApp
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
-import com.github.ajalt.clikt.command.main
+import com.github.ajalt.clikt.command.parse
+import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.versionOption
 import mct.cli.cmd.datapack.Datapack
@@ -12,7 +13,13 @@ import mct.cli.cmd.region.Region
 import mct.cli.cmd.test.Test
 
 fun main(args: Array<String>) = SuspendApp {
-    MCT().main(args)
+    val command = MCT()
+    try {
+        command.parse(args)
+    } catch (e: CliktError) {
+        command.echoFormattedHelp(e)
+        if (e.statusCode != 0) throw e
+    }
 }
 
 class MCT : SuspendingCliktCommand("MCT") {
