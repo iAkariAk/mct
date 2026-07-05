@@ -20,8 +20,8 @@ val BuiltinNbtPatterns = PatternSet {
     +RegexPattern("#components>#minecraft:text_display(>#raw)?$")
     +RegexPattern("#components>#minecraft:description(>#raw)?$")
     +RegexPattern("""#components>#minecraft:lore(>\d+>#raw)?$""")
-    +RegexPattern("""#components>#minecraft:written_book_content>#(?:pages>\d+|title|author)(?:>#(?:raw|filtered))?$""")
-    +RegexPattern("""#components>#minecraft:writable_book_content>#pages>\d+(?:>#(?:raw|filtered))?$""")
+    +RegexPattern("""#components>#minecraft:written_book_content>#(?:pages|title|author)(?:>\d+>#(?:raw|filtered))?$""")
+    +RegexPattern("""#components>#minecraft:writable_book_content>#pages(?:>\d+>#(?:raw|filtered))?$""")
     +RegexPattern("""#components>#minecraft:custom_name(>#raw)?$""")
     // Nested text in data components: instrument.description (text component)
     +RegexPattern("""#instrument>#description(?:>#(?:text|translate|fallback))?$""")
@@ -42,8 +42,12 @@ val BuiltinNbtPatterns = PatternSet {
         "filtered_pages",       // Censored/Filtered pages
         "filtered_title",       // Censored/Filtered title
     ).forEach {
-        +RightPattern("#Book>#tag>#$it")
+        +RightPattern(">#Book>#tag>#$it")
     }
+    +RegexPattern(""">#TileEntities>\d+>#Text\d$""")
+    +RegexPattern(""">#TileEntities>\d+>#CustomName$""")
+    +RegexPattern(""">#tag>#(pages|title|author)$""")
+
     // --- Entities (Mobs, Armor Stands, etc.) ---
     // Matches CustomName for all entities stored in the chunk
     // Also matches spawner entities (SpawnData / SpawnPotentials) and trial spawner configs
@@ -63,8 +67,7 @@ val BuiltinNbtPatterns = PatternSet {
     // 'LastOutput' contains command feedback/error text (user-visible)
     // Note: 'Command' field is handled separately as Type.Command in Extract.kt
     +RegexPattern(""">#block_entities>\d+>#LastOutput$""")
-    // Note: Translating 'Command' is risky, but sometimes hoverEvent/show_text inside commands needs it
-    // +RegexPattern(""">#block_entities>\d+>#Command$""")
+    // Note: Translating 'Command' is handled specially.
 
     // 4. Spawners
     // Potential custom names for spawned entities inside a spawner

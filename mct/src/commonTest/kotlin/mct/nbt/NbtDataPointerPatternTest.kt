@@ -12,7 +12,7 @@ class NbtDataPointerPatternTest : FreeSpec({
             match(">#display>#Lore", "item display Lore"),
             match(">#components>#minecraft:lore", "lore component"),
             match(">#components>#minecraft:lore>2>#raw", "lore component raw entry"),
-            match(">#components>#minecraft:written_book_content>#pages>0", "written book pages"),
+            match(">#components>#minecraft:written_book_content>#pages", "written book pages"),
             match(">#components>#minecraft:writable_book_content>#pages>0>#raw", "writable book pages raw"),
             match(">#>#Entities>0>#CustomName", "entity CustomName"),
             match(">#>#SpawnData>#entity>#CustomName", "spawner entity CustomName"),
@@ -42,6 +42,18 @@ class NbtDataPointerPatternTest : FreeSpec({
                 ">#>#block_entities>0>#components>#minecraft:item_name>#raw",
                 "block entity component item_name raw"
             ),
+            match(
+                ">#>#Level>#TileEntities>5>#Book>#tag>#pages",
+                "legacy book pages"
+            ),
+            match(
+                ">#>#Level>#TileEntities>1>#Text2",
+                "legacy sign"
+            ),
+            match(
+                ">#>#Level>#TileEntities>4>#CustomName",
+                "legacy custom tile name"
+            )
         ).test(BuiltinNbtPatterns)
     }
 })
