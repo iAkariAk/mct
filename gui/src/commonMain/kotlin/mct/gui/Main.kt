@@ -243,6 +243,7 @@ fun App(modifier: Modifier = Modifier) {
                                                     output = vm.termExtractState.output,
                                                     termPath = vm.termExtractState.existingTermPath.takeIf { it.isNotBlank() },
                                                     targetLanguage = vm.termExtractState.targetLanguage,
+                                                    literatureStyle = vm.termExtractState.literatureStyle
                                                 )
                                             }
                                         }

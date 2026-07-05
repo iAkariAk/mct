@@ -264,6 +264,12 @@ private class TermExtract : AICommand(
         CustomizedPrompts.targetLanguage
     )
 
+    val literatureStyle by option(
+        "--literature-style", help = "Custom literature style prompt for translation"
+    ).default(
+        CustomizedPrompts.literatureStyle
+    )
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading text from $input" }
@@ -281,6 +287,7 @@ private class TermExtract : AICommand(
             defaultTerms = termCaches,
             tokenThreshold = tokenThreshold,
             targetLanguage = targetLanguage,
+            literatureStyle = literatureStyle,
             concurrency = concurrency,
         )
 

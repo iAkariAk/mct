@@ -13,6 +13,7 @@ class TermExtractor(
     val call: ChatCompletionCall,
     val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
+    val literatureStyle: String = CustomizedPrompts.literatureStyle,
     val concurrency: Int = 1,
     defaultTerms: TermTable = emptyMap(),
 ) {
@@ -53,6 +54,8 @@ class TermExtractor(
               - 用字雅观、易读，具有幻想作品命名感
               - 符合目标语言常见译名习惯，而非机械拼音式直译
               - 同一名称在全文中保持统一译法
+            ## 语言风格
+            $literatureStyle
             
             请严格按照以上规则输出 JSON，不要包含任何解释或额外文本。""".trimIndent()
 

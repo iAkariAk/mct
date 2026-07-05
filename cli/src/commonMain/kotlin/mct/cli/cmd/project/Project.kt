@@ -304,6 +304,7 @@ private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
             defaultTerms = existingTerms,
             targetLanguage = ai.targetLanguage,
             tokenThreshold = ai.tokenThreshold,
+            literatureStyle = ai.literatureStyle,
             concurrency = ai.concurrency
         )
 

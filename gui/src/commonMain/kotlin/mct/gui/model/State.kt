@@ -53,6 +53,7 @@ data class TermExtractState(
     val output: String = "terms.json",
     val existingTermPath: String = "",
     val targetLanguage: String = CustomizedPrompts.targetLanguage,
+    val literatureStyle: String = CustomizedPrompts.literatureStyle,
 )
 
 data class ToolboxState(

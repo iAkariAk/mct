@@ -21,6 +21,7 @@ import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import mct.gui.components.ActionButton
+import mct.gui.components.LiteratureStyleField
 import mct.gui.components.PathRow
 import mct.gui.components.SectionTitle
 import mct.gui.model.TermExtractState
@@ -139,6 +140,12 @@ fun TermExtractPanel(
                     "术语将被翻译为此语言。默认为简体中文。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+
+                LiteratureStyleField(
+                    value = state.literatureStyle,
+                    onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
+                    title = "自定义术语提取风格提示词",
                 )
 
                 // 已有术语表

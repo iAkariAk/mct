@@ -393,6 +393,7 @@ suspend fun runTermExtraction(
     output: String,
     termPath: String?,
     targetLanguage: String = CustomizedPrompts.targetLanguage,
+    literatureStyle: String = CustomizedPrompts.literatureStyle,
     onCancel: OnTermExtractCancel = {},
 ) {
     env.logger.info { "正在加载提取结果: $input" }
@@ -426,6 +427,7 @@ suspend fun runTermExtraction(
         tokenThreshold = GuiSettings.tokenThreshold,
         targetLanguage = targetLanguage,
         concurrency = GuiSettings.concurrency,
+        literatureStyle = literatureStyle,
         defaultTerms = existingTerms,
     )
 

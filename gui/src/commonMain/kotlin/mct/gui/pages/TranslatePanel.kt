@@ -2,14 +2,11 @@ package mct.gui.pages
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -175,61 +172,28 @@ fun TranslatePanel(
             cachesPicker.launch()
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                "自定义翻译风格提示词",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            FilledTonalButton(
-                onClick = {
-                    if (optimizeJob != null) return@FilledTonalButton
-                    optimizeJob = scope.launch {
-                        onStateChange(state.copy(isOptimizing = true))
-                        try {
-                            val improved = onOptimizePrompt(state.literatureStyle)
-                            if (improved != null) {
-                                onStateChange(state.copy(literatureStyle = improved, isOptimizing = false))
-                            } else {
-                                onStateChange(state.copy(isOptimizing = false))
-                            }
-                        } catch (_: Exception) {
-                            onStateChange(state.copy(isOptimizing = false))
-                        } finally {
-                            optimizeJob = null
-                        }
-                    }
-                },
-                enabled = !state.isOptimizing,
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                if (state.isOptimizing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                } else {
-                    Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("AI 优化")
-                }
-            }
-        }
-        OutlinedTextField(
+        LiteratureStyleField(
             value = state.literatureStyle,
             onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
-            minLines = 4,
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-            )
+            optimizing = state.isOptimizing,
+            onOptimizeClick = {
+                if (optimizeJob != null) return@LiteratureStyleField
+                optimizeJob = scope.launch {
+                    onStateChange(state.copy(isOptimizing = true))
+                    try {
+                        val improved = onOptimizePrompt(state.literatureStyle)
+                        if (improved != null) {
+                            onStateChange(state.copy(literatureStyle = improved, isOptimizing = false))
+                        } else {
+                            onStateChange(state.copy(isOptimizing = false))
+                        }
+                    } catch (_: Exception) {
+                        onStateChange(state.copy(isOptimizing = false))
+                    } finally {
+                        optimizeJob = null
+                    }
+                }
+            },
         )
 
         Spacer(Modifier.height(12.dp))
