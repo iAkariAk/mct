@@ -29,7 +29,9 @@ internal fun extractTextMCJ(
     val jsonElement = MCJson.decodeFromString<JsonElement>(standard)
 
     jsonElement.extractTextsByPointer()
-        .filterPointer(patterns)
+        .filter {
+            it.pointer.compile().matches(patterns)
+        }
 
 } catch (e: SerializationException) {
     raise(MCJsonExtractError.JsonSyntaxError(source, path, e))
@@ -37,9 +39,6 @@ internal fun extractTextMCJ(
 
 
 private typealias PointerWithExtension = MCJsonExtraction // avoid to map object
-
-private fun Sequence<PointerWithExtension>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
-    filter { (ptr, _, _) -> ptr.matches(patterns) }
 
 // coped from NbtTag.PointerWithExtension
 private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {

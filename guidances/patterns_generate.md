@@ -33,23 +33,23 @@ Write more patterns for the following files. Each file uses a different pattern 
 
 ---
 
-### 2. `mct/src/commonMain/kotlin/mct/dp/mcfunction/Patterns.kt` + `MCFunction.kt`
+### 2. `mct/src/commonMain/kotlin/mct/command/BuiltinPatterns.kt` + `Extract.kt`
 
-**DSL:** `PatternSet { command("name") { WithSize(N).then { Positions(N).then { Matches {...} } } } }` from `mct.dp.mcfunction`
+**DSL:** `PatternSet { command("name") { WithSize(N) then { Positions(N) then { Matches(...) { ... } } } } }` from `mct.command`
 
 **Purpose:** Extract translatable text from `.mcfunction` command files.
 
 **Key insight:** The system parses each line as an `MCCommand(name, args)`. Patterns specify:
 1. **PreCondition** — e.g. `WithSize(N)` (≥N args), `WithSize(N, strict=true)` (exactly N args), `Any()`, `Regex("...")` (matches raw), or `And(...)` / `Or(...)` to combine
-2. **IndexSelector** — which arg(s) to inspect: `Positions(N)` (specific position), `GreedyPositions(N)` (from position N to end, **no postCondition applied for greedy selectors**), or `Positions(N to IndexSelection.SnbtEntire)` (parse as SNBT and extract sub-texts via data patterns)
+2. **IndexSelector** — which arg(s) to inspect: `Positions(N)` (specific position), `GreedyPositions(N)` (from position N to end, **no post condition applied for greedy selectors**), or `Positions(N to IndexSelection.SnbtEntire)` (parse as SNBT and extract sub-texts via data patterns)
 3. **PostCondition** — e.g. `Matches { cmd, arg -> ... }` (custom predicate), `Regex("...")`, `Contain("...")`
 
 **Argument parsing details:** The MCFunction parser tracks bracket states (`[]`, `{}`) and quote states (`'`, `"`) globally, so `@e[tag=foo]` or `{"text":"hello"}` each count as a single arg. The `MCCommand.get(Int)` operator is **1-based**: `cmd[1]` = `args[0]`, `cmd[2]` = `args[1]`, etc.
 
 **SNBT selection (`IndexSelection.SnbtEntire`):**
-When `Positions(N to IndexSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTexts()` extracts text components and leaf strings from the NBT tree. Results are filtered through `BuiltinCommandDataPatterns`. Only `FormatKind.Nbt` entries survive the final filter — plain strings (FormatKind.Str) from NBT are **excluded**.
+When `Positions(N to IndexSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTextsByPointer()` extracts text components and leaf strings from the SNBT tree. Results are filtered through `BuiltinCommandDataPatterns` by compiling each pointer once (`it.pointer.compile().matches(patterns)`). Text components usually produce `FormatKind.SnbtStr`; plain SNBT strings produce `FormatKind.PlainStr`.
 
-Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (which has specific patterns for display entity text, CustomName, and dialog SNBT fields). Without `withAry()`, use a `Matches` postCondition to filter manually.
+Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (which has specific patterns for display entity text, CustomName, and dialog SNBT fields). Without `withAry()`, selection still receives the default command data patterns through `extractTextFromCommand`, but the pattern must match the actual SNBT pointer produced by the walker.
 
 **Common commands with text components (Java Edition):**
 
@@ -87,11 +87,11 @@ Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (whi
 **For commands that wrap subcommands** (`execute run <cmd>`, `return run <cmd>`), recursive extraction is handled in `MCFunction.kt`'s `extractTextFromCommand()` — the subcommand is re-parsed and patterns are applied recursively. No pattern for the wrapping command itself is needed.
 
 **Data path for `Positions(N to IndexSelection.SnbtEntire)` without `withAry()`:**
-If you use `Positions(N to SnbtEntire)` + a `Matches` postCondition (without `withAry()`), the flow is:
-1. PostCondition filters the raw arg
+If you use `Positions(N to SnbtEntire)` + a `Matches` post condition (without `withAry()`), the flow is:
+1. The post condition filters the raw arg
 2. SnbtEntire tries to parse the arg as SNBT
-3. If SNBT parsing succeeds, text component leaves are extracted and filtered through `BuiltinCommandDataPatterns`; the `filter { it.kind == FormatKind.Nbt }` step removes plain strings
-4. If SNBT parsing fails, falls back to `PlainEntire` which returns the whole arg (which then gets extracted as-is if Matches passed)
+3. If SNBT parsing succeeds, text slices are extracted and filtered through `BuiltinCommandDataPatterns` by compiled DataPointer matching
+4. If SNBT parsing fails or no selected slices survive, extraction falls back to the whole arg when the surrounding command pattern matched
 
 **References:**
 - https://minecraft.wiki/w/Commands — full command reference
@@ -103,7 +103,7 @@ If you use `Positions(N to SnbtEntire)` + a `Matches` postCondition (without `wi
 
 ---
 
-### 3. `mct/src/commonMain/kotlin/mct/region/Patterns.kt`
+### 3. `mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt`
 
 **DSL:** `PatternSet { +RightPattern(...); +RegexPattern(...) }` from `mct.pointer`
 
@@ -150,6 +150,7 @@ This prevents `{text:["hello","world"]}` from being incorrectly treated as a tex
 **Pattern anchoring notes:**
 - Existing component patterns (`#components>#minecraft:custom_name`) don't have `^` anchors — they match anywhere in the path, so they work for both entity and block_entity paths, and for deeply nested data components
 - New patterns with `^...$` anchors are more precise but need explicit entity/block_entity prefix
+- Pattern matching goes through `CompiledDataPointer`; avoid adding hot-path code that re-encodes a pointer once per pattern.
 
 **Data component patterns (non-anchored, match inside `#components>#minecraft:*`):**
 These patterns match text components nested within data components. The non-anchored approach lets them match at any depth:
@@ -239,9 +240,9 @@ When the SNBT selection test (`test snbt selecting`) counts change, investigate 
 
 **4. `Positions(N)` is 1-based** — `cmd[1]` in the Matches callback is `args[0]` (0-based). `Positions(5)` selects the 5th arg (1-based) = `args[4]` (0-based).
 
-**5. Greedy selectors ignore postConditions** — `GreedyPositions(N)` extracts from position N to end of command without checking the postCondition. Use `NonGreedy` (`Positions`) with `Matches` if you need conditional extraction.
+**5. Greedy selectors ignore post conditions** — `GreedyPositions(N)` extracts from position N to end of command without checking the post condition. Use `NonGreedy` (`Positions`) with `Matches` if you need conditional extraction.
 
-**6. FormatKind filter in SNBT selection** — `selectSnbt()` filters extracted texts with `filter { it.kind == FormatKind.Nbt }`, which removes plain strings (FormatKind.Str) from NBT. Only text compounds survive this filter. Notably, `FormatKind.Str` entries from `SnbtString` values (e.g. `CustomName:'{"text":"hello"}'` stored as JSON string) are killed — they must be NBT compounds (e.g. `CustomName:{"text":"hello"}`) to be extracted as Nbt.
+**6. SNBT selection uses command data patterns** — `IndexSelection.SnbtEntire` parses the selected arg as SNBT, extracts pointer-addressed text slices, then filters with `BuiltinCommandDataPatterns` (or custom `-pD` patterns). Text compounds are usually `FormatKind.SnbtStr`; plain SNBT string leaves are `FormatKind.PlainStr`. If an expected string is missing, inspect the actual pointer path and kind before broadening the pattern.
 
 **7. NbtList backfill with Terminator** — When a `NbtList` is extracted as a text component (via the new `NbtList.isTextCompound()` path), the backfill expects a `Terminator` replacement with `FormatKind.Nbt`. The `transform()` function now handles this case — `NbtList` branches check `decodeTerminatorOrNull<NbtList<NbtTag>>()` first before processing individual elements.
 

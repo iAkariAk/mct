@@ -1,47 +1,83 @@
-# Skill: Add Pattern Tests
+# Pattern Test Structure
 
-Trigger when the task adds, removes, or modifies patterns in `mct/dp/mcjson/BuiltinPatterns.kt`, `mct/dp/mcfunction/Patterns.kt`, or `mct/region/Patterns.kt`. After changing patterns, you MUST add or update tests in the corresponding test file.
+Use this guidance whenever a task adds, removes, or modifies builtin patterns.
 
-## Test File Map
+## Pattern File Map
 
 | Pattern file | Test file | Test class |
 |---|---|---|
-| `mct/dp/mcjson/BuiltinPatterns.kt` | `mct/.../mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `MCJDataPointerPatternTest` |
-| `mct/dp/mcfunction/Patterns.kt` | `mct/.../mct/command/CommandExtractPatternTest.kt` | `CommandExtractPatternTest` |
-| `mct/region/Patterns.kt` | `mct/.../mct/nbt/NbtDataPointerPatternTest.kt` | `NbtDataPointerPatternTest` |
+| `mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `MCJDataPointerPatternTest` |
+| `mct/src/commonMain/kotlin/mct/command/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/command/CommandExtractPatternTest.kt` | `CommandExtractPatternTest` |
+| `mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/nbt/NbtDataPointerPatternTest.kt` | `NbtDataPointerPatternTest` |
 
-**Helper pattern:** Each test file binds the pattern set using `::shouldMatch.partially2(Patterns)`, so test cases are single-line:
+After changing any builtin pattern set, update the corresponding test file.
+
+## BuiltinSet Style
+
+Builtin path-pattern tests should be one aggregate `BuiltinSet` test, not one Kotest node per path.
 
 ```kotlin
 class NbtDataPointerPatternTest : FreeSpec({
-    val shouldMatch = ::shouldMatch.partially2(BuiltinNbtPatterns)
-    val shouldNotMatch = ::shouldNotMatch.partially2(BuiltinNbtPatterns)
-
-    "BuiltinNbtPatterns" - {
-        "match entity CustomName" {
-            shouldMatch(">#>#Entities>0>#CustomName")
-        }
-        "not match unrelated path" {
-            shouldNotMatch(">#unrelated>#path>#here")
-        }
+    "BuiltinNbtPatterns BuiltinSet" {
+        listOf(
+            match(">#display>#Name", "item display Name"),
+            match(">#display>#Lore", "item display Lore"),
+            notMatch(">#unrelated>#path>#here", "unrelated path"),
+        ).test(BuiltinNbtPatterns)
     }
 })
 ```
 
-**Shared helpers** are defined in `mct/pointer/DataPointerPatternTest.kt` (package `mct.pointer`):
-- `ptr(s)` — parses a DataPointer string (asserts no error)
-- `ptr.shouldMatch(patterns)` / `ptr.shouldNotMatch(patterns)` — assertion infix
-- `shouldMatch(ptr, patterns)` / `shouldNotMatch(ptr, patterns)` — top-level version
+Shared helpers live in `mct/src/commonTest/kotlin/mct/pointer/DataPointerPatternTest.kt`:
 
-**CI command:** `./gradlew :mct:jvmTest`
+- `match(path, name)` — expected to match.
+- `notMatch(path, name)` — expected not to match.
+- `List<PointerPatternCase>.test(patterns)` — runs every case, collects every failure, then fails once with the complete list.
+- `ptr(s)` — parses a DataPointer string for low-level tests.
 
-## All Test Files (for reference)
+The point of this shape is that one broken pattern must not stop later pattern cases from running. The failure output should show all broken cases in one report.
 
-| File | Package | What it tests |
-|---|---|---|
-| `mct/pointer/DataPointerPatternTest.kt` | `mct.pointer` | DataPointer.matchesRight, matches(Regex), PatternSet DSL, CustomizedDataPointerPattern |
-| `mct/nbt/NbtDataPointerPatternTest.kt` | `mct.nbt` | BuiltinNbtPatterns (region patterns) |
-| `mct/nbt/NbtExtractPatternTest.kt` | `mct.nbt` | NBT extraction pattern selection |
-| `mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `mct.dp.mcjson` | BuiltinMCJPatterns (datapack JSON patterns) |
-| `mct/command/CommandExtractPatternTest.kt` | `mct.command` | BuiltinCommandPatterns, BuiltinCommandDataPatterns |
-| `mct/command/CommandsTest.kt` | `mct.command` | Full extraction→backfill pipeline integration tests |
+## Command BuiltinSet Style
+
+`BuiltinCommandPatterns` tests use the same aggregate idea, but cases are command strings rather than pointer paths.
+
+Use two assertion modes:
+
+- expected contents omitted: assert that at least one pattern matched.
+- expected contents provided: assert exact extracted content order.
+
+Example:
+
+```kotlin
+listOf(
+    commandCase("say command", "say Hello world", "Hello world"),
+    commandCase("give with text component", """give @p stick{display:{Name:"text"}}"""),
+).test()
+```
+
+If a new command pattern has an exact stable extracted string, include it. If the purpose is only to prove that a nested SNBT pattern path is reached, omit expected contents and assert non-empty extraction.
+
+## Low-Level Tests Stay Separate
+
+Keep low-level behavior tests outside the BuiltinSet table:
+
+- `DataPointer.matchesRight`
+- regex matching behavior
+- `PatternSet` DSL behavior
+- `CustomizedDataPointerPattern.compile`
+- command condition and selector primitives
+- target selector intrinsic extraction
+- recursive subcommand extraction
+- greedy range behavior
+
+These tests describe mechanics. BuiltinSet tests describe builtin catalog coverage.
+
+## Validation
+
+Primary command:
+
+```bash
+./gradlew :mct:jvmTest
+```
+
+In this Windows workspace, Gradle may need access to `D:\tools\.gradle`. If the wrapper fails on the Gradle lock file inside the sandbox, rerun the same command with escalation.

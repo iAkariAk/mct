@@ -8,8 +8,26 @@ import org.intellij.lang.annotations.Language
 
 
 fun interface DataPointerPattern {
-    fun match(pointer: DataPointer): Boolean
+    fun match(pointer: CompiledDataPointer): Boolean
 }
+
+data class CompiledDataPointer(val pointer: DataPointer) {
+    private val str = pointer.encodeToString()
+
+    fun matches(
+        patterns: Iterable<DataPointerPattern>?,
+    ) = patterns?.any { it.match(this) } ?: true
+
+    fun matches(regex: Regex2) = regex.containsMatchIn(str)
+    fun matchesRight(right: String) = str.endsWith(right)
+    fun matchesRight(right: CompiledDataPointer) = str.endsWith(right.str)
+}
+
+fun DataPointer.compile() = CompiledDataPointer(this)
+
+fun DataPointer.matches(
+    patterns: Iterable<DataPointerPattern>?,
+) = compile().matches(patterns)
 
 fun DataPointer.matches(regex: Regex2) =
     regex.containsMatchIn(encodeToString())

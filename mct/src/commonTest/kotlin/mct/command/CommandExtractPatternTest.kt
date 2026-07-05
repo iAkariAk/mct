@@ -9,9 +9,64 @@ import io.kotest.matchers.shouldBe
 import mct.Logger
 import mct.model.patch.SnbtSyntaxKind
 
+data class CommandPatternCase(
+    val name: String,
+    val mcf: String,
+    val expectedContents: List<String>? = null,
+)
+
+fun commandCase(
+    name: String,
+    mcf: String,
+    vararg expectedContents: String,
+) = CommandPatternCase(
+    name = name,
+    mcf = mcf,
+    expectedContents = expectedContents.toList().takeIf { it.isNotEmpty() },
+)
+
+private fun parseMCFunction(mcf: String): List<MCCommand> =
+    context(Logger.None) { parseCommands(mcf) }
+
+
+private fun matchCmd(cmd: MCCommand) = shouldNotRaise {
+    context(Logger.Console()) {
+        extractTextFromCommand(cmd)
+    }
+}
+
+fun List<CommandPatternCase>.test() {
+    val errors = mapNotNull { case ->
+        runCatching {
+            val cmds = parseMCFunction(case.mcf)
+            val matches = cmds.flatMap(::matchCmd)
+            if (matches.isEmpty()) {
+                error("No patterns matched for: ${case.mcf}")
+            }
+            case.expectedContents?.let { expectedContents ->
+                val actualContents = matches.map { it.content }
+                if (actualContents != expectedContents) {
+                    error("expected contents $expectedContents, but actual contents were $actualContents")
+                }
+            }
+        }.exceptionOrNull()?.let { error ->
+            "${case.name}: ${error.message ?: error.toString()}"
+        }
+    }
+
+    if (errors.isNotEmpty()) {
+        fail(
+            buildString {
+                appendLine("BuiltinCommandPatterns failures (${errors.size}/${size}):")
+                errors.forEach { appendLine("- $it") }
+            }
+        )
+    }
+}
+
+
 class CommandExtractPatternTest : FreeSpec({
-    fun parseMCFunction(mcf: String): List<MCCommand> =
-        context(Logger.None) { parseCommands(mcf) }
+
 
     /**
      * Creates a simple mock MCCommand for unit testing conditions.
@@ -234,98 +289,67 @@ class CommandExtractPatternTest : FreeSpec({
         }
 
         "BuiltinCommandPatterns" - {
-            fun matchCmd(cmd: MCCommand) = shouldNotRaise {
-                context(Logger.Console()) {
-                    extractTextFromCommand(cmd)
-                }
-            }
-
-
-            fun shouldMatches(mcf: String, vararg expectedContents: String) {
-                val cmds = parseMCFunction(mcf)
-                val matches = cmds.flatMap(::matchCmd)
-                if (matches.isEmpty())
-                    fail("No patterns matched for: $mcf")
-                if (expectedContents.isNotEmpty()) {
-                    val actualContents = matches.map { it.content }
-                    actualContents shouldBe expectedContents.toList()
-                }
-            }
-
-            "match say command" {
-                shouldMatches("say Hello world everyone", "Hello world everyone")
-            }
-
-            "match tellraw command" {
-                shouldMatches("""tellraw @a {"text":"Hello","color":"red"}""", """{"text":"Hello","color":"red"}""")
-            }
-
-            "match title command" {
-                shouldMatches("""title @a actionbar {"text":"Boss HP: 100"}""", """{"text":"Boss HP: 100"}""")
-            }
-
-            "match bossbar set name" {
-                shouldMatches("""bossbar set mybar name {"text":"My Boss Bar"}""", """{"text":"My Boss Bar"}""")
-            }
-
-            "match scoreboard objectives add" {
-                shouldMatches(
-                    """scoreboard objectives add myobj dummy {"text":"My Objective"}""",
-                    """{"text":"My Objective"}"""
-                )
-            }
-
-            "match team modify prefix" {
-                shouldMatches("""team modify myteam prefix {"text":"[VIP]"}""", """{"text":"[VIP]"}""")
-            }
-
-            "extract data modify set value" {
-                shouldMatches(
-                    """data modify entity @s set value {"text":"Named Entity"}""",
-                    """{"text":"Named Entity"}"""
-                )
-            }
-
-            "extract give with text component" {
-                shouldMatches("""give @p stick{display:{Name:"text"}}""")
-            }
-
-            "extract summon" {
-                shouldMatches(
-                    """summon block_display -106 3 -436 {NoGravity:1b,Glowing:1b,CustomNameVisible:0b,Tags:["wickedorb"],CustomName:{"bold":true,"color":"dark_purple","text":"彩叶"},glow_color_override:0,transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[3f,3f,3f]},block_state:{Name:"minecraft:crying_obsidian"}}""",
-                    """{"bold":true,"color":"dark_purple","text":"彩叶"}"""
-                )
-            }
-
-            "extract item modify" {
-                shouldMatches(
-                    """item modify entity @p weapon.mainhand {"function":"minecraft:set_name","name":"text"}""",
-                )
-            }
-
-            "extract team add displayName" {
-                shouldMatches(
-                    """team add myteam {"text":"My Team"}""",
-                    """{"text":"My Team"}"""
-                )
-            }
-
-            "extract setblock with NBT data" {
-                shouldMatches(
-                    """setblock ~ ~ ~ minecraft:chest {CustomName:'{"text":"Treasure","color":"gold"}'}""",
-                )
-            }
-
-            "extract data merge entity NBT" {
-                shouldMatches(
-                    """data merge entity @s {CustomName:'{"text":"Named Entity"}'}""",
-                )
-            }
-
-            "extract data merge block NBT" {
-                shouldMatches(
-                    """data merge block ~ ~ ~ {CustomName:'{"text":"Block Name"}'}""",
-                )
+            "BuiltinSet" {
+                listOf(
+                    commandCase("say command", "say Hello world everyone", "Hello world everyone"),
+                    commandCase(
+                        "tellraw command",
+                        """tellraw @a {"text":"Hello","color":"red"}""",
+                        """{"text":"Hello","color":"red"}"""
+                    ),
+                    commandCase(
+                        "title command",
+                        """title @a actionbar {"text":"Boss HP: 100"}""",
+                        """{"text":"Boss HP: 100"}"""
+                    ),
+                    commandCase(
+                        "bossbar set name",
+                        """bossbar set mybar name {"text":"My Boss Bar"}""",
+                        """{"text":"My Boss Bar"}"""
+                    ),
+                    commandCase(
+                        "scoreboard objectives add",
+                        """scoreboard objectives add myobj dummy {"text":"My Objective"}""",
+                        """{"text":"My Objective"}"""
+                    ),
+                    commandCase(
+                        "team modify prefix",
+                        """team modify myteam prefix {"text":"[VIP]"}""",
+                        """{"text":"[VIP]"}"""
+                    ),
+                    commandCase(
+                        "data modify set value",
+                        """data modify entity @s set value {"text":"Named Entity"}""",
+                        """{"text":"Named Entity"}"""
+                    ),
+                    commandCase("give with text component", """give @p stick{display:{Name:"text"}}"""),
+                    commandCase(
+                        "summon",
+                        """summon block_display -106 3 -436 {NoGravity:1b,Glowing:1b,CustomNameVisible:0b,Tags:["wickedorb"],CustomName:{"bold":true,"color":"dark_purple","text":"彩叶"},glow_color_override:0,transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[3f,3f,3f]},block_state:{Name:"minecraft:crying_obsidian"}}""",
+                        """{"bold":true,"color":"dark_purple","text":"彩叶"}"""
+                    ),
+                    commandCase(
+                        "item modify",
+                        """item modify entity @p weapon.mainhand {"function":"minecraft:set_name","name":"text"}""",
+                    ),
+                    commandCase(
+                        "team add displayName",
+                        """team add myteam {"text":"My Team"}""",
+                        """{"text":"My Team"}"""
+                    ),
+                    commandCase(
+                        "setblock with NBT data",
+                        """setblock ~ ~ ~ minecraft:chest {CustomName:'{"text":"Treasure","color":"gold"}'}""",
+                    ),
+                    commandCase(
+                        "data merge entity NBT",
+                        """data merge entity @s {CustomName:'{"text":"Named Entity"}'}""",
+                    ),
+                    commandCase(
+                        "data merge block NBT",
+                        """data merge block ~ ~ ~ {CustomName:'{"text":"Block Name"}'}""",
+                    ),
+                ).test()
             }
         }
     }

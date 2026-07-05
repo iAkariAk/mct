@@ -30,16 +30,6 @@ sealed interface DataPointer : Comparable<DataPointer> {
 
 data class DataPointerWithValue(val pointer: DataPointer, val value: String, val kind: FormatKind)
 
-inline fun Sequence<DataPointerWithValue>.filterPointer(pattern: DataPointerPattern) =
-    filter { (ptr, _) -> pattern.match(ptr) }
-
-inline fun Sequence<DataPointerWithValue>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
-    filter { (ptr, _) -> ptr.matches(patterns) }
-
-fun DataPointer.matches(
-    patterns: Iterable<DataPointerPattern>?,
-): Boolean = patterns?.any { it.match(this) } ?: true
-
 inline fun DataPointer.markMap(point: String) =
     DataPointer.Map(point, this)
 

@@ -10,6 +10,7 @@ import kotlinx.serialization.modules.subclass
 import mct.MCTError
 import mct.model.patch.SnbtSyntaxKind
 import mct.pointer.DataPointerPattern
+import mct.pointer.compile
 import mct.util.snbt.SnbtTag
 import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
@@ -131,7 +132,7 @@ sealed interface IndexSelection {
                 raise(IndexSelectError.Parse(content, it))
             }
             return tag.extractTextsByPointer(content)
-                .filterPointer(patterns)
+                .filter { it.pointer.compile().matches(patterns) }
                 .map {
                     SelectResult(
                         (arg.indices.first + it.indices.first)..(arg.indices.first + it.indices.last),

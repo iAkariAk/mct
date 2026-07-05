@@ -1,6 +1,7 @@
 package mct.pointer
 
 import io.kotest.assertions.arrow.core.shouldNotRaise
+import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.util.toRegex2
@@ -10,6 +11,38 @@ infix fun DataPointer.shouldMatch(patterns: List<DataPointerPattern>) = matches(
 infix fun DataPointer.shouldNotMatch(patterns: List<DataPointerPattern>) = matches(patterns) shouldBe false
 fun shouldMatch(ptr: String, patterns: List<DataPointerPattern>) = ptr(ptr) shouldMatch patterns
 fun shouldNotMatch(ptr: String, patterns: List<DataPointerPattern>) = ptr(ptr) shouldNotMatch patterns
+
+data class PointerPatternCase(
+    val path: String,
+    val expected: Boolean,
+    val name: String = path,
+)
+
+fun match(path: String, name: String = path) = PointerPatternCase(path, expected = true, name)
+fun notMatch(path: String, name: String = path) = PointerPatternCase(path, expected = false, name)
+
+fun List<PointerPatternCase>.test(patterns: List<DataPointerPattern>) {
+    val errors = mapNotNull { case ->
+        runCatching {
+            val actual = ptr(case.path).matches(patterns)
+            if (actual != case.expected) {
+                val expected = if (case.expected) "match" else "not match"
+                error("expected to $expected, but actual was $actual")
+            }
+        }.exceptionOrNull()?.let { error ->
+            "${case.name} (${case.path}): ${error.message ?: error.toString()}"
+        }
+    }
+
+    if (errors.isNotEmpty()) {
+        fail(
+            buildString {
+                appendLine("Pattern set failures (${errors.size}/${size}):")
+                errors.forEach { appendLine("- $it") }
+            }
+        )
+    }
+}
 
 class DataPointerPatternTest : FreeSpec({
     "DataPointer.matchesRight" - {
@@ -111,7 +144,7 @@ class DataPointerPatternTest : FreeSpec({
             ).compile()
 
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#display>#Name") }
-            pattern.match(ptr) shouldBe true
+            pattern.match(ptr.compile()) shouldBe true
         }
 
         "RightPattern compile - negative flag inverts result" {
@@ -123,8 +156,8 @@ class DataPointerPatternTest : FreeSpec({
             val ptrMatch = shouldNotRaise { DataPointer.decodeFromString(">#display>#Name") }
             val ptrNoMatch = shouldNotRaise { DataPointer.decodeFromString(">#display>#Lore") }
 
-            pattern.match(ptrMatch) shouldBe false
-            pattern.match(ptrNoMatch) shouldBe true
+            pattern.match(ptrMatch.compile()) shouldBe false
+            pattern.match(ptrNoMatch.compile()) shouldBe true
         }
 
         "RegexPattern compile - positive (negative=false)" {
@@ -133,7 +166,7 @@ class DataPointerPatternTest : FreeSpec({
             ).compile()
 
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>5>#raw") }
-            pattern.match(ptr) shouldBe true
+            pattern.match(ptr.compile()) shouldBe true
         }
 
         "RegexPattern compile - negative flag inverts result" {
@@ -145,8 +178,8 @@ class DataPointerPatternTest : FreeSpec({
             val ptrMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>5>#raw") }
             val ptrNoMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#custom_name") }
 
-            pattern.match(ptrMatch) shouldBe false
-            pattern.match(ptrNoMatch) shouldBe true
+            pattern.match(ptrMatch.compile()) shouldBe false
+            pattern.match(ptrNoMatch.compile()) shouldBe true
         }
     }
 })

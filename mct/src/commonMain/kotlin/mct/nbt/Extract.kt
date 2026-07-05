@@ -6,9 +6,9 @@ import mct.command.extractTextFromCommands
 import mct.model.patch.FormatKind
 import mct.model.patch.NbtExtraction
 import mct.pointer.DataPointer
+import mct.pointer.compile
 import mct.pointer.markArray
 import mct.pointer.markMap
-import mct.pointer.matches
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
 import mct.util.toSnbt
@@ -36,7 +36,7 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                         )
                     } ?: return@mapNotNull null)
 
-            Text if pointer.matches(pattern.nbt) -> NbtExtraction.Text(pointer, kind, content)
+            Text if pointer.compile().matches(pattern.nbt) -> NbtExtraction.Text(pointer, kind, content)
 
             else -> null
         }

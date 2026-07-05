@@ -1,110 +1,37 @@
 package mct.dp.mcjson
 
-import arrow.core.partially2
 import io.kotest.core.spec.style.FreeSpec
-import mct.pointer.shouldMatch
-import mct.pointer.shouldNotMatch
+import mct.pointer.match
+import mct.pointer.notMatch
+import mct.pointer.test
 
 class MCJDataPointerPatternTest : FreeSpec({
-    val shouldMatch = ::shouldMatch.partially2(BuiltinMCJPatterns)
-    val shouldNotMatch = ::shouldNotMatch.partially2(BuiltinMCJPatterns)
-
-    "BuiltinMCJPatterns" - {
-        "match custom_name component" {
-            shouldMatch(">#components>#custom_name")
-        }
-
-        "match lore component with index" {
-            shouldMatch(">#components>#lore")
-        }
-
-        "match advancement title" {
-            shouldMatch(">#display>#title")
-        }
-
-        "match advancement description" {
-            shouldMatch(">#display>#description")
-        }
-
-        "match legacy item Name" {
-            shouldMatch(">#display>#Name")
-        }
-
-        "match legacy item Lore" {
-            shouldMatch(">#display>#Lore")
-        }
-
-        "match entity CustomName" {
-            shouldMatch(">#CustomName")
-        }
-
-        "match sign front_text messages" {
-            shouldMatch(">#front_text>#messages")
-        }
-
-        "match sign back_text messages" {
-            shouldMatch(">#back_text>#messages")
-        }
-
-        "match book pages" {
-            shouldMatch(">#pages")
-        }
-
-        "match book title" {
-            shouldMatch(">#title")
-        }
-
-        "match book author" {
-            shouldMatch(">#author")
-        }
-
-        "match loot table set_name text" {
-            shouldMatch(">#functions>0>#name")
-        }
-
-        "match loot table set_lore text" {
-            shouldMatch(">#functions>0>#lore")
-        }
-
-
-        "match loot table set_attributes modifier name text" {
-            shouldMatch(">#functions>0>#modifiers>0>#name")
-        }
-
-        "match painting variant title text component" {
-            shouldMatch(">#title")
-        }
-
-        "match painting variant author text component" {
-            shouldMatch(">#author")
-        }
-
-        "not match painting variant title color leaf" {
-            shouldNotMatch(">#title>#color")
-        }
-
-        "not match painting variant author color leaf" {
-            shouldNotMatch(">#author>#color")
-        }
-
-        "not match unrelated path under title" {
-            shouldNotMatch(">#title>#extra")
-        }
-
-        "not match unrelated path" {
-            shouldNotMatch(">#random>#key")
-        }
-
-        "match description as plain string" {
-            shouldMatch(">#description")
-        }
-
-        "match description as text component" {
-            shouldMatch(">#description")
-        }
-
-        "match description color under display" {
-            shouldMatch(">#display>#description")
-        }
+    "BuiltinMCJPatterns BuiltinSet" {
+        listOf(
+            match(">#components>#custom_name", "custom_name component"),
+            match(">#components>#lore", "lore component"),
+            match(">#display>#title", "advancement title"),
+            match(">#display>#description", "advancement description"),
+            match(">#display>#Name", "legacy item Name"),
+            match(">#display>#Lore", "legacy item Lore"),
+            match(">#CustomName", "entity CustomName"),
+            match(">#front_text>#messages", "sign front_text messages"),
+            match(">#back_text>#messages", "sign back_text messages"),
+            match(">#pages", "book pages"),
+            match(">#title", "book title"),
+            match(">#author", "book author"),
+            match(">#functions>0>#name", "loot table set_name text"),
+            match(">#functions>0>#lore", "loot table set_lore text"),
+            match(">#functions>0>#modifiers>0>#name", "loot table set_attributes modifier name text"),
+            match(">#title", "painting variant title text component"),
+            match(">#author", "painting variant author text component"),
+            notMatch(">#title>#color", "painting variant title color leaf"),
+            notMatch(">#author>#color", "painting variant author color leaf"),
+            notMatch(">#title>#extra", "unrelated path under title"),
+            notMatch(">#random>#key", "unrelated path"),
+            match(">#description", "description as plain string"),
+            match(">#description", "description as text component"),
+            match(">#display>#description", "description color under display"),
+        ).test(BuiltinMCJPatterns)
     }
 })

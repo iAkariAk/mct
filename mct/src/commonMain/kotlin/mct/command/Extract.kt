@@ -8,7 +8,10 @@ import mct.LoggerHolder
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
-import mct.pointer.*
+import mct.pointer.DataPointer
+import mct.pointer.DataPointerPattern
+import mct.pointer.markArray
+import mct.pointer.markMap
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
 import mct.util.StringIndices
@@ -146,9 +149,6 @@ internal data class PointerWithExtensionForSnbt(
     val kind: FormatKind,
     override val syntax: SnbtSyntaxKind,
 ) : StringIndicesWithSyntax
-
-internal inline fun Sequence<PointerWithExtensionForSnbt>.filterPointer(patterns: Iterable<DataPointerPattern>?) =
-    filter { (ptr, _, _) -> ptr.matches(patterns) }
 
 internal fun SnbtTag.extractTextsByPointer(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
     is SnbtList -> if (isTextCompound()) {

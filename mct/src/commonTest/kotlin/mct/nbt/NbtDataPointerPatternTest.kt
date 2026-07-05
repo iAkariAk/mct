@@ -1,101 +1,47 @@
 package mct.nbt
 
-import arrow.core.partially2
 import io.kotest.core.spec.style.FreeSpec
-import mct.pointer.shouldMatch
-import mct.pointer.shouldNotMatch
+import mct.pointer.match
+import mct.pointer.notMatch
+import mct.pointer.test
 
 class NbtDataPointerPatternTest : FreeSpec({
-    val shouldMatch = ::shouldMatch.partially2(BuiltinNbtPatterns)
-    val shouldNotMatch = ::shouldNotMatch.partially2(BuiltinNbtPatterns)
-
-    "BuiltinNbtPatterns" - {
-        "match item display Name" {
-            shouldMatch(">#display>#Name")
-        }
-
-        "match item display Lore" {
-            shouldMatch(">#display>#Lore")
-        }
-
-        "match lore component" {
-            shouldMatch(">#components>#minecraft:lore")
-        }
-
-        "match lore component with raw" {
-            shouldMatch(">#components>#minecraft:lore>2>#raw")
-        }
-
-        "match written book pages" {
-            shouldMatch(">#components>#minecraft:written_book_content>#pages>0")
-        }
-
-        "match writable book pages" {
-            shouldMatch(">#components>#minecraft:writable_book_content>#pages>0>#raw")
-        }
-
-        "match entity CustomName" {
-            shouldMatch(">#>#Entities>0>#CustomName")
-        }
-
-        "match spawner entity CustomName" {
-            shouldMatch(">#>#SpawnData>#entity>#CustomName")
-        }
-
-        "match sign front_text messages" {
-            shouldMatch(">#>#block_entities>5>#front_text>#messages>0>#raw")
-        }
-
-        "match sign back_text filtered_messages" {
-            shouldMatch(">#>#block_entities>5>#back_text>#filtered_messages")
-        }
-
-        "match block entity CustomName" {
-            shouldMatch(">#>#block_entities>3>#CustomName")
-        }
-
-        "match beehive bee entity CustomName" {
-            shouldMatch(">#>#block_entities>0>#Bees>1>#EntityData>#CustomName")
-        }
-
-        "match trial spawner normal_config entity CustomName" {
-            shouldMatch(">#>#block_entities>0>#normal_config>#spawn_data>#entity>#CustomName")
-        }
-
-        "match trial spawner ominous_config entity CustomName" {
-            shouldMatch(">#>#block_entities>0>#ominous_config>#spawn_data>#entity>#CustomName")
-        }
-
-        "match book title in tag" {
-            shouldMatch(">#Book>#tag>#title")
-        }
-
-        "match book author in tag" {
-            shouldMatch(">#Book>#tag>#author")
-        }
-
-        "not match unrelated path" {
-            shouldNotMatch(">#unrelated>#path>#here")
-        }
-
-        "match entity raw_text" {
-            shouldMatch(">#>#Entities>0>#raw_text")
-        }
-
-        "match block entity component custom_name" {
-            shouldMatch(">#>#block_entities>0>#components>#minecraft:custom_name")
-        }
-
-        "match block entity component custom_name with raw" {
-            shouldMatch(">#>#block_entities>0>#components>#minecraft:custom_name>#raw")
-        }
-
-        "match block entity component item_name" {
-            shouldMatch(">#>#block_entities>0>#components>#minecraft:item_name")
-        }
-
-        "match block entity component item_name with raw" {
-            shouldMatch(">#>#block_entities>0>#components>#minecraft:item_name>#raw")
-        }
+    "BuiltinNbtPatterns BuiltinSet" {
+        listOf(
+            match(">#display>#Name", "item display Name"),
+            match(">#display>#Lore", "item display Lore"),
+            match(">#components>#minecraft:lore", "lore component"),
+            match(">#components>#minecraft:lore>2>#raw", "lore component raw entry"),
+            match(">#components>#minecraft:written_book_content>#pages>0", "written book pages"),
+            match(">#components>#minecraft:writable_book_content>#pages>0>#raw", "writable book pages raw"),
+            match(">#>#Entities>0>#CustomName", "entity CustomName"),
+            match(">#>#SpawnData>#entity>#CustomName", "spawner entity CustomName"),
+            match(">#>#block_entities>5>#front_text>#messages>0>#raw", "sign front_text messages"),
+            match(">#>#block_entities>5>#back_text>#filtered_messages", "sign back_text filtered messages"),
+            match(">#>#block_entities>3>#CustomName", "block entity CustomName"),
+            match(">#>#block_entities>0>#Bees>1>#EntityData>#CustomName", "beehive bee entity CustomName"),
+            match(
+                ">#>#block_entities>0>#normal_config>#spawn_data>#entity>#CustomName",
+                "trial spawner normal_config entity CustomName"
+            ),
+            match(
+                ">#>#block_entities>0>#ominous_config>#spawn_data>#entity>#CustomName",
+                "trial spawner ominous_config entity CustomName"
+            ),
+            match(">#Book>#tag>#title", "book title in tag"),
+            match(">#Book>#tag>#author", "book author in tag"),
+            notMatch(">#unrelated>#path>#here", "unrelated path"),
+            match(">#>#Entities>0>#raw_text", "entity raw_text"),
+            match(">#>#block_entities>0>#components>#minecraft:custom_name", "block entity component custom_name"),
+            match(
+                ">#>#block_entities>0>#components>#minecraft:custom_name>#raw",
+                "block entity component custom_name raw"
+            ),
+            match(">#>#block_entities>0>#components>#minecraft:item_name", "block entity component item_name"),
+            match(
+                ">#>#block_entities>0>#components>#minecraft:item_name>#raw",
+                "block entity component item_name raw"
+            ),
+        ).test(BuiltinNbtPatterns)
     }
 })
