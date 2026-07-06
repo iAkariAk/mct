@@ -3,35 +3,35 @@ androidx-lifecycle = "2.10.0"
 arrow = "2.2.3"
 catelog-update = "1.1.0"
 clikt = "5.1.0"
-collections-immutable = "0.5.0"
+collections-immutable = "0.5.1"
 compose = "1.11.1"
 coroutines = "1.11.0"
-filekit = "0.14.1"
-graalvm-native = "1.1.2"
+filekit = "0.14.2"
+graalvm-native = "1.1.3"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
-kmpalette = "4.0.0-beta02"
 kmp-zip = "0.12.1"
+kmpalette = "4.0.0-beta02"
 knbt = "0.11.9"
-koin = "4.2.1"
+koin = "4.2.2"
 korlibs = "6.0.2"
-kotest = "6.1.11"
+kotest = "6.2.1"
 kotlin = "2.4.0"
-kotlinx-io = "0.9.0"
-kotlinx-schema-generator-json = "0.5.0"
+kotlinx-io = "0.9.1"
+kotlinx-schema-generator-json = "0.6.0"
 ksp = "2.3.9"
 ktoml = "0.7.1"
-ktor = "3.5.0"
+ktor = "3.5.1"
 material-icons-extended = "1.7.3"
 material-kolor = "4.1.1"
-material3 = "1.12.0-alpha01"
+material3 = "1.12.0-alpha03"
 mordant = "3.0.2"
 okio = "3.17.0"
 openai-client = "4.1.0"
 proguard = "7.9.1"
 resources = "0.15.0"
 serialization = "1.11.0"
-shadow = "9.4.2"
+shadow = "9.4.3"
 slf4j = "2.0.18"
 
 [libraries]
@@ -74,7 +74,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.ref = "kotlinx-io" }
-kotlinx-schema-generator-json = { "module" = "org.jetbrains.kotlinx:kotlinx-schema-generator-json", version.ref = "kotlinx-schema-generator-json" }
+kotlinx-schema-generator-json = { module = "org.jetbrains.kotlinx:kotlinx-schema-generator-json", version.ref = "kotlinx-schema-generator-json" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
 ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
