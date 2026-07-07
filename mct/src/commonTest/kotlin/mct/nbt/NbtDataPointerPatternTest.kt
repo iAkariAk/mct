@@ -19,6 +19,8 @@ class NbtDataPointerPatternTest : FreeSpec({
             match(">#>#block_entities>5>#front_text>#messages>0>#raw", "sign front_text messages"),
             match(">#>#block_entities>5>#back_text>#filtered_messages", "sign back_text filtered messages"),
             match(">#>#block_entities>3>#CustomName", "block entity CustomName"),
+            match(">#>#block_entities>0>#SpawnPotentials>0>#data>#entity>#Passengers>0>#CustomName", "entities' Passengers tag"),
+            match(">#>#block_entities>0>#SpawnPotentials>0>#data>#entity>#Passengers>0>#Passengers>0>#Passengers>0>#CustomName", "nested entities' Passengers tag"),
             match(">#>#block_entities>0>#Bees>1>#EntityData>#CustomName", "beehive bee entity CustomName"),
             match(
                 ">#>#block_entities>0>#normal_config>#spawn_data>#entity>#CustomName",

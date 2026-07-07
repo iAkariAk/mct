@@ -51,7 +51,7 @@ val BuiltinNbtPatterns = PatternSet {
     // --- Entities (Mobs, Armor Stands, etc.) ---
     // Matches CustomName for all entities stored in the chunk
     // Also matches spawner entities (SpawnData / SpawnPotentials) and trial spawner configs
-    +RegexPattern("""(?:>#Entities>\d+|(?:>#SpawnData|>#SpawnPotentials>\d+>#data|(?:>#normal_config|>#ominous_config)>#spawn_data)>#entity)>#CustomName$""")
+    +RegexPattern("""(?:>#Entities>\d+|(?:>#SpawnData|>#SpawnPotentials>\d+>#data|(?:>#normal_config|>#ominous_config)>#spawn_data)>#entity)(>#Passengers>\d+)*>#CustomName$""")
 
     // --- Block Entities (Signs, Containers, Spawners) ---
     // 1. Signs (Front & Back)
