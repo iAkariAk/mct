@@ -3,15 +3,17 @@ package mct.text
 
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.core.spec.style.StringSpec
+import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
 import mct.serializer.MCTJson
 import mct.serializer.NbtNone
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
+import org.intellij.lang.annotations.Language
 
-class TextCompoundSerializerTest : StringSpec({
+class TextCompoundSerializerTest : FreeSpec({
     val json = Json(MCTJson) {
         prettyPrint = false
     }
@@ -226,5 +228,80 @@ class TextCompoundSerializerTest : StringSpec({
         val decoded = nbt.decodeFromNbtTag(serializer, encoded)
 
         decoded shouldBe original
+    }
+
+    "TextCompound validate" - {
+        fun shouldBeJsonTextCompound(@Language("json") json: String) {
+            json.isTextCompoundJson().shouldBeTrue()
+        }
+
+        fun shouldBeSnbtTextCompound(@Language("snbt") snbt: String) {
+            snbt.isTextCompoundSnbt().shouldBeTrue()
+        }
+
+        "nested" {
+            shouldBeSnbtTextCompound("""
+              [
+                {
+                  color: "gray",
+                  extra: [
+                    {
+                      color: "blue",
+                      keybind: "key.use",
+                      italic: 0b
+                    },
+                    {
+                      color: "gray",
+                      text: "] this item on the",
+                      italic: 0b
+                    }
+                  ],
+                  text: "[",
+                  italic: 0b
+                },
+                {
+                  color: "gray",
+                  text: "Repair Station to improve it.",
+                  italic: 0b
+                },
+                {
+                  "": " "
+                },
+                {
+                  color: "gray",
+                  text: "When applied:",
+                  italic: 0b
+                },
+                {
+                  color: "blue",
+                  text: " +5% Max Durability",
+                  italic: 0b
+                },
+                {
+                  "": " "
+                },
+                {
+                  color: "dark_gray",
+                  text: "(Max Durability is only",
+                  italic: 1b
+                },
+                {
+                  color: "dark_gray",
+                  text: "increased the first time an item",
+                  italic: 1b
+                },
+                {
+                  extra: [
+                    {
+                      color: "dark_gray",
+                      text: "is repaired with the station.)",
+                      italic: 1b
+                    }
+                  ],
+                  text: ""
+                }
+              ]
+            """.trimIndent())
+        }
     }
 })

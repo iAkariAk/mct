@@ -3,12 +3,15 @@ package mct.text
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import mct.util.isJson
-import mct.util.isSnbt
+import mct.util.formatir.IRList
+import mct.util.formatir.IRObject
+import mct.util.formatir.IRString
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
 import mct.util.surroundedBy
+import mct.util.toJsonElementOrNull
+import mct.util.toNbtTagOrNull
 import mct.util.toRegex2
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
@@ -58,7 +61,7 @@ private val STRUCTURAL_FIELDS = listOf(
 )
 
 internal fun Map<String, *>.isTextCompound() =
-    keys.all { ALL_FIELD.contains(it) } &&
+    isTextCompoundShorthanded() || keys.all { ALL_FIELD.contains(it) } &&
             entries.all { (key, value) ->
                 // Structural fields can have compound/list values
                 if (key in STRUCTURAL_FIELDS) true
@@ -69,9 +72,9 @@ internal fun Map<String, *>.isTextCompound() =
 internal fun List<*>.isTextCompound(): Boolean = all {
     @Suppress("UNCHECKED_CAST")
     when {
-        it is String || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) -> true
-        it is List<*> || it is NbtList<*> || it is SnbtList || it is JsonArray -> it.isTextCompound()
-        it is Map<*, *> || it is NbtCompound || it is SnbtCompound || it is JsonObject -> it.keys.all { it is String } && (it as Map<String, *>).isTextCompound()
+        it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) -> true
+        it is List<*> || it is IRList || it is NbtList<*> || it is SnbtList || it is JsonArray -> it.isTextCompound()
+        it is Map<*, *> || it is IRObject || it is NbtCompound || it is SnbtCompound || it is JsonObject -> it.keys.all { it is String } && (it as Map<String, *>).isTextCompound()
         else -> false
     }
 }
@@ -89,13 +92,27 @@ internal fun List<*>.isTextCompound(): Boolean = all {
 //  }
 //],
 internal fun Map<String, *>.isTextCompoundShorthanded() =
-    "text" !in this && (this[""]?.let { it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
+    "text" !in this && (this[""]?.let { it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
         ?: false)
 
 fun String.isTextCompoundSnbt() = trim().run {
     surroundedBy('"') || surroundedBy('\'') || surroundedBy('[', ']') || surroundedBy('{', '}')
-} && isSnbt()
+} && toNbtTagOrNull()?.let {
+    when (it) {
+        is NbtCompound -> it.isTextCompound()
+        is NbtList<*> -> it.isTextCompound()
+        is NbtString -> true
+        else -> false
+    }
+} ?: false
 
 fun String.isTextCompoundJson() = trim().run {
     surroundedBy('"') || surroundedBy('[', ']') || surroundedBy('{', '}')
-} && isJson()
+} && toJsonElementOrNull()?.let {
+    when (it) {
+        is JsonArray -> it.isTextCompound()
+        is JsonObject -> it.isTextCompound()
+        is JsonPrimitive if it.isString -> true
+        else -> false
+    }
+} ?: false

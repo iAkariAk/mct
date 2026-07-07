@@ -23,8 +23,10 @@ inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
 fun JsonElement.toJson(pretty: Boolean = false): String = (if (pretty) PrettyJson else MCTJson).encodeToString(this)
 fun NbtTag.toSnbt(pretty: Boolean = false): String = (if (pretty) PrettySnbt else Snbt).encodeToString(this)
-fun String.isSnbt() = runCatching { Snbt.decodeFromString<NbtTag>(this) }.isSuccess
-fun String.isJson() = runCatching { Json.decodeFromString<JsonElement>(this) }.isSuccess
+fun String.toNbtTagOrNull() = runCatching { Snbt.decodeFromString<NbtTag>(this) }.getOrNull()
+fun String.toJsonElementOrNull() = runCatching { Json.decodeFromString<JsonElement>(this) }.getOrNull()
+fun String.isSnbt() = toNbtTagOrNull() != null
+fun String.isJson() = toJsonElementOrNull() != null
 
 inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other
 inline infix fun Short.divCeil(other: Short) = (this + other - 1) / other
