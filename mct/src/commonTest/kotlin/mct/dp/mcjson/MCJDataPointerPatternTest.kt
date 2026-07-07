@@ -32,6 +32,8 @@ class MCJDataPointerPatternTest : FreeSpec({
             match(">#description", "description as plain string"),
             match(">#description", "description as text component"),
             match(">#display>#description", "description color under display"),
+            match(">#exit_action>#tooltip", "dialog"),
+            match(">#exit_action>#label", "dialog"),
         ).test(BuiltinMCJPatterns)
     }
 })

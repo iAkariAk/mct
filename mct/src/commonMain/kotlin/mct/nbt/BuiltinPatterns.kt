@@ -2,27 +2,18 @@
 
 package mct.nbt
 
+import mct.pointer.ComponentPatterns
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
 val BuiltinNbtPatterns = PatternSet {
+    dependsOn(ComponentPatterns)
+
     // --- Item Display & Lore (Legacy/General) ---
     +RightPattern("#display>#Name")                   // Item custom name
     +RightPattern("#display>#Lore")                   // Item lore lines
 
-
-    // --- Modern Item/Entity Components (1.20.5+) ---
-    // In region files, these are often nested within an item's or entity's 'components' tag
-    // Entity data components also use the same #components>#minecraft:* path structure
-    +RegexPattern("#components>#minecraft:custom_name(>#raw)?$")
-    +RegexPattern("#components>#minecraft:item_name(>#raw)?$")
-    +RegexPattern("#components>#minecraft:text_display(>#raw)?$")
-    +RegexPattern("#components>#minecraft:description(>#raw)?$")
-    +RegexPattern("""#components>#minecraft:lore(>\d+>#raw)?$""")
-    +RegexPattern("""#components>#minecraft:written_book_content>#(?:pages|title|author)(?:>\d+>#(?:raw|filtered))?$""")
-    +RegexPattern("""#components>#minecraft:writable_book_content>#pages(?:>\d+>#(?:raw|filtered))?$""")
-    +RegexPattern("""#components>#minecraft:custom_name(>#raw)?$""")
     // Nested text in data components: instrument.description (text component)
     +RegexPattern("""#instrument>#description(?:>#(?:text|translate|fallback))?$""")
     // Nested text in data components: attribute_modifiers[].display.value (text component)
@@ -44,6 +35,8 @@ val BuiltinNbtPatterns = PatternSet {
     ).forEach {
         +RightPattern(">#Book>#tag>#$it")
     }
+
+    // legacy
     +RegexPattern(""">#TileEntities>\d+>#Text\d$""")
     +RegexPattern(""">#TileEntities>\d+>#CustomName$""")
     +RegexPattern(""">#tag>#(pages|title|author)$""")

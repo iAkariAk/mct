@@ -355,7 +355,7 @@ val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     // title and external_title are text components
     +RegexPattern("""^>#(?:title|external_title)$""")
     // button labels and tooltips
-    +RegexPattern("""^>#(?:yes|no|exit_action|actions>\d+)>#(?:label|tooltip)$""")
+    +RegexPattern(""">#(?:yes|no|after_action|exit_action|actions>\d+)>#(?:label|tooltip)$""")
     // body contents (plain_message)
     +RegexPattern("""^>#body>\d+>#contents$""")
     // dialogs list in dialog_list type
