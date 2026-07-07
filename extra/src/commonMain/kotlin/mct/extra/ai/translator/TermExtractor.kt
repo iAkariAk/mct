@@ -4,6 +4,7 @@ import arrow.atomic.AtomicBoolean
 import arrow.core.raise.context.Raise
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
+import mct.EnvHolder
 import mct.extra.ai.*
 import mct.util.IO
 
@@ -16,7 +17,7 @@ class TermExtractor(
     val literatureStyle: String = CustomizedPrompts.literatureStyle,
     val concurrency: Int = 1,
     defaultTerms: TermTable = emptyMap(),
-) {
+) : EnvHolder by call {
     private val terms = defaultTerms.toMutableMap()
 
     context(_: Raise<ChatCompletionCallError>)
@@ -78,7 +79,9 @@ class TermExtractor(
                         validate = { terms -> terms.all { (source, target) -> source.isNotBlank() && target.isNotBlank() } },
                     )
                     add(subterms)
-                } catch (e: CancellationException) {
+                } catch (e: Throwable) {
+                    if (e is CancellationException) logger.error { "Extraction was cancelled." }
+                    else logger.error { "Extraction interrupted." }
                     try {
                         withContext(NonCancellable) {
                             if (cancelled.compareAndSet(false, true)) {

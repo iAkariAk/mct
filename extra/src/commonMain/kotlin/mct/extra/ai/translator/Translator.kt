@@ -349,8 +349,9 @@ class Translator internal constructor(
         ) { (chunkIndex, chunk), _ ->
             try {
                 processChunk(chunkIndex, chunk)
-            } catch (e: CancellationException) {
-                logger.error { "Translation was cancelled." }
+            } catch (e: Throwable) {
+                if (e is CancellationException) logger.error { "Translation was cancelled." }
+                else logger.error { "Translation interrupted." }
                 try {
                     withContext(NonCancellable) {
                         onCancel(translated)
