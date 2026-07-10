@@ -49,6 +49,7 @@ val MatchResult2.destructured: Destructured
 
 expect interface MatchGroupCollection2 : Collection<MatchGroup2?> {
     operator fun get(index: Int): MatchGroup2?
+    operator fun get(name: String): MatchGroup2?
 }
 
 expect class MatchGroup2 {
@@ -71,4 +72,41 @@ expect class Destructured internal constructor(match: MatchResult) {
     operator fun component9(): String
     operator fun component10(): String
     fun toList(): List<String>
+}
+
+internal fun namedGroupIndices(pattern: String): Map<String, Int> {
+    val indices = mutableMapOf<String, Int>()
+    var groupIndex = 0
+    var inCharacterClass = false
+    var escaped = false
+    var index = 0
+
+    while (index < pattern.length) {
+        when {
+            escaped -> escaped = false
+            pattern[index] == '\\' -> escaped = true
+            pattern[index] == '[' -> inCharacterClass = true
+            pattern[index] == ']' -> inCharacterClass = false
+            !inCharacterClass && pattern[index] == '(' -> {
+                if (pattern.getOrNull(index + 1) != '?') {
+                    groupIndex++
+                } else if (pattern.getOrNull(index + 2) == '<') {
+                    val nameStart = index + 3
+                    when (pattern.getOrNull(nameStart)) {
+                        '=', '!' -> Unit // Lookbehind assertion.
+                        else -> {
+                            val nameEnd = pattern.indexOf('>', nameStart)
+                            if (nameEnd != -1) {
+                                groupIndex++
+                                indices[pattern.substring(nameStart, nameEnd)] = groupIndex
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        index++
+    }
+
+    return indices
 }

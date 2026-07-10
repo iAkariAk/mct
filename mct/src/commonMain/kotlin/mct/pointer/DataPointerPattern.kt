@@ -9,6 +9,14 @@ import org.intellij.lang.annotations.Language
 
 fun interface DataPointerPattern {
     fun match(pointer: CompiledDataPointer): Boolean
+
+    companion object {
+        fun Right(right: String) = DataPointerPattern { it.matchesRight(right) }
+        fun Regex(@Language("RegExp") regex: String): DataPointerPattern {
+            val _r = regex.toRegex2()
+            return DataPointerPattern { it.matches(_r) }
+        }
+    }
 }
 
 data class CompiledDataPointer(val pointer: DataPointer) {
@@ -65,8 +73,5 @@ interface DataPointerPatternSetBuilderScope {
 
 private typealias S = DataPointerPatternSetBuilderScope
 
-inline fun S.RightPattern(right: String) = DataPointerPattern { it.matchesRight(right) }
-inline fun S.RegexPattern(@Language("RegExp") regex: String): DataPointerPattern {
-    val _r = regex.toRegex2()
-    return DataPointerPattern { it.matches(_r) }
-}
+inline fun S.RightPattern(right: String) = DataPointerPattern.Right(right)
+inline fun S.RegexPattern(@Language("RegExp") regex: String) = DataPointerPattern.Regex(regex)

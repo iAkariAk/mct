@@ -52,7 +52,7 @@ class CommandBuilderIndexSelectorScope {
 
     fun GreedyPositions(beginArgPosition: Int = 0) = IndexSelector.Greedy(beginArgPosition)
     fun Positions(vararg positions: Int) = IndexSelector.NonGreedy(positions.asList().associateWith { null })
-    fun Positions(vararg positionsWithSelections: Pair<Int, IndexSelection>) =
+    fun Positions(vararg positionsWithSelections: Pair<Int, ArgSelection>) =
         IndexSelector.NonGreedy(positionsWithSelections.toMap())
 }
 

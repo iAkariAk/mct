@@ -8,7 +8,7 @@ import mct.model.patch.DatapackReplacement
 
 
 internal fun MCFunctionExtractor(
-    pattern: MCTPattern,
+    patterns: MCTPattern,
 ) = Extractor("MCFunction", "mcfunction") { sourcePath, (file, tmp) ->
     val (getSource, close) = tmp
     val source = getSource()
@@ -16,9 +16,7 @@ internal fun MCFunctionExtractor(
     try {
         extractTextFromCommands(
             commandStr = text,
-            commandPatterns = pattern.command,
-            commandDataPatterns = pattern.commandData,
-            commandRegexPatterns = pattern.commandRegex
+            patterns = patterns
         ).map { extracted ->
             MCFunction(indices = extracted.indices, content = extracted.content, syntax = extracted.syntax)
         }.toList()

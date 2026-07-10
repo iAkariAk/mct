@@ -5,17 +5,18 @@ import arrow.core.raise.context.Raise
 import arrow.core.raise.context.either
 import arrow.core.raise.recover
 import mct.LoggerHolder
+import mct.MCTPattern
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
 import mct.pointer.DataPointer
-import mct.pointer.DataPointerPattern
 import mct.pointer.markArray
 import mct.pointer.markMap
 import mct.text.isTextCompound
 import mct.text.isTextCompoundShorthanded
 import mct.util.StringIndices
 import mct.util.groups2
+import mct.util.offset
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
@@ -38,21 +39,19 @@ data class ExtractedCommandSlice(
 context(_: LoggerHolder)
 fun extractTextFromCommands(
     commandStr: String,
-    commandPatterns: ExtractPatternSet = BuiltinCommandPatterns,
-    commandDataPatterns: List<DataPointerPattern>? = BuiltinCommandDataPatterns,
-    commandRegexPatterns: List<CommandRegexPattern> = emptyList(),
+    patterns: MCTPattern = MCTPattern.Default,
 ): List<ExtractedCommandSlice> {
     val commands = parseCommands(commandStr)
     val fromCommandPattern = commands.flatMap { command ->
         either {
-            extractTextFromCommand(command, commandPatterns, commandDataPatterns)
+            extractTextFromCommand(command, patterns)
         }.getOrElse {
             logger.error { "Skip $command due to ${it.message}" }
             emptyList()
         }
     }
-    return if (commandRegexPatterns.isNotEmpty()) {
-        val fromRegex = commandRegexPatterns.flatMap { p ->
+    return if (patterns.commandRegex.isNotEmpty()) {
+        val fromRegex = patterns.commandRegex.flatMap { p ->
             p.regex.findAll(commandStr).flatMap { result ->
                 p.groups.mapNotNull { (group, syntax) ->
                     result.groups2[group]?.let {
@@ -74,8 +73,7 @@ fun extractTextFromCommands(
 context(_: Raise<IndexSelectError>, _: LoggerHolder)
 internal fun extractTextFromCommand(
     command: MCCommand,
-    commandPatterns: ExtractPatternSet = BuiltinCommandPatterns,
-    commandDataPatterns: List<DataPointerPattern>? = BuiltinCommandDataPatterns,
+    patterns: MCTPattern = MCTPattern.Default,
 ): List<ExtractedCommandSlice> {
     // return run <command> (1.21+) — similar recursive subcommand extraction
     if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`
@@ -96,10 +94,10 @@ internal fun extractTextFromCommand(
             )
         }
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
-        return extractTextFromCommand(subCommand, commandPatterns, commandDataPatterns)
+        return extractTextFromCommand(subCommand, patterns)
     }
     val fromIntrinsic = CommandExtractorIntrinsic.extract(command)
-    val fromPattern = (commandPatterns[command.name]?.asSequence() ?: emptySequence())
+    val fromPattern = (patterns.command[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
             when (val selector = pattern.selector) {
@@ -120,7 +118,7 @@ internal fun extractTextFromCommand(
                         .flatMap { (index, arg) ->
                             recover(
                                 block = {
-                                    selector.select(index + 1, commandDataPatterns, arg)?.map {
+                                    selector.select(index + 1, patterns, arg)?.map {
                                         ExtractedCommandSlice(it.indices, it.content, it.syntax)
                                     }
                                 },
@@ -150,20 +148,20 @@ internal data class PointerWithExtensionForSnbt(
     override val syntax: SnbtSyntaxKind,
 ) : StringIndicesWithSyntax
 
-internal fun SnbtTag.extractTextsByPointer(snbt: String): Sequence<PointerWithExtensionForSnbt> = when (this) {
+internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): Sequence<PointerWithExtensionForSnbt> = when (this) {
     is SnbtList -> if (isTextCompound()) {
         sequenceOf(
             PointerWithExtensionForSnbt(
                 DataPointer.Terminator,
                 indices,
-                snbt.substring(indices),
+                snbt.substring(indices.offset(-snbtOffset)),
                 FormatKind.SnbtStr,
                 syntax = SnbtSyntaxKind.List
             )
         )
     } else {
         asSequence().withIndex().flatMap { (index, tag) ->
-            tag.extractTextsByPointer(snbt).map {
+            tag.extractTextsByPointer(snbt, snbtOffset).map {
                 it.copy(pointer = it.pointer.markArray(index))
             }
         } // wrap inner pointer
@@ -174,13 +172,13 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String): Sequence<PointerWithEx
             PointerWithExtensionForSnbt(
                 DataPointer.Terminator,
                 indices,
-                snbt.substring(indices),
+                snbt.substring(indices.offset(-snbtOffset)),
                 FormatKind.SnbtStr,
                 syntax = SnbtSyntaxKind.Compound
             )
         )
     } else asSequence().flatMap { (key, value) ->
-        value.extractTextsByPointer(snbt).map {
+        value.extractTextsByPointer(snbt, snbtOffset).map {
             it.copy(pointer = it.pointer.markMap(key))
         } // wrap inner pointer
     }

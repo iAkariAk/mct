@@ -1,6 +1,11 @@
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class)
+
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.powerassert)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotest)
     alias(libs.plugins.goncalossilva.resources)
@@ -56,5 +61,10 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
         }
+    }
+
+    powerAssert {
+        functions = listOf("kotlin.assert", "kotlin.require", "kotlin.check")
+        includedSourceSets = listOf("commonMain", "commonTest")
     }
 }

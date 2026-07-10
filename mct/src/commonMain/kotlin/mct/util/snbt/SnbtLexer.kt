@@ -1,8 +1,8 @@
 package mct.util.snbt
 
 
-class SnbtLexer(private val string: String) {
-    private var index = 0
+class SnbtLexer(private val string: String, startIndex: Int = 0) {
+    internal var index = startIndex
 
     private fun skipWhitespace() {
         while (index < string.length) {

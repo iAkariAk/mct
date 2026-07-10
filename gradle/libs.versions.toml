@@ -123,6 +123,7 @@ goncalossilva-resources = { id = "com.goncalossilva.resources", version.ref = "r
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-native" }
 kotest = { id = "io.kotest", version.ref = "kotest" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-powerassert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

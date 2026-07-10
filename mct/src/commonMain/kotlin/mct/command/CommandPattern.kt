@@ -1,17 +1,14 @@
 package mct.command
 
 import arrow.core.raise.context.Raise
-import arrow.core.raise.context.raise
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import mct.MCTError
+import mct.MCTPattern
 import mct.model.patch.SnbtSyntaxKind
-import mct.pointer.DataPointerPattern
-import mct.pointer.compile
-import mct.util.snbt.SnbtTag
 import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
 
@@ -83,13 +80,9 @@ fun interface PreCondition {
 sealed interface IndexSelectError : MCTError {
     data class Parse(
         val raw: String,
-        val reason: Throwable,
+        val reason: String,
     ) : IndexSelectError {
-        override val message = "When parsing $raw, get ${reason.message}"
-    }
-
-    data class InvalidatedTargetSelector(val raw: String) : IndexSelectError {
-        override val message = "Target selector <$raw> is not valid"
+        override val message = "When parsing $raw, get $reason"
     }
 }
 
@@ -99,50 +92,7 @@ data class SelectResult(
     override val syntax: SnbtSyntaxKind?,
 ) : StringIndicesWithSyntax
 
-@Serializable
-sealed interface IndexSelection {
-    context(_: Raise<IndexSelectError>)
-    // null: the entire isn't snbt
-    fun select(patterns: List<DataPointerPattern>?, arg: MCCommand.Arg): List<SelectResult>?
-
-    // brigadier:string
-    @Serializable
-    @SerialName("plain_entire")
-    data object PlainEntire : IndexSelection {
-        context(_: Raise<IndexSelectError>)
-        override fun select(
-            patterns: List<DataPointerPattern>?,
-            arg: MCCommand.Arg,
-        ): List<SelectResult>? = null
-    }
-
-    // minecraft:component || minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
-    @Serializable
-    @SerialName("snbt_entire")
-    data object SnbtEntire : IndexSelection {
-        context(_: Raise<IndexSelectError>)
-        override fun select(
-            patterns: List<DataPointerPattern>?,
-            arg: MCCommand.Arg,
-        ): List<SelectResult>? {
-            val content = arg.content
-            val tag = runCatching<SnbtTag> {
-                SnbtTag.decodeFromString(content)
-            }.getOrElse {
-                raise(IndexSelectError.Parse(content, it))
-            }
-            return tag.extractTextsByPointer(content)
-                .filter { it.pointer.compile().matches(patterns) }
-                .map {
-                    SelectResult(
-                        (arg.indices.first + it.indices.first)..(arg.indices.first + it.indices.last),
-                        it.content,
-                        it.syntax
-                    )
-                }.toList().takeIf { it.isNotEmpty() }
-        }
-    }
-}
+internal fun PointerWithExtensionForSnbt.toSelectResult() = SelectResult(indices, content, syntax)
 
 @Serializable
 sealed interface IndexSelector {
@@ -153,7 +103,7 @@ sealed interface IndexSelector {
     @Serializable
     @SerialName("non_greedy")
     data class NonGreedy(
-        val indexes: Map<Int, IndexSelection?>, // null is select entire
+        val indexes: Map<Int, ArgSelection?>, // null is select entire
     ) : IndexSelector {
         // 1-based index
         fun matches(pos: Int) = pos in indexes
@@ -162,10 +112,10 @@ sealed interface IndexSelector {
         context(_: Raise<IndexSelectError>)
         fun select(
             pos: Int,
-            patterns: List<DataPointerPattern>?,
+            pattern: MCTPattern?,
             arg: MCCommand.Arg,
         ): List<SelectResult>? =
-            indexes[pos]?.select(patterns, arg)
+            indexes[pos]?.select(pattern, arg)
     }
 }
 

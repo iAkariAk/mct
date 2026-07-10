@@ -17,7 +17,7 @@ import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 
-private val MAYBE_MAJOR_FIELDS = listOf(
+private val MAYBE_MAJOR_FIELDS = hashSetOf(
     "text",
     "translate",
     "selector",
@@ -26,7 +26,7 @@ private val MAYBE_MAJOR_FIELDS = listOf(
     "keybind",
 )
 
-private val ALL_FIELD = listOf(
+private val ALL_FIELD = hashSetOf(
     // Content
     "text", "translate", "with", "fallback",
     "score", "selector", "keybind",
@@ -49,7 +49,7 @@ private val MAYBE_FIELDS_AS_KEY = MAYBE_MAJOR_FIELDS.map { """"$it"\s*:\s*""".to
 
 internal fun String.isTextComponent() = MAYBE_FIELDS_AS_KEY.any { it.containsMatchIn(this) }
 
-private val STRUCTURAL_FIELDS = listOf(
+private val STRUCTURAL_FIELDS = hashSetOf(
     // Fields that legitimately hold compound/list values in text components
     "extra", "with",
     "hover_event", "click_event",

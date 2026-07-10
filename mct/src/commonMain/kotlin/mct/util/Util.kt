@@ -82,5 +82,7 @@ private class StringIndicesImpl(
     }
 }
 
+inline fun IntRange.offset(offset: Int) = (first + offset)..(last + offset)
+
 @DslMarker
 annotation class BuilderMaker

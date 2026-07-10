@@ -11,9 +11,8 @@ actual class MatchGroup2 actual constructor(
 
 actual interface MatchGroupCollection2 : Collection<MatchGroup2?> {
     actual operator fun get(index: Int): MatchGroup2?
+    actual operator fun get(name: String): MatchGroup2?
 }
-
-operator fun MatchGroupCollection2.get(name: String): MatchGroup2? = null
 
 actual interface MatchResult2 : MatchResult
 
@@ -29,6 +28,7 @@ actual class Regex2 actual constructor(
     actual val options: Set<RegexOption>,
 ) {
     private val regExp: RegExp = RegExp(pattern, buildFlags(options))
+    private val namedGroupIndices = namedGroupIndices(pattern)
 
     actual val pattern: String = pattern
 
@@ -51,7 +51,7 @@ actual class Regex2 actual constructor(
         regExp.lastIndex = startIndex
         val str = input.toString()
         val m = regExp.exec(str) ?: return null
-        return matchResultFrom(m, regExp, str)
+        return matchResultFrom(m, regExp, str, namedGroupIndices)
     }
 
     actual fun findAll(input: CharSequence, startIndex: Int): Sequence<MatchResult2> = sequence {
@@ -59,7 +59,7 @@ actual class Regex2 actual constructor(
         val str = input.toString()
         while (true) {
             val m = regExp.exec(str) ?: break
-            yield(matchResultFrom(m, regExp, str))
+            yield(matchResultFrom(m, regExp, str, namedGroupIndices))
         }
     }
 
@@ -68,14 +68,14 @@ actual class Regex2 actual constructor(
         regExp.lastIndex = 0
         val m = regExp.exec(str) ?: return null
         val whole = m[0] ?: return null
-        return if (m.index == 0 && whole.length == str.length) matchResultFrom(m, regExp, str) else null
+        return if (m.index == 0 && whole.length == str.length) matchResultFrom(m, regExp, str, namedGroupIndices) else null
     }
 
     actual fun matchAt(input: CharSequence, index: Int): MatchResult2? {
         regExp.lastIndex = index
         val str = input.toString()
         val m = regExp.exec(str) ?: return null
-        return if (m.index == index) matchResultFrom(m, regExp, str) else null
+        return if (m.index == index) matchResultFrom(m, regExp, str, namedGroupIndices) else null
     }
 
     actual fun matchesAt(input: CharSequence, index: Int): Boolean = matchAt(input, index) != null
@@ -171,13 +171,18 @@ private fun nonGlobalFlags(options: Set<RegexOption>): String {
     return base.replace("g", "").let { if ("d" !in it) "d$it" else it }
 }
 
-private fun matchResultFrom(match: dynamic, regex: RegExp, input: String): MatchResult2 {
+private fun matchResultFrom(
+    match: dynamic,
+    regex: RegExp,
+    input: String,
+    namedGroupIndices: Map<String, Int>,
+): MatchResult2 {
     val value: String = match[0] ?: ""
     val start: Int = match.index
     val groups = groupCollectionFrom(match)
-    val groups2 = groups2From(match)
+    val groups2 = groups2From(match, namedGroupIndices)
     return object : MatchResult2, HasGroups2 {
-        override val range: IntRange = IntRange(start, start + value.length)
+        override val range: IntRange = IntRange(start, start + value.length - 1)
         override val value: String = value
         override val groups: MatchGroupCollection = groups
         override val groupValues: List<String> =
@@ -185,7 +190,7 @@ private fun matchResultFrom(match: dynamic, regex: RegExp, input: String): Match
 
         override fun next(): MatchResult? {
             val m = regex.exec(input) ?: return null
-            return matchResultFrom(m, regex, input)
+            return matchResultFrom(m, regex, input, namedGroupIndices)
         }
 
         override val groups2: MatchGroupCollection2 = groups2
@@ -210,24 +215,29 @@ private fun groupCollectionFrom(match: dynamic): MatchGroupCollection {
     }
 }
 
-private fun groups2From(match: dynamic): MatchGroupCollection2 {
+private fun groups2From(match: dynamic, namedGroupIndices: Map<String, Int>): MatchGroupCollection2 {
     val items = mutableListOf<MatchGroup2?>()
     val len: Int = match.length
     val indicesArr = match.indices as? Array<dynamic>
     for (i in 0 until len) {
-        val v: String = (match[i] as? String) ?: continue
+        val v: String? = match[i] as? String
+        if (v == null) {
+            items.add(null)
+            continue
+        }
         val range = if (indicesArr != null && i < indicesArr.size) {
             val r = indicesArr[i]
-            IntRange((r[0] as Int), (r[1] as Int))
+            IntRange((r[0] as Int), (r[1] as Int) - 1)
         } else {
-            IntRange(0, v.length)
+            IntRange(0, v.length - 1)
         }
         items.add(MatchGroup2(v, range))
     }
-    val nonNull = items.filterNotNull()
     return object : MatchGroupCollection2, AbstractCollection<MatchGroup2?>() {
-        override val size: Int get() = nonNull.size
+        override val size: Int get() = items.size
         override fun get(index: Int): MatchGroup2? = items.getOrNull(index)
-        override fun iterator(): Iterator<MatchGroup2?> = nonNull.map { it as MatchGroup2? }.iterator()
+        override fun get(name: String): MatchGroup2? = namedGroupIndices[name]?.let(::get)
+            ?: throw IllegalArgumentException("No group with name <$name>")
+        override fun iterator(): Iterator<MatchGroup2?> = items.iterator()
     }
 }

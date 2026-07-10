@@ -12,6 +12,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.mordant.rendering.TextColors
 import mct.MCTError
+import mct.MCTPattern
 import mct.cli.*
 import mct.command.BuiltinCommandDataPatterns
 import mct.command.BuiltinCommandPatterns
@@ -77,9 +78,11 @@ private class CommandTest : BaseCommand(name = "command", help = "Test command p
             (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
                 ?: BuiltinCommandDataPatterns
         printlnBlue(combinedCommandDataPattern)
-        val matchResults = extractTextFromCommands(
-            testedContent, commandPatterns = combinedCommandPattern, commandDataPatterns = combinedCommandDataPattern
-        ).sortedByDescending { it.indices.first }
+        val pattern = MCTPattern(
+            command = combinedCommandPattern,
+            commandData = combinedCommandDataPattern
+        )
+        val matchResults = extractTextFromCommands(testedContent, pattern).sortedByDescending { it.indices.first }
         val display = matchResults.fold(StringBuilder(testedContent)) { acc, r ->
             acc.setRange(r.indices.first, r.indices.last + 1, TextColors.green(r.content))
             acc

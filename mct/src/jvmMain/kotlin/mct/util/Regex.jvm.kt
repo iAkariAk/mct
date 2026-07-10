@@ -2,8 +2,8 @@ package mct.util
 
 actual typealias MatchResult2 = MatchResult
 
-actual val MatchResult2.groups2 get(): MatchGroupCollection2 = groups
-actual typealias MatchGroupCollection2 = MatchGroupCollection
+actual val MatchResult2.groups2 get(): MatchGroupCollection2 = groups as MatchNamedGroupCollection
+actual typealias MatchGroupCollection2 = MatchNamedGroupCollection
 actual typealias MatchGroup2 = MatchGroup
 actual typealias Destructured = MatchResult.Destructured
 

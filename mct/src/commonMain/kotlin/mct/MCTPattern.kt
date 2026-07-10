@@ -1,9 +1,6 @@
 package mct
 
-import mct.command.BuiltinCommandDataPatterns
-import mct.command.BuiltinCommandPatterns
-import mct.command.CommandRegexPattern
-import mct.command.ExtractPatternSet
+import mct.command.*
 import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointerPattern
@@ -14,6 +11,7 @@ data class MCTPattern(
     val mcjson: List<DataPointerPattern>? = BuiltinMCJPatterns,
     val command: ExtractPatternSet = BuiltinCommandPatterns,
     val commandData: List<DataPointerPattern>? = BuiltinCommandDataPatterns,
+    val commandComponent: ComponentPatterns? = BuiltinMinecraftComponentPatterns,
     val commandRegex: List<CommandRegexPattern> = emptyList(),
 ) {
     companion object {

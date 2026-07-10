@@ -62,7 +62,7 @@ val BuiltinCommandPatterns = PatternSet {
     // "clear" subcommand has 2 args — excluded by WithSize(3, strict).
     command("dialog") {
         WithSize(3, strict = true) then {
-            Positions(3 to IndexSelection.SnbtEntire) then {
+            Positions(3 to ArgSelection.SnbtEntire) then {
                 Matches("dialog show") { cmd, arg ->
                     cmd[1].content == "show" && arg.content.startsWith("{")
                 }
@@ -297,7 +297,7 @@ val BuiltinCommandPatterns = PatternSet {
     // The NBT data at position 5 may contain text components like CustomName
     command("setblock") {
         WithSize(5) then {
-            Positions(5 to IndexSelection.SnbtEntire) then {
+            Positions(5 to ArgSelection.SnbtEntire) then {
                 Matches("setblock nbt") { _, arg ->
                     arg.content.startsWith("{")
                 }
@@ -311,7 +311,7 @@ val BuiltinCommandPatterns = PatternSet {
     // data merge storage <source> <nbt>
     command("data") {
         And(WithSize(4), Regex("merge (entity|storage)")) then {
-            Positions(4 to IndexSelection.SnbtEntire) then {
+            Positions(4 to ArgSelection.SnbtEntire) then {
                 Matches("data merge nbt") { _, arg ->
                     arg.content.startsWith("{")
                 }
@@ -322,7 +322,7 @@ val BuiltinCommandPatterns = PatternSet {
     // data merge block <pos> <nbt>
     command("data") {
         And(WithSize(6), Regex("merge block")) then {
-            Positions(6 to IndexSelection.SnbtEntire) then {
+            Positions(6 to ArgSelection.SnbtEntire) then {
                 Matches("data merge block nbt") { _, arg ->
                     arg.content.startsWith("{")
                 }
@@ -334,7 +334,7 @@ val BuiltinCommandPatterns = PatternSet {
     // summon <entity> <pos>*3 [<nbt>]
     command("summon") {
         WithSize(5, strict = true) then {
-            Positions(5 to IndexSelection.SnbtEntire).withAry()
+            Positions(5 to ArgSelection.SnbtEntire).withAry()
         }
     }
 }

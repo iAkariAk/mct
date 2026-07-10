@@ -6,7 +6,7 @@ private data class Metadata(
     val type: SnbtType? = null,
 )
 
-class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
+class SnbtParser(private val snbt: String, private val lexer: SnbtLexer, private val exhaustive: Boolean = false) {
     private var currentToken: SnbtToken? = null
 
     private fun advance() = nextToken() ?: aheadEOF()
@@ -41,6 +41,7 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer) {
             LITERAL -> parseIdentifier()
             else -> illegalToken("Unexpected token ${currentToken!!.type} at ${currentToken!!.indices}")
         }
+        if (exhaustive) expectAny(SnbtTokenType.EOF)
         return tag
     }
 
