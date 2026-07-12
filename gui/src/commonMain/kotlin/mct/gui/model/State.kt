@@ -1,6 +1,7 @@
 package mct.gui.model
 
-import mct.extra.ai.translator.CustomizedPrompts
+import mct.extra.ai.translator.MapInfo
+import mct.extra.ai.translator.TranslationPrompts
 
 enum class RunMode(val key: String, val label: String) {
     Region("region", "Region (.mca 区域文件)"),
@@ -36,10 +37,12 @@ data class TranslateState(
     val availableModels: List<String> = emptyList(),
     val isModelsLoading: Boolean = false,
     val existingTermPath: String = "",
-    val literatureStyle: String = CustomizedPrompts.literatureStyle,
-    val targetLanguage: String = CustomizedPrompts.targetLanguage,
+    val literatureStyle: String = TranslationPrompts.literatureStyle,
+    val targetLanguage: String = TranslationPrompts.targetLanguage,
     val isOptimizing: Boolean = false,
-    val handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
+    val handleGradientAggressively: Boolean = TranslationPrompts.handleGradientAggressively,
+    val mapInfo: MapInfo = TranslationPrompts.mapInfo,
+    val extraPrompts: String = TranslationPrompts.extraPrompts.orEmpty(),
 )
 
 data class BackfillState(
@@ -52,8 +55,10 @@ data class TermExtractState(
     val input: String = "extractions.json",
     val output: String = "terms.json",
     val existingTermPath: String = "",
-    val targetLanguage: String = CustomizedPrompts.targetLanguage,
-    val literatureStyle: String = CustomizedPrompts.literatureStyle,
+    val targetLanguage: String = TranslationPrompts.targetLanguage,
+    val literatureStyle: String = TranslationPrompts.literatureStyle,
+    val mapInfo: MapInfo = TranslationPrompts.mapInfo,
+    val extraPrompts: String = TranslationPrompts.extraPrompts.orEmpty(),
 )
 
 data class ToolboxState(

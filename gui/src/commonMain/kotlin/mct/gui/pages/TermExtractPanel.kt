@@ -20,10 +20,7 @@ import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
-import mct.gui.components.ActionButton
-import mct.gui.components.LiteratureStyleField
-import mct.gui.components.PathRow
-import mct.gui.components.SectionTitle
+import mct.gui.components.*
 import mct.gui.model.TermExtractState
 import mct.gui.util.ensureJsonExt
 
@@ -146,6 +143,16 @@ fun TermExtractPanel(
                     value = state.literatureStyle,
                     onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
                     title = "自定义术语提取风格提示词",
+                )
+
+                MapInfoFields(
+                    value = state.mapInfo,
+                    onValueChange = { onStateChange(state.copy(mapInfo = it)) },
+                )
+
+                ExtraPromptsField(
+                    value = state.extraPrompts,
+                    onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
                 )
 
                 // 已有术语表

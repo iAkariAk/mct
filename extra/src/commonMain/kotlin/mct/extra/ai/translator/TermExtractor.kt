@@ -10,11 +10,21 @@ import mct.util.IO
 
 typealias OnTermExtractCancel = (TermTable) -> Unit
 
+data class TermExtractionPrompts(
+    val targetLanguage: String = TranslationPrompts.targetLanguage,
+    val literatureStyle: String = TranslationPrompts.literatureStyle,
+    val mapInfo: MapInfo = MapInfo.None,
+    val extraPrompts: String? = null
+) {
+    companion object Defaults {
+        val Default = TermExtractionPrompts()
+    }
+}
+
 class TermExtractor(
     val call: ChatCompletionCall,
     val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
-    val targetLanguage: String = CustomizedPrompts.targetLanguage,
-    val literatureStyle: String = CustomizedPrompts.literatureStyle,
+    val prompts: TermExtractionPrompts = TermExtractionPrompts.Default,
     val concurrency: Int = 1,
     defaultTerms: TermTable = emptyMap(),
 ) : EnvHolder by call {
@@ -26,7 +36,7 @@ class TermExtractor(
         onCancel: OnTermExtractCancel,
     ): TermTable {
         val prompt = """
-            你是专精 Minecraft 地图的翻译引擎。你需要从输入文本中**仅提取具有命名性质的术语**（人名与专有名词），并翻译成$targetLanguage。
+            你是专精 Minecraft 地图的翻译引擎。你需要从输入文本中**仅提取具有命名性质的术语**（人名与专有名词），并翻译成${prompts.targetLanguage}。
             
             # 输出格式
             直接输出以下格式的 JSON Object，不要输出多余的文字：
@@ -44,9 +54,19 @@ class TermExtractor(
             2. **不提取任何功能性、描述性、条件性文本**，即使它们以短语形式存在。判断标准：
                - 如果文本的作用是**说明某物的效果、持续时长、触发条件、属性变化、操作说明**等，一律忽略。
                - 例如：冷却时间说明、伤害数值、范围描述、持有限制、属性加成列表、状态触发方式等，均不提取。
-            3. 若输入文本结构为“名称：描述”，只提取冒号前的名称部分（若该名称为有效术语），冒号后的所有内容视为描述并丢弃。
-            4. 忽略所有代码式标识符（如 minecraft:command_block）、驼峰/下划线/冒号命名（如 MainPoint, main_point, main:point）以及单独的槽位词（如 MainHand）。但若它们作为复合术语的一部分且已自然语言化（如 “MainHand Power”），则可整体提取。
+            3. 不提取Minecraft中已经含有的术语
+            4. 若输入文本结构为“名称：描述”，只提取冒号前的名称部分（若该名称为有效术语），冒号后的所有内容视为描述并丢弃。
+            5. 忽略所有代码式标识符（如 minecraft:command_block）、驼峰/下划线/冒号命名（如 MainPoint, main_point, main:point）以及单独的槽位词（如 MainHand）。但若它们作为复合术语的一部分且已自然语言化（如 “MainHand Power”），则可整体提取。
+            6. 提取的键应该与原文相同，如` 𝔢 𝔪 𝔞 `应当提取为原文` 𝔢 𝔪 𝔞 `而非`ema`
+            ${if (prompts.mapInfo.authors.isNotEmpty()) "7. 地图作者名" else ""}
             
+            只翻译字符串值中的 **自然语言** 部分。
+            
+            对于结构化文本:
+              - 重点提取 "text" 和 "fallback" 字段的内容
+              - 禁止提取：标识符、颜色代码（§a、§6）、格式化代码、枚举类值、Minecraft 命令逻辑部分
+              - 当translate为如block.minecraft.ominous_banner等标识符时不翻译，而为自然语言时提取
+
             ## 翻译细则
             - 不可自然意译的名称（如 Asta）→ 采用符合目标语言风格的音译
             - 有明确语义且适合本地化的名称（如 The Guardian）→ 可自然意译
@@ -55,8 +75,13 @@ class TermExtractor(
               - 用字雅观、易读，具有幻想作品命名感
               - 符合目标语言常见译名习惯，而非机械拼音式直译
               - 同一名称在全文中保持统一译法
+              
             ## 语言风格
-            $literatureStyle
+            ${prompts.literatureStyle}
+            
+            ${prompts.mapInfo.render()}
+            
+            ${prompts.extraPrompts}
             
             请严格按照以上规则输出 JSON，不要包含任何解释或额外文本。""".trimIndent()
 

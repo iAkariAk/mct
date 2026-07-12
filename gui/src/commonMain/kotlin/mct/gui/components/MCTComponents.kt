@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import mct.extra.ai.translator.MapInfo
 
 @Composable
 fun SectionTitle(text: String, icon: ImageVector? = null) {
@@ -292,6 +293,79 @@ fun LiteratureStyleField(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
             )
+        )
+    }
+}
+
+@Composable
+fun MapInfoFields(
+    value: MapInfo,
+    onValueChange: (MapInfo) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "地图信息（可选）",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            "提供给 AI 以帮助理解地图背景；作者名会被视为不翻译的人名。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ConfigTextField(
+            value = value.name.orEmpty(),
+            onValueChange = { onValueChange(value.copy(name = it.ifBlank { null })) },
+            label = { Text("地图名称") },
+            placeholder = { Text("例如：Aetherial Ascent") },
+        )
+        ConfigTextField(
+            value = value.description.orEmpty(),
+            onValueChange = { onValueChange(value.copy(description = it.ifBlank { null })) },
+            label = { Text("地图简介") },
+            placeholder = { Text("简要描述剧情、背景或玩法") },
+            singleLine = false,
+        )
+        ConfigTextField(
+            value = value.authors.joinToString(", "),
+            onValueChange = { authors ->
+                onValueChange(value.copy(authors = authors.split(',').map(String::trim).filter(String::isNotEmpty)))
+            },
+            label = { Text("地图作者") },
+            placeholder = { Text("多个作者请用英文逗号分隔") },
+        )
+    }
+}
+
+@Composable
+fun ExtraPromptsField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "额外提示词（可选）",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            "会追加到所有 AI 提示词末尾；内容不当可能破坏翻译结果或数据结构。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+            minLines = 4,
+            placeholder = { Text("仅填写必须补充的翻译规则或上下文") },
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            ),
         )
     }
 }

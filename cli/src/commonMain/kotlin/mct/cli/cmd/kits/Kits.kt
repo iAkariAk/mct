@@ -27,6 +27,7 @@ import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
+import mct.mtl.MTLX
 import mct.mtl.generateMTLXTemplate
 import mct.mtl.translateByMTLX
 import mct.pointer.CustomizedDataPointerPattern
@@ -122,7 +123,7 @@ private class MTLXKit : BaseCommand("mtlx", "MTLX Toolkit") {
 
         context(_: Raise<MCTError>)
         override suspend fun App() {
-            val mtlx = mct.mtl.MTLX.fromString(mtlxPath.readText())
+            val mtlx = MTLX.fromString(mtlxPath.readText())
             val pool = poolPath.readJson<TranslationPool>()
             val mapping = pool.translateByMTLX(mtlx)
             val translatedCount = mapping.values.count { it != null }
@@ -233,6 +234,31 @@ private open class AICommand(
         "--temperature", envvar = "OPENAI_TEMPERATURE", help = "Temperature for the model (0.0-2.0)"
     ).double()
 
+    // prompts
+
+    val targetLanguage by option(
+        "--target-language",
+        envvar = "TARGET_LANGUAGE",
+        help = "Target language for translation (e.g. 简体中文, English, 日本語)"
+    ).default(TranslationPrompts.targetLanguage)
+
+    val literatureStyle by option(
+        "--literature-style", help = "Custom literature style prompt for translation"
+    ).default(
+        TranslationPrompts.literatureStyle
+    )
+
+    val mapInfoFile by option(
+        "--map-info", help = "Provide map info to help LLM better understand context"
+    ).path()
+
+    val extraPrompts by option(
+        "--extra-prompts",
+        help = "That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY"
+    )
+
+    val mapInfo by lazy { mapInfoFile?.readJson<MapInfo>() ?: MapInfo.None }
+
     context(_: Raise<ChatCompletionCallError>)
     suspend fun creatCall() = context(env) {
         ChatCompletionCall(
@@ -256,20 +282,6 @@ private class TermExtract : AICommand(
     ).path()
     val output by option("--output", "-o", help = "The output path for the term table JSON").path().required()
 
-    val targetLanguage by option(
-        "--target-language",
-        envvar = "TARGET_LANGUAGE",
-        help = "Target language for translation (e.g. 简体中文, English, 日本語)"
-    ).default(
-        CustomizedPrompts.targetLanguage
-    )
-
-    val literatureStyle by option(
-        "--literature-style", help = "Custom literature style prompt for translation"
-    ).default(
-        CustomizedPrompts.literatureStyle
-    )
-
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading text from $input" }
@@ -286,8 +298,12 @@ private class TermExtract : AICommand(
             call = creatCall(),
             defaultTerms = termCaches,
             tokenThreshold = tokenThreshold,
-            targetLanguage = targetLanguage,
-            literatureStyle = literatureStyle,
+            prompts = TermExtractionPrompts(
+                targetLanguage = targetLanguage,
+                literatureStyle = literatureStyle,
+                mapInfo = mapInfo,
+                extraPrompts = extraPrompts
+            ),
             concurrency = concurrency,
         )
 
@@ -315,17 +331,6 @@ private class AITranslate : AICommand(
 
     val concurrentByKind by option("--concurrent-by-kind", "-K").flag()
 
-    val literatureStyle by option(
-        "--literature-style", help = "Custom literature style prompt for translation"
-    ).default(
-        CustomizedPrompts.literatureStyle
-    )
-
-    val targetLanguage by option(
-        "--target-language", help = "Target language for translation (e.g. 简体中文, English, 日本語)"
-    ).default(
-        CustomizedPrompts.targetLanguage
-    )
     val handleGradient by option(
         "--handle-gradient", help = "Enable aggressive gradient text handling"
     ).flag()
@@ -348,10 +353,12 @@ private class AITranslate : AICommand(
 
         val translator = Translator(
             call = creatCall(),
-            customizedPrompts = CustomizedPrompts(
+            customizedPrompts = TranslationPrompts(
                 literatureStyle = literatureStyle,
                 targetLanguage = targetLanguage,
                 handleGradientAggressively = handleGradient,
+                mapInfo = mapInfo,
+                extraPrompts =extraPrompts
             ),
             defaultTerms = terms,
             tokenThreshold = tokenThreshold,

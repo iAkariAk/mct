@@ -196,6 +196,8 @@ fun App(modifier: Modifier = Modifier) {
                                                         literatureStyle = vm.translateState.literatureStyle,
                                                         targetLanguage = vm.translateState.targetLanguage,
                                                         handleGradientAggressively = vm.translateState.handleGradientAggressively,
+                                                        mapInfo = vm.translateState.mapInfo,
+                                                        extraPrompts = vm.translateState.extraPrompts.ifBlank { null },
                                                         temperature = GuiSettings.temperature,
                                                         onFailure = {
                                                             vm.scope.launch {
@@ -243,7 +245,9 @@ fun App(modifier: Modifier = Modifier) {
                                                     output = vm.termExtractState.output,
                                                     termPath = vm.termExtractState.existingTermPath.takeIf { it.isNotBlank() },
                                                     targetLanguage = vm.termExtractState.targetLanguage,
-                                                    literatureStyle = vm.termExtractState.literatureStyle
+                                                    literatureStyle = vm.termExtractState.literatureStyle,
+                                                    mapInfo = vm.termExtractState.mapInfo,
+                                                    extraPrompts = vm.termExtractState.extraPrompts.ifBlank { null },
                                                 )
                                             }
                                         }

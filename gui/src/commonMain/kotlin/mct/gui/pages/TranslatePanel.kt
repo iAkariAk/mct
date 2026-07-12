@@ -196,6 +196,16 @@ fun TranslatePanel(
             },
         )
 
+        MapInfoFields(
+            value = state.mapInfo,
+            onValueChange = { onStateChange(state.copy(mapInfo = it)) },
+        )
+
+        ExtraPromptsField(
+            value = state.extraPrompts,
+            onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
+        )
+
         Spacer(Modifier.height(12.dp))
         TextSwitch(
             modifier = Modifier.fillMaxWidth(),

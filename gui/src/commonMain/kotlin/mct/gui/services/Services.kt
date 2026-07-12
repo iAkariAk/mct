@@ -221,9 +221,11 @@ suspend fun runTranslation(
     token: String,
     model: String,
     termPath: String?,
-    literatureStyle: String = CustomizedPrompts.literatureStyle,
-    targetLanguage: String = CustomizedPrompts.targetLanguage,
-    handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
+    literatureStyle: String = TranslationPrompts.literatureStyle,
+    targetLanguage: String = TranslationPrompts.targetLanguage,
+    handleGradientAggressively: Boolean = TranslationPrompts.handleGradientAggressively,
+    mapInfo: MapInfo = TranslationPrompts.mapInfo,
+    extraPrompts: String? = TranslationPrompts.extraPrompts,
     temperature: Double? = null,
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
@@ -262,10 +264,12 @@ suspend fun runTranslation(
     val translator = Translator(
         call = call,
         defaultTerms = existingTerms,
-        customizedPrompts = CustomizedPrompts(
+        customizedPrompts = TranslationPrompts(
             literatureStyle = literatureStyle,
             targetLanguage = targetLanguage,
             handleGradientAggressively = handleGradientAggressively,
+            mapInfo = mapInfo,
+            extraPrompts = extraPrompts,
         ),
         tokenThreshold = GuiSettings.tokenThreshold,
         concurrency = concurrency,
@@ -392,8 +396,10 @@ suspend fun runTermExtraction(
     input: String,
     output: String,
     termPath: String?,
-    targetLanguage: String = CustomizedPrompts.targetLanguage,
-    literatureStyle: String = CustomizedPrompts.literatureStyle,
+    targetLanguage: String = TranslationPrompts.targetLanguage,
+    literatureStyle: String = TranslationPrompts.literatureStyle,
+    mapInfo: MapInfo = TranslationPrompts.mapInfo,
+    extraPrompts: String? = TranslationPrompts.extraPrompts,
     onCancel: OnTermExtractCancel = {},
 ) {
     env.logger.info { "正在加载提取结果: $input" }
@@ -425,9 +431,13 @@ suspend fun runTermExtraction(
     val extractor = TermExtractor(
         call = call,
         tokenThreshold = GuiSettings.tokenThreshold,
-        targetLanguage = targetLanguage,
+        prompts = TermExtractionPrompts(
+            targetLanguage = targetLanguage,
+            literatureStyle = literatureStyle,
+            mapInfo = mapInfo,
+            extraPrompts = extraPrompts,
+        ),
         concurrency = GuiSettings.concurrency,
-        literatureStyle = literatureStyle,
         defaultTerms = existingTerms,
     )
 

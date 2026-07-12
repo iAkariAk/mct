@@ -3,7 +3,8 @@ package mct.cli.cmd.project
 import com.akuleshov7.ktoml.annotations.TomlComments
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.extra.ai.translator.CustomizedPrompts
+import mct.extra.ai.translator.MapInfo
+import mct.extra.ai.translator.TranslationPrompts
 
 @Serializable
 @SerialName("project")
@@ -32,6 +33,10 @@ data class ProjectConfig(
 
     @TomlComments("Extraction pattern configuration")
     val patterns: PatternsConfig = PatternsConfig.Empty,
+
+    @TomlComments("Provide map info to help LLM better understand context")
+    @SerialName("map_info")
+    val mapInfo: MapInfo = MapInfo.None,
 
     @TomlComments("AI translation configuration")
     val ai: AIConfig = AIConfig.Default,
@@ -85,18 +90,22 @@ data class AIConfig(
 
     @TomlComments("Custom literature-style prompt for translation")
     @SerialName("literature_style")
-    val literatureStyle: String = CustomizedPrompts.literatureStyle,
+    val literatureStyle: String = TranslationPrompts.literatureStyle,
 
-    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${CustomizedPrompts.targetLanguage})")
+    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${TranslationPrompts.targetLanguage})")
     @SerialName("target_language")
-    val targetLanguage: String = CustomizedPrompts.targetLanguage,
+    val targetLanguage: String = TranslationPrompts.targetLanguage,
+
+    @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY")
+    @SerialName("extra_prompts")
+    val extraPrompts: String? = TranslationPrompts.extraPrompts,
 
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default, i.e. 1.0)")
     val temperature: Double? = 1.0,
 
-    @TomlComments("Enable aggressive gradient text handling (default: ${CustomizedPrompts.handleGradientAggressively})")
+    @TomlComments("Enable aggressive gradient text handling (default: ${TranslationPrompts.handleGradientAggressively})")
     @SerialName("handle_gradient")
-    val handleGradientAggressively: Boolean = CustomizedPrompts.handleGradientAggressively,
+    val handleGradientAggressively: Boolean = TranslationPrompts.handleGradientAggressively,
 
     @TomlComments("Enable http logging for debug (default: false)")
     @SerialName("http_logging")

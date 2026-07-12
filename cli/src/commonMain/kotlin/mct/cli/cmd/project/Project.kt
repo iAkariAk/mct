@@ -302,9 +302,13 @@ private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
         val extractor = TermExtractor(
             call = createCall(),
             defaultTerms = existingTerms,
-            targetLanguage = ai.targetLanguage,
+            prompts = TermExtractionPrompts(
+                targetLanguage = ai.targetLanguage,
+                literatureStyle = ai.literatureStyle,
+                mapInfo = projectConfig.mapInfo,
+                extraPrompts = ai.extraPrompts,
+            ),
             tokenThreshold = ai.tokenThreshold,
-            literatureStyle = ai.literatureStyle,
             concurrency = ai.concurrency
         )
 
@@ -371,10 +375,12 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
 
         val translator = Translator(
             call = createCall(),
-            customizedPrompts = CustomizedPrompts(
+            customizedPrompts = TranslationPrompts(
                 literatureStyle = ai.literatureStyle,
                 targetLanguage = ai.targetLanguage,
                 handleGradientAggressively = ai.handleGradientAggressively,
+                mapInfo = projectConfig.mapInfo,
+                extraPrompts = ai.extraPrompts,
             ),
             defaultTerms = existingTerms,
             tokenThreshold = ai.tokenThreshold,

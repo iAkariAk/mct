@@ -36,10 +36,12 @@ import net.benwoodworth.knbt.NbtTag
 
 typealias TermTable = Map<String, String>
 
-data class CustomizedPrompts(
+data class TranslationPrompts(
     val literatureStyle: String = Defaults.literatureStyle,
     val targetLanguage: String = Defaults.targetLanguage,
     val handleGradientAggressively: Boolean = Defaults.handleGradientAggressively,
+    val mapInfo: MapInfo = Defaults.mapInfo,
+    val extraPrompts: String? = Defaults.extraPrompts
 ) {
     companion object Defaults {
         val literatureStyle = """
@@ -48,16 +50,17 @@ data class CustomizedPrompts(
         - 不要过度意译，忠实于原文含义。
         - 人名、地名使用日文汉字/中文习惯译名。
     """.trimIndent()
-
         const val targetLanguage = "简体中文"
         const val handleGradientAggressively = false
+        val mapInfo = MapInfo.None
+        val extraPrompts: String? = null
 
-        val Default = CustomizedPrompts() // Always at least to wait the above initialization
+        val Default = TranslationPrompts() // Always at least to wait the above initialization
     }
 }
 
 
-private fun prompt(kind: FormatKind, prompts: CustomizedPrompts): String =
+private fun prompt(kind: FormatKind, prompts: TranslationPrompts): String =
     """你是一名专精 Minecraft 地图的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
 
 ## 输入格式
@@ -103,7 +106,7 @@ Kaguya => 辉夜姬
   4. 所有 key:value 中冒号存在
   5. 不存在 {"":minecraft:xxx} 这类缺失字符串引号的情况
   6. 不存在 {"":58.0"} 这类数字与字符串混合的情况
-  7. 输出结构与输入结构保持一致
+  7. 输出结构与输入结构保持一致（原始字符不加引号，则翻译后字符也不加引号；反之亦然）
  若发现问题，修复后再输出最终结果。
 
 ### 规则 2 — 翻译范围
@@ -111,14 +114,16 @@ Kaguya => 辉夜姬
 【必须】
 - 重点翻译 "text" 和 "fallback" 字段的内容
 【禁止】
-- 禁止翻译：键名、标识符、颜色代码（§a、§6）、格式化代码、枚举类值、Minecraft 命令逻辑部分
+- 禁止翻译：标识符、颜色代码（§a、§6）、格式化代码、枚举类值、Minecraft 命令逻辑部分
+【特例】
+- 当translate为如block.minecraft.ominous_banner等标识符时不翻译，而为自然语言时翻译
 
 ### 规则 3 — 文本组件保护
 【允许】
 - "translate" + "with" 组件：可调整 with 数组内元素的顺序以符合中文语序，但 **不能增减元素数量**
 - "text" + "extra" 富文本：可调整相邻文本节点的顺序以获得自然的中文表达，但 **样式属性（color、bold、italic 等）必须原封不动保留**${
         if (prompts.handleGradientAggressively) """
-- 【渐变色文本组件激进处理】（仅当此条款激活时生效）
+- 【渐变色文本组件激进处理】
   渐变色组件由多个带 color 属性的 text 节点组成。处理流程：
   (1) 先正常翻译各节点内的文本，尽量保留原始字符数
   (2) 长度适配（仅在译文总长度与原文差距过大、可能导致渐变断裂时启用）：
@@ -162,6 +167,7 @@ Kaguya => 辉夜姬
 ### 规则 6 — 人名、地名处理
 【不翻译】
 - 驼峰、下划线、冒号命名：MainPoint、mainPoint、main_point、main:point
+${if (prompts.mapInfo.authors.isNotEmpty()) "- 地图作者名" else ""}
 【必须】
 - 新增人名/地名后写入术语表
 - 不可自然意译的名称（如 Asta）→ 符合目标语言风格的音译
@@ -177,7 +183,7 @@ ${prompts.literatureStyle}
 
 ## 输出格式（必须严格遵守）
 
-输出必须严格按照以下结构，**不能有任何额外文字**：
+输出**必须**严格按照以下结构，**不能有任何额外文字**：
 
 -- MCT-CLI:TRANSLATED --
 [1] <译文第1行>
@@ -215,15 +221,18 @@ ${prompts.literatureStyle}
 - 对某行的结构安全性有疑问时 → 优先保留原文
 - 宁可少翻译一行，也不能破坏数据结构的完整性
 
-## 本次输入类型
+## 本次输入的结构化文本的类型均为
 ${
         when (kind) {
             FormatKind.PlainStr -> "纯文本或 Minecraft 命令等字面量"
             FormatKind.JsonStr, FormatKind.JsonObj -> "JSON 格式"
             FormatKind.SnbtStr, FormatKind.Nbt -> "SNBT 格式"
         }
-    }
+    }，请注意输出正确的格式
 
+${prompts.mapInfo.render()}
+
+${prompts.extraPrompts}
 """
 
 private fun TermTable.render() = entries.joinToString("\n") { (source, target) ->
@@ -241,7 +250,7 @@ class Translator internal constructor(
     private val call: ChatCompletionCall,
     private val requestTranslation: RequestTranslation,
     defaultTerms: TermTable,
-    private val customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
+    private val customizedPrompts: TranslationPrompts = TranslationPrompts.Default,
     private val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val concurrency: Int = 1,
 ) : EnvHolder {
@@ -249,7 +258,7 @@ class Translator internal constructor(
         operator fun invoke(
             call: ChatCompletionCall,
             defaultTerms: TermTable = emptyMap(),
-            customizedPrompts: CustomizedPrompts = CustomizedPrompts.Default,
+            customizedPrompts: TranslationPrompts = TranslationPrompts.Default,
             tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
             concurrency: Int = 1,
         ): Translator {
