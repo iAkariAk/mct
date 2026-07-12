@@ -87,3 +87,12 @@ fun StringBuilder.appendEscaped(string: CharSequence) {
         }
     }
 }
+
+fun CharSequence.removePrefixOrNull(prefix: CharSequence): CharSequence? =
+    if (startsWith(prefix)) subSequence(prefix.length, length)
+    else null
+
+
+fun CharSequence.removeSuffixOrNull(suffix: CharSequence): CharSequence? =
+    if (endsWith(suffix)) subSequence(0, length - suffix.length)
+    else null

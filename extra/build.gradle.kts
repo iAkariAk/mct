@@ -49,13 +49,13 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.serialization.json.okio)
+            api(libs.kotlinx.serialization.json.okio)
             api(libs.openai.client)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.cio)
+            api(libs.ktor.client.core)
+            api(libs.ktor.client.cio)
             api(libs.ktor.client.logging)
-            implementation(libs.ktor.client.contentNegotiation)
-            implementation(libs.ktor.serialization.kotlinx.json)
+            api(libs.ktor.client.contentNegotiation)
+            api(libs.ktor.serialization.kotlinx.json)
             implementation(libs.slf4j.nop)
             implementation(project(":mct"))
         }
