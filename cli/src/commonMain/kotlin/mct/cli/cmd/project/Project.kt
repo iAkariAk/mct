@@ -163,7 +163,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
 
     fun registerLLMOutput(): LLMOutput {
         val output = object : LLMOutput {
-            override var totalConsumedTokenCount = 0
+            override var totalConsumedTokenCount = 0L
             override val thinkings = mutableMapOf<Int, StringBuilder>()
         }
         NotifierHooks.onAiSign {
@@ -200,7 +200,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
 }
 
 private interface LLMOutput {
-    val totalConsumedTokenCount: Int
+    val totalConsumedTokenCount: Long
     val thinkings: Map<Int, StringBuilder>
 }
 

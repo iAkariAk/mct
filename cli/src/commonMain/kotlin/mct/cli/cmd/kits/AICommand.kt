@@ -158,7 +158,7 @@ class AITranslate : AICommand(
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
         val terms = term.jsonFile<TermTable>(emptyMap())
         val caches = caches.jsonFile<Map<String, String>>(emptyMap())
-        var consumedTokenCount = 0
+        var consumedTokenCount = 0L
         NotifierHooks.onAiSign {
             if (it is AiSign.ConsumeToken) {
                 consumedTokenCount += it.count

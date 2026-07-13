@@ -57,7 +57,7 @@ class AppViewModel(
 
     // ── Token consumption display ───────────────────────────────
     var lastTokenConsume by mutableIntStateOf(0)
-    var totalTokenConsume by mutableIntStateOf(0)
+    var totalTokenConsume by mutableLongStateOf(0)
 
     // ── Reasoning sheet ─────────────────────────────────────────
     val reasoningContents = mutableStateMapOf<Int, String>()

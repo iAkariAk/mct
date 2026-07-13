@@ -20,7 +20,7 @@ import mct.gui.util.renderWithUnit
 fun NavigationRailPanel(
     selectedTab: Tab,
     onTabSelected: (Tab) -> Unit,
-    totalTokenConsume: Int,
+    totalTokenConsume: Long,
     lastTokenConsume: Int,
     uriHandler: UriHandler,
     modifier: Modifier = Modifier,
@@ -76,7 +76,7 @@ fun NavigationRailPanel(
 }
 
 @Composable
-private fun TokenDisplay(totalTokenConsume: Int, lastTokenConsume: Int) {
+private fun TokenDisplay(totalTokenConsume: Long, lastTokenConsume: Int) {
     Column(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
