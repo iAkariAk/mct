@@ -26,9 +26,7 @@ import mct.gui.components.DraggableSplitPane
 import mct.gui.components.LogConsole
 import mct.gui.components.NavigationRailPanel
 import mct.gui.components.WindowTitleBar
-import mct.gui.model.GuiSettings
-import mct.gui.model.LogEntry
-import mct.gui.model.Tab
+import mct.gui.model.*
 import mct.gui.pages.*
 import mct.gui.services.*
 import mct.gui.util.ThemeState
@@ -269,6 +267,64 @@ fun App(modifier: Modifier = Modifier) {
                                         }
                                     })
 
+                                Tab.Project -> ProjectPanel(
+                                    state = vm.projectState,
+                                    onStateChange = { vm.projectState = it },
+                                    isRunning = vm.isRunning,
+                                    onInit = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            val state = vm.projectState
+                                            with(vm.env) { initialiseProject(state.directory, state.name, state.source, state.target) }
+                                        }
+                                    },
+                                    onUpdate = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            with(vm.env) { updateProject(vm.projectState.directory) }
+                                        }
+                                    },
+                                    onTerms = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            val project = vm.projectState
+                                            val translate = vm.translateState
+                                            with(vm.env) {
+                                                extractProjectTerms(
+                                                    project.directory,
+                                                    vm.clientManager,
+                                                    translate.targetLanguage,
+                                                    translate.literatureStyle,
+                                                    translate.mapInfo,
+                                                    translate.extraPrompts.ifBlank { null },
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onTranslate = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            val project = vm.projectState
+                                            val translate = vm.translateState
+                                            with(vm.env) {
+                                                translateProject(
+                                                    project.directory,
+                                                    vm.clientManager,
+                                                    translate.apiUrl.ifBlank { null },
+                                                    translate.apiToken,
+                                                    translate.model,
+                                                    translate.targetLanguage,
+                                                    translate.literatureStyle,
+                                                    translate.mapInfo,
+                                                    translate.extraPrompts.ifBlank { null },
+                                                    translate.handleGradientAggressively,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onBuild = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            with(vm.env) { buildProject(vm.projectState.directory) }
+                                        }
+                                    },
+                                )
+
                                 Tab.Toolbox -> ToolboxPanel(
                                     state = vm.toolboxState,
                                     onStateChange = { vm.toolboxState = it },
@@ -295,6 +351,61 @@ fun App(modifier: Modifier = Modifier) {
                                                     vm.toolboxState.exportInput,
                                                     vm.toolboxState.exportOutput,
                                                 )
+                                            }
+                                        }
+                                    },
+                                    onRunOperation = { operation ->
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
+                                            val state = vm.toolboxState
+                                            with(vm.env) {
+                                                when (operation) {
+                                                    ToolboxOperation.FlattenPool -> flattenTextPool(
+                                                        state.poolInput, state.poolOutput, state.poolKind.key, state.poolSimply
+                                                    )
+                                                    ToolboxOperation.UnflattenPool -> unflattenTextPool(
+                                                        state.poolInput, state.mappingInput, state.poolOutput
+                                                    )
+                                                    ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
+                                                        state.poolInput, state.poolOutput
+                                                    )
+                                                    ToolboxOperation.TranslateMtlx -> translateByMtlx(
+                                                        state.mtlxInput, state.poolInput, state.poolOutput
+                                                    )
+                                                    ToolboxOperation.ReplaceAll -> replaceAllExtractions(
+                                                        state.poolInput, state.poolOutput, state.replacement
+                                                    )
+                                                    ToolboxOperation.ExportSchema -> exportPatternSchema(
+                                                        when (state.schemaKind) {
+                                                            SchemaKind.Command -> PatternSchemaKind.Command
+                                                            SchemaKind.DataPointer -> PatternSchemaKind.DataPointer
+                                                            SchemaKind.CommandRegex -> PatternSchemaKind.CommandRegex
+                                                        },
+                                                        state.poolOutput,
+                                                    )
+                                                    ToolboxOperation.CommandTest -> {
+                                                        val matches = testCommandPatterns(
+                                                            state.commandInput,
+                                                            state.commandPatternPath.takeIf { it.isNotBlank() },
+                                                            state.commandDataPatternPath.takeIf { it.isNotBlank() },
+                                                            state.commandNoBuiltin,
+                                                        )
+                                                        vm.toolboxState = state.copy(
+                                                            commandResult = matches.joinToString("\n") {
+                                                                "[${it.start}, ${it.endExclusive}) ${it.content}"
+                                                            }.ifBlank { "未匹配到可提取文本。" },
+                                                        )
+                                                    }
+                                                    ToolboxOperation.DownloadOfficialLanguage -> downloadOfficialLanguages(
+                                                        state.officialMinecraftVersion,
+                                                        state.officialOutput,
+                                                        state.officialConcurrency.toInt(),
+                                                    )
+                                                    ToolboxOperation.CombineOfficialLanguage -> combineOfficialLanguages(
+                                                        state.officialSourceLanguage,
+                                                        state.officialTargetLanguage,
+                                                        state.poolOutput,
+                                                    )
+                                                }
                                             }
                                         }
                                     })

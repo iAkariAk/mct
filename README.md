@@ -12,10 +12,12 @@ Unlike traditional manual translation, MCT eliminates the need to handle extract
 - 📝 MTLX DSL designed for map translators
 - 🎯 Supports datapacks, region files, and other Minecraft resources
 - 🔌 Extensible architecture for custom extraction patterns
+- 😇 User-friendly GUI
 
 
 ## Quick Start
 > **⚠️ Work in Progress**
+
 MCT is under development. Breaking changes may occur at any time.
 You can download the latest build from CI, where you can find cli and gui artifacts.
 

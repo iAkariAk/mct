@@ -49,6 +49,7 @@ class AppViewModel(
     var translateState by mutableStateOf(TranslateState())
     var termExtractState by mutableStateOf(TermExtractState())
     var backfillState by mutableStateOf(BackfillState())
+    var projectState by mutableStateOf(ProjectWorkflowState())
     var toolboxState by mutableStateOf(ToolboxState())
 
     // ── Translation progress ────────────────────────────────────

@@ -64,6 +64,11 @@ fun NavigationRailPanel(
             icon = { Icon(Icons.Outlined.Restore, contentDescription = null) },
             label = { Text(Tab.Backfill.label, style = MaterialTheme.typography.labelSmall) })
         NavigationRailItem(
+            selected = selectedTab == Tab.Project,
+            onClick = { onTabSelected(Tab.Project) },
+            icon = { Icon(Icons.Outlined.Workspaces, contentDescription = null) },
+            label = { Text(Tab.Project.label, style = MaterialTheme.typography.labelSmall) })
+        NavigationRailItem(
             selected = selectedTab == Tab.Toolbox,
             onClick = { onTabSelected(Tab.Toolbox) },
             icon = { Icon(Icons.Outlined.Handyman, contentDescription = null) },

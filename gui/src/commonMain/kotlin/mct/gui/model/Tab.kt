@@ -5,5 +5,6 @@ enum class Tab(val label: String) {
     Translate("AI 翻译"),
     TermExtract("术语提取"),
     Backfill("回填存档"),
+    Project("项目工作流"),
     Toolbox("工具箱"),
 }
