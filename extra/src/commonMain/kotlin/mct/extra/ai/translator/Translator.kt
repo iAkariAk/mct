@@ -17,10 +17,7 @@ import mct.model.patch.*
 import mct.notify
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
-import mct.text.TextCompound
-import mct.text.decodeToCompound
-import mct.text.encodeToIR
-import mct.text.replaceText
+import mct.text.*
 import mct.util.IO
 import mct.util.Regex2
 import mct.util.destructured
@@ -298,7 +295,7 @@ class Translator internal constructor(
 
         suspend fun processChunk(chunkIndex: Int, chunk: List<IndexedValue<String>>) {
             val strips = chunk.stripWithIndex(kind)
-            val strippedCount = strips.count { (_, strip) -> strip is CompoundStrip.Success }
+            val strippedCount = strips.count { (_, strip) -> strip is CompoundStrip.Simplified ||strip is CompoundStrip.Untranslatable }
             logger.debug { "Chunk $chunkIndex: ${strippedCount}/${strips.size} items stripped to plain text" }
             val chunkAsStr = chunk.joinToString("\n") { it.value }
             val termSnapshot = mutex.withLock { terms.toMap() }
@@ -385,7 +382,8 @@ internal sealed interface CompoundStrip {
 
     data class CannotStrip(override val original: String) : CompoundStrip
     data class NoCompound(override val original: String) : CompoundStrip
-    data class Success(
+    data class Untranslatable(override val original: String) : CompoundStrip
+    data class Simplified(
         override val original: String,
         val sourceFormat: FormatKind,
         val source: TextCompound,
@@ -395,9 +393,10 @@ internal sealed interface CompoundStrip {
 }
 
 private fun CompoundStrip.stripOrOriginal() = when (this) {
+    is CompoundStrip.Untranslatable -> original
     is CompoundStrip.CannotStrip -> original
     is CompoundStrip.NoCompound -> original
-    is CompoundStrip.Success -> strip
+    is CompoundStrip.Simplified -> strip
 }
 
 context(env: EnvHolder)
@@ -426,13 +425,15 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
         }?.decodeToCompound()
     }.getOrNull() ?: return CompoundStrip.NoCompound(raw)
 
+    if (!compound.hasText()) return CompoundStrip.Untranslatable(raw)
+
     val strip = (if (compound.extra.isEmpty()) {
         when (compound) {
             is TextCompound.Plain -> compound.text
             else -> cannotStrip()
         }
     } else cannotStrip()) ?: return CompoundStrip.CannotStrip(raw)
-    return CompoundStrip.Success(raw, kind, compound, strip, isList)
+    return CompoundStrip.Simplified(raw, kind, compound, strip, isList)
 }
 
 context(env: EnvHolder)
@@ -447,7 +448,7 @@ internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>):
         val (index, cs) = iv
         val r = s?.let {
             when (cs) {
-                is CompoundStrip.Success -> {
+                is CompoundStrip.Simplified -> {
                     when (cs.sourceFormat) {
                         FormatKind.PlainStr -> s
                         else -> {
@@ -464,6 +465,7 @@ internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>):
 
                 is CompoundStrip.CannotStrip -> s
                 is CompoundStrip.NoCompound -> s
+                is CompoundStrip.Untranslatable -> s
             }
         } ?: cs.original
         IndexedValue(index, r)

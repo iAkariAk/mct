@@ -46,6 +46,13 @@ sealed interface TextCompoundOneOrMany {
 inline fun TextCompound.one() = TextCompoundOneOrMany.One(this)
 inline fun List<TextCompound>.many() = TextCompoundOneOrMany.Many(this)
 
+fun TextCompound.hasText(): Boolean = when (this) {
+    is TextCompound.Selector -> separator?.hasText() == true || extra.any { it.hasText() }
+    is TextCompound.Plain -> true
+    is TextCompound.Translatable -> true
+    else -> extra.any { it.hasText() }
+}
+
 @Serializable(TextCompoundSerializer::class)
 sealed interface TextCompound {
     val extra: List<TextCompound>
