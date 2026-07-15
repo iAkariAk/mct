@@ -44,7 +44,7 @@ private fun SnbtTag.selectSnbt(
         }.toList().takeIf { it.isNotEmpty() }
 
 context(_: Raise<IndexSelectError>)
-private fun selectPropertyList(
+private fun selectItemStackPropertyList(
     baseIndex: Int,
     str: String,
     patterns: ComponentPatterns?
@@ -92,8 +92,7 @@ private fun selectPropertyList(
                         extracted.singleOrNull()
                             ?.let(::toSelectResult)
                             ?.let { yield(it) }
-                    }
-                    else extracted
+                    } else extracted
                         .filter { pattern.pattern.match(it.pointer.compile()) }
                         .map(::toSelectResult)
                         .let { yieldAll(it) }
@@ -148,13 +147,13 @@ sealed interface ArgSelection {
             arg: MCCommand.Arg,
         ): List<SelectResult>? {
             val result = ITEM_STACK_REGX.matchEntire(arg.content) ?: raise(
-                IndexSelectError.Parse(arg.content, "The arg didnot match ItemStack(${ITEM_STACK_REGX.pattern})")
+                IndexSelectError.Parse(arg.content, "The arg didn't match ItemStack(${ITEM_STACK_REGX.pattern})")
             )
-            val id = result.groups2["id"]!!
+//            val id = result.groups2["id"]!!
             val new = result.groups2["new"]
             val old = result.groups2["old"]
             return when {
-                new != null && new.value.isNotEmpty() -> selectPropertyList(
+                new != null && new.value.isNotEmpty() -> selectItemStackPropertyList(
                     arg.indices.first + new.range.first,
                     new.value,
                     patterns?.commandComponent
@@ -168,6 +167,26 @@ sealed interface ArgSelection {
 
                 else -> unreachable
             }
+        }
+    }
+
+    // minecraft:block_state
+    @Serializable
+    @SerialName("block_state")
+    data object BlockState : ArgSelection {
+        private val BLOCK_STATE_REGEX = Regex2("""^(?<id>[\w:.]+)(?:\[.*?])?(?<snbt>\{.*\})$""")
+
+        context(_: Raise<IndexSelectError>)
+        override fun select(
+            patterns: MCTPattern?,
+            arg: MCCommand.Arg,
+        ): List<SelectResult>? {
+            val result = BLOCK_STATE_REGEX.matchEntire(arg.content) ?: raise(
+                IndexSelectError.Parse(arg.content, "The arg didn't match BlockState(${BLOCK_STATE_REGEX.pattern})")
+            )
+//            val id = result.groups2["id"]!!
+            val snbt = result.groups2["snbt"]!!
+            return selectSnbt(arg.indices.first + snbt.range.first, snbt.value, patterns?.commandData)
         }
     }
 }
