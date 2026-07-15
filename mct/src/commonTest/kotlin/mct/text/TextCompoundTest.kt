@@ -3,14 +3,18 @@ package mct.text
 
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mct.serializer.MCTJson
 import mct.serializer.NbtNone
+import mct.serializer.Snbt
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
+import net.benwoodworth.knbt.NbtTag
 import org.intellij.lang.annotations.Language
 
 class TextCompoundSerializerTest : FreeSpec({
@@ -23,6 +27,16 @@ class TextCompoundSerializerTest : FreeSpec({
     "@Serialization" {
         shouldNotThrowAny {
             json.decodeFromString<TextCompound>("\"hi\"")
+        }
+    }
+
+
+    "KNBT BUG" { // FIXME: https://github.com/BenWoodworth/knbt/issues/66
+        shouldThrowAny {
+            val anyway = Snbt.decodeFromString<NbtTag>("""
+                {a:[], b:"c"}
+            """.trimIndent())
+            println(anyway)
         }
     }
 
