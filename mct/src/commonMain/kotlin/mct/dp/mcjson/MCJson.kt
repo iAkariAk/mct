@@ -29,13 +29,12 @@ internal fun MCJsonExtractor(
 }
 
 internal fun standardizeMCJson(mcjson: String): String {
-    val chars = mcjson.toCharArray()
     val result = StringBuilder(mcjson.length)
     var i = 0
     var inSingleQuote = false
     var inDoubleQuote = false
     while (i < mcjson.length) {
-        val c = chars[i]
+        val c = mcjson[i]
         when (c) {
             '\'' -> if (inDoubleQuote) {
                 result.append(c)
@@ -58,8 +57,8 @@ internal fun standardizeMCJson(mcjson: String): String {
                 result.append(c)
             }
 
-            '\\' if i + 1 < chars.size -> {
-                val next = chars[i + 1]
+            '\\' if i + 1 < mcjson.length  -> {
+                val next = mcjson[i + 1]
                 when {
                     inSingleQuote -> {
                         when (next) {

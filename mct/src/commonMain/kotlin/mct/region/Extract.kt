@@ -26,8 +26,8 @@ fun MCTWorkspace.extractFromRegion(
             dimension.entitiesRawMgr to ChunkDataKind.Entities
         )
             .filter { (manager, _) -> manager != null }
-            .flatMapMerge(3) { (manager, kind) ->
-                manager!!.regions().asFlow().flatMapMerge(8) { region ->
+            .flatMapMerge { (manager, kind) ->
+                manager!!.regions().asFlow().flatMapMerge { region ->
                     val extractions = region.chunks.asSequence()
                         .filterNotNull()
                         .flatMap { chunk ->
@@ -54,5 +54,5 @@ fun MCTWorkspace.extractFromRegion(
                     )
                 }
             }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(Dispatchers.IO.limitedParallelism(72))
 }

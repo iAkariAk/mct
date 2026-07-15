@@ -59,26 +59,26 @@ fun MCTWorkspace.extractFromDatapack(
             it to walk
         }.flatMapMerge { (sourcePath, walk) ->
             flow {
-                val reading = walk.read { "__MACOSX" !in it.path.segments && it.size != 0L }
-                reading.mapNotNull { reading ->
-                    reading to (extractors[reading.file.path.extension] ?: return@mapNotNull null)
-                }
-                    .flatMap { (reading, extractor) ->
-                        either {
-                            env.logger.debug {
-                                "Extracting ${reading.file.path} via $extractor"
+                walk.read { "__MACOSX" !in it.path.segments && it.size != 0L }.use { reading ->
+                    reading.mapNotNull { reading ->
+                        reading to (extractors[reading.file.path.extension] ?: return@mapNotNull null)
+                    }
+                        .flatMap { (reading, extractor) ->
+                            either {
+                                env.logger.debug {
+                                    "Extracting ${reading.file.path} via $extractor"
+                                }
+                                sequenceOf(extractor.extractAsGroup(sourcePath, reading))
+                            }.getOrElse { error ->
+                                env.logger.error { error.message }
+                                emptySequence()
                             }
-                            sequenceOf(extractor.extractAsGroup(sourcePath, reading))
-                        }.getOrElse { error ->
-                            env.logger.error { error.message }
-                            emptySequence()
                         }
-                    }
-                    .filter { it.extractions.isNotEmpty() }
-                    .forEach {
-                        emit(it)
-                    }
-                reading.close()
+                        .filter { it.extractions.isNotEmpty() }
+                        .forEach {
+                            emit(it)
+                        }
+                }
             }
         }.flowOn(Dispatchers.IO)
 }

@@ -43,7 +43,6 @@ fun parseCommands(content: String): List<MCCommand> {
     var row = 0
 
     line@ fun handleLine(lineStartLine: Int, line: String) {
-        val chars = line.toCharArray()
         val buffer = StringBuilder()
 
         var lineBeginMode = true
@@ -69,7 +68,7 @@ fun parseCommands(content: String): List<MCCommand> {
             )
         }
 
-        for ((col, c) in chars.withIndex()) {
+        for ((col, c) in line.withIndex()) {
             val peekedState = stateStack.peek()
             check(stateStack.bottom() == RootState) {
                 "Fatal error due to the RootState being replaced."
@@ -160,7 +159,7 @@ fun parseCommands(content: String): List<MCCommand> {
         }
 
         if (buffer.isNotEmpty()) {
-            bindBufferIntoCmd(chars.size - 1)
+            bindBufferIntoCmd(line.length - 1)
         }
 
         val peekedState = stateStack.peek()
@@ -188,7 +187,7 @@ fun parseCommands(content: String): List<MCCommand> {
     val line = StringBuilder()
     var lastC: Char? = null
     var lineStart = 0
-    for ((charOffset, c) in content.toCharArray().withIndex()) {
+    for ((charOffset, c) in content.withIndex()) {
         if (c == '\n') {
             handleLine(lineStart, line.toString())
             line.clear()
