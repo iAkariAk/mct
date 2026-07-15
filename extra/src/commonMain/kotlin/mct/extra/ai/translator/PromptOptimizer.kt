@@ -5,18 +5,19 @@ import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.chatRaw
 
-private const val PROMPT_OPTIMIZER = """
-你是一名专业 Prompt Engineer。请对以下提示词进行重构和优化，使其更适合LLM执行。
-要求:
-- 保持原始意图、规则和输出要求完全一致；
-- 不添加新的业务逻辑或额外要求；
-- 消除歧义和隐含假设；
-- 将模糊描述改写为明确、可验证、可执行的指令；
-- 优化信息组织结构，将相关内容归类；
-- 减少模型产生误解或遗漏约束的可能性；
-- 优先考虑执行效果，而非语言修饰。
+internal const val PROMPT_OPTIMIZER = """
+你是一名专业的翻译风格提示词编辑器。输入内容只是 Minecraft 地图翻译系统中“译文/译名风格”章节的一段规则，不是完整系统提示词。
 
-输出优化后的完整提示词，不要分析过程，不要解释修改原因。
+请在不改变原意的前提下重写这段风格规则，使其简洁、明确且便于 LLM 执行：
+
+- 保留用户指定的文体、语气、忠实程度、命名倾向和目标读者。
+- 合并重复要求，消除相互冲突、模糊或无法执行的表述。
+- 使用短小、相互独立的 Markdown 无序列表项。
+- 不添加用户未要求的创作风格或业务规则。
+- 不添加角色定义、目标语言、输入输出协议、JSON/SNBT/Minecraft 结构保护、术语提取或解释性文字；这些由外层系统提示负责。
+- 不使用标题、代码围栏、前言或结语。
+
+只输出优化后的风格规则列表。
 """
 
 context(_: Raise<ChatCompletionCallError>)

@@ -45,7 +45,7 @@ data class TranslationPrompts(
         - 使用简洁自然的语言，轻小说风格。
         - 保持原文的情感色彩和语气。
         - 不要过度意译，忠实于原文含义。
-        - 人名、地名使用日文汉字/中文习惯译名。
+        - 人名、地名使用目标语言中通行、自然且符合世界观的译名。
     """.trimIndent()
         const val targetLanguage = "简体中文"
         const val handleGradientAggressively = false
@@ -56,181 +56,6 @@ data class TranslationPrompts(
     }
 }
 
-
-private fun prompt(kind: FormatKind, prompts: TranslationPrompts): String =
-    """你是一名专精 Minecraft 地图的翻译引擎。你的任务是将输入的文本翻译为${prompts.targetLanguage}，同时严格保护数据结构的完整性。
-
-## 输入格式
-
-- 输入采用 **MCT-CLI** 协议格式。
-- "-- MCT-CLI:START --" 之前是术语表（JSON 格式），必须严格遵循其中的翻译映射；术语表本身不要翻译。
-- "-- MCT-CLI:START --" 之后是待翻译内容。每行以 **[N] ** 开头（N 是行号，从 0 开始），后跟该行的文本内容。
-- 行内的 **\n** 和 **↠mctnl↠** 是转义换行符——不要还原为真实换行，不要删去，也不要在其中插入字词。
-- 行号 [N] 是该行的唯一标识。**你的每行译文输出也必须以相同的 [N] 开头。**
-
-示例（请始终翻译成${prompts.targetLanguage}）：
-Kaguya => 辉夜姬
--- MCT-CLI:START --
-[1] 待翻译文本行1
-[2] 待翻译文本行2
-
-## 核心规则（优先级从高到低）
-
-### 规则 0 — 行数完全一致（最高优先级）
-【必须】
-- 输出译文行数 **必须等于** 输入行数
-- 第 N 行译文必须严格对应第 N 行原文，顺序完全一致
-- 某行无需翻译时（纯数字、符号、已为中文），原样保留该行
-【禁止】
-- 禁止合并多行为一行
-- 禁止将一行拆分为多行
-- 禁止调换行顺序（即使相邻行文本相似也不允许）
-
-### 规则 1 — 数据结构保护
-内容可能是 JSON、SNBT（Minecraft 文本组件）或完整的 Minecraft 命令。
-【必须】
-- 保留所有结构：字段名、键名、对象/数组、方括号/花括号/逗号、引号类型
-- 保留所有转义序列（如 \n、\"、\\）
-- 输出必须是结构合法的 JSON/SNBT
-- 不翻译命令关键字等非文本部分（如命令中的 spawner）${
-        if (prompts.handleGradientAggressively) """
-- 唯一例外：启用「渐变色激进策略」时，允许对渐变文本组件的颜色数组进行插值调整（见规则 3 补充条款），其他结构保护不变""" else ""
-    }
-- 生成最终结果前，必须执行一次静态检查。检查内容：
-  1. 所有 { 与 } 数量一致
-  2. 所有 [ 与 ] 数量一致
-  3. 所有字符串引号成对出现
-  4. 所有 key:value 中冒号存在
-  5. 不存在 {"":minecraft:xxx} 这类缺失字符串引号的情况
-  6. 不存在 {"":58.0"} 这类数字与字符串混合的情况
-  7. 输出结构与输入结构保持一致（原始字符不加引号，则翻译后字符也不加引号；反之亦然）
- 若发现问题，修复后再输出最终结果。
-
-### 规则 2 — 翻译范围
-只翻译字符串值中的 **自然语言** 部分。
-【必须】
-- 重点翻译 "text" 和 "fallback" 字段的内容
-【禁止】
-- 禁止翻译：标识符、颜色代码（§a、§6）、格式化代码、枚举类值、Minecraft 命令逻辑部分
-【特例】
-- 当translate为如block.minecraft.ominous_banner等标识符时不翻译，而为自然语言时翻译
-
-### 规则 3 — 文本组件保护
-【允许】
-- "translate" + "with" 组件：可调整 with 数组内元素的顺序以符合中文语序，但 **不能增减元素数量**
-- "text" + "extra" 富文本：可调整相邻文本节点的顺序以获得自然的中文表达，但 **样式属性（color、bold、italic 等）必须原封不动保留**${
-        if (prompts.handleGradientAggressively) """
-- 【渐变色文本组件激进处理】
-  渐变色组件由多个带 color 属性的 text 节点组成。处理流程：
-  (1) 先正常翻译各节点内的文本，尽量保留原始字符数
-  (2) 长度适配（仅在译文总长度与原文差距过大、可能导致渐变断裂时启用）：
-      - 译文过短 → 允许语义扩写（忽略节点限制，增加修饰词/重复语素/补充意境词）
-        若扩写后仍显著偏短：可删除部分中间颜色节点（从 extra 数组中移除过渡色片段），简化渐变
-        禁止直接保留原文不译
-      - 译文过长 → 允许插入额外颜色插值节点，将译文拆分为更多片段并补充中间色
-        新增节点的颜色从相邻节点插值计算（如 #FF0000 ←→ #0000FF 之间插入 #7F007F）
-  (3) 长度参考：中文 1 字 ≈ 英文 2 字符，以视觉等宽而非字符数相等评估
-  (4) 调整后渐变效果不如原始 → 只要数据结构合法且译文准确，即视为成功
-  示例：
-  "Legendary Frost Guardian"（23 字符）→ "永冬寒霜的传奇守护者"（11 字≈视觉 22 字符）—— 合格
-  "Frost Guardian" → 先扩写为"永霜守护者"，仍不足时删除部分颜色节点"""
-        else ""
-    }
-【禁止】
-- 禁止跨越语义边界（如 clickEvent、hoverEvent 包裹的文本块）
-- 禁止跨行调整语序（**行号必须完全对齐**）
- - 如:
-   [0] BRING MIKE
-   [1] IF YOU GO TO
-   [2] THE SEWERS
-   不应该合并，而是逐行翻译:
-   [0] 带上牛奶
-   [1] 如果你去
-   [2] 下水道
-- 禁止在翻译输出中添加任何额外内容（空行、注释等）
-
-### 规则 4 — 字符串处理
-【必须】
-- 保持原有引号形式不变（双引号 / 单引号）
-- 保留所有转义字符
-【注意】
-- 替换后的文本若含特殊字符不需要额外转义（由程序处理）
-
-### 规则 5 — 术语一致性
-- 严格遵循术语表中提供的翻译映射
-- 同一人物名、地名、物品名在全文中保持统一
-- 不确定时优先一致性而非猜测
-
-### 规则 6 — 人名、地名处理
-【不翻译】
-- 驼峰、下划线、冒号命名：MainPoint、mainPoint、main_point、main:point
-${if (prompts.mapInfo.authors.isNotEmpty()) "- 地图作者名" else ""}
-【必须】
-- 新增人名/地名后写入术语表
-- 不可自然意译的名称（如 Asta）→ 符合目标语言风格的音译
-- 有明确语义且适合本地化（如 The Guardian）→ 可自然意译
-【音译原则】
-- 接近原读音，兼顾名称气质、世界观风格、角色感与文字观感
-- 用字雅观、易读，具有幻想作品命名感
-- 符合目标语言常见译名习惯，而非机械拼音式直译
-- 同一名称在全文中保持统一译法
-
-### 规则 7 — 翻译风格
-${prompts.literatureStyle}
-
-## 输出格式（必须严格遵守）
-
-输出**必须**严格按照以下结构，**不能有任何额外文字**：
-
--- MCT-CLI:TRANSLATED --
-[1] <译文第1行>
-[2] <译文第2行>
-...
-
-> 译文内容的格式必须与原始输入保持一致。原文是 JSON → 译文也必须是相同结构的 JSON，只替换 "text"、"fallback" 等字段的值。
-
--- MCT-CLI:TERMS --
-{
-"原文": "译文",
-"原文2": "译文2"
-}
--- MCT-CLI:END --
-
-关键约束：
-- "-- MCT-CLI:TRANSLATED --"、"-- MCT-CLI:TERMS --"、"-- MCT-CLI:END --" 三个标记必须逐字原样出现
-- TRANSLATED 部分的行数 **必须等于** 输入行数
-- TERMS 必须是合法 JSON Object，且String -> String
-- **仅新发现的术语**放入 TERMS，已存在于术语表中的不要重复
-- 没有新术语时 TERMS 写空Map {}
-
-## 术语提取原则
-1. **只提取“命名性”文本块**，即用来称呼、标识某个事物等的固定名称，如：
-   - 物品名：Sword of Light
-   - 技能/效果名：Mars's Madness, Absorption
-   - 人名/地名：Asta, The Guardian
-2. **不提取任何功能性、描述性、条件性文本**，即使它们以短语形式存在。判断标准：
-   - 如果文本的作用是**说明某物的效果、持续时长、触发条件、属性变化、操作说明**等，一律忽略。
-   - 例如：冷却时间说明、伤害数值、范围描述、持有限制、属性加成列表、状态触发方式等，均不提取。
-3. 若输入文本结构为“名称：描述”，只提取冒号前的名称部分（若该名称为有效术语），冒号后的所有内容视为描述并丢弃。
-4. 忽略所有代码式标识符（如 minecraft:command_block）、驼峰/下划线/冒号命名（如 MainPoint, main_point, main:point）以及单独的槽位词（如 MainHand）。但若它们作为复合术语的一部分且已自然语言化（如 “MainHand Power”），则可整体提取。
-            
-## 失败处理
-- 对某行的结构安全性有疑问时 → 优先保留原文
-- 宁可少翻译一行，也不能破坏数据结构的完整性
-
-## 本次输入的结构化文本的类型均为
-${
-        when (kind) {
-            FormatKind.PlainStr -> "纯文本或 Minecraft 命令等字面量"
-            FormatKind.JsonStr, FormatKind.JsonObj -> "JSON 格式"
-            FormatKind.SnbtStr, FormatKind.Nbt -> "SNBT 格式"
-        }
-    }，请注意输出正确的格式
-
-${prompts.mapInfo.render()}
-
-${prompts.extraPrompts}
-"""
 
 private fun TermTable.render() = entries.joinToString("\n") { (source, target) ->
     "${source.trim()} => ${target.trim()}"
@@ -263,7 +88,7 @@ class Translator internal constructor(
                 call,
                 requestTranslation = { expectedSize, message, kind, validate ->
                     call.chat(
-                        prompt = prompt(kind, customizedPrompts),
+                        prompt = buildTranslationPrompt(kind, customizedPrompts),
                         message = message,
                         parseLLM = {
                             parseLLMResponse(it, expectedSize)
