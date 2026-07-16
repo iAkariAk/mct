@@ -21,7 +21,7 @@ private val TERM_SELECTION_RULES = """
 2. **优先识别必须提取的内容**
    - 人物、地点、组织、宗教称谓、自造概念、物品、技能、效果等具有固定称呼或特殊指代的名称必须提取，不得仅因它只有一个单词或单独成行而排除。
    - 可识别的专名不依赖当前行提供完整上下文。圣经语境中的 `David`、`Jerusalem`、`Lord`、`Nebuchadnezzar`、`Jonah` 均应提取；目标语言为简体中文且语境对应时，可译为“大卫”“耶路撒冷”“耶和华”“尼布甲尼撒”“约拿”。`Lord` 仅在确实指代 YHWH 时译为“耶和华”，其他语境按实际所指处理。
-   - 地图中稳定使用的功能标签、音效名称或视觉方案名称具有固定指代，也应提取。例如 `Register Sound ♫`、`Rattle`、`Container Visuals ✨`、`Flash`、`Fart`、`Container Sound ♫`、`Chest`、`Gust`、`⦾ Radius Indicator ⦾`、`⦿ Spawn Indicator ⦿`、`Box`、`🜚 Spawner Beam 🜚`。
+   - 地图中稳定使用的功能标签、音效名称或视觉方案名称具有固定指代，也应提取。例如 `Register Sound`、`Rattle`、`Container Visuals`、`Container Sound`。
    - 谚语、宗教或文学引用等具有固定表达价值的引文可以整体提取；翻译时必须结合上下文，保留文化、宗教语体和称谓方式。例如中文圣经语境中，指代 God 时可按上下文使用“祂”。
 
 3. **排除未形成特殊指代的内容**
