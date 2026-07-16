@@ -37,6 +37,7 @@ kotlin {
             }
             implementation(project(":mct"))
             implementation(project(":extra"))
+            implementation(project(":cli"))
             implementation(libs.compose.material3)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material.icons.extended)

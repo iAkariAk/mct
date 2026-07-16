@@ -62,6 +62,7 @@ class AppViewModel(
 
     // ── Reasoning sheet ─────────────────────────────────────────
     val reasoningContents = mutableStateMapOf<Int, String>()
+    val reasoningActive = mutableStateMapOf<Int, Boolean>()
     var showReasoning by mutableStateOf(false)
 
     // ── Log console ─────────────────────────────────────────────
@@ -97,6 +98,7 @@ class AppViewModel(
                     val prev = reasoningContents[key] ?: ""
                     reasoningContents[key] = if (GuiSettings.useStreamApi) prev + sign.reasoningContent
                     else sign.reasoningContent
+                    reasoningActive[key] = !sign.terminated
                 }
             }
         }

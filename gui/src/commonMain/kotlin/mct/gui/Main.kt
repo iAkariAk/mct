@@ -33,6 +33,7 @@ import mct.gui.util.ThemeState
 import org.koin.compose.koinInject
 import org.koin.core.context.startKoin
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun main() = application {
     startKoin { modules(apiModule) }
 
@@ -67,7 +68,10 @@ fun main() = application {
         } else {
             ThemeState.colorScheme ?: if (isDark) darkColorScheme() else lightColorScheme()
         }
-        MaterialTheme(colorScheme = colorScheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            motionScheme = MotionScheme.expressive(),
+        ) {
             Surface(
                 modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
                 color = MaterialTheme.colorScheme.background
@@ -274,7 +278,10 @@ fun App(modifier: Modifier = Modifier) {
                                     onInit = {
                                         vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
                                             val state = vm.projectState
-                                            with(vm.env) { initialiseProject(state.directory, state.name, state.source, state.target) }
+                                            val projectRoot = with(vm.env) {
+                                                initialiseProject(state.directory, state.name, state.source)
+                                            }
+                                            vm.projectState = state.copy(directory = projectRoot)
                                         }
                                     },
                                     onUpdate = {
@@ -284,38 +291,12 @@ fun App(modifier: Modifier = Modifier) {
                                     },
                                     onTerms = {
                                         vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
-                                            val project = vm.projectState
-                                            val translate = vm.translateState
-                                            with(vm.env) {
-                                                extractProjectTerms(
-                                                    project.directory,
-                                                    vm.clientManager,
-                                                    translate.targetLanguage,
-                                                    translate.literatureStyle,
-                                                    translate.mapInfo,
-                                                    translate.extraPrompts.ifBlank { null },
-                                                )
-                                            }
+                                            with(vm.env) { extractProjectTerms(vm.projectState.directory) }
                                         }
                                     },
                                     onTranslate = {
                                         vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
-                                            val project = vm.projectState
-                                            val translate = vm.translateState
-                                            with(vm.env) {
-                                                translateProject(
-                                                    project.directory,
-                                                    vm.clientManager,
-                                                    translate.apiUrl.ifBlank { null },
-                                                    translate.apiToken,
-                                                    translate.model,
-                                                    translate.targetLanguage,
-                                                    translate.literatureStyle,
-                                                    translate.mapInfo,
-                                                    translate.extraPrompts.ifBlank { null },
-                                                    translate.handleGradientAggressively,
-                                                )
-                                            }
+                                            with(vm.env) { translateProject(vm.projectState.directory) }
                                         }
                                     },
                                     onBuild = {
@@ -329,36 +310,25 @@ fun App(modifier: Modifier = Modifier) {
                                     state = vm.toolboxState,
                                     onStateChange = { vm.toolboxState = it },
                                     isRunning = vm.isRunning,
-                                    onRunPointerTest = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
-                                            with(vm.env) {
-                                                runPointerTest(
-                                                    vm.toolboxState.pointerKind.key,
-                                                    vm.toolboxState.pointerPatternPath.takeIf { it.isNotBlank() },
-                                                    vm.toolboxState.noBuiltin,
-                                                    vm.toolboxState.pointerInput,
-                                                ).let { result ->
-                                                    vm.toolboxState =
-                                                        vm.toolboxState.copy(pointerResult = result.toString())
-                                                }
-                                            }
-                                        }
-                                    },
-                                    onRunExportSnbt = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
-                                            with(vm.env) {
-                                                runExportSnbt(
-                                                    vm.toolboxState.exportInput,
-                                                    vm.toolboxState.exportOutput,
-                                                )
-                                            }
-                                        }
-                                    },
                                     onRunOperation = { operation ->
                                         vm.launchOp(prelude = { vm.isRunning = true; vm.logLines.clear() }) {
                                             val state = vm.toolboxState
                                             with(vm.env) {
                                                 when (operation) {
+                                                    ToolboxOperation.PointerTest -> {
+                                                        val result = runPointerTest(
+                                                            state.pointerKind.key,
+                                                            state.pointerPatternPath.takeIf { it.isNotBlank() },
+                                                            state.noBuiltin,
+                                                            state.pointerInput,
+                                                        )
+                                                        vm.toolboxState = state.copy(pointerResult = result.toString())
+                                                    }
+
+                                                    ToolboxOperation.ExportSnbt -> runExportSnbt(
+                                                        state.exportInput,
+                                                        state.exportOutput,
+                                                    )
                                                     ToolboxOperation.FlattenPool -> flattenTextPool(
                                                         state.poolInput, state.poolOutput, state.poolKind.key, state.poolSimply
                                                     )
@@ -427,6 +397,11 @@ fun App(modifier: Modifier = Modifier) {
         if (vm.showReasoning) {
             ReasoningSheet(
                 reasoningContents = vm.reasoningContents,
+                activeReasoningIds = vm.reasoningActive.filterValues { it }.keys,
+                onClear = {
+                    vm.reasoningContents.clear()
+                    vm.reasoningActive.clear()
+                },
                 onDismiss = { vm.showReasoning = false }
             )
         }

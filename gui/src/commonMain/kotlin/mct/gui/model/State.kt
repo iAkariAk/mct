@@ -14,6 +14,8 @@ enum class PointerKind(val key: String, val label: String) {
 }
 
 enum class ToolboxOperation(val title: String, val actionLabel: String) {
+    PointerTest("DataPointer 匹配测试", "测试匹配"),
+    ExportSnbt("导出 Region SNBT", "导出 SNBT"),
     FlattenPool("展开文本池", "展开"),
     UnflattenPool("压缩文本池", "压缩"),
     GenerateMtlx("生成 MTLX 模板", "生成"),
@@ -83,7 +85,6 @@ data class ProjectWorkflowState(
     val directory: String = "",
     val name: String = "",
     val source: String = "",
-    val target: String = "",
 )
 
 data class ToolboxState(

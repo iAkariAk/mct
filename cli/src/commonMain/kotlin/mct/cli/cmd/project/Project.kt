@@ -7,6 +7,7 @@ import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.mordant.rendering.TextAlign
@@ -69,6 +70,7 @@ class Project : SuspendingCliktCommand(name = "project") {
 
 private class Init : BaseCommand(name = "init") {
     val projectName by argument(help = "The name of the project")
+    val projectDir by option("--project-dir", "-D").path().default(Path.CURRENT_PATH)
     val mapDir by option("--from", help = "The path to your map").path().required()
 
     context(_: Raise<MCTError>)
@@ -76,7 +78,7 @@ private class Init : BaseCommand(name = "init") {
         if ("/" in projectName || "\\" in projectName) {
             panic("name cannot contain / or \\")
         }
-        val projectDir = ".".toPath() / projectName
+        val projectDir = projectDir / projectName
         fs.createDirectories(projectDir)
         if (!fs.exists(mapDir)) {
             panic("Source directory does not exist: $mapDir")
@@ -103,7 +105,7 @@ private class Init : BaseCommand(name = "init") {
 }
 
 private abstract class ProjectCommand(name: String? = null, help: String? = null) : BaseCommand(name, help) {
-    val projectDir = Path.CURRENT_PATH
+    val projectDir by option("--project-dir", "-D").path().default(Path.CURRENT_PATH)
     val projectConfig by lazy {
         val toml = projectDir / "mct.toml"
         if (!fs.exists(toml)) {
