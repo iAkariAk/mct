@@ -59,8 +59,9 @@ class RawChunk(
     }
 
     inline fun modify(modify: (NbtTag?) -> NbtTag?): RawChunk {
-        val modified = modify(data.getOrNull())
-        if (modified === data) return this
+        val tag = data.getOrNull()
+        val modified = modify(tag)
+        if (tag === modified) return this
         val modifiedBytes = modified?.let(nbtSerializer::encodeToByteArray) ?: rawData
         return RawChunk(index, compressKind, modifiedBytes)
     }

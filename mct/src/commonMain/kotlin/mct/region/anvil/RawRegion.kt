@@ -51,7 +51,6 @@ class RawRegion internal constructor(
                     }
 
                     val compressKind = source.readByte()
-                    val nbtSerializer = RawChunk.getNbtSerializer(compressKind)
 
                     val bytes = try {
                         source.readByteArray(size.toLong() - 1)

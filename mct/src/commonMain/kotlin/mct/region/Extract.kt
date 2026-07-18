@@ -28,30 +28,32 @@ fun MCTWorkspace.extractFromRegion(
             .filter { (manager, _) -> manager != null }
             .flatMapMerge { (manager, kind) ->
                 manager!!.regions().asFlow().flatMapMerge { region ->
-                    val extractions = region.chunks.asSequence()
-                        .filterNotNull()
-                        .flatMap { chunk ->
-                            chunk.data.fold(
-                                ifLeft = {
-                                    logger.error { "Cannot decode data from $dimension/$kind/${region.inferFilename()}: ${it.message}" }
-                                    emptySequence()
-                                },
-                                ifRight = { data ->
-                                    data.extractTexts(pattern).map {
-                                        RegionExtraction(index = chunk.index, nbt = it)
+                    flow {
+                        val extractions = region.chunks.asSequence()
+                            .filterNotNull()
+                            .flatMap { chunk ->
+                                chunk.data.fold(
+                                    ifLeft = {
+                                        logger.error { "Cannot decode data from $dimension/$kind/${region.inferFilename()}: ${it.message}" }
+                                        emptySequence()
+                                    },
+                                    ifRight = { data ->
+                                        data.extractTexts(pattern).map {
+                                            RegionExtraction(index = chunk.index, nbt = it)
+                                        }
                                     }
-                                }
+                                )
+                            }
+                        emit(
+                            RegionExtractionGroup(
+                                dimension = dimension.id,
+                                kind = kind,
+                                coord = Coord(region.regionX, region.regionZ),
+                                extractions = extractions.toList().takeIf { it.isNotEmpty() }
+                                    ?: return@flow
                             )
-                        }
-                    flowOf(
-                        RegionExtractionGroup(
-                            dimension = dimension.id,
-                            kind = kind,
-                            coord = Coord(region.regionX, region.regionZ),
-                            extractions = extractions.toList().takeIf { it.isNotEmpty() }
-                                ?: return@flatMapMerge emptyFlow()
                         )
-                    )
+                    }.flowOn(Dispatchers.Default)
                 }
             }
     }.flowOn(Dispatchers.IO.limitedParallelism(72))
