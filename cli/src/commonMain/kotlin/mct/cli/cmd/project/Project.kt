@@ -120,14 +120,14 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
         }
         projectConfig.ai
     }
-    val srcDir = projectDir / "src"
-    val missingFile = projectDir / MISSING
+    val srcDir by lazy { projectDir / "src" }
+    val missingFile by lazy { projectDir / MISSING }
     val poolFile by lazy { cache(POOL_CACHE) }
     val regionExtractionFile by lazy { cache(REGION_EXTRACTION_CACHE) }
     val datapackExtractionFile by lazy { cache(DATAPACK_EXTRACTION_CACHE) }
-    val termsFile get() = projectDir / projectConfig.terms
-    val mappingFile get() = projectDir / projectConfig.mappings
-    val mtlxFile get() = projectConfig.mtlx?.let { projectDir / it }
+    val termsFile by lazy { projectDir / projectConfig.terms }
+    val mappingFile by lazy { projectDir / projectConfig.mappings }
+    val mtlxFile by lazy { projectConfig.mtlx?.let { projectDir / it } }
 
     context(_: Raise<MCTError>)
     fun workspace(dir: Path = srcDir): MCTWorkspace {
