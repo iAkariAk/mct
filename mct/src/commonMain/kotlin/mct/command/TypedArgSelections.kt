@@ -41,7 +41,7 @@ private fun SnbtTag.selectSnbt(
                 it.content,
                 it.syntax
             )
-        }.toList().takeIf { it.isNotEmpty() }
+        }.toList().takeIf { it.isNotEmpty() } ?: emptyList()
 
 context(_: Raise<IndexSelectError>)
 private fun selectItemStackPropertyList(
