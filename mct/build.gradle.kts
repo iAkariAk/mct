@@ -54,6 +54,10 @@ kotlin {
             api(libs.kotlinx.schema.generator.json)
         }
 
+        wasmJsMain.dependencies {
+            implementation(kotlinWrappers.js)
+        }
+
         commonTest.dependencies {
             implementation(libs.bundles.kotest)
             implementation(libs.goncalossilva.resources)
