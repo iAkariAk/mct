@@ -9,6 +9,14 @@ pluginManagement {
 dependencyResolutionManagement {
     rulesMode = RulesMode.PREFER_SETTINGS
     repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/iakariak/knbt") // This's my fork who fixed some bugs and added wasm support
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
         mavenCentral()
         google()
         mavenLocal()

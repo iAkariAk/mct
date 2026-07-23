@@ -3,7 +3,6 @@ package mct.text
 
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
@@ -31,12 +30,11 @@ class TextCompoundSerializerTest : FreeSpec({
     }
 
 
-    "KNBT BUG" { // FIXME: https://github.com/BenWoodworth/knbt/issues/66
-        shouldThrowAny {
+    "KNBT BUG" {// I fixed it by my knbt fork (issues: https://github.com/BenWoodworth/knbt/issues/66)
+        shouldNotThrowAny {
             val anyway = Snbt.decodeFromString<NbtTag>("""
                 {a:[], b:"c"}
             """.trimIndent())
-            println(anyway)
         }
     }
 

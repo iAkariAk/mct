@@ -28,6 +28,7 @@ private val CommonNbt = Nbt {
     variant = NbtVariant.Java
     ignoreUnknownKeys = true
     compression = NbtCompression.None
+    mutf8 = true
     encodeDefaults = false
 }
 

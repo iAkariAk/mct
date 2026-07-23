@@ -1,6 +1,7 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class)
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalWasmDsl::class)
 
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -19,7 +20,7 @@ kotlin {
             }
         }
     }
-//
+//  No support due to kmp-zip
 //    js {
 //        browser {
 //            testTask {
@@ -31,10 +32,10 @@ kotlin {
 //        nodejs { testTask { useMocha() } }
 //
 //    }
-//        wasmJs {
-//            browser()
-//            nodejs()
-//        }
+    wasmJs {
+        browser()
+        nodejs()
+    }
     mingwX64()
     linuxX64()
 

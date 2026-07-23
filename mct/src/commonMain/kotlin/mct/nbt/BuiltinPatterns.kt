@@ -10,7 +10,6 @@ import mct.pointer.RightPattern
 val BuiltinNbtPatterns = PatternSet {
     dependsOn(ComponentPatterns)
 
-    // command key
     +RightPattern(">#CustomName")
 
     // --- Item Display & Lore (Legacy/General) ---
