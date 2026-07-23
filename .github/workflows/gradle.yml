@@ -10,6 +10,9 @@ permissions:
   contents: read
   packages: read
 
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+
 jobs:
   jars:
     runs-on: ubuntu-latest
