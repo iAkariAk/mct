@@ -69,7 +69,6 @@ class GuiLogger(
     private val onLog: (LogEntry) -> Unit,
 ) : Logger(LoggerLevel.Verbose) {
     override fun log(level: LoggerLevel, message: String) {
-        println(message)
         onLog(LogEntry(level, message))
     }
 }
@@ -425,7 +424,9 @@ suspend fun runTermExtraction(
         return
     }
 
-    val textPool = extractionGroups.exportIntoPool(simply = false)
+    val textPool = withContext(Dispatchers.Default) {
+        extractionGroups.exportIntoPool(simply = false)
+    }
     env.logger.info { "共 ${textPool.size} 个待提取文本" }
 
     val extractor = TermExtractor(

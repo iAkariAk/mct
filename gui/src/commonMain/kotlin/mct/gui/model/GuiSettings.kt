@@ -28,4 +28,6 @@ object GuiSettings {
 data class LogEntry(
     val level: LoggerLevel?,
     val message: String,
+    /** Stable identity assigned by [mct.gui.AppViewModel] before the entry reaches the UI. */
+    val sequence: Long = 0L,
 )

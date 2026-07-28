@@ -1,6 +1,7 @@
 package mct.gui.pages
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -39,6 +40,12 @@ fun TranslatePanel(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var optimizeJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val motionScheme = MaterialTheme.motionScheme
+    val animatedProgress = animateFloatAsState(
+        targetValue = translationProgress.coerceIn(0f, 1f),
+        animationSpec = motionScheme.defaultEffectsSpec(),
+        label = "translation-progress",
+    )
 
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
@@ -222,7 +229,13 @@ fun TranslatePanel(
             placeholder = { Text("简体中文") }
         )
 
-        AnimatedVisibility(visible = isRunning || translationProgress > 0f) {
+        AnimatedVisibility(
+            visible = isRunning || translationProgress > 0f,
+            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
+            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+        ) {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 colors = CardDefaults.cardColors(
@@ -246,7 +259,8 @@ fun TranslatePanel(
                         )
                     }
                     WaveProgressIndicator(
-                        progress = { translationProgress },
+                        progress = { animatedProgress.value },
+                        animated = isRunning,
                         modifier = Modifier.fillMaxWidth().height(8.dp),
                     )
                     if (translationStatus.isNotBlank()) {

@@ -16,7 +16,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -32,10 +31,14 @@ fun ReasoningSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
     val gridState = rememberLazyGridState()
-    val entries = reasoningContents.entries.sortedBy { it.key }.map { it.key to it.value }
-    val totalCharacters = entries.sumOf { it.second.length }
+    val entries by remember(reasoningContents) {
+        derivedStateOf {
+            reasoningContents.entries.sortedBy { it.key }.map { it.key to it.value }
+        }
+    }
     var followLatest by remember { mutableStateOf(true) }
     var isGridAutoScrolling by remember { mutableStateOf(false) }
+    val motionScheme = MaterialTheme.motionScheme
 
     LaunchedEffect(gridState) {
         snapshotFlow { gridState.isScrollInProgress to gridState.canScrollForward }
@@ -48,7 +51,7 @@ fun ReasoningSheet(
             }
     }
 
-    LaunchedEffect(entries.size, totalCharacters, followLatest) {
+    LaunchedEffect(entries.size, followLatest) {
         if (followLatest && entries.isNotEmpty()) {
             isGridAutoScrolling = true
             try {
@@ -146,8 +149,10 @@ fun ReasoningSheet(
                 Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = !followLatest && entries.isNotEmpty(),
-                        enter = fadeIn() + scaleIn(),
-                        exit = fadeOut() + scaleOut(),
+                        enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                            scaleIn(animationSpec = motionScheme.defaultSpatialSpec()),
+                        exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                            scaleOut(animationSpec = motionScheme.fastSpatialSpec()),
                     ) {
                         FilledTonalButton(
                             onClick = { followLatest = true },
@@ -178,6 +183,7 @@ private fun ReasoningCard(
 ) {
     val contentScrollState = rememberScrollState()
     var isAutoScrolling by remember { mutableStateOf(false) }
+    val motionScheme = MaterialTheme.motionScheme
     val containerColor by animateColorAsState(
         targetValue = if (active) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -189,11 +195,13 @@ private fun ReasoningCard(
     )
 
     LaunchedEffect(contentScrollState, followLatest) {
-        snapshotFlow { contentScrollState.maxValue }.collectLatest { maxValue ->
+        snapshotFlow { contentScrollState.maxValue }.collect { maxValue ->
             if (followLatest) {
                 isAutoScrolling = true
                 try {
-                    contentScrollState.animateScrollTo(maxValue)
+                    // Content can update many times per second. Snap while streaming so
+                    // animation jobs do not continuously cancel and restart each other.
+                    contentScrollState.scrollTo(maxValue)
                 } finally {
                     isAutoScrolling = false
                 }
@@ -250,12 +258,13 @@ private fun ReasoningCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                AnimatedVisibility(visible = active, enter = fadeIn(), exit = fadeOut()) {
+                AnimatedVisibility(
+                    visible = active,
+                    enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+                    exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
+                ) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
-            }
-            AnimatedVisibility(visible = active) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Box(modifier = Modifier.fillMaxWidth().weight(1f)) {

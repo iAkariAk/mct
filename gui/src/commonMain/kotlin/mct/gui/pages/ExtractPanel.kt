@@ -1,10 +1,6 @@
 package mct.gui.pages
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterList
@@ -35,6 +31,7 @@ fun ExtractPanel(
     isRunning: Boolean,
     onRun: () -> Unit,
 ) {
+    val motionScheme = MaterialTheme.motionScheme
     val dirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
         file?.let { onStateChange(state.copy(input = it.absolutePath())) }
     }
@@ -104,7 +101,15 @@ fun ExtractPanel(
 
         AnimatedContent(
             targetState = state.mode,
-            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+            transitionSpec = {
+                (fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) togetherWith
+                    fadeOut(animationSpec = motionScheme.fastEffectsSpec())).using(
+                    SizeTransform(
+                        clip = false,
+                        sizeAnimationSpec = { _, _ -> motionScheme.defaultSpatialSpec() },
+                    )
+                )
+            },
             label = "mode-filters"
         ) { mode ->
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

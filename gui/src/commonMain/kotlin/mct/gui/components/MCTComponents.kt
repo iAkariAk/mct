@@ -1,7 +1,7 @@
 package mct.gui.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -26,6 +26,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import mct.extra.ai.translator.MapInfo
+
+private enum class ActionButtonVisualState {
+    Idle,
+    Running,
+    Cancellable,
+}
 
 @Composable
 fun SectionTitle(text: String, icon: ImageVector? = null) {
@@ -114,73 +120,81 @@ fun ActionButton(
     onClick: () -> Unit,
     enabled: Boolean,
     onCancel: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val hasCancel = onCancel != null
     val density = LocalDensity.current
+    val motionScheme = MaterialTheme.motionScheme
+    val visualState = when {
+        running && hasCancel -> ActionButtonVisualState.Cancellable
+        running -> ActionButtonVisualState.Running
+        else -> ActionButtonVisualState.Idle
+    }
+    val buttonEnabled = if (visualState == ActionButtonVisualState.Cancellable) {
+        true
+    } else {
+        enabled && visualState == ActionButtonVisualState.Idle
+    }
 
     // MD3 expressive: animate container color smoothly between primary and error
     val containerColor by animateColorAsState(
-        targetValue = when {
-            running && hasCancel -> MaterialTheme.colorScheme.error
-            else -> MaterialTheme.colorScheme.primary
+        targetValue = if (visualState == ActionButtonVisualState.Cancellable) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.primary
         },
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = motionScheme.defaultEffectsSpec(),
         label = "cancelBtnContainerColor"
     )
 
     // MD3 expressive: animate content color to match container
     val contentColor by animateColorAsState(
-        targetValue = when {
-            running && hasCancel -> MaterialTheme.colorScheme.onError
-            else -> MaterialTheme.colorScheme.onPrimary
+        targetValue = if (visualState == ActionButtonVisualState.Cancellable) {
+            MaterialTheme.colorScheme.onError
+        } else {
+            MaterialTheme.colorScheme.onPrimary
         },
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = motionScheme.defaultEffectsSpec(),
         label = "cancelBtnContentColor"
     )
 
-    // MD3 expressive: pulsing scale + elevation on hover for the cancel state only
-    val scale: Float
-    val elevation: Float
-    if (running && hasCancel) {
-        val infiniteTransition = rememberInfiniteTransition(label = "cancelPulse")
-        val pulseScale by infiniteTransition.animateFloat(
-            initialValue = 1.02f, targetValue = 1.06f,
-            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-            label = "cancelPulseScale"
-        )
-        val s by animateFloatAsState(
-            targetValue = if (isHovered) pulseScale else 1f,
-            animationSpec = spring(dampingRatio = 0.5f, stiffness = 350f),
-            label = "cancelScale"
-        )
-        scale = s
-        val e by animateFloatAsState(
-            targetValue = if (isHovered) 12f else 0f,
-            animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
-            label = "cancelElevation"
-        )
-        elevation = e
-    } else {
-        scale = 1f
-        elevation = 0f
-    }
+    // Hover is a bounded transition. The previous infinite cancel pulse kept the whole
+    // button recomposing for as long as a translation was running.
+    val scale = animateFloatAsState(
+        targetValue = when {
+            !isHovered -> 1f
+            visualState == ActionButtonVisualState.Cancellable -> 1.03f
+            else -> 1.015f
+        },
+        animationSpec = motionScheme.fastSpatialSpec(),
+        label = "action-button-scale",
+    )
+    val elevation = animateFloatAsState(
+        targetValue = when {
+            !isHovered -> 0f
+            visualState == ActionButtonVisualState.Cancellable -> 6f
+            else -> 2f
+        },
+        animationSpec = motionScheme.fastSpatialSpec(),
+        label = "action-button-elevation",
+    )
 
     Button(
         onClick = {
-            if (running && hasCancel) onCancel()
+            if (visualState == ActionButtonVisualState.Cancellable) onCancel?.invoke()
             else onClick()
         },
-        enabled = if (running && hasCancel) true else (enabled && !running),
-        modifier = Modifier
+        enabled = buttonEnabled,
+        modifier = modifier
             .fillMaxWidth()
             .height(44.dp)
-            .hoverable(interactionSource, enabled = true)
+            .hoverable(interactionSource, enabled = buttonEnabled)
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                shadowElevation = with(density) { elevation.toDp().toPx() }
+                scaleX = scale.value
+                scaleY = scale.value
+                shadowElevation = with(density) { elevation.value.dp.toPx() }
                 shape = RoundedCornerShape(12.dp)
                 clip = true
             },
@@ -190,26 +204,47 @@ fun ActionButton(
             contentColor = contentColor,
         ),
     ) {
-        if (running && hasCancel) {
-            Icon(
-                Icons.Outlined.Stop,
-                contentDescription = "取消",
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(6.dp))
-            Text("取消翻译")
-        } else if (running) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("运行中...")
-        } else {
-            Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(label)
+        AnimatedContent(
+            targetState = visualState,
+            transitionSpec = {
+                val enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                    scaleIn(animationSpec = motionScheme.defaultSpatialSpec(), initialScale = 0.92f)
+                val exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                    scaleOut(animationSpec = motionScheme.fastSpatialSpec(), targetScale = 0.92f)
+                enter togetherWith exit
+            },
+            contentAlignment = Alignment.Center,
+            label = "action-button-content",
+        ) { state ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when (state) {
+                    ActionButtonVisualState.Cancellable -> {
+                        Icon(
+                            Icons.Outlined.Stop,
+                            contentDescription = "取消",
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("取消翻译")
+                    }
+
+                    ActionButtonVisualState.Running -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("运行中...")
+                    }
+
+                    ActionButtonVisualState.Idle -> {
+                        Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(label)
+                    }
+                }
+            }
         }
     }
 }

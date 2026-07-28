@@ -1,9 +1,14 @@
 package mct.gui.components
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Psychology
@@ -35,10 +40,38 @@ fun LogConsole(
 ) {
     var showLogSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val logListState = rememberLazyListState()
+    var followLatest by remember { mutableStateOf(true) }
+    var isAutoScrolling by remember { mutableStateOf(false) }
 
-    val filteredLogLines by remember {
+    val filteredLogLines by remember(logLines, logLevelFilter) {
         derivedStateOf {
-            logLines.filter { it.level == null || it.level in logLevelFilter }
+            logLines.filter { entry ->
+                entry.level == null || entry.level in logLevelFilter
+            }
+        }
+    }
+
+    LaunchedEffect(logListState) {
+        snapshotFlow { logListState.isScrollInProgress to logListState.canScrollForward }
+            .collect { (isScrolling, canScrollForward) ->
+                if (isScrolling && canScrollForward && !isAutoScrolling) {
+                    followLatest = false
+                } else if (!isScrolling && !canScrollForward && !isAutoScrolling) {
+                    followLatest = true
+                }
+            }
+    }
+
+    LaunchedEffect(filteredLogLines.size, followLatest) {
+        if (followLatest && filteredLogLines.isNotEmpty()) {
+            isAutoScrolling = true
+            try {
+                // Streaming logs arrive in batches; snapping avoids a queue of cancelled animations.
+                logListState.scrollToItem(filteredLogLines.lastIndex)
+            } finally {
+                isAutoScrolling = false
+            }
         }
     }
 
@@ -86,7 +119,6 @@ fun LogConsole(
             }
         }
         Spacer(Modifier.height(4.dp))
-        val logScroll = rememberScrollState()
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = MaterialTheme.shapes.medium,
@@ -103,20 +135,47 @@ fun LogConsole(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
                 } else {
-                    SelectionContainer {
-                        Text(
-                            text = coloredLogAnnotatedString(filteredLogLines),
-                            modifier = Modifier.fillMaxSize()
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                                .verticalScroll(logScroll),
-                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                        )
+                    LazyColumn(
+                        state = logListState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        items(
+                            items = filteredLogLines,
+                            key = { entry -> entry.sequence },
+                            contentType = { entry -> entry.level ?: "plain" },
+                        ) { entry ->
+                            SelectionContainer {
+                                Text(
+                                    text = coloredLogAnnotatedString(entry),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
-                if (filteredLogLines.isNotEmpty()) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = filteredLogLines.isNotEmpty() && !followLatest,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut(),
+                ) {
                     TextButton(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        onClick = { scope.launch { logScroll.animateScrollTo(logScroll.maxValue) } }
+                        onClick = {
+                            scope.launch {
+                                isAutoScrolling = true
+                                try {
+                                    logListState.animateScrollToItem(filteredLogLines.lastIndex)
+                                    followLatest = true
+                                } finally {
+                                    isAutoScrolling = false
+                                }
+                            }
+                        }
                     ) {
                         Text("↓")
                     }

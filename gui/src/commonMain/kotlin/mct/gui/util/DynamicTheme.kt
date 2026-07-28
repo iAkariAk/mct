@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.kmpalette.palette.graphics.Palette
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mct.gui.model.GuiSettings
@@ -137,6 +138,8 @@ class ImageThemeState {
             } else {
                 errorMessage = "无法从图片中提取主题色"
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             errorMessage = "处理失败: ${e.message}"
         } finally {
@@ -145,11 +148,13 @@ class ImageThemeState {
     }
 
     /** Reset theme and persist the cleared state. */
-    fun reset() {
+    suspend fun reset() {
         isProcessing = false
         errorMessage = null
         ThemeState.reset()
-        runCatching { themeSetting.save(ThemeSettings(seedColorArgb = 0)) }
+        withContext(Dispatchers.IO) {
+            runCatching { themeSetting.save(ThemeSettings(seedColorArgb = 0)) }
+        }
     }
 }
 

@@ -2,12 +2,8 @@ package mct.gui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
@@ -20,46 +16,42 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.FrameWindowScope
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
-import kotlinx.coroutines.launch
+
+private val RainbowAccentColors = listOf(
+    Color(0xFFFF5F6D),
+    Color(0xFFFFC371),
+    Color(0xFF47CF73),
+    Color(0xFF38BDF8),
+    Color(0xFF8B5CF6),
+    Color(0xFFFF5F6D),
+)
 
 @Composable
 fun FrameWindowScope.WindowTitleBar(
     windowState: WindowState,
     onCloseRequest: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    rainbowAccent: Boolean = false,
 ) {
-    var isMax by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val anim = remember { Animatable(0f) }
-    val savedBounds = remember { mutableStateOf<java.awt.Rectangle?>(null) }
-
+    val isMax = windowState.placement == WindowPlacement.Maximized
     val toggleMax = {
-        isMax = !isMax
-        scope.launch {
-            val screen = window.graphicsConfiguration.bounds
-            val from = window.bounds
-            val to = if (isMax) {
-                savedBounds.value = from; screen
-            } else savedBounds.value ?: java.awt.Rectangle(100, 100, 820, 760)
-            anim.snapTo(0f)
-            anim.animateTo(1f, tween(130)) {
-                val v = value
-                window.setBounds(
-                    (from.x + (to.x - from.x) * v).toInt(),
-                    (from.y + (to.y - from.y) * v).toInt(),
-                    (from.width + (to.width - from.width) * v).toInt(),
-                    (from.height + (to.height - from.height) * v).toInt()
-                )
-            }
-            window.setBounds(to.x, to.y, to.width, to.height)
+        windowState.placement = if (isMax) {
+            WindowPlacement.Floating
+        } else {
+            WindowPlacement.Maximized
         }
     }
 
@@ -118,7 +110,47 @@ fun FrameWindowScope.WindowTitleBar(
                 }
             }
         }
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        Box(
+            modifier = Modifier.fillMaxWidth().height(2.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (rainbowAccent) {
+                RainbowTitleAccent(Modifier.fillMaxSize())
+            } else {
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+        }
+    }
+}
+
+/** A draw-only ambient accent; it never invalidates the application color scheme. */
+@Composable
+private fun RainbowTitleAccent(modifier: Modifier = Modifier) {
+    val phase = rememberInfiniteTransition(label = "title-rainbow-accent").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 6_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "title-rainbow-accent-phase",
+    )
+
+    Canvas(modifier = modifier) {
+        if (size.width <= 0f || size.height <= 0f) return@Canvas
+        val shift = phase.value * size.width
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = RainbowAccentColors,
+                startX = shift - size.width,
+                endX = shift,
+                tileMode = TileMode.Repeated,
+            )
+        )
     }
 }
 
@@ -131,12 +163,13 @@ fun WinCtlBtn(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val bg by animateColorAsState(
-        when {
+        targetValue = when {
             isClose && isHovered -> Color(0xFFE53935)
             isHovered -> Color.White.copy(alpha = 0.1f)
             else -> Color.Transparent
         },
-        label = "winctl-bg"
+        animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+        label = "winctl-bg",
     )
 
     Box(

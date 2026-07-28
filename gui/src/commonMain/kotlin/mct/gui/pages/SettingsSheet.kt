@@ -1,8 +1,6 @@
 package mct.gui.pages
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,7 +27,9 @@ import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mct.gui.components.TextSwitch
 import mct.gui.model.GuiSettings
 import mct.gui.util.getWallpaperPath
@@ -42,6 +42,7 @@ fun SettingsSheet(
 ) {
     val imageThemeState = rememberImageThemeState()
     val scope = rememberCoroutineScope()
+    val motionScheme = MaterialTheme.motionScheme
 
     val imagePicker = rememberFilePickerLauncher(
         type = FileKitType.File(),
@@ -54,8 +55,8 @@ fun SettingsSheet(
 
     AnimatedVisibility(
         visible = visible,
-        enter = slideInHorizontally { it },
-        exit = slideOutHorizontally { it },
+        enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+        exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
     ) {
         Box(Modifier.fillMaxSize()) {
             Box(
@@ -70,6 +71,16 @@ fun SettingsSheet(
                 Modifier.align(Alignment.CenterEnd)
                     .fillMaxHeight()
                     .width(300.dp)
+                    .animateEnterExit(
+                        enter = slideInHorizontally(
+                            animationSpec = motionScheme.defaultSpatialSpec(),
+                            initialOffsetX = { it },
+                        ),
+                        exit = slideOutHorizontally(
+                            animationSpec = motionScheme.fastSpatialSpec(),
+                            targetOffsetX = { it },
+                        ),
+                    )
                     .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(20.dp)
@@ -304,9 +315,9 @@ fun SettingsSheet(
 
                     OutlinedButton(
                         onClick = {
-                            val path = getWallpaperPath()
-                            if (path != null) {
-                                scope.launch { imageThemeState.loadFromPath(path) }
+                            scope.launch {
+                                val path = withContext(Dispatchers.IO) { getWallpaperPath() }
+                                if (path != null) imageThemeState.loadFromPath(path)
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(44.dp),
@@ -375,7 +386,8 @@ fun SettingsSheet(
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 TextButton(
-                                    onClick = { imageThemeState.reset() },
+                                    onClick = { scope.launch { imageThemeState.reset() } },
+                                    enabled = !imageThemeState.isProcessing,
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text("重置为默认主题", color = MaterialTheme.colorScheme.error)
@@ -390,7 +402,7 @@ fun SettingsSheet(
                         modifier = Modifier.fillMaxWidth(),
                         checked = GuiSettings.isRainbowTheme,
                         onCheckedChange = { GuiSettings.isRainbowTheme = it },
-                        text = "🌈 七彩渐变主题",
+                        text = "🌈 七彩流光强调",
                     )
 
                     Spacer(Modifier.height(16.dp))

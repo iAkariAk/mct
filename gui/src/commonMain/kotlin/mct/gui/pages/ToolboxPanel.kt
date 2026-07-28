@@ -279,6 +279,7 @@ private fun ToolboxOperationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
+    val motionScheme = MaterialTheme.motionScheme
     val pointerPatternPicker = rememberFilePickerLauncher(
         type = FileKitType.File(),
         mode = FileKitMode.Single,
@@ -301,8 +302,7 @@ private fun ToolboxOperationDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 520.dp)
-                    .verticalScroll(rememberScrollState())
-                    .animateContentSize(),
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 when (operation) {
@@ -341,8 +341,10 @@ private fun ToolboxOperationDialog(
                         )
                         AnimatedVisibility(
                             visible = state.pointerResult != null,
-                            enter = fadeIn() + expandVertically(),
-                            exit = fadeOut() + shrinkVertically(),
+                            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                                expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
+                            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                                shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
                         ) {
                             val matched = state.pointerResult == "true"
                             Surface(
@@ -427,7 +429,13 @@ private fun ToolboxOperationDialog(
                         PathField("Command Pattern JSON（可选）", state.commandPatternPath) { onStateChange(state.copy(commandPatternPath = it)) }
                         PathField("Command Data Pattern JSON（可选）", state.commandDataPatternPath) { onStateChange(state.copy(commandDataPatternPath = it)) }
                         TextSwitch(state.commandNoBuiltin, { onStateChange(state.copy(commandNoBuiltin = it)) }, "禁用内置规则")
-                        AnimatedVisibility(visible = state.commandResult.isNotBlank()) {
+                        AnimatedVisibility(
+                            visible = state.commandResult.isNotBlank(),
+                            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                                expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
+                            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                                shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+                        ) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = MaterialTheme.shapes.large,
