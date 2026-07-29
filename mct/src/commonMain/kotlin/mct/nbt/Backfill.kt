@@ -7,8 +7,9 @@ import mct.model.patch.FormatKind
 import mct.model.patch.isString
 import mct.pointer.DataPointerReplacementGroup
 import mct.serializer.Snbt
-import mct.text.TextCompound
-import mct.text.encodeToIR
+import mct.model.text.TextCompound
+import mct.util.formatir.buildIRObject
+import mct.util.formatir.put
 import mct.util.formatir.toNbtTag
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
@@ -17,7 +18,9 @@ import net.benwoodworth.knbt.NbtTag
 
 private fun List<NbtTag>.toTCListStandardized() = map {
     when (it) {
-        is NbtString -> TextCompound.Plain(it.value).encodeToIR(false).toNbtTag() as NbtCompound
+        is NbtString -> TextCompound.Plain(
+            buildIRObject { put("text", it.value) },
+        ).toIR().toNbtTag() as NbtCompound
         is NbtCompound -> it
         else -> error("Unexpected tag type $it")
     }

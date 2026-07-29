@@ -10,9 +10,9 @@ import kotlinx.serialization.json.JsonPrimitive
 import mct.dp.MCJsonExtractError
 import mct.model.patch.FormatKind
 import mct.pointer.*
-import mct.text.isTextCompound
-import mct.text.isTextCompoundJson
-import mct.text.isTextCompoundShorthanded
+import mct.model.text.isTextCompound
+import mct.model.text.isTextCompoundJson
+import mct.model.text.isTextCompoundShorthanded
 import mct.util.toJson
 import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction

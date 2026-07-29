@@ -6,9 +6,9 @@ import kotlinx.serialization.json.JsonElement
 import mct.kit.TranslationPool
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.replaceSimply
+import mct.model.text.*
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
-import mct.text.*
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
@@ -37,49 +37,62 @@ fun TranslationPool.translateByMTLX(mtlx: MTLX) = associateWith {
 }
 
 private inline fun String.tryTransformTextCompound(
-    transform: (TextCompoundOneOrMany) -> TextCompoundOneOrMany?
+    transform: (TextCompound<*>) -> TextCompound<*>?
 ): String? = runCatching {
-    val e = MCTJson.decodeFromString<JsonElement>(this).toIR().decodeToTextCompoundOneOrMany()
-    val r = transform(e)
+    val tc = TextCompound.fromIR(MCTJson.decodeFromString<JsonElement>(this).toIR())
+    val r = transform(tc)
     r?.encodeToIR()?.toJsonElement()?.let(MCTJson::encodeToString)
 }.getOrElse {
     runCatching {
-        val e = Snbt.decodeFromString<NbtTag>(this).toIR().decodeToTextCompoundOneOrMany()
-        val r = transform(e)
+        val tc = TextCompound.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())
+        val r = transform(tc)
         r?.encodeToIR()?.toNbtTag()?.let(Snbt::encodeToString)
     }.getOrNull()
 }
 
 
 /** CHECK [expr] By [isConsistent] before using the below */
-internal fun TextCompound.replace(expr: MTLExpression): TextCompound {
-    require(expr !is MTLList) { "expr shouldn't be MTLList" }
-    return if (extra.isEmpty()) {
-        require(expr is MTLLiteral) { "expr should be MTLiteral" }
-        replaceText(expr.content)
-    } else {
-        require(expr is MTLPair) { "expr should be MTLPair" }
-        require(expr.left is MTLLiteral) { "expr.left should be MTLLiteral" }
-        require(expr.right is MTLList) { "expr.right should be MTLList" }
-        require(extra.size == expr.right.exprs.size)
-        substitute(expr.left.content, extra.zip(expr.right.exprs).map { (orig, expr) -> orig.replace(expr) })
-    }
-}
-
-/** CHECK [expr] By [isConsistent] before using the below */
-
-internal fun TextCompoundOneOrMany.replace(expr: MTLExpression) = when (this) {
-    is Many -> {
+internal fun TextCompound<*>.replace(expr: MTLExpression): TextCompound<*> = when (this) {
+    is ManyTextCompound -> {
         require(expr is MTLList) {
             "expr should be MTLList"
         }
-        value.zip(expr.exprs).map { (l, r) -> l.replace(r) }.many()
+        copy().apply {
+            compounds = compounds.zip(expr.exprs).map { (l, r) -> l.replace(r) }
+        }
     }
 
-    is One -> {
-        require(expr !is MTLList) {
-            "expr shouldn't be MTLList"
+    is SingleTextCompound<*> -> {
+        require(expr !is MTLList) { "expr shouldn't be MTLList" }
+        val _extra = extra
+        if (_extra == null) {
+            require(expr is MTLLiteral) { "expr should be MTLiteral" }
+            replaceText(expr.content)
+        } else {
+            require(expr is MTLPair) { "expr should be MTLPair" }
+            require(expr.left is MTLLiteral) { "expr.left should be MTLLiteral" }
+            when (_extra) {
+                is ManyTextCompound -> {
+                    require(expr.right is MTLList) { "expr.right should be MTLList if extra is ManyTextCompound" }
+                    require(_extra.compounds.size == expr.right.exprs.size)
+                    substitute(
+                        expr.left.content,
+                        _extra.copy().apply {
+                            compounds =
+                                compounds.zip(expr.right.exprs).map { (orig, childExpr) -> orig.replace(childExpr) }
+                        }
+                    )
+                }
+
+                is SingleTextCompound -> {
+                    require(expr.right is MTLLiteral) { "expr.right should be MTLLiteral if extra is SingleTextCompound " }
+                    substitute(
+                        expr.left.content,
+                        _extra.replace(expr.right)
+                    )
+                }
+            }
         }
-        value.replace(expr).one()
     }
 }
+

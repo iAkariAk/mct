@@ -3,6 +3,7 @@ import com.aallam.openai.client.OpenAI
 import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import mct.Env
 import mct.Logger
@@ -110,7 +111,7 @@ class TranslatorTest : FreeSpec({
             [0] 你好世界
             [1] 这是测试
             -- MCT-CLI:TERMS --
-            []
+            {}
             -- MCT-CLI:END --
         """.trimIndent()
 
@@ -132,7 +133,7 @@ class TranslatorTest : FreeSpec({
             -- MCT-CLI:TRANSLATED --
             [0] 辉夜姬很漂亮
             -- MCT-CLI:TERMS --
-            []
+            {}
             -- MCT-CLI:END --
         """.trimIndent()
 
@@ -181,7 +182,7 @@ class TranslatorTest : FreeSpec({
             -- MCT-CLI:TRANSLATED --
             [0] 你好
             -- MCT-CLI:TERMS --
-            []
+            {}
             -- MCT-CLI:END --
         """.trimIndent()
 
@@ -212,7 +213,7 @@ class TranslatorTest : FreeSpec({
                             (0 until expectedSize).joinTo(this, "\n") { i -> "[$i] chunk${idx}_line${i}" }
                             appendLine()
                             appendLine("-- MCT-CLI:TERMS --")
-                            appendLine("[]")
+                            appendLine("{}")
                             append("-- MCT-CLI:END --")
                         }
                         parseLLMResponse(content, expectedSize)
@@ -245,5 +246,5 @@ class TranslatorTest : FreeSpec({
  * The mock ignores the input message and returns parsed mock data for any expected line count.
  */
 fun mockChatCompletion(content: String): RequestTranslation =
-    { expectedSize, _, _, _ -> parseLLMResponse(content, expectedSize) }
+    { expectedSize, _, _, validate -> parseLLMResponse(content, expectedSize).also { validate(it).shouldBeTrue() } }
 

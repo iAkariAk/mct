@@ -1,9 +1,9 @@
 package mct.command
 
+import mct.model.text.isTextComponent
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
-import mct.text.isTextComponent
 
 val BuiltinCommandPatterns = PatternSet {
     // ── Plain text message commands (greedy) ──────────────────────

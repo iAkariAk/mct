@@ -45,6 +45,7 @@ inline fun IRObjectBuilder.put(key: String, value: Long) = put(key, IRLong(value
 inline fun IRObjectBuilder.put(key: String, value: Float) = put(key, IRFloat(value))
 inline fun IRObjectBuilder.put(key: String, value: Double) = put(key, IRDouble(value))
 inline fun IRObjectBuilder.put(key: String, value: String) = put(key, IRString(value))
+inline fun IRObjectBuilder.put(key: String, value: List<IRElement>) = put(key, IRList(value))
 
 inline fun IRObjectBuilder.putIfPresent(key: String, value: IRElement?) = value?.let { put(key, value) }
 inline fun IRObjectBuilder.putIfPresent(key: String, value: Boolean?) = putIfPresent(key, value?.let(::IRBoolean))

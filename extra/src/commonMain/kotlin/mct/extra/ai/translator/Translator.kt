@@ -14,10 +14,10 @@ import mct.EnvHolder
 import mct.extra.ai.*
 import mct.kit.TranslationMapping
 import mct.model.patch.*
+import mct.model.text.*
 import mct.notify
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
-import mct.text.*
 import mct.util.IO
 import mct.util.Regex2
 import mct.util.destructured
@@ -211,7 +211,7 @@ internal sealed interface CompoundStrip {
     data class Simplified(
         override val original: String,
         val sourceFormat: FormatKind,
-        val source: TextCompound,
+        val source: SingleTextCompound<*>,
         val strip: String,
         val isSingleList: Boolean = false,
     ) : CompoundStrip
@@ -251,14 +251,15 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
     }.getOrNull() ?: return CompoundStrip.NoCompound(raw)
 
     if (!compound.hasText()) return CompoundStrip.Untranslatable(raw)
+    val single = compound as? SingleTextCompound<*> ?: return CompoundStrip.CannotStrip(raw)
 
-    val strip = (if (compound.extra.isEmpty()) {
-        when (compound) {
-            is TextCompound.Plain -> compound.text
+    val strip = (if (single.extra == null) {
+        when (single) {
+            is TextCompound.Plain -> single.text
             else -> cannotStrip()
         }
     } else cannotStrip()) ?: return CompoundStrip.CannotStrip(raw)
-    return CompoundStrip.Simplified(raw, kind, compound, strip, isList)
+    return CompoundStrip.Simplified(raw, kind, single, strip, isList)
 }
 
 context(env: EnvHolder)

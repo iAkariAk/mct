@@ -2,8 +2,8 @@ package mct.model.patch
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.text.isTextCompoundJson
-import mct.text.isTextCompoundSnbt
+import mct.model.text.isTextCompoundJson
+import mct.model.text.isTextCompoundSnbt
 import mct.util.doubleQuoted
 import mct.util.doubleUnquoted
 import mct.util.singleQuoted

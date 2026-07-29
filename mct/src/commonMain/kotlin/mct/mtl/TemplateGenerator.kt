@@ -3,31 +3,35 @@ package mct.mtl
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonElement
 import mct.kit.TranslationMapping
+import mct.model.text.ManyTextCompound
+import mct.model.text.TextCompound
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
-import mct.text.TextCompound
-import mct.text.TextCompoundOneOrMany
-import mct.text.decodeToTextCompoundOneOrMany
 import mct.util.formatir.toIR
 import net.benwoodworth.knbt.NbtTag
 
-fun TextCompound.mtlize(): MTLExpression? = when {
+fun TextCompound<*>.mtlize(): MTLExpression? = when {
+    this is ManyTextCompound -> MTLList(null, compounds.map { it.mtlize() ?: return null })
     this !is TextCompound.Plain -> null
-    extra.isEmpty() -> MTLLiteral(null, text)
-    else -> MTLPair(null, MTLLiteral(null, text), MTLList(null, extra.map { it.mtlize() ?: return null }))
+    else -> when (val _extra = extra) {
+        null -> MTLLiteral(null, text)
+        else -> MTLPair(
+            null, MTLLiteral(null, text), when (_extra) {
+                is TextCompound.Plain -> _extra.mtlize() ?: return null
+                is ManyTextCompound -> MTLList(null, _extra.compounds.map { it.mtlize() ?: return null })
+                else -> return null
+            }
+        )
+    }
 }
 
 
-fun TextCompoundOneOrMany.mtlize(): MTLExpression? = when (this) {
-    is TextCompoundOneOrMany.Many -> MTLList(null, value.map { it.mtlize() ?: return null })
-    is TextCompoundOneOrMany.One -> value.mtlize()
-}
 
 internal inline fun String.tryDecodeAsTextCompound() = runCatching {
-    MCTJson.decodeFromString<JsonElement>(this).toIR().decodeToTextCompoundOneOrMany()
+    TextCompound.fromIR(MCTJson.decodeFromString<JsonElement>(this).toIR())
 }.getOrElse {
     runCatching {
-        Snbt.decodeFromString<NbtTag>(this).toIR().decodeToTextCompoundOneOrMany()
+        TextCompound.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())
     }.getOrNull()
 }
 

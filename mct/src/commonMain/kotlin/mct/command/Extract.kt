@@ -12,8 +12,8 @@ import mct.model.patch.SnbtSyntaxKind
 import mct.pointer.DataPointer
 import mct.pointer.markArray
 import mct.pointer.markMap
-import mct.text.isTextCompound
-import mct.text.isTextCompoundShorthanded
+import mct.model.text.isTextCompound
+import mct.model.text.isTextCompoundShorthanded
 import mct.util.StringIndices
 import mct.util.groups2
 import mct.util.offset

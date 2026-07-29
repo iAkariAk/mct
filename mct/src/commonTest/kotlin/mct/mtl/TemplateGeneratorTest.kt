@@ -4,8 +4,8 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
-import mct.text.TextCompound
-import mct.text.many
+import mct.model.text.ManyTextCompound
+import mct.model.text.TextCompound
 
 class TemplateGeneratorTest : FreeSpec({
     "TextCompound.mtlize()" - {
@@ -16,10 +16,10 @@ class TemplateGeneratorTest : FreeSpec({
         "plain text extras should become nested MTL pairs and lists" {
             TextCompound.Plain(
                 text = "Outer",
-                extra = listOf(
+                extra = ManyTextCompound(
                     TextCompound.Plain(
                         text = "Inner",
-                        extra = listOf(TextCompound.Plain("Deep"))
+                        extra = ManyTextCompound(TextCompound.Plain("Deep"))
                     )
                 )
             ).mtlize() shouldBe MTLPair(
@@ -45,10 +45,10 @@ class TemplateGeneratorTest : FreeSpec({
 
     "TextCompoundOneOrMany.mtlize()" - {
         "many plain texts should become an MTL list" {
-            listOf(
+            ManyTextCompound(
                 TextCompound.Plain("A"),
-                TextCompound.Plain("B", extra = listOf(TextCompound.Plain("B1"))),
-            ).many().mtlize() shouldBe MTLList(
+                TextCompound.Plain("B", extra = ManyTextCompound(TextCompound.Plain("B1"))),
+            ).mtlize() shouldBe MTLList(
                 null,
                 listOf(
                     MTLLiteral(null, "A"),
@@ -62,10 +62,10 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "many with non-plain text should not be mtlized" {
-            listOf(
+            ManyTextCompound(
                 TextCompound.Plain("A"),
                 TextCompound.Translatable("item.name"),
-            ).many().mtlize().shouldBeNull()
+            ).mtlize().shouldBeNull()
         }
     }
 

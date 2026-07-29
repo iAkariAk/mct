@@ -36,6 +36,6 @@ class MTLXTest : FreeSpec({
 
         val texts = setOf("Adachi", "Shimamura")
         val mapping = texts.translateByMTLX(mtlx)
-        mapping shouldBe mapOf("Adachi" to "安达", "Shimamura" to "{\"text\":\"岛村\"}")
+        mapping shouldBe mapOf("Adachi" to "安达", "Shimamura" to "\"岛村\"")
     }
 })

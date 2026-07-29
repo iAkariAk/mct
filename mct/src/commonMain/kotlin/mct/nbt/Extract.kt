@@ -9,8 +9,8 @@ import mct.pointer.DataPointer
 import mct.pointer.compile
 import mct.pointer.markArray
 import mct.pointer.markMap
-import mct.text.isTextCompound
-import mct.text.isTextCompoundShorthanded
+import mct.model.text.isTextCompound
+import mct.model.text.isTextCompoundShorthanded
 import mct.util.toSnbt
 import mct.util.unreachable
 import net.benwoodworth.knbt.NbtCompound

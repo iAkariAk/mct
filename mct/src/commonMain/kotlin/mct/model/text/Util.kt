@@ -1,4 +1,4 @@
-package mct.text
+package mct.model.text
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -27,22 +27,33 @@ private val MAYBE_MAJOR_FIELDS = hashSetOf(
 )
 
 private val ALL_FIELD = hashSetOf(
+    // Discriminator
+    "type",
+
     // Content
-    "text", "translate", "with", "fallback",
-    "score", "selector", "keybind",
-    // NBT
-    "nbt", "block", "entity", "storage",
-    "interpret", "plain", "separator", "source",
-    // Sprite / Object
-    "object", "sprite", "atlas", "player", "hat",
-    // Children & type
-    "extra", "type",
-    // Formatting
-    "color", "font",
-    "bold", "italic", "underlined", "strikethrough", "obfuscated",
-    "shadow_color", "insertion",
+    "text",
+    "translate", "fallback", "with",
+    "score",
+    "selector", "separator",
+    "keybind",
+    "nbt", "source", "block", "entity", "storage",
+    "interpret", "plain",
+
+    // Object component
+    "object", "atlas", "sprite", "player", "hat",
+
+    // Children
+    "extra",
+
+    // Style
+    "color", "shadow_color", "font",
+    "bold", "italic", "underlined",
+    "strikethrough", "obfuscated",
+    "insertion",
+
     // Events
     "click_event", "hover_event",
+    "clickEvent", "hoverEvent", // legacy
 )
 
 private val MAYBE_FIELDS_AS_KEY = MAYBE_MAJOR_FIELDS.map { """"$it"\s*:\s*""".toRegex2() }
@@ -53,6 +64,7 @@ private val STRUCTURAL_FIELDS = hashSetOf(
     // Fields that legitimately hold compound/list values in text components
     "extra", "with",
     "hover_event", "click_event",
+    "hoverEvent", "clickEvent",
     "score", "separator",
     // player can be a compound (profile data) in object type "player" (1.21.5+)
     "player",
