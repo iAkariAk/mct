@@ -41,7 +41,7 @@ class TranslatorTest : FreeSpec({
         "translate test".config(enabled = enabledRealLLMResponseTest) {
             shouldNotRaise {
                 val translator = translator()
-                val result = translator.translate(FormatKind.JsonStr, Constants.TEXT1.lines())
+                val result = translator.translate(FormatKind.PlainStr, Constants.TEXT1.lines())
                 println("terms: ${translator.terms}")
                 println("translated: $result")
             }
