@@ -43,6 +43,7 @@ val BuiltinMCJPatterns = PatternSet {
     +RegexPattern(""">#functions>\d+>#entity>#name$""")
     // set_attributes modifier names (for attribute-specific custom names)
     +RegexPattern(""">#functions>\d+>#modifiers>\d+>#name$""")
+    +RegexPattern(""">\d+>#lore""")
 
     // --- Jukebox Songs (1.21+) ---
     // Song title/description as plain string, e.g. "Cat - C418"
