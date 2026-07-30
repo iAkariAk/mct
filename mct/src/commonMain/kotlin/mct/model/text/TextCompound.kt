@@ -18,13 +18,13 @@ operator fun <IR : IRElement, TC : TextCompound<IR>> TC.plus(others: List<TextCo
     val copy = copy()
     when (copy) {
         is ManyTextCompound -> copy.compounds = copy.compounds + others
-        is SingleTextCompound<*> -> copy.extra?.let { copy.extra = it + others } ?: others
+        is SingleTextCompound<*> -> copy.extra = copy.extra?.plus(others) ?: ManyTextCompound(others)
     }
     return copy
 }
 
 fun SingleTextCompound<*>.replaceText(text: String): SingleTextCompound<*> {
-    val copy = TextCompound.fromIR(toIR()) as SingleTextCompound<*>
+    val copy = copy()
     if (copy is TextCompound.Plain) copy.text = text
     return copy
 }
@@ -90,10 +90,11 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(plainRaw(text, extra, color, bold, italic, underlined, strikethrough, obfuscated))
+            font: String? = null
+        ) : this(plainRaw(text, extra, color, bold, italic, underlined, strikethrough, obfuscated, font))
 
         override fun toIR(): IRElement = when (val source = raw) {
-            is IRString -> plainRaw(text, extra, color, bold, italic, underlined, strikethrough, obfuscated)
+            is IRString -> plainRaw(text, extra, color, bold, italic, underlined, strikethrough, obfuscated, font)
             is IRObject -> IRObject(copyRawWithCommonFields(source).apply {
                 this["text"] = IRString(text)
             })
@@ -120,7 +121,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("translate", translate)
             putIfPresent("fallback", fallback)
             putIfPresent("with", with?.map { it.toIR() }?.let(::IRList))
@@ -147,7 +149,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("keybind", keybind)
         })
 
@@ -175,7 +178,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("score", score.toIR())
         })
 
@@ -216,7 +220,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("selector", selector)
             putIfPresent("separator", separator?.toIR())
         })
@@ -251,7 +256,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("nbt", nbt)
             if (interpret) put("interpret", true)
             putIfPresent("separator", separator?.toIR())
@@ -286,7 +292,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("object", `object`)
             putIfPresent("fallback", fallback)
         })
@@ -311,7 +318,8 @@ sealed class TextCompound<out IR : IRElement> {
             underlined: Boolean? = null,
             strikethrough: Boolean? = null,
             obfuscated: Boolean? = null,
-        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+            font: String? = null
+        ) : this(buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
             put("sprite", sprite)
         })
 
@@ -365,6 +373,7 @@ sealed class SingleTextCompound<out IR : IRElement>(
     var underlined: Boolean? = rawAsObj?.optionalBoolean("underlined")
     var strikethrough: Boolean? = rawAsObj?.optionalBoolean("strikethrough")
     var obfuscated: Boolean? = rawAsObj?.optionalBoolean("obfuscated")
+    var font: String? = rawAsObj?.optionalString("font")
 
     protected fun copyRawWithCommonFields(
         raw: IRObject,
@@ -376,6 +385,7 @@ sealed class SingleTextCompound<out IR : IRElement>(
         setOptional("underlined", underlined?.let(::IRBoolean))
         setOptional("strikethrough", strikethrough?.let(::IRBoolean))
         setOptional("obfuscated", obfuscated?.let(::IRBoolean))
+        setOptional("font", font?.let(::IRString))
     }
 }
 
@@ -427,12 +437,13 @@ private fun plainRaw(
     underlined: Boolean?,
     strikethrough: Boolean?,
     obfuscated: Boolean?,
+    font: String?
 ): IRElement {
     if (extra == null && color == null && bold == null && italic == null && underlined == null &&
-        strikethrough == null && obfuscated == null
+        strikethrough == null && obfuscated == null && font == null
     ) return IRString(text)
 
-    return buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated) {
+    return buildComponentRaw(extra, color, bold, italic, underlined, strikethrough, obfuscated, font) {
         put("text", text)
     }
 }
@@ -445,6 +456,7 @@ private fun buildComponentRaw(
     underlined: Boolean?,
     strikethrough: Boolean?,
     obfuscated: Boolean?,
+    font: String?,
     content: IRObjectBuilder.() -> Unit,
 ) = buildIRObject {
     content()
@@ -455,6 +467,7 @@ private fun buildComponentRaw(
     putIfPresent("underlined", underlined)
     putIfPresent("strikethrough", strikethrough)
     putIfPresent("obfuscated", obfuscated)
+    putIfPresent("font", font)
 }
 
 private fun MutableMap<String, IRElement>.setOptional(

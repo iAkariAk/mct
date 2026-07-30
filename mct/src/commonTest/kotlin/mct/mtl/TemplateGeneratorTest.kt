@@ -190,5 +190,14 @@ class TemplateGeneratorTest : FreeSpec({
                 """.trimIndent()
             }
         }
+
+        "directly nested single extras should survive generated template replacement" {
+            // language="JSON"
+            val input = """{"text":"Outer","extra":{"text":"Inner","extra":["Even",{"text":"More","extra":{"text":"More","extra":{"text":"More","extra":{"text":"More","extra":"Deep"}}}}]}}"""
+            val template = setOf(input).generateMTLXTemplate()
+
+            setOf(input).translateByMTLX(template)[input] shouldBe
+                    """{"text":"TODO","extra":{"text":"TODO","extra":["TODO",{"text":"TODO","extra":{"text":"TODO","extra":{"text":"TODO","extra":{"text":"TODO","extra":"TODO"}}}}]}}""".trimIndent()
+        }
     }
 })

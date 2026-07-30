@@ -57,6 +57,9 @@ internal fun TextCompound<*>.replace(expr: MTLExpression): TextCompound<*> = whe
         require(expr is MTLList) {
             "expr should be MTLList"
         }
+        require(compounds.size == expr.exprs.size) {
+            "compounds.size == expr.exprs.size"
+        }
         copy().apply {
             compounds = compounds.zip(expr.exprs).map { (l, r) -> l.replace(r) }
         }
@@ -65,33 +68,13 @@ internal fun TextCompound<*>.replace(expr: MTLExpression): TextCompound<*> = whe
     is SingleTextCompound<*> -> {
         require(expr !is MTLList) { "expr shouldn't be MTLList" }
         val _extra = extra
-        if (_extra == null) {
+        if (_extra == null) { // Flatten Plain
             require(expr is MTLLiteral) { "expr should be MTLiteral" }
             replaceText(expr.content)
         } else {
             require(expr is MTLPair) { "expr should be MTLPair" }
-            require(expr.left is MTLLiteral) { "expr.left should be MTLLiteral" }
-            when (_extra) {
-                is ManyTextCompound -> {
-                    require(expr.right is MTLList) { "expr.right should be MTLList if extra is ManyTextCompound" }
-                    require(_extra.compounds.size == expr.right.exprs.size)
-                    substitute(
-                        expr.left.content,
-                        _extra.copy().apply {
-                            compounds =
-                                compounds.zip(expr.right.exprs).map { (orig, childExpr) -> orig.replace(childExpr) }
-                        }
-                    )
-                }
-
-                is SingleTextCompound -> {
-                    require(expr.right is MTLLiteral) { "expr.right should be MTLLiteral if extra is SingleTextCompound " }
-                    substitute(
-                        expr.left.content,
-                        _extra.replace(expr.right)
-                    )
-                }
-            }
+            require(expr.left is MTLLiteral) { "expr.left should be MTLLiteral" } // left is [text]
+            substitute(expr.left.content, _extra.replace(expr.right))
         }
     }
 }
