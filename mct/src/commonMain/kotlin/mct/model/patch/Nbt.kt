@@ -48,12 +48,17 @@ sealed interface NbtExtraction {
         inline fun replace(replace: (List<String>) -> List<String?>): NbtReplacement.Command {
             val replacements = replace(locations.map { it.unquoted() })
             require(locations.size == replacements.size) { "locations.size should equal replacements.size" }
+            var lastLoc: Location? = null
             return NbtReplacement.Command(
                 pointer,
                 locations.asSequence()
                     .zip(replacements.asSequence())
                     .sortedByDescending { (loc, _) -> loc.indices.first }
                     .fold(StringBuilder(raw)) { acc, (loc, r) ->
+                        require(lastLoc == null || lastLoc.indices.first > loc.indices.last) {
+                            "Replacements cannot overlap with each other ($lastLoc and $loc)"
+                        }
+                        lastLoc = loc
                         val rr = r?.doubleQuotedIfString(loc.syntax)
                         acc.setRange(loc.indices.first, loc.indices.last + 1, rr ?: return@fold acc)
                     }.toString()

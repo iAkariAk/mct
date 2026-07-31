@@ -219,7 +219,7 @@ class ChatCompletionCallImpl internal constructor(
                 }
             }.getOrElse { e ->
                 llmRetry++
-                env.logger.error { "LLM response parse failed (${llmRetry}/$MAX_RETRY): ${e.message}. Retrying..." }
+                env.logger.error { "LLM response parsing failed (${llmRetry}/$MAX_RETRY): ${e.message}. Retrying..." }
                 continue
             }
         }

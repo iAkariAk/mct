@@ -9,19 +9,16 @@ import mct.MCTPattern
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
+import mct.model.text.isTextCompound
+import mct.model.text.isTextCompoundShorthanded
 import mct.pointer.DataPointer
 import mct.pointer.markArray
 import mct.pointer.markMap
-import mct.model.text.isTextCompound
-import mct.model.text.isTextCompoundShorthanded
-import mct.util.StringIndices
-import mct.util.groups2
-import mct.util.offset
+import mct.util.*
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
 import mct.util.snbt.SnbtTag
-import mct.util.surroundedBy
 
 
 interface StringIndicesWithSyntax : StringIndices {
@@ -96,7 +93,6 @@ internal fun extractTextFromCommand(
         val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
         return extractTextFromCommand(subCommand, patterns)
     }
-    val fromIntrinsic = CommandExtractorIntrinsic.extract(command)
     val fromPattern = (patterns.command[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
         .flatMap { pattern ->
@@ -134,6 +130,9 @@ internal fun extractTextFromCommand(
                         }
             }
         }.toList()
+    val fromIntrinsic = CommandExtractorIntrinsic.extract(command).filter { efi ->
+        fromPattern.none { efp -> efi.indices overlapsWith efp.indices }
+    }.toList()
     return fromIntrinsic + fromPattern
 }
 
@@ -219,7 +218,7 @@ internal object CommandExtractorIntrinsic {
     // https://minecraft.wiki/w/Target_selectors
     private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
     private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
-    fun extractFromTargetSelector(args: List<MCCommand.Arg>): List<ExtractedCommandSlice> = args.asSequence()
+    fun extractFromTargetSelector(args: List<MCCommand.Arg>): Sequence<ExtractedCommandSlice> = args.asSequence()
         .filter { SELECTOR_REGEX.matches(it.content) }
         .mapNotNull { arg ->
             SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
@@ -232,10 +231,9 @@ internal object CommandExtractorIntrinsic {
                 )
             }
         }
-        .toList()
 
 
-    fun extract(command: MCCommand): List<ExtractedCommandSlice> =
+    fun extract(command: MCCommand): Sequence<ExtractedCommandSlice> =
         extractFromTargetSelector(command.args)
 }
 

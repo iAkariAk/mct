@@ -1,12 +1,15 @@
 package mct.command
 
 import io.kotest.assertions.fail
+import io.kotest.assertions.throwables.shouldNotThrowAny
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldStartWith
 import mct.Logger
 import mct.TestFunctions
 import mct.dp.mcfunction.backfillMCFunction
@@ -146,12 +149,29 @@ class CommandsTest : StringSpec({
             """.trimIndent()
     }
 
+    "test backfill should fail when inputting overlapping replacements" {
+        val raw = "ABC".repeat(100)
+        shouldThrowAny {
+            raw.backfillMCFunction(
+                listOf(
+                    MCFunction(4..6, "X", null),
+                    MCFunction(5..7, "X", null),
+                )
+            )
+        }.message shouldStartWith "Replacements cannot overlap with each other"
+
+        shouldNotThrowAny {
+            raw.backfillMCFunction(
+                listOf(
+                    MCFunction(4..6, "X", null),
+                    MCFunction(7..100, "X", null),
+                )
+            )
+        }
+    }
+
     "test syntax kind is propagated through extraction" {
-        // Literal name extraction. extractText produces BOTH selector extraction
-        // (content="foo", syntax=Literal) and greedy command extraction
-        // (content="@p[name=foo]", syntax=Literal).
-        // Find the selector extraction by its short content
-        val selectorExtraction = extractText("say @p[name=foo]")
+        val selectorExtraction = extractText("msg @p[name=foo] bar")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "foo" }
         selectorExtraction shouldNotBe null
@@ -160,7 +180,7 @@ class CommandsTest : StringSpec({
 
     "test syntax kind double-quoted" {
         // For double-quoted names, the raw content stored includes the quotes
-        val selectorExtraction = extractText("""say @p[name="hello"]""")
+        val selectorExtraction = extractText("""msg @p[name="hello"] bar""")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "\"hello\"" }
         selectorExtraction shouldNotBe null
@@ -170,7 +190,7 @@ class CommandsTest : StringSpec({
 
     "test syntax kind single-quoted" {
         // For single-quoted names, the raw content stored includes the quotes
-        val selectorExtraction = extractText("say @p[name='world']")
+        val selectorExtraction = extractText("msg @p[name='world'] bar")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "'world'" }
         selectorExtraction shouldNotBe null
@@ -178,20 +198,20 @@ class CommandsTest : StringSpec({
     }
 
     "test auto unquoted & quoted" {
-        val mcf = "say @e[name='Foo']"
-        val selectorExtraction = extractText(mcf)
+        val mcf = "title @e[name='Foo'] title Foobar"
+        val extractions = extractText(mcf)
+        extractions.size shouldBe 2
+        val selectorExtraction = extractions
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.unquoted() == "Foo" }
         selectorExtraction shouldNotBe null
         selectorExtraction!!.syntax shouldBe SnbtSyntaxKind.SingleQuoteString
 
-        // Replace the selector's extracted range
         val replacement = selectorExtraction.replace {
-            println(it)
             "Bar"
         }
         val backfilled = mcf.backfillMCFunction(listOf(replacement))
-        backfilled shouldBe "say @e[name=\"Bar\"]"
+        backfilled shouldBe "title @e[name=\"Bar\"] title Foobar"
     }
 
     "test multi-location zip alignment" {
@@ -242,6 +262,21 @@ class CommandsTest : StringSpec({
         result.replacement shouldBe "XXXXX-YYYYY"
     }
 
+    "test NBT command replacement should fail when locations overlap" {
+        val command = NbtExtraction.Command(
+            pointer = DataPointer.Terminator,
+            raw = "say @p[name=foo]",
+            locations = listOf(
+                NbtExtraction.Command.Location(4..15, "@p[name=foo]", null),
+                NbtExtraction.Command.Location(12..14, "foo", SnbtSyntaxKind.LiteralString),
+            ),
+        )
+
+        shouldThrowAny {
+            command.replace { listOf("@p[name=foo]", "名字") }
+        }.message shouldStartWith "Replacements cannot overlap with each other"
+    }
+
     "test snbt extraction via SnbtEntire carries SnbtSyntaxKind.Compound" {
         // dialog uses SnbtEntire at position 3 — nested text compounds
         // should carry the correct syntax kind
@@ -274,7 +309,7 @@ class CommandsTest : StringSpec({
 
     "test target selector literal string carries LiteralString syntax" {
         // Unquoted selector names should get LiteralString, not Compound
-        val selectorExtraction = extractText("say @p[name=literalName]")
+        val selectorExtraction = extractText("msg @p[name=literalName] bar")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "literalName" }
         selectorExtraction shouldNotBe null
@@ -284,7 +319,7 @@ class CommandsTest : StringSpec({
     "test target selector literal string syntax propagated to Location for region commands" {
         // Simulate how region/Extract.kt converts ExtractedCommandSlice to Location
         // with the syntax field
-        val slice = extractText("say @p[name=bareword]")
+        val slice = extractText("msg @p[name=bareword] bar")
             .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "bareword" }
         slice shouldNotBe null
