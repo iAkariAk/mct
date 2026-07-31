@@ -28,7 +28,12 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
             logger.debug { "Skip ${group.dimension}/${group.kind}: manager unavailable" }
             return@forEach
         }
-        logger.debug { "Backfilling ${group.dimension}/${group.kind} at (${group.coord.x}, ${group.coord.z}) with ${group.replacements.size} replacements" }
+        val groupInfo = "${group.dimension}/${group.kind} at (${group.coord.x}, ${group.coord.z})"
+        if (group.replacements.isEmpty()) {
+            logger.debug { "Skipping $groupInfo because it's empty" }
+            return@forEach
+        } else logger.debug { "Backfilling $groupInfo with ${group.replacements.size} replacements" }
+
         launch(Dispatchers.IO) {
             recover({
                 mgr.modify(group.coord) { region ->

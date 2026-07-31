@@ -27,7 +27,10 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
     replacementGroups.groupBy {
         datapackDir / it.source
     }.forEach { (datapackPath, replacementGroups) ->
-        logger.debug { "Backfilling ${replacementGroups.size} replacements in $datapackPath" }
+        if (replacementGroups.isEmpty()) {
+            logger.debug { "Skipping $datapackPath because its `replacementGroups` is empty" }
+            return@forEach
+        } else logger.debug { "Backfilling ${replacementGroups.size} replacements in $datapackPath" }
         launch(Dispatchers.IO) {
             val m = fs.metadata(datapackPath)
             val walk = if (m.isDirectory) fs.walkDirectory(datapackPath) else fs.walkZip(datapackPath)
@@ -35,12 +38,13 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
             val writing = walk.write {
                 it.path.toString() in replacementGroups
             }
-            writing.forEach { (file, tmp1, tmp2, onFailure) ->
+            writing.forEach handleFile@{ (file, tmp1, tmp2, onFailure) ->
                 val (getSource, closeSource) = tmp1
                 val (getSink, closeSink) = tmp2
-                val source = getSource()
                 val path = file.path
                 val replacementGroup = replacementGroups[path.toString()]!!
+                replacementGroup.replacements.ifEmpty { return@handleFile }
+                val source = getSource()
                 try {
                     @Suppress("UNCHECKED_CAST")
                     when {
@@ -71,7 +75,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                                 NbtGzip.decodeFromSource<NbtTag>(source)
                             }.getOrElse {
                                 logger.error { "Skip $path because Failed to decode: ${it.message}" }
-                                return@forEach
+                                return@handleFile
                             }
 
                             closeSource(source)

@@ -20,10 +20,10 @@ inline fun List<ExtractionGroup>.replace(
     mcjReplace: (String) -> String?,
     nbtTextReplace: (String) -> String?,
     nbtCommandReplace: (List<String>) -> List<String?>,
-) = map { group ->
+) = mapNotNull outer@{ group ->
     when (group) {
-        is DatapackExtractionGroup -> DatapackReplacementGroup(
-            source = group.source, path = group.path, replacements = group.extractions.mapNotNull { extraction ->
+        is DatapackExtractionGroup -> {
+            val replacements = group.extractions.mapNotNull { extraction ->
                 when (extraction) {
                     is DatapackExtraction.MCFunction -> extraction.replace { mcfReplace(it) ?: return@mapNotNull null }
                     is DatapackExtraction.MCJson -> extraction.replace { mcjReplace(it) ?: return@mapNotNull null }
@@ -34,18 +34,18 @@ inline fun List<ExtractionGroup>.replace(
                         ) ?: return@mapNotNull null
                     }
                 }
-            })
+            }
+            DatapackReplacementGroup(group.source, group.path, replacements.ifEmpty { return@outer null })
+        }
 
-        is RegionExtractionGroup -> RegionReplacementGroup(
-            dimension = group.dimension,
-            kind = group.kind,
-            coord = group.coord,
-            replacements = group.extractions.mapNotNull { extraction ->
+        is RegionExtractionGroup -> {
+            val replacements = group.extractions.mapNotNull { extraction ->
                 extraction.substitute {
                     it.replace(nbtTextReplace, nbtCommandReplace) ?: return@mapNotNull null
                 }
             }
-        )
+            RegionReplacementGroup(group.dimension, group.kind, group.coord, replacements.ifEmpty { return@outer null })
+        }
     }
 }
 
