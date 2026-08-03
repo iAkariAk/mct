@@ -81,7 +81,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                             closeSource(source)
 
                             val ddrg = replacements.map {
-                                DataPointerWithValue(it.nbt.pointer, it.replacement, it.nbt.kind)
+                                DataPointerWithValue(it.nbt.pointer, it.replacement, it.nbt.format)
                             }.toReplacementGroups()
                             val handled = origin.transform(ddrg) ?: origin
                             runCatching {

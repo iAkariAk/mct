@@ -8,7 +8,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import mct.EnvHolder
 import mct.extra.ai.*
@@ -27,7 +26,6 @@ import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
 import mct.util.toRegex2
 import mct.util.toSnbt
-import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtTag
 
 
@@ -62,7 +60,7 @@ private fun TermTable.render() = entries.joinToString("\n") { (source, target) -
 }
 
 typealias RequestTranslation = suspend context(Raise<ChatCompletionCallError>)(
-    count: Int, message: String, kind: FormatKind,
+    count: Int, message: String, format: FormatKind,
     validate: (Pair<TermTable, List<String?>>) -> Boolean
 ) -> Pair<TermTable, List<String?>>
 
@@ -108,18 +106,18 @@ class Translator internal constructor(
 
     context(_: Raise<ChatCompletionCallError>)
     suspend fun translate(
-        kind: FormatKind,
+        format: FormatKind,
         sources: List<String>,
         onCancel: (List<String?>) -> Unit = {},
     ): List<String> = coroutineScope {
         val chunks = sources.map(::escapeEspecialUnicode).withIndex().chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
-        logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms, kind: $kind" }
+        logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms, kind: $format" }
         val translated = MutableList<String?>(sources.size) { null }
         var completedChunks = 0
 
         suspend fun processChunk(chunkIndex: Int, chunk: List<IndexedValue<String>>) {
-            val strips = chunk.stripWithIndex(kind)
+            val strips = chunk.stripWithIndex(format)
             val strippedCount = strips.count { (_, strip) -> strip is CompoundStrip.Simplified ||strip is CompoundStrip.Untranslatable }
             logger.debug { "Chunk $chunkIndex: ${strippedCount}/${strips.size} items stripped to plain text" }
             val chunkAsStr = chunk.joinToString("\n") { it.value }
@@ -144,16 +142,16 @@ class Translator internal constructor(
             val (appendTermsRaw, appendedTranslatedRaw) = requestTranslation(
                 strips.size,
                 message,
-                kind
+                format
             ) { (_, result) ->
                 val invalidated = result.withIndex().filter { (stripsIndex, value) ->
                     strips[stripsIndex].value is CompoundStrip.CannotStrip && value?.let {
-                        it.isNotEmpty() && !kind.validate(it)
+                        it.isNotEmpty() && !format.validate(it)
                     } ?: false
                 }
                 if (invalidated.isNotEmpty()) {
                     env.logger.info {
-                        "LLM responds invalidly (${kind.name}) ${
+                        "LLM responds invalidly (${format.name}) ${
                             invalidated.joinToString("\n") {
                                 "${it.index}: ${it.value}; (original: ${chunk[it.index]}, strip: ${strips[it.index]})"
                             }
@@ -234,7 +232,7 @@ private fun CompoundStrip.stripOrOriginal() = when (this) {
 }
 
 context(env: EnvHolder)
-internal fun String.strip(kind: FormatKind): CompoundStrip {
+internal fun String.strip(format: FormatKind): CompoundStrip {
     val raw = this
     fun cannotStrip() = null.also {
         env.logger.warning { "Cannot strip $raw" }
@@ -242,20 +240,14 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
 
     var isList = false
     val compound = Option.catch {
-        when (kind) {
-            JsonStr, JsonObj -> MCTJson.decodeFromString<JsonElement>(raw).let {
-                if (it is JsonArray) {
-                    it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
-                } else it
-            }.toIR()
-
-            SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(raw).let {
-                if (it is NbtList<*>) {
-                    it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
-                } else it
-            }.toIR()
-
+        when (format) {
+            JsonStr, JsonObj -> MCTJson.decodeFromString<JsonElement>(raw).toIR()
+            SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(raw).toIR()
             PlainStr -> null
+        }?.let {
+            if (it is IRList) {
+                it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
+            } else it
         }?.decodeToCompound()
     }.getOrNull() ?: return CompoundStrip.NoCompound(raw)
 
@@ -268,15 +260,15 @@ internal fun String.strip(kind: FormatKind): CompoundStrip {
             else -> cannotStrip()
         }
     } else cannotStrip()) ?: return CompoundStrip.CannotStrip(raw)
-    return CompoundStrip.Simplified(raw, kind, single, strip, isList)
+    return CompoundStrip.Simplified(raw, format, single, strip, isList)
 }
 
 context(env: EnvHolder)
-internal fun List<IndexedValue<String>>.stripWithIndex(kind: FormatKind): List<IndexedValue<CompoundStrip>> =
-    map { IndexedValue(it.index, it.value.strip(kind)) }
+internal fun List<IndexedValue<String>>.stripWithIndex(format: FormatKind): List<IndexedValue<CompoundStrip>> =
+    map { IndexedValue(it.index, it.value.strip(format)) }
 
 context(env: EnvHolder)
-internal fun List<String>.strip(kind: FormatKind): List<CompoundStrip> = map { it.strip(kind) }
+internal fun List<String>.strip(format: FormatKind): List<CompoundStrip> = map { it.strip(format) }
 
 internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>): List<IndexedValue<String>> =
     zip(response).map { (iv, s) ->
@@ -351,8 +343,8 @@ suspend fun Translator.translate(
         when (it) {
             is DatapackExtraction.MCJson -> FormatKind.JsonStr
             is DatapackExtraction.MCFunction -> FormatKind.PlainStr
-            is RegionExtraction -> it.nbt.kind
-            is DatapackExtraction.Nbt -> it.nbt.kind
+            is RegionExtraction -> it.nbt.format
+            is DatapackExtraction.Nbt -> it.nbt.format
         }
     }
     val mapping = mutableMapOf<String, String?>()

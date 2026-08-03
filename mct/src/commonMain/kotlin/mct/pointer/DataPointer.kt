@@ -28,7 +28,7 @@ sealed interface DataPointer : Comparable<DataPointer> {
     companion object
 }
 
-data class DataPointerWithValue(val pointer: DataPointer, val value: String, val kind: FormatKind)
+data class DataPointerWithValue(val pointer: DataPointer, val value: String, val format: FormatKind)
 
 inline fun DataPointer.markMap(point: String) =
     DataPointer.Map(point, this)

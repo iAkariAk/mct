@@ -5,9 +5,9 @@ import mct.LoggerHolder
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.isString
+import mct.model.text.TextCompound
 import mct.pointer.DataPointerReplacementGroup
 import mct.serializer.Snbt
-import mct.model.text.TextCompound
 import mct.util.formatir.buildIRObject
 import mct.util.formatir.put
 import mct.util.formatir.toNbtTag
@@ -29,14 +29,14 @@ private fun List<NbtTag>.toTCListStandardized() = map {
 
 context(_: LoggerHolder)
 private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminatorOrNull() =
-    firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.Nbt }
+    firstOrNull { it is DataPointerReplacementGroup.Terminator && it.format == FormatKind.Nbt }
         ?.let { terminator ->
             terminator as DataPointerReplacementGroup.Terminator
             try {
                 Snbt.decodeFromString<T>(terminator.replacement)
             } catch (e: Throwable) {
                 logger.error {
-                    "Cannot decode ${terminator.replacement} as SNBT (${terminator.kind}): ${e.message}"
+                    "Cannot decode ${terminator.replacement} as SNBT (${terminator.format}): ${e.message}"
                 }
                 null
             }
@@ -78,7 +78,7 @@ internal fun NbtTag.transform(pointers: List<DataPointerReplacementGroup>): NbtT
 
     is NbtString -> {
         val pointer =
-            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() }
+            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.format.isString() }
                 ?: return this
         pointer as DataPointerReplacementGroup.Terminator
         NbtString(pointer.replacement)

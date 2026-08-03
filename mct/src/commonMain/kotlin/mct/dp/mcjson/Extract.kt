@@ -9,10 +9,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import mct.dp.MCJsonExtractError
 import mct.model.patch.FormatKind
-import mct.pointer.*
+import mct.model.patch.inferFormatKind
 import mct.model.text.isTextCompound
-import mct.model.text.isTextCompoundJson
 import mct.model.text.isTextCompoundShorthanded
+import mct.pointer.*
 import mct.util.toJson
 import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
@@ -76,10 +76,7 @@ private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> 
 
     is JsonPrimitive if isString -> sequenceOf(
         PointerWithExtension(
-            DataPointer.Terminator, content, when {
-                content.isTextCompoundJson() -> FormatKind.JsonStr
-                else -> FormatKind.PlainStr
-            }
+            DataPointer.Terminator, content, content.inferFormatKind()
         )
     )
 

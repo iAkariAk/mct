@@ -4,10 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.model.text.isTextCompoundJson
 import mct.model.text.isTextCompoundSnbt
-import mct.util.doubleQuoted
-import mct.util.doubleUnquoted
-import mct.util.singleQuoted
-import mct.util.singleUnquoted
+import mct.util.*
 
 
 @Serializable
@@ -82,11 +79,14 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
+fun String.inferFormatKind(shouldTextCompound: Boolean = true): FormatKind = when {
+    if (shouldTextCompound) isTextCompoundJson() else isJson() -> FormatKind.JsonStr
+    if (shouldTextCompound) isTextCompoundSnbt() else isSnbt() -> FormatKind.SnbtStr
+    else -> FormatKind.PlainStr
+}
 
 fun FormatKind.isString(): Boolean =
     this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
-
-fun FormatKind.isStructure(): Boolean = this == FormatKind.Nbt
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
     Nbt, SnbtStr -> value.isTextCompoundSnbt()

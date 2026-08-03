@@ -5,12 +5,13 @@ import mct.MCTPattern
 import mct.command.extractTextFromCommands
 import mct.model.patch.FormatKind
 import mct.model.patch.NbtExtraction
+import mct.model.patch.inferFormatKind
+import mct.model.text.isTextCompound
+import mct.model.text.isTextCompoundShorthanded
 import mct.pointer.DataPointer
 import mct.pointer.compile
 import mct.pointer.markArray
 import mct.pointer.markMap
-import mct.model.text.isTextCompound
-import mct.model.text.isTextCompoundShorthanded
 import mct.util.toSnbt
 import mct.util.unreachable
 import net.benwoodworth.knbt.NbtCompound
@@ -48,7 +49,7 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
 private data class PointerWithExtension(
     val pointer: DataPointer,
     val contentProvider: Any, // () -> String | String
-    val kind: FormatKind,
+    val format: FormatKind,
     val type: Type = Text,
 ) {
     @Suppress("UNCHECKED_CAST")
@@ -103,7 +104,7 @@ private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = whe
     } // wrap inner pointer
 
 
-    is NbtString -> sequenceOf(PointerWithExtension(DataPointer.Terminator, value, FormatKind.PlainStr))
+    is NbtString -> sequenceOf(PointerWithExtension(DataPointer.Terminator, value, value.inferFormatKind()))
 
     else -> emptySequence()
 }

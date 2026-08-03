@@ -18,7 +18,7 @@ internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson
     val standardizedJson = standardizeMCJson(this)
     val jsonElement = MCJson.decodeFromString<JsonElement>(standardizedJson)
     val ddrg = replacements.map {
-        DataPointerWithValue(it.pointer, it.replacement, it.kind)
+        DataPointerWithValue(it.pointer, it.replacement, it.format)
     }.toReplacementGroups()
     val backfilledJsonElement = jsonElement.transform(ddrg)
     return MCJson.encodeToString(backfilledJsonElement)
@@ -27,7 +27,7 @@ internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson
 
 context(_: LoggerHolder)
 private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminatorOrNull() =
-    firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind == FormatKind.JsonObj }
+    firstOrNull { it is DataPointerReplacementGroup.Terminator && it.format == FormatKind.JsonObj }
         ?.let { terminator ->
             terminator as DataPointerReplacementGroup.Terminator
             try {
@@ -35,7 +35,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
                 x
             } catch (e: Throwable) {
                 logger.error {
-                    "Cannot decode ${terminator.replacement} as JSON (${terminator.kind}): ${e.message}"
+                    "Cannot decode ${terminator.replacement} as JSON (${terminator.format}): ${e.message}"
                 }
                 null
             }
@@ -77,7 +77,7 @@ internal fun JsonElement.transform(pointers: List<DataPointerReplacementGroup>):
 
     is JsonPrimitive if isString -> {
         val pointer =
-            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.kind.isString() }
+            pointers.firstOrNull { it is DataPointerReplacementGroup.Terminator && it.format.isString() }
                 ?: return this
         pointer as DataPointerReplacementGroup.Terminator
         JsonPrimitive(pointer.replacement)

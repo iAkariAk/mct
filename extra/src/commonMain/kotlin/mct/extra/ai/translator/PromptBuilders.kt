@@ -112,7 +112,7 @@ private val MINECRAFT_TERM_SCAN_RULES = $$"""
 - 对 `item_stack`、`block_state`、`item_predicate`、`block_predicate` 等复合参数，只扫描其内部明确的文本组件；ID、属性、组件/谓词名称、非文本 SNBT 数据和外层语法都不是术语。
 """.trimIndent()
 
-internal fun buildTranslationPrompt(kind: FormatKind, prompts: TranslationPrompts): String = buildString {
+internal fun buildTranslationPrompt(format: FormatKind, prompts: TranslationPrompts): String = buildString {
     append(
         $$"""
         你是一名专精 Minecraft 地图本地化的翻译引擎。将输入中的可翻译自然语言翻译为$${prompts.targetLanguage}，同时保持每一项原有的数据表示、结构和 Minecraft 语义。
@@ -131,7 +131,7 @@ internal fun buildTranslationPrompt(kind: FormatKind, prompts: TranslationPrompt
         - `-- MCT-CLI:START --` 之前是已有术语映射，每行格式为 `原文 => 译文`。必须采用这些译法，但不要重复输出已有术语。
         - 标记之后每行格式为 `[N] 内容`，编号从 0 开始。
         - 内容可能是纯文本，也可能是完整的 JSON、SNBT、Minecraft 命令或命令参数。根据内容本身判断：纯文本仍输出纯文本；结构化内容仍输出相同类型的完整结构。不得把纯文本包装成结构，也不得只返回结构中的译文片段。
-        - 本批来源类型提示为：$${kind.promptDescription()}。它只帮助区分 JSON 与 SNBT，不表示每项都一定是结构化文本。
+        - 本批来源类型提示为：$${format.promptDescription()}。它只帮助区分 JSON 与 SNBT，不表示每项都一定是结构化文本。
         - 行内的字面量转义符 `\r` `\n` 和 `↠mctnl↠` 必须逐字保留，不能变成真实换行。
         - 行的 `$MCT_UNICODE_XXXX$` 为程序标识符，必须逐字保留，严禁更改XXXX码点，不得转换为\uXXXX转义。
 
@@ -160,7 +160,7 @@ internal fun buildTranslationPrompt(kind: FormatKind, prompts: TranslationPrompt
         ## 翻译与结构保护
 
         - 纯文本只翻译其中的自然语言。结构化内容必须保持完整结构，只替换允许翻译的文本组件内容。
-        - 保持字段、对象、数组、元素数量和顺序、结构语法分隔符、数字类型、单双引号形式以及转义层级不变。尤其要观察由命令字符串或 $${kind.syntaxName()} 引入的嵌套转义，不能增加或移除引号、反斜杠或包裹层。
+        - 保持字段、对象、数组、元素数量和顺序、结构语法分隔符、数字类型、单双引号形式以及转义层级不变。尤其要观察由命令字符串或 $${format.syntaxName()} 引入的嵌套转义，不能增加或移除引号、反斜杠或包裹层。
         - 仅告示牌重排$${if (prompts.handleGradientAggressively) "和下述渐变处理" else ""}可以作为受限结构例外；除此之外，文本组件的样式、字体、事件和其他行为属性保持不变，`extra`、`with` 等数组不得增删或重排，不能把文本移动到其他节点。
         - 禁止跨越语义边界重组文本，例如不得把 `click_event`、`hover_event` 内外的文本互相移动。
 

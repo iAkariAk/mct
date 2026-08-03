@@ -39,9 +39,9 @@ sealed interface DatapackExtraction : Extraction {
     data class MCJson(
         val pointer: DataPointer,
         val content: String,
-        val kind: FormatKind
+        val format: FormatKind
     ) : DatapackExtraction {
-        inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content), kind)
+        inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content), format)
     }
 
     /**
@@ -119,7 +119,7 @@ sealed interface DatapackReplacement : Replacement {
     data class MCJson(
         val pointer: DataPointer,
         override val replacement: String,
-        val kind: FormatKind
+        val format: FormatKind
     ) : DatapackReplacement
 
     @Serializable

@@ -14,17 +14,17 @@ import mct.util.StringIndices
 @Serializable
 sealed interface NbtExtraction {
     val pointer: DataPointer
-    val kind: FormatKind
+    val format: FormatKind
 
     @Serializable
     @SerialName("text")
     data class Text(
         override val pointer: DataPointer,
-        override val kind: FormatKind,
+        override val format: FormatKind,
         val content: String,
     ) : NbtExtraction {
         inline fun replace(replacement: (String) -> String) =
-            NbtReplacement.Text(pointer, kind, replacement(content))
+            NbtReplacement.Text(pointer, format, replacement(content))
     }
 
     @Serializable
@@ -34,7 +34,7 @@ sealed interface NbtExtraction {
         val raw: String,
         val locations: List<Location>, // must be ordered ascendingly based on indices
     ) : NbtExtraction {
-        override val kind: FormatKind = FormatKind.PlainStr
+        override val format: FormatKind = FormatKind.PlainStr
 
         @Serializable
         data class Location(
@@ -71,18 +71,18 @@ sealed interface NbtExtraction {
  * `Command` represents it from command block; `Text` from TextCompound
  *
  *  @property pointer The NBT path/pointer identifying the tag to replace
- *  @property kind via which kind of format the replacement was stored
+ *  @property format via which kind of format the replacement was stored
  */
 @Serializable
 sealed interface NbtReplacement : Replacement {
     val pointer: DataPointer
-    val kind: FormatKind
+    val format: FormatKind
 
     @Serializable
     @SerialName("text")
     data class Text(
         override val pointer: DataPointer,
-        override val kind: FormatKind,
+        override val format: FormatKind,
         override val replacement: String,
     ) : NbtReplacement
 
@@ -93,6 +93,6 @@ sealed interface NbtReplacement : Replacement {
         override val pointer: DataPointer,
         override val replacement: String,
     ) : NbtReplacement {
-        override val kind: FormatKind get() = FormatKind.PlainStr
+        override val format: FormatKind get() = FormatKind.PlainStr
     }
 }

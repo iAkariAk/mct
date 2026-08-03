@@ -143,7 +143,7 @@ internal data class PointerWithExtensionForSnbt(
     val pointer: DataPointer,
     override val indices: IntRange, // relate to the arg
     override val content: String,
-    val kind: FormatKind,
+    val format: FormatKind,
     override val syntax: SnbtSyntaxKind,
 ) : StringIndicesWithSyntax
 
