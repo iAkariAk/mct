@@ -112,7 +112,7 @@ class Translator internal constructor(
         sources: List<String>,
         onCancel: (List<String?>) -> Unit = {},
     ): List<String> = coroutineScope {
-        val chunks = sources.withIndex().chunkedByToken(tokenThreshold).toList()
+        val chunks = sources.map(::escapeEspecialUnicode).withIndex().chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
         logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms, kind: $kind" }
         val translated = MutableList<String?>(sources.size) { null }
@@ -141,7 +141,11 @@ class Translator internal constructor(
             logger.info { "Handling ${chunkIndex + 1} (total $totalChunkSize)" }
 
 
-            val (appendTerms, appendedTranslatedRaw) = requestTranslation(strips.size, message, kind) { (_, result) ->
+            val (appendTermsRaw, appendedTranslatedRaw) = requestTranslation(
+                strips.size,
+                message,
+                kind
+            ) { (_, result) ->
                 val invalidated = result.withIndex().filter { (stripsIndex, value) ->
                     strips[stripsIndex].value is CompoundStrip.CannotStrip && value?.let {
                         it.isNotEmpty() && !kind.validate(it)
@@ -158,7 +162,12 @@ class Translator internal constructor(
                     false
                 } else true
             }
-            val appendedTranslated = strips.destrip(appendedTranslatedRaw)
+            val appendTerms = appendTermsRaw.map { (key, value) ->
+                unescapeEspecialUnicode(key) to unescapeEspecialUnicode(value)
+            }
+            val appendedTranslated = strips.destrip(appendedTranslatedRaw).map {
+                it.copy(value = unescapeEspecialUnicode(it.value))
+            }
             logger.info { "Handled ${chunkIndex + 1} (total $totalChunkSize)" }
             logger.debug {
                 chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate ${x.value} => ${y.value}" }

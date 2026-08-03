@@ -96,3 +96,18 @@ fun CharSequence.removePrefixOrNull(prefix: CharSequence): CharSequence? =
 fun CharSequence.removeSuffixOrNull(suffix: CharSequence): CharSequence? =
     if (endsWith(suffix)) subSequence(0, length - suffix.length)
     else null
+
+
+fun Int.codePointToString() = when(this) {
+    in 0..0xFFFF -> toChar().toString()
+    in 0x10000..0x10FFFF -> {
+        val offset = (this - 0x10000)
+        val high10 = offset ushr 10
+        val low10 = offset and 0x3FF
+        buildString {
+            append((0xD800 + high10).toChar())
+            append((0xDC00 + low10).toChar())
+        }
+    }
+    else -> throw IllegalArgumentException("$this isn't a legal code point")
+}
