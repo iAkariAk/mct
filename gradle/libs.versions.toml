@@ -1,37 +1,36 @@
 [versions]
-androidx-lifecycle = "2.10.0"
+androidx-lifecycle = "2.11.0"
 arrow = "2.2.3"
-catelog-update = "1.1.0"
+catelog-update = "1.1.1"
 clikt = "5.1.0"
 collections-immutable = "0.5.1"
 compose = "1.11.1"
 coroutines = "1.11.0"
 filekit = "0.14.2"
-graalvm-native = "1.1.3"
+graalvm-native = "1.1.7"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
-kmp-zip = "0.12.1"
+kmp-zip = "0.13.0"
 kmpalette = "4.0.0-beta02"
 knbt = "0.11.10-SNAPSHOT"
 koin = "4.2.2"
-korlibs = "6.0.2"
-kotest = "6.2.1"
-kotlin = "2.4.0"
+kotest = "6.2.3"
+kotlin = "2.4.10"
 kotlinx-io = "0.9.1"
 kotlinx-schema-generator-json = "0.6.0"
-ksp = "2.3.9"
+ksp = "2.3.11"
 ktoml = "0.7.1"
-ktor = "3.5.1"
+ktor = "3.5.2"
 material-icons-extended = "1.7.3"
-material-kolor = "4.1.1"
+material-kolor = "5.0.0"
 material3 = "1.12.0-alpha03"
 mordant = "3.0.2"
-okio = "3.17.0"
+okio = "3.18.1"
 openai-client = "4.1.0"
 proguard = "7.9.1"
 resources = "0.15.0"
 serialization = "1.11.0"
-shadow = "9.4.3"
+shadow = "9.6.1"
 slf4j = "2.0.18"
 
 [libraries]
@@ -63,7 +62,6 @@ kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
-korlibs-io = { module = "com.soywiz:korlibs-io", version.ref = "korlibs" }
 kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.ref = "kotest" }
 kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
