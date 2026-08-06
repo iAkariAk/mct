@@ -5,6 +5,7 @@ import arrow.core.raise.context.raise
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.MCTPattern
+import mct.model.patch.FormatKind
 import mct.pointer.DataPointerPattern
 import mct.pointer.compile
 import mct.util.Regex2
@@ -32,14 +33,15 @@ private fun SnbtTag.selectSnbt(
     snbt: String,
     snbtOffset: Int,
     patterns: List<DataPointerPattern>?
-): List<SelectResult>? =
+): List<SelectResult> =
     extractTextsByPointer(snbt, snbtOffset)
         .filter { it.pointer.compile().matches(patterns) }
         .map {
             SelectResult(
                 (baseIndex + it.indices.first)..(baseIndex + it.indices.last),
                 it.content,
-                it.syntax
+                it.syntax,
+                FormatKind.SnbtStr
             )
         }.toList().takeIf { it.isNotEmpty() } ?: emptyList()
 

@@ -2,6 +2,7 @@
 package mct.model.text
 
 import kotlinx.serialization.Serializable
+import mct.util.Regex2
 import mct.util.formatir.*
 import mct.util.unreachable
 
@@ -52,6 +53,10 @@ fun TextCompound<*>.hasText(): Boolean = when (this) {
 
     is ManyTextCompound -> compounds.any { it.hasText() }
 }
+
+private val REGEX_TRANSLATE_KEY = Regex2("""[\w.]+\.+[\w.]+""")
+fun String.isTranslateKey() = REGEX_TRANSLATE_KEY.matchEntire(this) != null
+fun TextCompound<*>.isPureTranslateKeyCompound() = this is TextCompound.Translatable && with.isNullOrEmpty() && fallback == null && translate.isTranslateKey() && extra == null
 
 fun TextCompound<*>.flatten() = when (this) {
     is ManyTextCompound -> compounds

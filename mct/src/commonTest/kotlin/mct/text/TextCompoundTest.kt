@@ -60,6 +60,20 @@ class TextCompoundTest : FreeSpec({
                 TextCompound.fromIR(IRInt(42))
             }
         }
+
+        "justify translate key" {
+            listOf(
+                "commands.teleport.success.location.single",
+                "commands.title.show.title.single",
+                "effect.minecraft.levitation",
+            ).all(String::isTranslateKey).shouldBeTrue()
+            listOf(
+                "abc",
+                "jelee",
+                "Okey.",
+                ".obj"
+            ).none(String::isTranslateKey).shouldBeTrue()
+        }
     }
 
     "object-backed component types" - {

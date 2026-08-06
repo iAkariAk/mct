@@ -251,7 +251,7 @@ internal fun String.strip(format: FormatKind): CompoundStrip {
         }?.decodeToCompound()
     }.getOrNull() ?: return CompoundStrip.NoCompound(raw)
 
-    if (!compound.hasText()) return CompoundStrip.Untranslatable(raw)
+    if (!compound.hasText() || compound.isPureTranslateKeyCompound()) return CompoundStrip.Untranslatable(raw)
     val single = compound as? SingleTextCompound<*> ?: return CompoundStrip.CannotStrip(raw)
 
     val strip = (if (single.extra == null) {

@@ -8,6 +8,7 @@ import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import mct.MCTError
 import mct.MCTPattern
+import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
 import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
@@ -90,6 +91,7 @@ data class SelectResult(
     override val indices: IntRange, // absolute
     override val content: String,
     override val syntax: SnbtSyntaxKind?,
+    val format: FormatKind = PlainStr
 ) : StringIndicesWithSyntax
 
 internal fun PointerWithExtensionForSnbt.toSelectResult() = SelectResult(indices, content, syntax)
@@ -103,7 +105,7 @@ sealed interface IndexSelector {
     @Serializable
     @SerialName("non_greedy")
     data class NonGreedy(
-        val indexes: Map<Int, ArgSelection?>, // null is select entire
+        val indexes: Map<Int, ArgSelection?>, // NOTE: `null` is to select entire
     ) : IndexSelector {
         // 1-based index
         fun matches(pos: Int) = pos in indexes
