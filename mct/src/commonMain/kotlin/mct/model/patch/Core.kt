@@ -80,8 +80,8 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
 }
 
 fun String.inferFormatKind(shouldTextCompound: Boolean = false): FormatKind = when {
-    if (shouldTextCompound) isTextCompoundJson() else isJson() -> FormatKind.JsonStr
     if (shouldTextCompound) isTextCompoundSnbt() else isSnbt() -> FormatKind.SnbtStr
+    if (shouldTextCompound) isTextCompoundJson(false) else isJson(false) -> FormatKind.JsonStr
     else -> FormatKind.PlainStr
 }
 

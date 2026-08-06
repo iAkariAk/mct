@@ -20,13 +20,28 @@ inline fun <T> ArrayDeque<T>.push(element: T) = addLast(element)
 inline fun <T> ArrayDeque<T>.peekOrNull() = lastOrNull()
 inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
+private val STD_JSON = Json {
+    ignoreUnknownKeys = true
+}
+
+fun String.isStructureJsonOrSnbt() = trim().run {
+    surroundedBy('"') || surroundedBy('\'') || surroundedBy('[', ']') || surroundedBy('{', '}')
+}
 
 fun JsonElement.toJson(pretty: Boolean = false): String = (if (pretty) PrettyJson else MCTJson).encodeToString(this)
 fun NbtTag.toSnbt(pretty: Boolean = false): String = (if (pretty) PrettySnbt else Snbt).encodeToString(this)
-fun String.toNbtTagOrNull() = runCatching { Snbt.decodeFromString<NbtTag>(this) }.getOrNull()
-fun String.toJsonElementOrNull() = runCatching { Json.decodeFromString<JsonElement>(this) }.getOrNull()
+fun String.toNbtTagOrNull() =
+    if (isStructureJsonOrSnbt()) runCatching { Snbt.decodeFromString<NbtTag>(this) }.getOrNull() else null
+
+fun String.toJsonElementOrNull(strict: Boolean = false): JsonElement? =
+    if (isStructureJsonOrSnbt()) runCatching {
+        if (strict) STD_JSON.decodeFromString<JsonElement>(this) else decodeFromMCJson<JsonElement>(
+            this
+        )
+    }.getOrNull() else null
+
 fun String.isSnbt() = toNbtTagOrNull() != null
-fun String.isJson() = toJsonElementOrNull() != null
+fun String.isJson(strict: Boolean = false) = toJsonElementOrNull(strict) != null
 
 inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other
 inline infix fun Short.divCeil(other: Short) = (this + other - 1) / other

@@ -9,7 +9,6 @@ import mct.util.formatir.IRString
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
-import mct.util.surroundedBy
 import mct.util.toJsonElementOrNull
 import mct.util.toNbtTagOrNull
 import mct.util.toRegex2
@@ -107,9 +106,7 @@ internal fun Map<String, *>.isTextCompoundShorthanded() =
     "text" !in this && (this[""]?.let { it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
         ?: false)
 
-fun String.isTextCompoundSnbt() = trim().run {
-    surroundedBy('"') || surroundedBy('\'') || surroundedBy('[', ']') || surroundedBy('{', '}')
-} && toNbtTagOrNull()?.let {
+fun String.isTextCompoundSnbt() = toNbtTagOrNull()?.let {
     when (it) {
         is NbtCompound -> it.isTextCompound()
         is NbtList<*> -> it.isTextCompound()
@@ -118,9 +115,7 @@ fun String.isTextCompoundSnbt() = trim().run {
     }
 } ?: false
 
-fun String.isTextCompoundJson() = trim().run {
-    surroundedBy('"') || surroundedBy('[', ']') || surroundedBy('{', '}')
-} && toJsonElementOrNull()?.let {
+fun String.isTextCompoundJson(strict: Boolean = false) = toJsonElementOrNull(strict)?.let {
     when (it) {
         is JsonArray -> it.isTextCompound()
         is JsonObject -> it.isTextCompound()

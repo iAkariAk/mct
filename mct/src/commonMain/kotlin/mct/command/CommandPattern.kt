@@ -91,7 +91,7 @@ sealed interface IndexSelectError : MCTError {
         val require: String,
         val input: String
     ) : IndexSelectError {
-        override val message = "Require $require, but the input isn't $require $input"
+        override val message = "Require $require, but the input isn't $require: `$input`"
     }
 }
 

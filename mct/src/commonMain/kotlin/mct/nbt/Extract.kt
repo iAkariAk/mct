@@ -22,7 +22,7 @@ import net.benwoodworth.knbt.NbtTag
 context(_: LoggerHolder)
 internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
     extractTextsByPointer().mapNotNull { pwe ->
-        val (pointer, _, kind, type) = pwe
+        val (pointer, _, format, type) = pwe
         when (type) {
             Command -> {
                 val content = pwe.content
@@ -37,7 +37,7 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                     } ?: return@mapNotNull null)
             }
 
-            Text if pointer.compile().matches(pattern.nbt) -> NbtExtraction.Text(pointer, kind, pwe.content)
+            Text if pointer.compile().matches(pattern.nbt) -> NbtExtraction.Text(pointer, format, pwe.content)
 
             else -> null
         }

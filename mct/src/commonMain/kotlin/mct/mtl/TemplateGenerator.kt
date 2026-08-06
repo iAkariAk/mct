@@ -5,8 +5,8 @@ import kotlinx.serialization.json.JsonElement
 import mct.kit.TranslationMapping
 import mct.model.text.ManyTextCompound
 import mct.model.text.TextCompound
-import mct.serializer.MCTJson
 import mct.serializer.Snbt
+import mct.util.decodeFromMCJson
 import mct.util.formatir.toIR
 import net.benwoodworth.knbt.NbtTag
 
@@ -28,7 +28,7 @@ fun TextCompound<*>.mtlize(): MTLExpression? = when {
 
 
 internal inline fun String.tryDecodeAsTextCompound() = runCatching {
-    TextCompound.fromIR(MCTJson.decodeFromString<JsonElement>(this).toIR())
+    TextCompound.fromIR(decodeFromMCJson<JsonElement>(this).toIR())
 }.getOrElse {
     runCatching {
         TextCompound.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())

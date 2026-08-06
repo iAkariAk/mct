@@ -6,6 +6,7 @@ import io.kotest.core.spec.style.FreeSpec
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import mct.util.standardizeMCJson
 import org.intellij.lang.annotations.Language
 
 private val J = Json {

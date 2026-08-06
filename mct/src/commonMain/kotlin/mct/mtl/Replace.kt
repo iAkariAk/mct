@@ -9,6 +9,7 @@ import mct.model.patch.replaceSimply
 import mct.model.text.*
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
+import mct.util.decodeFromMCJson
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
@@ -39,7 +40,7 @@ fun TranslationPool.translateByMTLX(mtlx: MTLX) = associateWith {
 private inline fun String.tryTransformTextCompound(
     transform: (TextCompound<*>) -> TextCompound<*>?
 ): String? = runCatching {
-    val tc = TextCompound.fromIR(MCTJson.decodeFromString<JsonElement>(this).toIR())
+    val tc = TextCompound.fromIR(decodeFromMCJson<JsonElement>(this).toIR())
     val r = transform(tc)
     r?.encodeToIR()?.toJsonElement()?.let(MCTJson::encodeToString)
 }.getOrElse {

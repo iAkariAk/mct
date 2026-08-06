@@ -17,15 +17,12 @@ import mct.model.text.*
 import mct.notify
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
+import mct.util.*
 import mct.util.IO
-import mct.util.Regex2
-import mct.util.destructured
 import mct.util.formatir.IRList
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
-import mct.util.toRegex2
-import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtTag
 
 
@@ -243,7 +240,7 @@ internal fun String.strip(format: FormatKind): CompoundStrip {
     var isList = false
     val compound = Option.catch {
         when (format) {
-            JsonStr, JsonObj -> MCTJson.decodeFromString<JsonElement>(raw).toIR()
+            JsonStr, JsonObj -> decodeFromMCJson<JsonElement>(raw).toIR()
             SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(raw).toIR()
             PlainStr -> null
         }?.let {

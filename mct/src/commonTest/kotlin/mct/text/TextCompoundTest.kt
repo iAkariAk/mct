@@ -262,6 +262,8 @@ class TextCompoundTest : FreeSpec({
         "recognizes nested compounds" {
             shouldBeJsonTextCompound("""[{"text":"a"},{"keybind":"key.use"}]""")
             shouldBeSnbtTextCompound("""[{text:"a"},{keybind:"key.use"}]""")
+            shouldBeJsonTextCompound("""["A \' illegal escape"]""")
+            shouldBeSnbtTextCompound("""["A \' illegal escape"]""")
         }
     }
 })
