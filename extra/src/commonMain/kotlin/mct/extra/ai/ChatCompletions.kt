@@ -9,6 +9,7 @@ import com.aallam.openai.api.core.Usage
 import com.aallam.openai.api.exception.GenericIOException
 import com.aallam.openai.api.exception.OpenAIHttpException
 import com.aallam.openai.api.exception.OpenAITimeoutException
+import com.aallam.openai.api.http.Timeout
 import com.aallam.openai.api.logging.LogLevel
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.LoggingConfig
@@ -26,6 +27,7 @@ import mct.Env
 import mct.EnvHolder
 import mct.MCTError
 import mct.notify
+import kotlin.time.Duration.Companion.hours
 
 private const val MAX_RETRY = 20
 
@@ -58,6 +60,11 @@ fun createOpenAIClient(apiUrl: String?, token: String, logLevel: LogLevel = LogL
         host = host,
         logging = LoggingConfig(
             logLevel = logLevel,
+        ),
+        timeout = Timeout(
+            request = 1.hours,
+            connect = 1.hours,
+            socket = 1.hours,
         ),
         httpClientConfig = {
             engine {
