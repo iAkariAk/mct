@@ -122,7 +122,6 @@ private fun selectItemStackPropertyList(
 
 @Serializable
 sealed interface ArgSelection {
-    // null: select the entire
     context(_: Raise<IndexSelectError>)
     fun select(patterns: MCTPattern?, arg: MCCommand.Arg): SelectResult
 
@@ -137,6 +136,7 @@ sealed interface ArgSelection {
         ): SelectResult = SelectResult.Entire.EntirePlainString
     }
 
+    // minecraft:component
     @Serializable
     @SerialName("text_compound_entire")
     data object TextCompoundEntire : ArgSelection {
@@ -152,7 +152,7 @@ sealed interface ArgSelection {
     }
 
 
-    // minecraft:component || minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
+    // minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
     @Serializable
     @SerialName("snbt_entire")
     data object SnbtEntire : ArgSelection {

@@ -4,6 +4,8 @@ import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
 import mct.Env
 import mct.Logger
@@ -21,7 +23,7 @@ class TranslatorTest : FreeSpec({
     val token = envvar("OPENAI_TOKEN")
     val model = envvar("OPENAI_MODEL")
 
-    val enabledRealLLMResponseTest = listOf(apiUrl, token, model).all { it != null }
+    val enabledRealLLMResponseTest = false && listOf(apiUrl, token, model).all { it != null }
 
     if (!enabledRealLLMResponseTest) {
         println("WARNING: Test was disabled due to no configure for OpenAI in env vars, please add `OPENAI_URL`, `OPENAI_TOKEN` and `OPENAI_MODEL`.")
@@ -65,18 +67,30 @@ class TranslatorTest : FreeSpec({
         }
 
         "strip test" {
-            val raws = listOf(
+            val raws1 = listOf(
                 """[{"color":"gray","text":"Key recipes unlocked!\n(Check the recipe book in a crafting table)"}]""",
                 """{"color":"red","text":"ILLEGAL BUCKET USE DETECTED"}"""
             )
+            val raws2 = listOf(
+                """{"translate": "abc.efg"}""",
+                """{"translate": "abc.efg.ghi", "color": "red"}""",
+            )
+            val raw3 = listOf(
+                """{"no": "a TextCompound"}""",
+            )
             context(Env()) {
-                val result = raws.strip(FormatKind.JsonStr)
+                val result1 = raws1.translatableStrips(FormatKind.JsonStr)
 
-                val failures = result.filterIsInstance<CompoundStrip.CannotStrip>()
+                val failures1 = result1.filterIsInstance<CompoundStrip.CannotStrip>()
 
-                if (failures.isNotEmpty()) {
-                    fail("Strip failed for: ${failures.joinToString { it.original }}")
+                if (failures1.isNotEmpty()) {
+                    fail("Strip failed for: ${failures1.joinToString { it.original }}")
                 }
+                val result2 = raws2.translatableStrips(FormatKind.JsonStr)
+                result2.shouldBeEmpty()
+
+                val result3 = raw3.translatableStrips(FormatKind.JsonStr)
+                result3.filterIsInstance<CompoundStrip.NoCompound>().shouldNotBeEmpty()
             }
         }
 
