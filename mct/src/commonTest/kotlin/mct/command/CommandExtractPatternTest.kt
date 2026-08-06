@@ -7,13 +7,22 @@ import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.Logger
+import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
 
 data class CommandPatternCase(
     val name: String,
     val mcf: String,
     val expectedContents: List<String>? = null,
+    val expectedFormattedExtractions: List<FormattedExtractionExpectation>? = null,
 )
+
+data class FormattedExtractionExpectation(
+    val content: String,
+    val format: FormatKind,
+)
+
+infix fun String.withFormat(format: FormatKind) = FormattedExtractionExpectation(this, format)
 
 fun commandCase(
     name: String,
@@ -23,6 +32,16 @@ fun commandCase(
     name = name,
     mcf = mcf,
     expectedContents = expectedContents.toList().takeIf { it.isNotEmpty() },
+)
+
+fun formattedCommandCase(
+    name: String,
+    mcf: String,
+    vararg expected: FormattedExtractionExpectation,
+) = CommandPatternCase(
+    name = name,
+    mcf = mcf,
+    expectedFormattedExtractions = expected.toList(),
 )
 
 private fun parseMCFunction(mcf: String): List<MCCommand> =
@@ -47,6 +66,12 @@ fun List<CommandPatternCase>.test() {
                 val actualContents = matches.map { it.content }
                 if (actualContents != expectedContents) {
                     error("expected contents $expectedContents, but actual contents were $actualContents")
+                }
+            }
+            case.expectedFormattedExtractions?.let { expectedExtractions ->
+                val actualExtractions = matches.map { FormattedExtractionExpectation(it.content, it.format) }
+                if (actualExtractions != expectedExtractions) {
+                    error("expected extractions $expectedExtractions, but actual extractions were $actualExtractions")
                 }
             }
         }.exceptionOrNull()?.let { error ->
@@ -292,35 +317,80 @@ class CommandExtractPatternTest : FreeSpec({
             "BuiltinSet" {
                 listOf(
                     commandCase("say command", "say Hello world everyone", "Hello world everyone"),
-                    commandCase(
+                    formattedCommandCase(
                         "tellraw command",
                         """tellraw @a {"text":"Hello","color":"red"}""",
-                        """{"text":"Hello","color":"red"}"""
+                        """{"text":"Hello","color":"red"}""" withFormat FormatKind.JsonStr,
                     ),
-                    commandCase(
+                    formattedCommandCase(
                         "title command",
                         """title @a actionbar {"text":"Boss HP: 100"}""",
-                        """{"text":"Boss HP: 100"}"""
+                        """{"text":"Boss HP: 100"}""" withFormat FormatKind.JsonStr,
                     ),
-                    commandCase(
+                    formattedCommandCase(
+                        "bossbar add name",
+                        """bossbar add test:bar {text:"Boss Bar"}""",
+                        """{text:"Boss Bar"}""" withFormat FormatKind.SnbtStr,
+                    ),
+                    formattedCommandCase(
                         "bossbar set name",
                         """bossbar set mybar name {"text":"My Boss Bar"}""",
-                        """{"text":"My Boss Bar"}"""
+                        """{"text":"My Boss Bar"}""" withFormat FormatKind.JsonStr,
                     ),
-                    commandCase(
+                    formattedCommandCase(
                         "scoreboard objectives add",
                         """scoreboard objectives add myobj dummy {"text":"My Objective"}""",
-                        """{"text":"My Objective"}"""
+                        """{"text":"My Objective"}""" withFormat FormatKind.JsonStr,
                     ),
-                    commandCase(
+                    formattedCommandCase(
+                        "scoreboard objectives modify displayname",
+                        """scoreboard objectives modify myobj displayname {text:"My Objective"}""",
+                        """{text:"My Objective"}""" withFormat FormatKind.SnbtStr,
+                    ),
+                    formattedCommandCase(
+                        "scoreboard objectives fixed numberformat",
+                        """scoreboard objectives modify myobj numberformat fixed {"text":"Score"}""",
+                        """{"text":"Score"}""" withFormat FormatKind.JsonStr,
+                    ),
+                    formattedCommandCase(
+                        "scoreboard players display name",
+                        """scoreboard players display name @s myobj {"text":"Player"}""",
+                        """{"text":"Player"}""" withFormat FormatKind.JsonStr,
+                    ),
+                    formattedCommandCase(
+                        "scoreboard players fixed numberformat",
+                        """scoreboard players display numberformat @s myobj fixed {text:"Score"}""",
+                        """{text:"Score"}""" withFormat FormatKind.SnbtStr,
+                    ),
+                    formattedCommandCase(
+                        "team modify displayName",
+                        """team modify myteam displayName {"text":"My Team"}""",
+                        """{"text":"My Team"}""" withFormat FormatKind.JsonStr,
+                    ),
+                    formattedCommandCase(
                         "team modify prefix",
                         """team modify myteam prefix {"text":"[VIP]"}""",
-                        """{"text":"[VIP]"}"""
+                        """{"text":"[VIP]"}""" withFormat FormatKind.JsonStr,
                     ),
-                    commandCase(
-                        "data modify set value",
-                        """data modify entity @s set value {"text":"Named Entity"}""",
-                        """{"text":"Named Entity"}"""
+                    formattedCommandCase(
+                        "team modify suffix",
+                        """team modify myteam suffix {text:"!"}""",
+                        """{text:"!"}""" withFormat FormatKind.SnbtStr,
+                    ),
+                    formattedCommandCase(
+                        "data modify entity set value",
+                        """data modify entity @s CustomName set value {"text":"Named Entity"}""",
+                        """{"text":"Named Entity"}""" withFormat FormatKind.JsonStr,
+                    ),
+                    formattedCommandCase(
+                        "data modify storage set value",
+                        """data modify storage test:data label set value {text:"Stored Text"}""",
+                        """{text:"Stored Text"}""" withFormat FormatKind.SnbtStr,
+                    ),
+                    formattedCommandCase(
+                        "data modify block set value",
+                        """data modify block ~ ~ ~ CustomName set value {"text":"Named Block"}""",
+                        """{"text":"Named Block"}""" withFormat FormatKind.JsonStr,
                     ),
                     commandCase("give with text component", """give @p stick{display:{Name:"text"}}"""),
                     commandCase(
@@ -332,10 +402,10 @@ class CommandExtractPatternTest : FreeSpec({
                         "item modify",
                         """item modify entity @p weapon.mainhand {"function":"minecraft:set_name","name":"text"}""",
                     ),
-                    commandCase(
+                    formattedCommandCase(
                         "team add displayName",
                         """team add myteam {"text":"My Team"}""",
-                        """{"text":"My Team"}"""
+                        """{"text":"My Team"}""" withFormat FormatKind.JsonStr,
                     ),
                     commandCase(
                         "setblock with NBT data",
