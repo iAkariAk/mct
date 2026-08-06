@@ -53,7 +53,7 @@ sealed interface DatapackExtraction : Extraction {
     data class MCFunction(
         val indices: IntRangeSerializable,
         val content: String,
-        val syntax: SnbtSyntaxKind?,
+        val syntax: SnbtSyntaxKind? = null,
         val format: FormatKind = PlainStr
     ) : DatapackExtraction {
         inline fun unquoted() = content.unquoted(syntax)

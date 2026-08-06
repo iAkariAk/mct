@@ -1,0 +1,10 @@
+[
+  {
+    "regex": "\\{area:\\s*(\".*?\")}",
+    "groups": {
+      "1": {
+        "syntax": "DoubleQuoteString"
+      }
+    }
+  }
+]

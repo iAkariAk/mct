@@ -40,7 +40,7 @@ sealed interface NbtExtraction {
         data class Location(
             override val indices: IntRangeSerializable,
             override val content: String,
-            val syntax: SnbtSyntaxKind?,
+            val syntax: SnbtSyntaxKind? = null,
             val format: FormatKind = PlainStr
         ) : StringIndices {
             inline fun unquoted() = content.unquoted(syntax)

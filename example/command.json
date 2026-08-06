@@ -9,7 +9,7 @@
     "selector": {
       "type": "non_greedy",
       "indexes": {
-        7: {
+        "7": {
           "type": "snbt_entire"
         }
       }

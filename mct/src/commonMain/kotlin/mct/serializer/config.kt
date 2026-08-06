@@ -10,8 +10,7 @@ import net.benwoodworth.knbt.StringifiedNbt
 val MCTJson = Json {
     ignoreUnknownKeys = true
     encodeDefaults = false
-    explicitNulls = false
-    isLenient = true
+    explicitNulls = true
     allowStructuredMapKeys = true
     allowComments = true
     allowTrailingComma = true
