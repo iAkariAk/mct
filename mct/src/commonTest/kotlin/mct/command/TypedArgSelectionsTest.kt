@@ -6,27 +6,29 @@ import io.kotest.matchers.shouldBe
 import mct.MCTPattern
 import mct.dp.mcfunction.backfillMCFunction
 import mct.model.patch.DatapackReplacement.MCFunction
-import mct.model.patch.SnbtSyntaxKind
 import mct.util.offset
 
 class TypedArgSelectionsTest : FreeSpec({
-    fun selectItemStack(raw: String, startIndex: Int = 0): List<SelectResult> {
+    fun selectItemStack(raw: String, startIndex: Int = 0): SelectResult {
         val arg = MCCommand.Arg(
             relativeIndices = startIndex..startIndex + raw.lastIndex,
             indices = startIndex..startIndex + raw.lastIndex,
             content = raw,
         )
-        return shouldNotRaise { ArgSelection.ItemStack.select(MCTPattern.Default, arg).orEmpty() }
+        return shouldNotRaise { ArgSelection.ItemStack.select(MCTPattern.Default, arg) }
     }
 
-    fun selectBlockState(raw: String, startIndex: Int = 0): List<SelectResult> {
+    fun selectBlockState(raw: String, startIndex: Int = 0): SelectResult {
         val arg = MCCommand.Arg(
             relativeIndices = startIndex..startIndex + raw.lastIndex,
             indices = startIndex..startIndex + raw.lastIndex,
             content = raw,
         )
-        return shouldNotRaise { ArgSelection.BlockState.select(MCTPattern.Default, arg).orEmpty() }
+        return shouldNotRaise { ArgSelection.BlockState.select(MCTPattern.Default, arg) }
     }
+
+    fun SelectResult.portions() = (this as SelectResult.Portions).portions
+    fun SelectResult.singlePortion() = portions().single()
 
     "item_name selection keeps its absolute source range" {
         val itemStack = "minecraft:stick[item_name='Hello']"
@@ -34,11 +36,12 @@ class TypedArgSelectionsTest : FreeSpec({
 
         val result = selectItemStack(itemStack, startIndex)
 
-        result shouldBe listOf(
-            SelectResult(
+        result.portions() shouldBe listOf(
+            ExtractedCommandSlice(
                 indices = (startIndex + itemStack.indexOf("'Hello'"))..(startIndex + itemStack.indexOf("'Hello'") + "'Hello'".lastIndex),
                 content = "'Hello'",
-                syntax = SnbtSyntaxKind.SingleQuoteString,
+                syntax = SingleQuoteString,
+                format = SnbtStr
             )
         )
     }
@@ -47,7 +50,7 @@ class TypedArgSelectionsTest : FreeSpec({
         val command = "give @s minecraft:stick[item_name='Hello']"
         val itemStackStart = command.indexOf("minecraft:stick")
         val itemStack = command.substring(itemStackStart)
-        val slice = selectItemStack(itemStack, itemStackStart).single()
+        val slice = selectItemStack(itemStack, itemStackStart).singlePortion()
 
         command.substring(slice.indices) shouldBe slice.content
         command.backfillMCFunction(
@@ -58,7 +61,7 @@ class TypedArgSelectionsTest : FreeSpec({
     "nested text component range points at the complete component value" {
         val itemStack = "minecraft:stick[item_name='{\"text\":\"Hello\"}']"
         val startIndex = 13
-        val slice = selectItemStack(itemStack, startIndex).single()
+        val slice = selectItemStack(itemStack, startIndex).singlePortion()
 
         slice.content shouldBe "'{\"text\":\"Hello\"}'"
         itemStack.substring(slice.indices.offset(-startIndex)) shouldBe slice.content
@@ -71,11 +74,12 @@ class TypedArgSelectionsTest : FreeSpec({
 
         val result = selectBlockState(blockState, startIndex)
 
-        result shouldBe listOf(
-            SelectResult(
+        result.portions() shouldBe listOf(
+            ExtractedCommandSlice(
                 indices = (startIndex + blockState.indexOf(customName))..(startIndex + blockState.indexOf(customName) + customName.lastIndex),
                 content = customName,
-                syntax = SnbtSyntaxKind.SingleQuoteString,
+                syntax = SingleQuoteString,
+                format = SnbtStr
             )
         )
     }

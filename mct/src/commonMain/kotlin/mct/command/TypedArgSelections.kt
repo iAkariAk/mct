@@ -1,11 +1,17 @@
+@file:OptIn(PotentiallyUnsafeNonEmptyOperation::class)
+
 package mct.command
 
+import arrow.core.PotentiallyUnsafeNonEmptyOperation
 import arrow.core.raise.context.Raise
 import arrow.core.raise.context.raise
+import arrow.core.wrapAsNonEmptyListOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.MCTPattern
-import mct.model.patch.FormatKind
+import mct.command.SelectResult.Portions
+import mct.model.text.isTextCompoundJson
+import mct.model.text.isTextCompoundSnbt
 import mct.pointer.DataPointerPattern
 import mct.pointer.compile
 import mct.util.Regex2
@@ -16,9 +22,25 @@ import mct.util.snbt.SnbtParser
 import mct.util.snbt.SnbtTag
 import mct.util.unreachable
 
+private inline fun Sequence<StringIndicesWithSyntaxFormat>.asSelectResult(): SelectResult =
+    toList().wrapAsSelectResult()
+
+private inline fun List<StringIndicesWithSyntaxFormat>.wrapAsSelectResult(): SelectResult =
+    wrapAsNonEmptyListOrNull()?.let(::Portions) ?: SelectResult.None
+
+private fun Sequence<StringIndicesWithSyntaxFormat>.offset(baseIndex: Int): Sequence<StringIndicesWithSyntaxFormat> =
+    map {
+        ExtractedCommandSlice(
+            it.indices.offset(baseIndex),
+            it.content,
+            it.syntax,
+            SnbtStr
+        )
+    }
+
 // Refer to https://minecraft.wiki/w/Argument_types
 context(_: Raise<IndexSelectError>)
-private fun selectSnbt(baseIndex: Int, snbt: String, patterns: List<DataPointerPattern>?): List<SelectResult>? {
+private fun selectSnbt(baseIndex: Int, snbt: String, patterns: List<DataPointerPattern>?): SelectResult {
     val tag = runCatching<SnbtTag> {
         SnbtTag.decodeFromString(snbt)
     }.getOrElse {
@@ -33,24 +55,18 @@ private fun SnbtTag.selectSnbt(
     snbt: String,
     snbtOffset: Int,
     patterns: List<DataPointerPattern>?
-): List<SelectResult> =
+): SelectResult =
     extractTextsByPointer(snbt, snbtOffset)
         .filter { it.pointer.compile().matches(patterns) }
-        .map {
-            SelectResult(
-                (baseIndex + it.indices.first)..(baseIndex + it.indices.last),
-                it.content,
-                it.syntax,
-                FormatKind.SnbtStr
-            )
-        }.toList().takeIf { it.isNotEmpty() } ?: emptyList()
+        .offset(baseIndex)
+        .asSelectResult()
 
 context(_: Raise<IndexSelectError>)
 private fun selectItemStackPropertyList(
     baseIndex: Int,
     str: String,
     patterns: ComponentPatterns?
-): List<SelectResult> {
+): SelectResult {
     val lexer = SnbtLexer(str, 0)
     val parser = SnbtParser(str, lexer)
     val buffer = StringBuilder()
@@ -62,8 +78,6 @@ private fun selectItemStackPropertyList(
         }
     }
 
-    fun toSelectResult(it: PointerWithExtensionForSnbt) =
-        SelectResult(it.indices.offset(baseIndex), it.content, it.syntax)
     return sequence {
         while (lexer.index < str.length) {
             val ch = str[lexer.index]
@@ -92,27 +106,25 @@ private fun selectItemStackPropertyList(
                 if (pattern != null) {
                     if (pattern.pattern == null) {
                         extracted.singleOrNull()
-                            ?.let(::toSelectResult)
                             ?.let { yield(it) }
                     } else extracted
                         .filter { pattern.pattern.match(it.pointer.compile()) }
-                        .map(::toSelectResult)
                         .let { yieldAll(it) }
-                } else yieldAll(extracted.map(::toSelectResult))
+                } else yieldAll(extracted)
                 skipWhitespace()
                 if (lexer.index >= str.length) break
                 val ch3 = str[lexer.index]
                 if (ch3 == ',') lexer.index++
             }
         }
-    }.toList()
+    }.offset(baseIndex).asSelectResult()
 }
 
 @Serializable
 sealed interface ArgSelection {
     // null: select the entire
     context(_: Raise<IndexSelectError>)
-    fun select(patterns: MCTPattern?, arg: MCCommand.Arg): List<SelectResult>?
+    fun select(patterns: MCTPattern?, arg: MCCommand.Arg): SelectResult
 
     // brigadier:string
     @Serializable
@@ -122,8 +134,23 @@ sealed interface ArgSelection {
         override fun select(
             patterns: MCTPattern?,
             arg: MCCommand.Arg,
-        ): List<SelectResult>? = null
+        ): SelectResult = SelectResult.Entire.EntirePlainString
     }
+
+    @Serializable
+    @SerialName("text_compound_entire")
+    data object TextCompoundEntire : ArgSelection {
+        context(_: Raise<IndexSelectError>)
+        override fun select(
+            patterns: MCTPattern?,
+            arg: MCCommand.Arg,
+        ): SelectResult = when {
+            arg.content.isTextCompoundJson() -> SelectResult.Entire.EntireJsonString
+            arg.content.isTextCompoundSnbt() -> SelectResult.Entire.EntireSnbtString
+            else -> raise(IndexSelectError.IllegalInput("TextCompound", arg.content))
+        }
+    }
+
 
     // minecraft:component || minecraft:nbt_compound_tag || minecraft:nbt_tag || *minecraft:dialog* || minecraft:style
     @Serializable
@@ -133,7 +160,7 @@ sealed interface ArgSelection {
         override fun select(
             patterns: MCTPattern?,
             arg: MCCommand.Arg,
-        ): List<SelectResult>? = selectSnbt(arg.indices.first, arg.content, patterns?.commandData)
+        ): SelectResult = selectSnbt(arg.indices.first, arg.content, patterns?.commandData)
     }
 
 
@@ -147,7 +174,7 @@ sealed interface ArgSelection {
         override fun select(
             patterns: MCTPattern?,
             arg: MCCommand.Arg,
-        ): List<SelectResult>? {
+        ): SelectResult {
             val result = ITEM_STACK_REGX.matchEntire(arg.content) ?: raise(
                 IndexSelectError.Parse(arg.content, "The arg didn't match ItemStack(${ITEM_STACK_REGX.pattern})")
             )
@@ -182,7 +209,7 @@ sealed interface ArgSelection {
         override fun select(
             patterns: MCTPattern?,
             arg: MCCommand.Arg,
-        ): List<SelectResult>? {
+        ): SelectResult {
             val result = BLOCK_STATE_REGEX.matchEntire(arg.content) ?: raise(
                 IndexSelectError.Parse(arg.content, "The arg didn't match BlockState(${BLOCK_STATE_REGEX.pattern})")
             )

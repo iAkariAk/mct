@@ -18,7 +18,7 @@ internal fun MCFunctionExtractor(
             commandStr = text,
             patterns = patterns
         ).map { extracted ->
-            MCFunction(indices = extracted.indices, content = extracted.content, syntax = extracted.syntax)
+            MCFunction(extracted.indices, extracted.content, extracted.syntax, extracted.format)
         }.toList()
     } finally {
         close(source)
@@ -32,7 +32,7 @@ internal fun String.backfillMCFunction(replacements: List<DatapackReplacement.MC
     for (i in sortedByDescending.indices.reversed()) {
         val current = sortedByDescending[i]
         val next = sortedByDescending.getOrNull(i - 1) ?: break
-        require (current.indices.last < next.indices.first) {
+        require(current.indices.last < next.indices.first) {
             "Replacements cannot overlap with each other ($current and $next)"
         }
     }

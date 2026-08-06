@@ -1,5 +1,6 @@
 package mct.command
 
+import arrow.core.NonEmptyList
 import arrow.core.raise.context.Raise
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -85,16 +86,29 @@ sealed interface IndexSelectError : MCTError {
     ) : IndexSelectError {
         override val message = "When parsing $raw, get $reason"
     }
+
+    data class IllegalInput(
+        val require: String,
+        val input: String
+    ) : IndexSelectError {
+        override val message = "Require $require, but the input isn't $require $input"
+    }
 }
 
-data class SelectResult(
-    override val indices: IntRange, // absolute
-    override val content: String,
-    override val syntax: SnbtSyntaxKind?,
-    val format: FormatKind = PlainStr
-) : StringIndicesWithSyntax
 
-internal fun PointerWithExtensionForSnbt.toSelectResult() = SelectResult(indices, content, syntax)
+sealed interface SelectResult {
+    data class Entire(val syntax: SnbtSyntaxKind? = null, val format: FormatKind) : SelectResult {
+        companion object {
+            val EntirePlainString = Entire(null, PlainStr)
+            val EntireJsonString = Entire(null, JsonStr)
+            val EntireSnbtString = Entire(null, SnbtStr)
+        }
+    }
+
+    data class Portions(val portions: NonEmptyList<StringIndicesWithSyntaxFormat>) : SelectResult
+
+    data object None : SelectResult
+}
 
 @Serializable
 sealed interface IndexSelector {
@@ -105,7 +119,7 @@ sealed interface IndexSelector {
     @Serializable
     @SerialName("non_greedy")
     data class NonGreedy(
-        val indexes: Map<Int, ArgSelection?>, // NOTE: `null` is to select entire
+        val indexes: Map<Int, ArgSelection?>, // NOTE: `null` is to select the entire
     ) : IndexSelector {
         // 1-based index
         fun matches(pos: Int) = pos in indexes
@@ -116,8 +130,7 @@ sealed interface IndexSelector {
             pos: Int,
             pattern: MCTPattern?,
             arg: MCCommand.Arg,
-        ): List<SelectResult>? =
-            indexes[pos]?.select(pattern, arg)
+        ): SelectResult = indexes[pos]?.select(pattern, arg) ?: SelectResult.Entire.EntirePlainString
     }
 }
 

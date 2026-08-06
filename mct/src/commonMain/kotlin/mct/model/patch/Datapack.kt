@@ -54,6 +54,7 @@ sealed interface DatapackExtraction : Extraction {
         val indices: IntRangeSerializable,
         val content: String,
         val syntax: SnbtSyntaxKind?,
+        val format: FormatKind = PlainStr
     ) : DatapackExtraction {
         inline fun unquoted() = content.unquoted(syntax)
 

@@ -33,9 +33,7 @@ internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
                         commandStr = content,
                         patterns = pattern
                     ).takeIf { it.isNotEmpty() }?.map {
-                        NbtExtraction.Command.Location(
-                            it.indices, it.content, it.syntax
-                        )
+                        NbtExtraction.Command.Location(it.indices, it.content, it.syntax, it.format)
                     } ?: return@mapNotNull null)
             }
 

@@ -355,7 +355,7 @@ class CommandExtractPatternTest : FreeSpec({
     }
 
     "TargetSelector" - {
-        fun extractTargetSelector(mcf: String): List<ExtractedCommandSlice> {
+        fun extractTargetSelector(mcf: String): List<StringIndicesWithSyntaxFormat> {
             val cmds = parseMCFunction(mcf)
             return cmds.flatMap { CommandExtractorIntrinsic.extractFromTargetSelector(it.args) }
         }

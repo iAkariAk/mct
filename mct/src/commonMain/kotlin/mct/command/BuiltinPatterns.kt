@@ -35,7 +35,7 @@ val BuiltinCommandPatterns = PatternSet {
     // Wiki: /tellraw <targets> <message> — message is a raw JSON text component
     command("tellraw") {
         WithSize(2, strict = true) then {
-            +Positions(2)
+            +Positions(2 to ArgSelection.TextCompoundEntire)
         }
     }
 
@@ -46,7 +46,7 @@ val BuiltinCommandPatterns = PatternSet {
     // "clear" and "reset" have 2 args — excluded by WithSize(3, strict).
     command("title") {
         WithSize(3, strict = true) then {
-            Positions(3) then {
+            Positions(3 to ArgSelection.TextCompoundEntire) then {
                 Matches("not times") { cmd, _ ->
                     cmd[2].content != "times"
                 }

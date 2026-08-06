@@ -21,23 +21,25 @@ import mct.util.snbt.SnbtString
 import mct.util.snbt.SnbtTag
 
 
-interface StringIndicesWithSyntax : StringIndices {
+interface StringIndicesWithSyntaxFormat : StringIndices {
     override val indices: IntRange // absolute
     override val content: String
     val syntax: SnbtSyntaxKind?
+    val format: FormatKind
 }
 
 data class ExtractedCommandSlice(
     override val indices: IntRange, // absolute
     override val content: String,
     override val syntax: SnbtSyntaxKind?, // null represents the slice isn't a snbt
-) : StringIndicesWithSyntax
+    override val format: FormatKind
+) : StringIndicesWithSyntaxFormat
 
 context(_: LoggerHolder)
 fun extractTextFromCommands(
     commandStr: String,
     patterns: MCTPattern = MCTPattern.Default,
-): List<ExtractedCommandSlice> {
+): List<StringIndicesWithSyntaxFormat> {
     val commands = parseCommands(commandStr)
     val fromCommandPattern = commands.flatMap { command ->
         either {
@@ -50,12 +52,13 @@ fun extractTextFromCommands(
     return if (patterns.commandRegex.isNotEmpty()) {
         val fromRegex = patterns.commandRegex.flatMap { p ->
             p.regex.findAll(commandStr).flatMap { result ->
-                p.groups.mapNotNull { (group, syntax) ->
+                p.groups.mapNotNull { (group, info) ->
                     result.groups2[group]?.let {
                         ExtractedCommandSlice(
                             it.range,
                             it.value,
-                            syntax,
+                            info?.syntax,
+                            info?.format ?: FormatKind.PlainStr,
                         )
                     }
                 }
@@ -71,7 +74,7 @@ context(_: Raise<IndexSelectError>, _: LoggerHolder)
 internal fun extractTextFromCommand(
     command: MCCommand,
     patterns: MCTPattern = MCTPattern.Default,
-): List<ExtractedCommandSlice> {
+): List<StringIndicesWithSyntaxFormat> {
     // return run <command> (1.21+) — similar recursive subcommand extraction
     if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`
         val index = command.args.indexOfFirst { it.content == "run" }
@@ -99,11 +102,12 @@ internal fun extractTextFromCommand(
             when (val selector = pattern.selector) {
                 is IndexSelector.Greedy -> {
                     val (relRange, absRange) = computeGreedyRange(command, selector)
-                    ExtractedCommandSlice(
+                    (ExtractedCommandSlice(
                         absRange,
                         command.raw.substring(relRange),
-                        null
-                    ).let(::sequenceOf)
+                        null,
+                        PlainStr
+                    ) as StringIndicesWithSyntaxFormat).let(::sequenceOf)
                 }
 
                 is IndexSelector.NonGreedy ->
@@ -114,19 +118,28 @@ internal fun extractTextFromCommand(
                         .flatMap { (index, arg) ->
                             recover(
                                 block = {
-                                    selector.select(index + 1, patterns, arg)?.map {
-                                        ExtractedCommandSlice(it.indices, it.content, it.syntax)
+                                    when (val results = selector.select(index + 1, patterns, arg)) {
+                                        is SelectResult.Entire -> ExtractedCommandSlice(
+                                            arg.indices,
+                                            arg.content,
+                                            results.syntax,
+                                            results.format
+                                        ).let(::sequenceOf)
+
+                                        is SelectResult.Portions -> results.portions.asSequence()
+                                        None -> emptySequence()
                                     }
                                 },
                                 recover = {
                                     logger.error { "Selection fails: ${it.message}" }
-                                    null
+                                    ExtractedCommandSlice(
+                                        arg.indices,
+                                        arg.content,
+                                        null,
+                                        PlainStr
+                                    ).let(::sequenceOf)
                                 }
-                            ) ?: ExtractedCommandSlice(
-                                arg.indices,
-                                arg.content,
-                                null
-                            ).let(::listOf) // feedback
+                            )
                         }
             }
         }.toList()
@@ -143,57 +156,58 @@ internal data class PointerWithExtensionForSnbt(
     val pointer: DataPointer,
     override val indices: IntRange, // relate to the arg
     override val content: String,
-    val format: FormatKind,
     override val syntax: SnbtSyntaxKind,
-) : StringIndicesWithSyntax
+    override val format: FormatKind,
+) : StringIndicesWithSyntaxFormat
 
-internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): Sequence<PointerWithExtensionForSnbt> = when (this) {
-    is SnbtList -> if (isTextCompound()) {
-        sequenceOf(
+internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): Sequence<PointerWithExtensionForSnbt> =
+    when (this) {
+        is SnbtList -> if (isTextCompound()) {
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices.offset(-snbtOffset)),
+                    syntax = SnbtSyntaxKind.List,
+                    format = FormatKind.SnbtStr,
+                )
+            )
+        } else {
+            asSequence().withIndex().flatMap { (index, tag) ->
+                tag.extractTextsByPointer(snbt, snbtOffset).map {
+                    it.copy(pointer = it.pointer.markArray(index))
+                }
+            } // wrap inner pointer
+        }
+
+        is SnbtCompound -> if (isTextCompound() || isTextCompoundShorthanded()) {
+            sequenceOf(
+                PointerWithExtensionForSnbt(
+                    DataPointer.Terminator,
+                    indices,
+                    snbt.substring(indices.offset(-snbtOffset)),
+                    syntax = SnbtSyntaxKind.Compound,
+                    format = FormatKind.SnbtStr,
+                )
+            )
+        } else asSequence().flatMap { (key, value) ->
+            value.extractTextsByPointer(snbt, snbtOffset).map {
+                it.copy(pointer = it.pointer.markMap(key))
+            } // wrap inner pointer
+        }
+
+        is SnbtString -> sequenceOf(
             PointerWithExtensionForSnbt(
                 DataPointer.Terminator,
                 indices,
-                snbt.substring(indices.offset(-snbtOffset)),
-                FormatKind.SnbtStr,
-                syntax = SnbtSyntaxKind.List
+                raw,
+                syntax = syntaxKind,
+                format = FormatKind.PlainStr
             )
         )
-    } else {
-        asSequence().withIndex().flatMap { (index, tag) ->
-            tag.extractTextsByPointer(snbt, snbtOffset).map {
-                it.copy(pointer = it.pointer.markArray(index))
-            }
-        } // wrap inner pointer
+
+        else -> emptySequence()
     }
-
-    is SnbtCompound -> if (isTextCompound() || isTextCompoundShorthanded()) {
-        sequenceOf(
-            PointerWithExtensionForSnbt(
-                DataPointer.Terminator,
-                indices,
-                snbt.substring(indices.offset(-snbtOffset)),
-                FormatKind.SnbtStr,
-                syntax = SnbtSyntaxKind.Compound
-            )
-        )
-    } else asSequence().flatMap { (key, value) ->
-        value.extractTextsByPointer(snbt, snbtOffset).map {
-            it.copy(pointer = it.pointer.markMap(key))
-        } // wrap inner pointer
-    }
-
-    is SnbtString -> sequenceOf(
-        PointerWithExtensionForSnbt(
-            DataPointer.Terminator,
-            indices,
-            raw,
-            FormatKind.PlainStr,
-            syntaxKind
-        )
-    )
-
-    else -> emptySequence()
-}
 
 private fun computeGreedyRange(
     command: MCCommand,
@@ -218,7 +232,7 @@ internal object CommandExtractorIntrinsic {
     // https://minecraft.wiki/w/Target_selectors
     private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
     private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
-    fun extractFromTargetSelector(args: List<MCCommand.Arg>): Sequence<ExtractedCommandSlice> = args.asSequence()
+    fun extractFromTargetSelector(args: List<MCCommand.Arg>): Sequence<StringIndicesWithSyntaxFormat> = args.asSequence()
         .filter { SELECTOR_REGEX.matches(it.content) }
         .mapNotNull { arg ->
             SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
@@ -227,13 +241,14 @@ internal object CommandExtractorIntrinsic {
                 ExtractedCommandSlice(
                     (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
                     value,
-                    value.inferSyntaxKind()
+                    syntax = value.inferSyntaxKind(),
+                    format = FormatKind.PlainStr
                 )
             }
         }
 
 
-    fun extract(command: MCCommand): Sequence<ExtractedCommandSlice> =
+    fun extract(command: MCCommand): Sequence<StringIndicesWithSyntaxFormat> =
         extractFromTargetSelector(command.args)
 }
 

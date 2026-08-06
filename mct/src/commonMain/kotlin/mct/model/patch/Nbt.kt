@@ -20,7 +20,7 @@ sealed interface NbtExtraction {
     @SerialName("text")
     data class Text(
         override val pointer: DataPointer,
-        override val format: FormatKind,
+        override val format: FormatKind = PlainStr,
         val content: String,
     ) : NbtExtraction {
         inline fun replace(replacement: (String) -> String) =
@@ -41,6 +41,7 @@ sealed interface NbtExtraction {
             override val indices: IntRangeSerializable,
             override val content: String,
             val syntax: SnbtSyntaxKind?,
+            val format: FormatKind = PlainStr
         ) : StringIndices {
             inline fun unquoted() = content.unquoted(syntax)
         }
