@@ -64,6 +64,12 @@ typealias RequestTranslation = suspend context(Raise<ChatCompletionCallError>)(
 
 typealias OnTranslateCancel = (terms: TermTable, salvaged: TranslationMapping) -> Unit
 
+sealed interface TranslationResult {
+    data object Untranslated : TranslationResult
+    data object Untranslatable : TranslationResult
+    data class Translated(val content: String) : TranslationResult
+}
+
 class Translator internal constructor(
     private val call: ChatCompletionCall,
     private val requestTranslation: RequestTranslation,
@@ -106,20 +112,22 @@ class Translator internal constructor(
     suspend fun translate(
         format: FormatKind,
         sources: List<String>,
-        onCancel: (List<String?>) -> Unit = {},
-    ): List<String?> = coroutineScope {
+        onCancel: (List<TranslationResult>) -> Unit = {},
+    ): List<TranslationResult> = coroutineScope {
         val chunks = sources.map(::escapeEspecialUnicode).withIndex().chunkedByToken(tokenThreshold).toList()
         val totalChunkSize = chunks.size
         logger.info { "Starting translation: ${sources.size} sources → $totalChunkSize chunks, ${terms.size} existing terms, kind: $format" }
-        val translated = MutableList<String?>(sources.size) { null }
+        val translated = MutableList<TranslationResult>(sources.size) { Untranslated }
         var completedChunks = 0
 
         suspend fun processChunk(chunkIndex: Int, chunk: List<IndexedValue<String>>) {
-            val translatableStrips = chunk.translatableStripsWithIndex(format)
-            val untranslatableCount = chunk.size - translatableStrips.size
+            val (untranslatable, translatableStrips) = chunk.stripsWithIndex(format)
+            untranslatable.forEach { (index, _) ->
+                translated[index] = Untranslatable
+            }
             val strippedCount =
                 translatableStrips.count { (_, strip) -> strip is CompoundStrip.Simplified }
-            logger.debug { "Chunk $chunkIndex: ${strippedCount}/${translatableStrips.size} items were stripped to plain text; $untranslatableCount/${chunk.size} untranslatable items were skipped" }
+            logger.debug { "Chunk $chunkIndex: ${strippedCount}/${translatableStrips.size} items were stripped to plain text; ${untranslatable.size}/${chunk.size} untranslatable items were skipped" }
             val chunkAsStr = chunk.joinToString("\n") { it.value }
             val termSnapshot = mutex.withLock { terms.toMap() }
             val availableTerms = termSnapshot.filter { (source, _) -> chunkAsStr.contains(source, true) }
@@ -165,11 +173,21 @@ class Translator internal constructor(
                 unescapeEspecialUnicode(key) to unescapeEspecialUnicode(value)
             }
             val appendedTranslated = translatableStrips.destrip(appendedTranslatedRaw).map {
-                it.copy(value = it.value?.let(::unescapeEspecialUnicode))
+                val value = when (val result = it.value) {
+                    is TranslationResult.Translated -> TranslationResult.Translated(result.content.let(::unescapeEspecialUnicode))
+                    else -> result
+                }
+                it.copy(value = value)
             }
             logger.info { "Handled ${chunkIndex + 1} (total $totalChunkSize)" }
             logger.debug {
-                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) -> "Translate ${x.value} => ${y.value}" }
+                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) ->
+                    when (val result = y.value) {
+                        is TranslationResult.Translated -> "Translate: ${x.value} => ${result.content}"
+                        Untranslatable -> "Skip: ${x.value}"
+                        Untranslated -> "Cannot translate: ${x.value}"
+                    }
+                }
             }
             val pct = mutex.withLock {
                 terms += appendTerms
@@ -263,25 +281,39 @@ internal fun String.strip(format: FormatKind): CompoundStrip {
     return CompoundStrip.Simplified(raw, format, single, strip, isList)
 }
 
+@Suppress("UNCHECKED_CAST")
 context(env: EnvHolder)
-internal fun List<IndexedValue<String>>.translatableStripsWithIndex(format: FormatKind): List<IndexedValue<CompoundStrip>> =
-    mapNotNull {
-        val strip = it.value.strip(format)
-        if (strip is CompoundStrip.Untranslatable) null else IndexedValue(it.index, strip)
-    }
+internal fun List<IndexedValue<String>>.stripsWithIndex(format: FormatKind): Pair<List<IndexedValue<CompoundStrip.Untranslatable>>, List<IndexedValue<CompoundStrip>>> =
+    asSequence()
+        .map { IndexedValue(it.index, it.value.strip(format)) }
+        .let {
+            val first = ArrayList<IndexedValue<CompoundStrip.Untranslatable>>()
+            val second = ArrayList<IndexedValue<CompoundStrip>>()
+            for (element in it) {
+                if (element.value is CompoundStrip.Untranslatable) {
+                    first.add(element as IndexedValue<CompoundStrip.Untranslatable>)
+                } else {
+                    second.add(element)
+                }
+            }
+            Pair(first, second)
+        }
 
 
 context(env: EnvHolder)
-internal fun List<String>.translatableStrips(format: FormatKind): List<CompoundStrip> =
-    mapNotNull { it.strip(format).takeIf { it !is CompoundStrip.Untranslatable } }
+internal fun List<String>.strips(format: FormatKind): Pair<List<CompoundStrip.Untranslatable>, List<CompoundStrip>> =
+    asSequence()
+        .map { it.strip(format) }
+        .asIterable()
+        .partition<CompoundStrip, CompoundStrip.Untranslatable>()
 
-internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>): List<IndexedValue<String?>> =
+internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>): List<IndexedValue<TranslationResult>> =
     zip(response).map { (iv, s) ->
         val (index, cs) = iv
         val r = s?.let {
             when (cs) {
                 is CompoundStrip.Simplified -> {
-                    when (cs.sourceFormat) {
+                    val str = when (cs.sourceFormat) {
                         FormatKind.PlainStr -> s
                         else -> {
                             val ir = cs.source.replaceText(s).encodeToIR().let { e ->
@@ -293,13 +325,14 @@ internal fun List<IndexedValue<CompoundStrip>>.destrip(response: List<String?>):
                             }
                         }
                     }
+                    TranslationResult.Translated(str)
                 }
 
-                is CompoundStrip.CannotStrip -> s
-                is CompoundStrip.NoCompound -> s
-                is CompoundStrip.Untranslatable -> null
+                is CompoundStrip.CannotStrip -> TranslationResult.Translated(s)
+                is CompoundStrip.NoCompound -> TranslationResult.Translated(s)
+                is CompoundStrip.Untranslatable -> TranslationResult.Untranslatable
             }
-        } ?: cs.original
+        } ?: TranslationResult.Untranslated
         IndexedValue(index, r)
     }
 
@@ -355,7 +388,7 @@ suspend fun Translator.translate(
     val mapping = mutableMapOf<String, String?>()
     val mappingMutex = Mutex()
 
-    suspend fun execute(block: suspend (append: suspend (Iterable<Pair<String, String?>>) -> Unit) -> Unit) {
+    suspend fun execute(block: suspend (append: suspend (Map<String, String?>) -> Unit) -> Unit) {
         if (concurrentByKind) {
             launch(Dispatchers.IO) {
                 block { others ->
@@ -374,16 +407,12 @@ suspend fun Translator.translate(
                 it.contents().filter(String::isNotBlank)
             }.distinct().filter { it !in caches }.toList()
             val translated = translate(kind, sources) { translated ->
-                val salvaged = buildMap {
-                    translated.forEachIndexed { index, translated ->
-                        put(sources[index], translated)
-                    }
-                }
+                val salvaged = translated.export(sources)
                 if (cancelled.compareAndSet(expected = false, new = true)) {
                     onCancel(terms, mapping + salvaged)
                 }
             }
-            append(sources.zip(translated))
+            append(translated.export(sources))
         }
     }
     mapping.toMutableMap().putAll(caches)
@@ -392,3 +421,12 @@ suspend fun Translator.translate(
     mapping
 }
 
+private fun List<TranslationResult>.export(sources: List<String>) = buildMap {
+    forEachIndexed { index, translated ->
+        when (translated) {
+            is TranslationResult.Translated -> put(sources[index], translated.content)
+            Untranslatable -> put(sources[index], null)
+            Untranslated -> {}
+        }
+    }
+}

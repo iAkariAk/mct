@@ -11,6 +11,7 @@ import mct.serializer.Snbt
 import mct.util.snbt.SnbtTag
 import mct.util.snbt.decodeToSnbtTag
 import net.benwoodworth.knbt.NbtTag
+import kotlin.jvm.JvmName
 
 val unreachable: Nothing get() = error("Unreachable")
 
@@ -101,6 +102,50 @@ private class StringIndicesImpl(
 }
 
 inline fun IntRange.offset(offset: Int) = if (offset != 0) (first + offset)..(last + offset) else this
+
+@JvmName("partition$1")
+inline fun <reified P, reified C : P> Iterable<P>.partition(): Pair<List<C>, List<P>> {
+    val first = ArrayList<C>()
+    val second = ArrayList<P>()
+    for (element in this) {
+        if (element is C) {
+            first.add(element)
+        } else {
+            second.add(element)
+        }
+    }
+    return Pair(first, second)
+}
+
+@JvmName("partition$2")
+inline fun <reified P : Any, reified C1 : P, reified C2 : P> Iterable<P>.partition(): Pair<List<C1>, List<C2>> {
+    val first = ArrayList<C1>()
+    val second = ArrayList<C2>()
+    for (element in this) {
+        when (element) {
+            is C1 -> first.add(element)
+            is C2 -> second.add(element)
+            else -> error("Element of type '${element::class.simpleName}' does not match any of the specified partition target types: ${C1::class.simpleName}, ${C2::class.simpleName}")
+        }
+    }
+    return Pair(first, second)
+}
+
+inline fun <reified P : Any, reified C1 : P, reified C2 : P, reified C3 : P> Iterable<P>.tripartition(): Triple<List<C1>, List<C2>, List<C3>> {
+    val first = ArrayList<C1>()
+    val second = ArrayList<C2>()
+    val third = ArrayList<C3>()
+    for (element in this) {
+        when (element) {
+            is C1 -> first.add(element)
+            is C2 -> second.add(element)
+            is C3 -> third.add(element)
+            else -> error("Element of type '${element::class.simpleName}' does not match any of the specified tripartition target types: ${C1::class.simpleName}, ${C2::class.simpleName}, ${C3::class.simpleName}")
+        }
+    }
+    return Triple(first, second, third)
+}
+
 
 @DslMarker
 annotation class BuilderMaker

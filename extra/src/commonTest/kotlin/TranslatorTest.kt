@@ -4,7 +4,6 @@ import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
 import mct.Env
@@ -79,17 +78,17 @@ class TranslatorTest : FreeSpec({
                 """{"no": "a TextComponent"}""",
             )
             context(Env()) {
-                val result1 = raws1.translatableStrips(FormatKind.JsonStr)
+                val (_, result1) = raws1.strips(FormatKind.JsonStr)
 
                 val failures1 = result1.filterIsInstance<CompoundStrip.CannotStrip>()
 
                 if (failures1.isNotEmpty()) {
                     fail("Strip failed for: ${failures1.joinToString { it.original }}")
                 }
-                val result2 = raws2.translatableStrips(FormatKind.JsonStr)
-                result2.shouldBeEmpty()
+                val (result2, _) = raws2.strips(FormatKind.JsonStr)
+                result2.size shouldBe 2
 
-                val result3 = raw3.translatableStrips(FormatKind.JsonStr)
+                val (_, result3) = raw3.strips(FormatKind.JsonStr)
                 result3.filterIsInstance<CompoundStrip.NoCompound>().shouldNotBeEmpty()
             }
         }
@@ -138,7 +137,10 @@ class TranslatorTest : FreeSpec({
 
                 shouldNotRaise {
                     val result = translator.translate(FormatKind.JsonStr, listOf("Hello world", "This is a test"))
-                    result shouldBe listOf("你好世界", "这是测试")
+                    result shouldBe listOf(
+                        TranslationResult.Translated("你好世界"),
+                        TranslationResult.Translated("这是测试")
+                    )
                 }
             }
 
@@ -161,7 +163,7 @@ class TranslatorTest : FreeSpec({
 
                 shouldNotRaise {
                     val result = translator.translate(FormatKind.JsonStr, listOf("Kaguya is beautiful"))
-                    result shouldBe listOf("辉夜姬很漂亮")
+                    result shouldBe listOf(TranslationResult.Translated("辉夜姬很漂亮"))
                     translator.terms shouldBe existingTerms
                 }
             }
@@ -186,7 +188,7 @@ class TranslatorTest : FreeSpec({
 
                 shouldNotRaise {
                     val result = translator.translate(FormatKind.JsonStr, listOf("Iroha is walking"))
-                    result shouldBe listOf("彩叶在散步")
+                    result shouldBe listOf(TranslationResult.Translated("彩叶在散步"))
                     translator.terms shouldBe mapOf("Iroha" to "彩叶")
                 }
             }
@@ -210,7 +212,7 @@ class TranslatorTest : FreeSpec({
                 shouldNotRaise {
                     val jsonInput = """{"text":"Hello","color":"red"}"""
                     val result = translator.translate(FormatKind.JsonStr, listOf(jsonInput))
-                    result[0] shouldBe """{"text":"你好","color":"red"}"""
+                    result[0] shouldBe TranslationResult.Translated("""{"text":"你好","color":"red"}""")
                 }
             }
 
