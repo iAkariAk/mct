@@ -1,13 +1,13 @@
 package mct.command
 
 import mct.model.text.isTextComponent
-import mct.model.text.isTextCompoundJson
-import mct.model.text.isTextCompoundSnbt
+import mct.model.text.isTextComponentJson
+import mct.model.text.isTextComponentSnbt
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
-private fun String.isSerializedTextCompound() = isTextCompoundJson() || isTextCompoundSnbt()
+private fun String.isSerializedTextComponent() = isTextComponentJson() || isTextComponentSnbt()
 
 val BuiltinCommandPatterns = PatternSet {
     // ── Plain text message commands (greedy) ──────────────────────
@@ -39,7 +39,7 @@ val BuiltinCommandPatterns = PatternSet {
     // Wiki: /tellraw <targets> <message> — message is a raw JSON text component
     command("tellraw") {
         WithSize(2, strict = true) then {
-            +Positions(2 to ArgSelection.TextCompoundEntire)
+            +Positions(2 to ArgSelection.TextComponentEntire)
         }
     }
 
@@ -50,7 +50,7 @@ val BuiltinCommandPatterns = PatternSet {
     // "clear" and "reset" have 2 args — excluded by WithSize(3, strict).
     command("title") {
         WithSize(3, strict = true) then {
-            Positions(3 to ArgSelection.TextCompoundEntire) then {
+            Positions(3 to ArgSelection.TextComponentEntire) then {
                 Matches("not times") { cmd, _ ->
                     cmd[2].content != "times"
                 }
@@ -79,7 +79,7 @@ val BuiltinCommandPatterns = PatternSet {
     // bossbar add <id> <displayName>
     command("bossbar") {
         WithSize(3, strict = true) then {
-            Positions(3 to ArgSelection.TextCompoundEntire) then {
+            Positions(3 to ArgSelection.TextComponentEntire) then {
                 Matches("bossbar add displayName") { cmd, _ ->
                     cmd[1].content == "add"
                 }
@@ -90,7 +90,7 @@ val BuiltinCommandPatterns = PatternSet {
     // bossbar set <id> name <component>
     command("bossbar") {
         WithSize(4) then {
-            Positions(4 to ArgSelection.TextCompoundEntire) then {
+            Positions(4 to ArgSelection.TextComponentEntire) then {
                 Matches("bossbar name") { cmd, _ ->
                     cmd[1].content == "set" && cmd[3].content == "name"
                 }
@@ -104,7 +104,7 @@ val BuiltinCommandPatterns = PatternSet {
     // scoreboard objectives modify <objective> displayname <component>
     command("scoreboard") {
         WithSize(5, strict = true) then {
-            Positions(5 to ArgSelection.TextCompoundEntire) then {
+            Positions(5 to ArgSelection.TextComponentEntire) then {
                 Matches("objective add/modify displayname") { cmd, _ ->
                     cmd[1].content == "objectives" && (
                             cmd[2].content == "add" ||
@@ -118,7 +118,7 @@ val BuiltinCommandPatterns = PatternSet {
     // scoreboard objectives modify <objective> numberformat fixed <component>
     command("scoreboard") {
         WithSize(6, strict = true) then {
-            Positions(6 to ArgSelection.TextCompoundEntire) then {
+            Positions(6 to ArgSelection.TextComponentEntire) then {
                 Matches("objective numberformat fixed") { cmd, _ ->
                     cmd[1].content == "objectives" &&
                             cmd[2].content == "modify" &&
@@ -132,7 +132,7 @@ val BuiltinCommandPatterns = PatternSet {
     // scoreboard players display name <targets> <objective> <text>
     command("scoreboard") {
         WithSize(6, strict = true) then {
-            Positions(6 to ArgSelection.TextCompoundEntire) then {
+            Positions(6 to ArgSelection.TextComponentEntire) then {
                 Matches("player display name") { cmd, _ ->
                     cmd[1].content == "players" &&
                             cmd[2].content == "display" &&
@@ -145,7 +145,7 @@ val BuiltinCommandPatterns = PatternSet {
     // scoreboard players display numberformat <targets> <objective> fixed <component>
     command("scoreboard") {
         WithSize(7, strict = true) then {
-            Positions(7 to ArgSelection.TextCompoundEntire) then {
+            Positions(7 to ArgSelection.TextComponentEntire) then {
                 Matches("player numberformat fixed") { cmd, _ ->
                     cmd[1].content == "players" &&
                             cmd[2].content == "display" &&
@@ -161,7 +161,7 @@ val BuiltinCommandPatterns = PatternSet {
     // team modify <team> displayName <component>
     command("team") {
         WithSize(4, strict = true) then {
-            Positions(4 to ArgSelection.TextCompoundEntire) then {
+            Positions(4 to ArgSelection.TextComponentEntire) then {
                 Matches("team displayName") { cmd, _ ->
                     cmd[1].content == "modify" && cmd[3].content == "displayName"
                 }
@@ -173,7 +173,7 @@ val BuiltinCommandPatterns = PatternSet {
     // team modify <team> suffix <component>
     command("team") {
         WithSize(4, strict = true) then {
-            Positions(4 to ArgSelection.TextCompoundEntire) then {
+            Positions(4 to ArgSelection.TextComponentEntire) then {
                 Matches("team prefix/suffix") { cmd, _ ->
                     cmd[1].content == "modify" &&
                             (cmd[3].content == "prefix" || cmd[3].content == "suffix")
@@ -187,13 +187,13 @@ val BuiltinCommandPatterns = PatternSet {
     // data modify (entity|storage) <target> <path> set value <component>
     command("data") {
         WithSize(7, strict = true) then {
-            Positions(7 to ArgSelection.TextCompoundEntire) then {
+            Positions(7 to ArgSelection.TextComponentEntire) then {
                 Matches("data modify entity/storage value component") { cmd, arg ->
                     cmd[1].content == "modify" &&
                             (cmd[2].content == "entity" || cmd[2].content == "storage") &&
                             cmd[5].content == "set" &&
                             cmd[6].content == "value" &&
-                            arg.content.isSerializedTextCompound()
+                            arg.content.isSerializedTextComponent()
                 }
             }
         }
@@ -202,13 +202,13 @@ val BuiltinCommandPatterns = PatternSet {
     // data modify block <pos> <path> set value <component>
     command("data") {
         WithSize(9, strict = true) then {
-            Positions(9 to ArgSelection.TextCompoundEntire) then {
+            Positions(9 to ArgSelection.TextComponentEntire) then {
                 Matches("data modify block value component") { cmd, arg ->
                     cmd[1].content == "modify" &&
                             cmd[2].content == "block" &&
                             cmd[7].content == "set" &&
                             cmd[8].content == "value" &&
-                            arg.content.isSerializedTextCompound()
+                            arg.content.isSerializedTextComponent()
                 }
             }
         }
@@ -288,7 +288,7 @@ val BuiltinCommandPatterns = PatternSet {
     // displayName is a JSON text component at position 3
     command("team") {
         WithSize(3, strict = true) then {
-            Positions(3 to ArgSelection.TextCompoundEntire) then {
+            Positions(3 to ArgSelection.TextComponentEntire) then {
                 Matches("team add") { cmd, _ ->
                     cmd[1].content == "add"
                 }

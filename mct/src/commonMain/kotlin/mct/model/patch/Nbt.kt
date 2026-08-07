@@ -6,7 +6,7 @@ import mct.pointer.DataPointer
 import mct.serializer.IntRangeSerializable
 import mct.util.StringIndices
 
-/** [Command] represents it from command block; [Text] from TextCompound
+/** [Command] represents it from command block; [Text] from TextComponent
  *
  *  * @property pointer The NBT path/pointer to the specific tag
  *  * @property kind via which kind of format the content was stored
@@ -69,7 +69,7 @@ sealed interface NbtExtraction {
 }
 
 /**
- * `Command` represents it from command block; `Text` from TextCompound
+ * `Command` represents it from command block; `Text` from TextComponent
  *
  *  @property pointer The NBT path/pointer identifying the tag to replace
  *  @property format via which kind of format the replacement was stored

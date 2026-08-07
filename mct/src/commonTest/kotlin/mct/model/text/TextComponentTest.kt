@@ -1,18 +1,17 @@
-package mct.text
+package mct.model.text
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
-import mct.model.text.*
 import mct.util.formatir.*
 import org.intellij.lang.annotations.Language
 
-class TextCompoundTest : FreeSpec({
+class TextComponentTest : FreeSpec({
     "Plain raw forms" - {
         "reads and preserves an IRString" {
             val raw = IRString("hello")
-            val compound = TextCompound.Plain(raw)
+            val compound = TextComponent.Plain(raw)
 
             compound.text shouldBe "hello"
             compound.toIR() shouldBe raw
@@ -24,7 +23,7 @@ class TextCompoundTest : FreeSpec({
                 put("text", "hello")
                 put("future_field", 42)
             }
-            val compound = TextCompound.Plain(raw)
+            val compound = TextComponent.Plain(raw)
 
             compound.text shouldBe "hello"
             compound.toIR() shouldBe raw
@@ -32,12 +31,12 @@ class TextCompoundTest : FreeSpec({
 
         "rejects every other raw type" {
             shouldThrow<IllegalArgumentException> {
-                TextCompound.Plain(IRList())
+                TextComponent.Plain(IRList())
             }
         }
 
         "promotes a modified IRString when object fields are needed" {
-            val compound = TextCompound.Plain(IRString("hello"))
+            val compound = TextComponent.Plain(IRString("hello"))
             compound.color = "red"
 
             compound.toIR() shouldBe buildIRObject {
@@ -52,12 +51,12 @@ class TextCompoundTest : FreeSpec({
                 put("future_field", 42)
             }
 
-            TextCompound.fromIR(raw).encodeToIR(simplify = true) shouldBe raw
+            TextComponent.fromIR(raw).encodeToIR(simplify = true) shouldBe raw
         }
 
         "factory rejects non-component IR primitives" {
-            shouldThrow<TextCompoundCodecException> {
-                TextCompound.fromIR(IRInt(42))
+            shouldThrow<TextComponentCodecException> {
+                TextComponent.fromIR(IRInt(42))
             }
         }
 
@@ -80,7 +79,7 @@ class TextCompoundTest : FreeSpec({
         data class Case(
             val name: String,
             val raw: IRObject,
-            val mutate: (TextCompound<*>) -> Unit,
+            val mutate: (TextComponent<*>) -> Unit,
             val changedKey: String,
             val changedValue: IRElement,
         )
@@ -89,21 +88,21 @@ class TextCompoundTest : FreeSpec({
             Case(
                 "plain",
                 buildIRObject { put("text", "before"); put("future_field", 42) },
-                { (it as TextCompound.Plain).text = "after" },
+                { (it as TextComponent.Plain).text = "after" },
                 "text",
                 IRString("after"),
             ),
             Case(
                 "translatable",
                 buildIRObject { put("translate", "before"); put("future_field", 42) },
-                { (it as TextCompound.Translatable).translate = "after" },
+                { (it as TextComponent.Translatable).translate = "after" },
                 "translate",
                 IRString("after"),
             ),
             Case(
                 "keybind",
                 buildIRObject { put("keybind", "before"); put("future_field", 42) },
-                { (it as TextCompound.Keybind).keybind = "after" },
+                { (it as TextComponent.Keybind).keybind = "after" },
                 "keybind",
                 IRString("after"),
             ),
@@ -117,7 +116,7 @@ class TextCompoundTest : FreeSpec({
                     })
                     put("future_field", 42)
                 },
-                { (it as TextCompound.Score).score = TextCompound.Score.Info("after", "objective") },
+                { (it as TextComponent.Score).score = TextComponent.Score.Info("after", "objective") },
                 "score",
                 buildIRObject {
                     put("name", "after")
@@ -128,28 +127,28 @@ class TextCompoundTest : FreeSpec({
             Case(
                 "selector",
                 buildIRObject { put("selector", "@a"); put("future_field", 42) },
-                { (it as TextCompound.Selector).selector = "@p" },
+                { (it as TextComponent.Selector).selector = "@p" },
                 "selector",
                 IRString("@p"),
             ),
             Case(
                 "nbt",
                 buildIRObject { put("nbt", "before"); put("entity", "@s"); put("future_field", 42) },
-                { (it as TextCompound.Nbt).nbt = "after" },
+                { (it as TextComponent.Nbt).nbt = "after" },
                 "nbt",
                 IRString("after"),
             ),
             Case(
                 "object",
                 buildIRObject { put("object", "before"); put("future_field", 42) },
-                { (it as TextCompound.Object).`object` = "after" },
+                { (it as TextComponent.Object).`object` = "after" },
                 "object",
                 IRString("after"),
             ),
             Case(
                 "sprite",
                 buildIRObject { put("sprite", "before"); put("future_field", 42) },
-                { (it as TextCompound.Sprite).sprite = "after" },
+                { (it as TextComponent.Sprite).sprite = "after" },
                 "sprite",
                 IRString("after"),
             ),
@@ -158,13 +157,13 @@ class TextCompoundTest : FreeSpec({
         cases.forEach { case ->
             case.name - {
                 "preserves unknown fields while unchanged" {
-                    val encoded = TextCompound.fromIR(case.raw).toIR() as IRObject
+                    val encoded = TextComponent.fromIR(case.raw).toIR() as IRObject
 
                     encoded["future_field"] shouldBe IRInt(42)
                 }
 
                 "encodes the edited field and preserves unknown fields" {
-                    val compound = TextCompound.fromIR(case.raw)
+                    val compound = TextComponent.fromIR(case.raw)
                     case.mutate(compound)
 
                     val encoded = compound.toIR() as IRObject
@@ -182,9 +181,9 @@ class TextCompoundTest : FreeSpec({
                 put("extra", listOf(IRString("before")))
                 put("future_field", 42)
             }
-            val compound = TextCompound.fromIR(raw) as TextCompound.Translatable
-            val extra = compound.extra as ManyTextCompound
-            (extra.compounds.single() as TextCompound.Plain).text = "after"
+            val compound = TextComponent.fromIR(raw) as TextComponent.Translatable
+            val extra = compound.extra as ManyTextComponent
+            (extra.compounds.single() as TextComponent.Plain).text = "after"
 
             val encoded = compound.toIR()
             encoded["future_field"] shouldBe IRInt(42)
@@ -196,8 +195,8 @@ class TextCompoundTest : FreeSpec({
                 put("translate", "message.key")
                 put("with", listOf(IRString("before")))
             }
-            val compound = TextCompound.fromIR(raw) as TextCompound.Translatable
-            (compound.with!!.single() as TextCompound.Plain).text = "after"
+            val compound = TextComponent.fromIR(raw) as TextComponent.Translatable
+            (compound.with!!.single() as TextComponent.Plain).text = "after"
 
             compound.toIR()["with"] shouldBe IRList(IRString("after"))
         }
@@ -207,16 +206,16 @@ class TextCompoundTest : FreeSpec({
                 put("selector", "@a")
                 put("separator", IRString("before"))
             }
-            val compound = TextCompound.fromIR(raw) as TextCompound.Selector
-            (compound.separator as TextCompound.Plain).text = "after"
+            val compound = TextComponent.fromIR(raw) as TextComponent.Selector
+            (compound.separator as TextComponent.Plain).text = "after"
 
             compound.toIR()["separator"] shouldBe IRString("after")
         }
 
         "propagates a mutation through an IRList" {
             val raw = IRList(IRString("before"), IRString("unchanged"))
-            val compound = TextCompound.fromIR(raw) as ManyTextCompound
-            (compound.compounds.first() as TextCompound.Plain).text = "after"
+            val compound = TextComponent.fromIR(raw) as ManyTextComponent
+            (compound.compounds.first() as TextComponent.Plain).text = "after"
 
             compound.toIR() shouldBe IRList(
                 IRString("after"),
@@ -231,7 +230,7 @@ class TextCompoundTest : FreeSpec({
                 put("keybind", "key.use")
                 put("italic", 0.toByte())
             }
-            val compound = TextCompound.fromIR(raw) as TextCompound.Keybind
+            val compound = TextComponent.fromIR(raw) as TextComponent.Keybind
 
             compound.italic shouldBe false
             compound.toIR()["italic"] shouldBe IRBoolean(false)
@@ -242,7 +241,7 @@ class TextCompoundTest : FreeSpec({
                 put("sprite", "minecraft:test")
                 put("color", "red")
             }
-            val compound = TextCompound.fromIR(raw) as TextCompound.Sprite
+            val compound = TextComponent.fromIR(raw) as TextComponent.Sprite
             compound.color = null
 
             compound.toIR().containsKey("color") shouldBe false
@@ -250,21 +249,21 @@ class TextCompoundTest : FreeSpec({
         }
     }
 
-    "TextCompound validation" - {
-        fun shouldBeJsonTextCompound(@Language("json") json: String) {
-            json.isTextCompoundJson().shouldBeTrue()
+    "TextComponent validation" - {
+        fun shouldBeJsonTextComponent(@Language("json") json: String) {
+            json.isTextComponentJson().shouldBeTrue()
         }
 
-        fun shouldBeSnbtTextCompound(@Language("snbt") snbt: String) {
-            snbt.isTextCompoundSnbt().shouldBeTrue()
+        fun shouldBeSnbtTextComponent(@Language("snbt") snbt: String) {
+            snbt.isTextComponentSnbt().shouldBeTrue()
         }
 
         "recognizes nested compounds" {
-            shouldBeJsonTextCompound("""[{"text":"a"},{"keybind":"key.use"}]""")
-            shouldBeJsonTextCompound("""["A \' illegal escape"]""")
-            shouldBeSnbtTextCompound("""[{text:"a"},{keybind:"key.use"}]""")
-            shouldBeSnbtTextCompound("""["A \' illegal escape"]""")
-            shouldBeSnbtTextCompound("""["",{color:"dark_red",text:"Warning!\n"},{color:"yellow",text:"This map is intended to be played in Survival mode only. Scouting in Spectator or Creative mode will spoil puzzles. I will not stop you, but this is not intended or required to solve this map."}]""")
+            shouldBeJsonTextComponent("""[{"text":"a"},{"keybind":"key.use"}]""")
+            shouldBeJsonTextComponent("""["A \' illegal escape"]""")
+            shouldBeSnbtTextComponent("""[{text:"a"},{keybind:"key.use"}]""")
+            shouldBeSnbtTextComponent("""["A \' illegal escape"]""")
+            shouldBeSnbtTextComponent("""["",{color:"dark_red",text:"Warning!\n"},{color:"yellow",text:"This map is intended to be played in Survival mode only. Scouting in Spectator or Creative mode will spoil puzzles. I will not stop you, but this is not intended or required to solve this map."}]""")
         }
     }
 })

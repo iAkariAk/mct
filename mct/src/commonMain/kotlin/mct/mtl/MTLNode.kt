@@ -1,8 +1,8 @@
 package mct.mtl
 
-import mct.model.text.ManyTextCompound
-import mct.model.text.SingleTextCompound
-import mct.model.text.TextCompound
+import mct.model.text.ManyTextComponent
+import mct.model.text.SingleTextComponent
+import mct.model.text.TextComponent
 import mct.util.IndentStringBuilder
 import mct.util.withBlock
 
@@ -67,14 +67,14 @@ fun MTLExpression.isConsistentBetweenWith(other: MTLExpression): Boolean = when 
     else -> false
 }
 
-fun MTLMappings.find(text: TextCompound<*>): MTLMapping? = find { mapping ->
+fun MTLMappings.find(text: TextComponent<*>): MTLMapping? = find { mapping ->
     text.matches(mapping.left)
 }
 
-fun TextCompound<*>.matches(expr: MTLExpression): Boolean = when (this) {
-    is SingleTextCompound -> (expr is MTLLiteral && this is TextCompound.Plain && this.extra == null && this.text == expr.content)
-            || (expr is MTLPair && expr.left is MTLLiteral && this is TextCompound.Plain && expr.left.content == this.text && (this.extra?.matches(expr.right) == true))
+fun TextComponent<*>.matches(expr: MTLExpression): Boolean = when (this) {
+    is SingleTextComponent -> (expr is MTLLiteral && this is TextComponent.Plain && this.extra == null && this.text == expr.content)
+            || (expr is MTLPair && expr.left is MTLLiteral && this is TextComponent.Plain && expr.left.content == this.text && (this.extra?.matches(expr.right) == true))
 
-    is ManyTextCompound -> expr is MTLList && compounds.size == expr.exprs.size && compounds.zip(expr.exprs)
+    is ManyTextComponent -> expr is MTLList && compounds.size == expr.exprs.size && compounds.zip(expr.exprs)
         .all { (actual, expected) -> actual.matches(expected) }
 }

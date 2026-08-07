@@ -76,7 +76,7 @@ class TranslatorTest : FreeSpec({
                 """{"translate": "abc.efg.ghi", "color": "red"}""",
             )
             val raw3 = listOf(
-                """{"no": "a TextCompound"}""",
+                """{"no": "a TextComponent"}""",
             )
             context(Env()) {
                 val result1 = raws1.translatableStrips(FormatKind.JsonStr)

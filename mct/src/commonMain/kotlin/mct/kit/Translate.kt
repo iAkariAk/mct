@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import mct.command.MCCommandJson
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.contents
-import mct.model.text.TextCompound
+import mct.model.text.TextComponent
 import mct.model.text.encodeToIR
 import mct.serializer.Snbt
 import mct.util.decodeFromString
@@ -19,11 +19,11 @@ typealias TranslationPool = Set<String>
 
 private fun trySimply(text: String): String = runCatching {
     val raw = MCCommandJson.decodeFromString<JsonElement>(text).toIR()
-    MCCommandJson.encodeToString(JsonElement.serializer(), TextCompound.fromIR(raw).encodeToIR(true).toJsonElement())
+    MCCommandJson.encodeToString(JsonElement.serializer(), TextComponent.fromIR(raw).encodeToIR(true).toJsonElement())
 }.getOrElse {
     runCatching {
         val raw = Snbt.decodeFromString<NbtTag>(text).toIR()
-        Snbt.encodeToString(NbtTag.serializer(), TextCompound.fromIR(raw).encodeToIR(true).toNbtTag())
+        Snbt.encodeToString(NbtTag.serializer(), TextComponent.fromIR(raw).encodeToIR(true).toNbtTag())
     }.getOrElse {
         text
     }

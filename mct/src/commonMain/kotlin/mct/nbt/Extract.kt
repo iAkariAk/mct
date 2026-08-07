@@ -6,8 +6,8 @@ import mct.command.extractTextFromCommands
 import mct.model.patch.FormatKind
 import mct.model.patch.NbtExtraction
 import mct.model.patch.inferFormatKind
-import mct.model.text.isTextCompound
-import mct.model.text.isTextCompoundShorthanded
+import mct.model.text.isTextComponent
+import mct.model.text.isTextComponentShorthanded
 import mct.pointer.DataPointer
 import mct.pointer.compile
 import mct.pointer.markArray
@@ -63,7 +63,7 @@ private data class PointerWithExtension(
 }
 
 private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {
-    is NbtList<*> -> if (isTextCompound()) {
+    is NbtList<*> -> if (isTextComponent()) {
         sequenceOf(
             PointerWithExtension(
                 DataPointer.Terminator,
@@ -77,9 +77,9 @@ private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = whe
         }
     } // wrap inner pointer
 
-    is NbtCompound -> if (isTextCompound()) {
+    is NbtCompound -> if (isTextComponent()) {
         sequenceOf(PointerWithExtension(DataPointer.Terminator, { toSnbt() }, FormatKind.Nbt))
-    } else if (isTextCompoundShorthanded()) {
+    } else if (isTextComponentShorthanded()) {
         val map = toMutableMap()
         val text = map.remove("")
         map["text"] = text!!

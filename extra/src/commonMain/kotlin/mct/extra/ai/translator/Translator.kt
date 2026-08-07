@@ -218,7 +218,7 @@ internal sealed interface CompoundStrip {
     data class Simplified(
         override val original: String,
         val sourceFormat: FormatKind,
-        val source: SingleTextCompound<*>,
+        val source: SingleTextComponent<*>,
         val strip: String,
         val isSingleList: Boolean = false,
     ) : CompoundStrip
@@ -252,11 +252,11 @@ internal fun String.strip(format: FormatKind): CompoundStrip {
     }.getOrNull() ?: return CompoundStrip.NoCompound(raw)
 
     if (!compound.hasText() || compound.isPureTranslateKeyCompound()) return CompoundStrip.Untranslatable(raw)
-    val single = compound as? SingleTextCompound<*> ?: return CompoundStrip.CannotStrip(raw)
+    val single = compound as? SingleTextComponent<*> ?: return CompoundStrip.CannotStrip(raw)
 
     val strip = (if (single.extra == null) {
         when (single) {
-            is TextCompound.Plain -> single.text
+            is TextComponent.Plain -> single.text
             else -> cannotStrip()
         }
     } else cannotStrip()) ?: return CompoundStrip.CannotStrip(raw)

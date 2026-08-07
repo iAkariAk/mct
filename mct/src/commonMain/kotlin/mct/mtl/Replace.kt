@@ -25,7 +25,7 @@ fun List<ExtractionGroup>.replaceByMTL(
     mappings: MTLMappings,
     default: (String) -> String?
 ) = replaceSimply {
-    it.tryTransformTextCompound { compound ->
+    it.tryTransformTextComponent { compound ->
         mappings.find(compound)?.right?.let(compound::replace)
     } ?: default(it)
 }
@@ -33,20 +33,20 @@ fun List<ExtractionGroup>.replaceByMTL(
 fun List<ExtractionGroup>.replaceByMTLX(mtlx: MTLX) = replaceByMTL(mtlx.mtlMappings, mtlx.rawMappings::get)
 
 fun TranslationPool.translateByMTLX(mtlx: MTLX) = associateWith {
-    it.tryTransformTextCompound { compound ->
+    it.tryTransformTextComponent { compound ->
         mtlx.mtlMappings.find(compound)?.right?.let(compound::replace)
     } ?: mtlx.rawMappings[it]
 }
 
-private inline fun String.tryTransformTextCompound(
-    transform: (TextCompound<*>) -> TextCompound<*>?
+private inline fun String.tryTransformTextComponent(
+    transform: (TextComponent<*>) -> TextComponent<*>?
 ): String? = runCatching {
-    val tc = TextCompound.fromIR(MCCommandJson.decodeFromString<JsonElement>(this).toIR())
+    val tc = TextComponent.fromIR(MCCommandJson.decodeFromString<JsonElement>(this).toIR())
     val r = transform(tc)
     r?.encodeToIR()?.toJsonElement()?.let(MCTJson::encodeToString)
 }.getOrElse {
     runCatching {
-        val tc = TextCompound.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())
+        val tc = TextComponent.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())
         val r = transform(tc)
         r?.encodeToIR()?.toNbtTag()?.let(Snbt::encodeToString)
     }.getOrNull()
@@ -54,8 +54,8 @@ private inline fun String.tryTransformTextCompound(
 
 
 /** CHECK [expr] By [isConsistent] before using the below */
-internal fun TextCompound<*>.replace(expr: MTLExpression): TextCompound<*> = when (this) {
-    is ManyTextCompound -> {
+internal fun TextComponent<*>.replace(expr: MTLExpression): TextComponent<*> = when (this) {
+    is ManyTextComponent -> {
         require(expr is MTLList) {
             "expr should be MTLList"
         }
@@ -67,7 +67,7 @@ internal fun TextCompound<*>.replace(expr: MTLExpression): TextCompound<*> = whe
         }
     }
 
-    is SingleTextCompound<*> -> {
+    is SingleTextComponent<*> -> {
         require(expr !is MTLList) { "expr shouldn't be MTLList" }
         val _extra = extra
         if (_extra == null) { // Flatten Plain

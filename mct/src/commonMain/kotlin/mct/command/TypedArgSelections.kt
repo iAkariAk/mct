@@ -10,8 +10,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.MCTPattern
 import mct.command.SelectResult.Portions
-import mct.model.text.isTextCompoundJson
-import mct.model.text.isTextCompoundSnbt
+import mct.model.text.isTextComponentJson
+import mct.model.text.isTextComponentSnbt
 import mct.pointer.DataPointerPattern
 import mct.pointer.compile
 import mct.util.Regex2
@@ -138,16 +138,16 @@ sealed interface ArgSelection {
 
     // minecraft:component
     @Serializable
-    @SerialName("text_compound_entire")
-    data object TextCompoundEntire : ArgSelection {
+    @SerialName("text_component_entire")
+    data object TextComponentEntire : ArgSelection {
         context(_: Raise<IndexSelectError>)
         override fun select(
             patterns: MCTPattern?,
             arg: MCCommand.Arg,
         ): SelectResult = when {
-            arg.content.isTextCompoundJson() -> SelectResult.Entire.EntireJsonString
-            arg.content.isTextCompoundSnbt() -> SelectResult.Entire.EntireSnbtString
-            else -> raise(IndexSelectError.IllegalInput("TextCompound", arg.content))
+            arg.content.isTextComponentJson() -> SelectResult.Entire.EntireJsonString
+            arg.content.isTextComponentSnbt() -> SelectResult.Entire.EntireSnbtString
+            else -> raise(IndexSelectError.IllegalInput("TextComponent", arg.content))
         }
     }
 

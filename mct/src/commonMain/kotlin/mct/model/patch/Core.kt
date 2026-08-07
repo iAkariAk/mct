@@ -3,8 +3,8 @@ package mct.model.patch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.command.MCCommandJsonRight
-import mct.model.text.isTextCompoundJson
-import mct.model.text.isTextCompoundSnbt
+import mct.model.text.isTextComponentJson
+import mct.model.text.isTextComponentSnbt
 import mct.util.*
 
 
@@ -80,9 +80,9 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.inferFormatKind(shouldTextCompound: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind = when {
-    if (shouldTextCompound) isTextCompoundSnbt() else isSnbt() -> FormatKind.SnbtStr
-    if (shouldTextCompound) isTextCompoundJson(json) else isJson(json) -> FormatKind.JsonStr
+fun String.inferFormatKind(shouldTextComponent: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind = when {
+    if (shouldTextComponent) isTextComponentSnbt() else isSnbt() -> FormatKind.SnbtStr
+    if (shouldTextComponent) isTextComponentJson(json) else isJson(json) -> FormatKind.JsonStr
     else -> FormatKind.PlainStr
 }
 
@@ -90,8 +90,8 @@ fun FormatKind.isString(): Boolean =
     this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
 
 fun FormatKind.validate(value: String): Boolean = when (this) {
-    Nbt, SnbtStr -> value.isTextCompoundSnbt()
-    JsonObj, JsonStr -> value.isTextCompoundJson()
+    Nbt, SnbtStr -> value.isTextComponentSnbt()
+    JsonObj, JsonStr -> value.isTextComponentJson()
     PlainStr -> true
 }
 

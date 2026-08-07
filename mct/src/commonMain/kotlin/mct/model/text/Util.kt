@@ -75,8 +75,8 @@ private val STRUCTURAL_FIELDS = hashSetOf(
     "shadow_color",
 )
 
-internal fun Map<String, *>.isTextCompound() =
-    isTextCompoundShorthanded() || keys.all { ALL_FIELD.contains(it) } &&
+internal fun Map<String, *>.isTextComponent() =
+    isTextComponentShorthanded() || keys.all { ALL_FIELD.contains(it) } &&
             entries.all { (key, value) ->
                 // Structural fields can have compound/list values
                 if (key in STRUCTURAL_FIELDS) true
@@ -84,12 +84,12 @@ internal fun Map<String, *>.isTextCompound() =
                 else value !is Map<*, *> && value !is Collection<*>
             }
 
-internal fun List<*>.isTextCompound(): Boolean = all {
+internal fun List<*>.isTextComponent(): Boolean = all {
     @Suppress("UNCHECKED_CAST")
     when {
         it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) -> true
-        it is List<*> || it is IRList || it is NbtList<*> || it is SnbtList || it is JsonArray -> it.isTextCompound()
-        it is Map<*, *> || it is IRObject || it is NbtCompound || it is SnbtCompound || it is JsonObject -> it.keys.all { it is String } && (it as Map<String, *>).isTextCompound()
+        it is List<*> || it is IRList || it is NbtList<*> || it is SnbtList || it is JsonArray -> it.isTextComponent()
+        it is Map<*, *> || it is IRObject || it is NbtCompound || it is SnbtCompound || it is JsonObject -> it.keys.all { it is String } && (it as Map<String, *>).isTextComponent()
         else -> false
     }
 }
@@ -106,23 +106,23 @@ internal fun List<*>.isTextCompound(): Boolean = all {
 //    color: "gold"
 //  }
 //],
-internal fun Map<String, *>.isTextCompoundShorthanded() =
+internal fun Map<String, *>.isTextComponentShorthanded() =
     "text" !in this && (this[""]?.let { it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
         ?: false)
 
-fun String.isTextCompoundSnbt() = toSnbtNbtTagOrNull()?.let {
+fun String.isTextComponentSnbt() = toSnbtNbtTagOrNull()?.let {
     when (it) {
-        is SnbtCompound -> it.isTextCompound()
-        is SnbtList -> it.isTextCompound()
+        is SnbtCompound -> it.isTextComponent()
+        is SnbtList -> it.isTextComponent()
         is SnbtString -> true
         else -> false
     }
 } ?: false
 
-fun String.isTextCompoundJson(json: Either<Json, NonstandardJson> = MCCommandJsonRight) = toJsonElementOrNull(json)?.let {
+fun String.isTextComponentJson(json: Either<Json, NonstandardJson> = MCCommandJsonRight) = toJsonElementOrNull(json)?.let {
     when (it) {
-        is JsonArray -> it.isTextCompound()
-        is JsonObject -> it.isTextCompound()
+        is JsonArray -> it.isTextComponent()
+        is JsonObject -> it.isTextComponent()
         is JsonPrimitive if it.isString -> true
         else -> false
     }

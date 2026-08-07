@@ -4,22 +4,22 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
-import mct.model.text.ManyTextCompound
-import mct.model.text.TextCompound
+import mct.model.text.ManyTextComponent
+import mct.model.text.TextComponent
 
 class TemplateGeneratorTest : FreeSpec({
-    "TextCompound.mtlize()" - {
+    "TextComponent.mtlize()" - {
         "plain text should become a literal" {
-            TextCompound.Plain("Hello World").mtlize() shouldBe MTLLiteral(null, "Hello World")
+            TextComponent.Plain("Hello World").mtlize() shouldBe MTLLiteral(null, "Hello World")
         }
 
         "plain text extras should become nested MTL pairs and lists" {
-            TextCompound.Plain(
+            TextComponent.Plain(
                 text = "Outer",
-                extra = ManyTextCompound(
-                    TextCompound.Plain(
+                extra = ManyTextComponent(
+                    TextComponent.Plain(
                         text = "Inner",
-                        extra = ManyTextCompound(TextCompound.Plain("Deep"))
+                        extra = ManyTextComponent(TextComponent.Plain("Deep"))
                     )
                 )
             ).mtlize() shouldBe MTLPair(
@@ -39,15 +39,15 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "non-plain text should not be mtlized" {
-            TextCompound.Translatable(translate = "item.name").mtlize().shouldBeNull()
+            TextComponent.Translatable(translate = "item.name").mtlize().shouldBeNull()
         }
     }
 
-    "TextCompoundOneOrMany.mtlize()" - {
+    "TextComponentOneOrMany.mtlize()" - {
         "many plain texts should become an MTL list" {
-            ManyTextCompound(
-                TextCompound.Plain("A"),
-                TextCompound.Plain("B", extra = ManyTextCompound(TextCompound.Plain("B1"))),
+            ManyTextComponent(
+                TextComponent.Plain("A"),
+                TextComponent.Plain("B", extra = ManyTextComponent(TextComponent.Plain("B1"))),
             ).mtlize() shouldBe MTLList(
                 null,
                 listOf(
@@ -62,16 +62,16 @@ class TemplateGeneratorTest : FreeSpec({
         }
 
         "many with non-plain text should not be mtlized" {
-            ManyTextCompound(
-                TextCompound.Plain("A"),
-                TextCompound.Translatable("item.name"),
+            ManyTextComponent(
+                TextComponent.Plain("A"),
+                TextComponent.Translatable("item.name"),
             ).mtlize().shouldBeNull()
         }
     }
 
-    "String.tryDecodeAsTextCompound()" - {
+    "String.tryDecodeAsTextComponent()" - {
         "invalid text compound should return null" {
-            "\"".tryDecodeAsTextCompound().shouldBeNull()
+            "\"".tryDecodeAsTextComponent().shouldBeNull()
         }
     }
 
@@ -138,7 +138,7 @@ class TemplateGeneratorTest : FreeSpec({
             }
         }
 
-        "nested TextCompound should be reinserted correctly" {
+        "nested TextComponent should be reinserted correctly" {
             // language="JSON"
             val input = listOf(
                 """{"text":"JELEE","extra":["GRIL"]}""",

@@ -1,6 +1,6 @@
 # Pattern Generation Guide
 
-**Process note:** After completing any task that adds, removes, or modifies patterns in ANY of the three files below, update this guidance file to reflect the new knowledge gained. This includes: findings from wiki audits, pitfalls discovered, DSL features used, pattern strategies that worked/didn't work, and changes to `isTextCompound()` / `ALL_FIELD` / `STRUCTURAL_FIELDS` in `Util.kt`.
+**Process note:** After completing any task that adds, removes, or modifies patterns in ANY of the three files below, update this guidance file to reflect the new knowledge gained. This includes: findings from wiki audits, pitfalls discovered, DSL features used, pattern strategies that worked/didn't work, and changes to `isTextComponent()` / `ALL_FIELD` / `STRUCTURAL_FIELDS` in `Util.kt`.
 
 ---
 
@@ -111,17 +111,17 @@ If you use `Positions(N to SnbtEntire)` + a `Matches` post condition (without `w
 
 **Key insight:** The `extractTexts()` function walks NBT recursively and produces pointer paths for leaf strings. Patterns filter which paths to keep. The format differs from MCJSON:
 - Region NBT uses SNBT format
-- Text components in NBT are detected via `isTextCompound()` / `isTextCompoundShorthanded()` — when a compound contains ONLY known text-component fields AND non-structural fields have primitive values, it extracts the whole compound as SNBT rather than recursing into it
+- Text components in NBT are detected via `isTextComponent()` / `isTextComponentShorthanded()` — when a compound contains ONLY known text-component fields AND non-structural fields have primitive values, it extracts the whole compound as SNBT rather than recursing into it
 - Item stacks within containers/entities are recursively walked — their display/components are matched by existing item patterns
 
-**Important: isTextCompound() value type check**
-The function `isTextCompound()` in `Util.kt` requires:
+**Important: isTextComponent() value type check**
+The function `isTextComponent()` in `Util.kt` requires:
 1. All keys are in `ALL_FIELD` (known text-component field names)
 2. For non-structural fields (`text`, `translate`, `color`, `bold`, etc.), the value must be a primitive type (string, boolean, number), NOT a compound or list
 3. Structural fields (`extra`, `with`, `hover_event`, `click_event`, `score`, `separator`, `player`, `shadow_color`) may hold compound/list values
 
-**NbtList isTextCompound() (New):**
-Since the latest refactor, `NbtList<*>.isTextCompound()` also works — if a list contains only text-component elements (strings or nested text compounds), it is extracted as a single SNBT block rather than recursed into individual elements. This mirrors the `NbtCompound` behavior and prevents path explosion for uniform text-component lists.
+**NbtList isTextComponent() (New):**
+Since the latest refactor, `NbtList<*>.isTextComponent()` also works — if a list contains only text-component elements (strings or nested text compounds), it is extracted as a single SNBT block rather than recursed into individual elements. This mirrors the `NbtCompound` behavior and prevents path explosion for uniform text-component lists.
 
 **Current `ALL_FIELD` fields (keep in sync with `Util.kt`):**
 ```
@@ -172,7 +172,7 @@ These patterns match text components nested within data components. The non-anch
 - https://minecraft.wiki/w/Entity_format — NBT for all entities (checked: all have CustomName via entity regex)
 - https://minecraft.wiki/w/Item_format — item NBT (display, components)
 - https://minecraft.wiki/w/Data_component_format — modern component system (1.20.5+; checked all text-bearing components)
-- https://minecraft.wiki/w/Text_component_format — ALL_FIELD reference for isTextCompound()
+- https://minecraft.wiki/w/Text_component_format — ALL_FIELD reference for isTextComponent()
 
 **Existing coverage:** Item display (legacy + modern components), entity CustomName (including spawn data / trial spawner configs), sign text (front+back, filtered), written books, container CustomName, display entity text+raw_text+description, beehive entity data, command block CustomName+LastOutput, block entity data components, instrument.description, attribute_modifiers display value
 
@@ -199,7 +199,7 @@ The `NbtTag.transform()` function applies replacement groups back into NBT. Sinc
 - **`NbtList` now also handles `Terminator`** — previously only `NbtCompound` could be fully replaced by a `Terminator` replacement. Now `NbtList` also checks for a matching `Terminator` replacement (with `FormatKind.Nbt`) and replaces the entire list if found.
 - **`NbtString` fallthrough** — unchanged: if a `Terminator` with a string kind is present, the string is replaced; otherwise the original value is kept.
 
-This means backfill can now handle cases where the extraction produced a list-level text component (via the new `NbtList.isTextCompound()` extraction path).
+This means backfill can now handle cases where the extraction produced a list-level text component (via the new `NbtList.isTextComponent()` extraction path).
 
 ---
 
@@ -227,14 +227,14 @@ java -jar cli/build/libs/cli-0.0-SNAPSHOT-all.jar region extract \
 ### Debugging extraction counts
 When the SNBT selection test (`test snbt selecting`) counts change, investigate by:
 1. Checking which files/functions have changed extraction counts
-2. Understanding that `isTextCompound()` determines whether the root NBT is extracted as a whole vs recursed into
+2. Understanding that `isTextComponent()` determines whether the root NBT is extracted as a whole vs recursed into
 3. Verifying `BuiltinCommandDataPatterns` paths match the actual pointer paths produced by `SnbtTag.extractTexts()`
 
 ### Common pitfalls
 
-**1. `isTextCompound()` returning true unexpectedly** — When adding a data merge/setblock/summon pattern, if the root NBT happens to have only text-component keys AND the values happen to be primitive, `isTextCompound()` returns true and the entire root is extracted as one text at the empty path (`DataPointer.Terminator`). This path won't match `>#text` patterns. The fix: ensure `isTextCompound()` correctly rejects compounds with non-structural complex values.
+**1. `isTextComponent()` returning true unexpectedly** — When adding a data merge/setblock/summon pattern, if the root NBT happens to have only text-component keys AND the values happen to be primitive, `isTextComponent()` returns true and the entire root is extracted as one text at the empty path (`DataPointer.Terminator`). This path won't match `>#text` patterns. The fix: ensure `isTextComponent()` correctly rejects compounds with non-structural complex values.
 
-**2. `NbtList.isTextCompound()` can also fire** — Since the refactor, `NbtList` also checks `isTextCompound()`. A list containing only text-component elements gets extracted as a single SNBT block. This is correct behavior but can change extraction counts — if you see unexpected changes, check whether a list that previously yielded N individual paths now yields 1 combined text.
+**2. `NbtList.isTextComponent()` can also fire** — Since the refactor, `NbtList` also checks `isTextComponent()`. A list containing only text-component elements gets extracted as a single SNBT block. This is correct behavior but can change extraction counts — if you see unexpected changes, check whether a list that previously yielded N individual paths now yields 1 combined text.
 
 **3. `RightPattern("")` is NOT a root matcher** — `matchesRight("")` calls `encodeToString().endsWith("")`, which is always true for any pointer. Use `RegexPattern("^$")` if you need to match the empty root path specifically.
 
@@ -244,7 +244,7 @@ When the SNBT selection test (`test snbt selecting`) counts change, investigate 
 
 **6. SNBT selection uses command data patterns** — `IndexSelection.SnbtEntire` parses the selected arg as SNBT, extracts pointer-addressed text slices, then filters with `BuiltinCommandDataPatterns` (or custom `-pD` patterns). Text compounds are usually `FormatKind.SnbtStr`; plain SNBT string leaves are `FormatKind.PlainStr`. If an expected string is missing, inspect the actual pointer path and kind before broadening the pattern.
 
-**7. NbtList backfill with Terminator** — When a `NbtList` is extracted as a text component (via the new `NbtList.isTextCompound()` path), the backfill expects a `Terminator` replacement with `FormatKind.Nbt`. The `transform()` function now handles this case — `NbtList` branches check `decodeTerminatorOrNull<NbtList<NbtTag>>()` first before processing individual elements.
+**7. NbtList backfill with Terminator** — When a `NbtList` is extracted as a text component (via the new `NbtList.isTextComponent()` path), the backfill expects a `Terminator` replacement with `FormatKind.Nbt`. The `transform()` function now handles this case — `NbtList` branches check `decodeTerminatorOrNull<NbtList<NbtTag>>()` first before processing individual elements.
 
 **8. Always check the wiki first before adding a command pattern** — Many commands that seem like they'd accept text components actually don't (waypoint, spreadplayers, damage, kill, fill, place). Verify at https://minecraft.wiki/w/Commands/<command>.
 

@@ -9,8 +9,8 @@ import mct.MCTPattern
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
-import mct.model.text.isTextCompound
-import mct.model.text.isTextCompoundShorthanded
+import mct.model.text.isTextComponent
+import mct.model.text.isTextComponentShorthanded
 import mct.pointer.DataPointer
 import mct.pointer.markArray
 import mct.pointer.markMap
@@ -162,7 +162,7 @@ internal data class PointerWithExtensionForSnbt(
 
 internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): Sequence<PointerWithExtensionForSnbt> =
     when (this) {
-        is SnbtList -> if (isTextCompound()) {
+        is SnbtList -> if (isTextComponent()) {
             sequenceOf(
                 PointerWithExtensionForSnbt(
                     DataPointer.Terminator,
@@ -180,7 +180,7 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
             } // wrap inner pointer
         }
 
-        is SnbtCompound -> if (isTextCompound() || isTextCompoundShorthanded()) {
+        is SnbtCompound -> if (isTextComponent() || isTextComponentShorthanded()) {
             sequenceOf(
                 PointerWithExtensionForSnbt(
                     DataPointer.Terminator,

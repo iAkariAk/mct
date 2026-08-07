@@ -5,12 +5,12 @@ import mct.util.formatir.IRList
 import mct.util.formatir.IRObject
 import mct.util.formatir.IRString
 
-fun TextCompound<*>.encodeToIR(simplify: Boolean = false): IRElement =
+fun TextComponent<*>.encodeToIR(simplify: Boolean = false): IRElement =
     if (simplify) simplifiedIR() else toIR()
 
-private fun TextCompound<*>.simplifiedIR(): IRElement = when (this) {
-    is ManyTextCompound -> IRList(compounds.map { it.simplifiedIR() })
-    is TextCompound.Plain -> {
+private fun TextComponent<*>.simplifiedIR(): IRElement = when (this) {
+    is ManyTextComponent -> IRList(compounds.map { it.simplifiedIR() })
+    is TextComponent.Plain -> {
         if (!isPlainStyle() || raw.hasUnmanagedPlainFields()) return toIR()
         val self = IRString(text)
         val _extra = extra

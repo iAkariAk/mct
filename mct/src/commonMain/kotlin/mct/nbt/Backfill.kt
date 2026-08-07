@@ -5,7 +5,7 @@ import mct.LoggerHolder
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.isString
-import mct.model.text.TextCompound
+import mct.model.text.TextComponent
 import mct.pointer.DataPointerReplacementGroup
 import mct.serializer.Snbt
 import mct.util.formatir.buildIRObject
@@ -18,7 +18,7 @@ import net.benwoodworth.knbt.NbtTag
 
 private fun List<NbtTag>.toTCListStandardized() = map {
     when (it) {
-        is NbtString -> TextCompound.Plain(
+        is NbtString -> TextComponent.Plain(
             buildIRObject { put("text", it.value) },
         ).toIR().toNbtTag() as NbtCompound
         is NbtCompound -> it

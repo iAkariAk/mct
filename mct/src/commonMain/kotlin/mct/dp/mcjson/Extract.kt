@@ -10,8 +10,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import mct.dp.MCJsonExtractError
 import mct.model.patch.FormatKind
 import mct.model.patch.inferFormatKind
-import mct.model.text.isTextCompound
-import mct.model.text.isTextCompoundShorthanded
+import mct.model.text.isTextComponent
+import mct.model.text.isTextComponentShorthanded
 import mct.pointer.*
 import mct.util.decodeFromString
 import mct.util.toJson
@@ -42,7 +42,7 @@ private typealias PointerWithExtension = MCJsonExtraction // avoid to map object
 
 // coped from NbtTag.PointerWithExtension
 private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {
-    is JsonArray -> if (isTextCompound()) {
+    is JsonArray -> if (isTextComponent()) {
         sequenceOf(
             PointerWithExtension(
                 DataPointer.Terminator,
@@ -56,9 +56,9 @@ private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> 
         }
     } // wrap inner pointer
 
-    is JsonObject -> if (isTextCompound()) {
+    is JsonObject -> if (isTextComponent()) {
         sequenceOf(PointerWithExtension(DataPointer.Terminator, toJson(), FormatKind.JsonObj))
-    } else if (isTextCompoundShorthanded()) {
+    } else if (isTextComponentShorthanded()) {
         val map = toMutableMap()
         val text = map.remove("")
         map["text"] = text!!

@@ -4,8 +4,8 @@ import io.kotest.assertions.fail
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
-import mct.model.text.ManyTextCompound
-import mct.model.text.TextCompound
+import mct.model.text.ManyTextComponent
+import mct.model.text.TextComponent
 
 private inline fun displayWhenFailure(raw: String, block: () -> Unit) {
     try {
@@ -68,7 +68,7 @@ class MTLPaserTest : FreeSpec({
     }
 
     "should match corrently" {
-        TextCompound.Plain("MIMI").matches(
+        TextComponent.Plain("MIMI").matches(
             MTLPaser.singleOf(
                 """
             |MIMI| ==> |SHIINA|
@@ -76,7 +76,7 @@ class MTLPaserTest : FreeSpec({
             ).left
         ).shouldBeTrue()
 
-        TextCompound.Plain("MIMI", extra = ManyTextCompound(TextCompound.Plain("SHIINA"))).matches(
+        TextComponent.Plain("MIMI", extra = ManyTextComponent(TextComponent.Plain("SHIINA"))).matches(
             MTLPaser.singleOf(
                 """
                 (
@@ -90,9 +90,9 @@ class MTLPaserTest : FreeSpec({
             ).left
         ).shouldBeTrue()
 
-        ManyTextCompound(
-            TextCompound.Plain("MIMI", extra = ManyTextCompound(TextCompound.Plain("SHIINA"))),
-            TextCompound.Plain("SHIINA", extra = ManyTextCompound(TextCompound.Plain("MIMI"))),
+        ManyTextComponent(
+            TextComponent.Plain("MIMI", extra = ManyTextComponent(TextComponent.Plain("SHIINA"))),
+            TextComponent.Plain("SHIINA", extra = ManyTextComponent(TextComponent.Plain("MIMI"))),
         ).matches(
             MTLPaser.singleOf(
                 """

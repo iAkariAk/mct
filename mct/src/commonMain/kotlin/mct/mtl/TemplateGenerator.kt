@@ -4,22 +4,22 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonElement
 import mct.command.MCCommandJson
 import mct.kit.TranslationMapping
-import mct.model.text.ManyTextCompound
-import mct.model.text.TextCompound
+import mct.model.text.ManyTextComponent
+import mct.model.text.TextComponent
 import mct.serializer.Snbt
 import mct.util.decodeFromString
 import mct.util.formatir.toIR
 import net.benwoodworth.knbt.NbtTag
 
-fun TextCompound<*>.mtlize(): MTLExpression? = when {
-    this is ManyTextCompound -> MTLList(null, compounds.map { it.mtlize() ?: return null })
-    this !is TextCompound.Plain -> null
+fun TextComponent<*>.mtlize(): MTLExpression? = when {
+    this is ManyTextComponent -> MTLList(null, compounds.map { it.mtlize() ?: return null })
+    this !is TextComponent.Plain -> null
     else -> when (val _extra = extra) {
         null -> MTLLiteral(null, text)
         else -> MTLPair(
             null, MTLLiteral(null, text), when (_extra) {
-                is TextCompound.Plain -> _extra.mtlize() ?: return null
-                is ManyTextCompound -> MTLList(null, _extra.compounds.map { it.mtlize() ?: return null })
+                is TextComponent.Plain -> _extra.mtlize() ?: return null
+                is ManyTextComponent -> MTLList(null, _extra.compounds.map { it.mtlize() ?: return null })
                 else -> return null
             }
         )
@@ -28,11 +28,11 @@ fun TextCompound<*>.mtlize(): MTLExpression? = when {
 
 
 
-internal inline fun String.tryDecodeAsTextCompound() = runCatching {
-    TextCompound.fromIR(MCCommandJson.decodeFromString<JsonElement>(this).toIR())
+internal inline fun String.tryDecodeAsTextComponent() = runCatching {
+    TextComponent.fromIR(MCCommandJson.decodeFromString<JsonElement>(this).toIR())
 }.getOrElse {
     runCatching {
-        TextCompound.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())
+        TextComponent.fromIR(Snbt.decodeFromString<NbtTag>(this).toIR())
     }.getOrNull()
 }
 
@@ -40,7 +40,7 @@ internal inline fun String.tryDecodeAsTextCompound() = runCatching {
 fun Collection<String>.generateMTLXTemplate(placeholder: String = "TODO"): MTLX {
     val placeholderExpr = MTLLiteral(null, placeholder)
     val (_mtls, _raws) = asSequence()
-        .map { it.tryDecodeAsTextCompound()?.mtlize() ?: it }
+        .map { it.tryDecodeAsTextComponent()?.mtlize() ?: it }
         .partition { it is MTLExpression }
 
     @Suppress("UNCHECKED_CAST")
