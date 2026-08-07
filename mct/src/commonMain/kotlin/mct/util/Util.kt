@@ -1,6 +1,5 @@
 package mct.util
 
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -8,6 +7,7 @@ import mct.serializer.MCTJson
 import mct.serializer.PrettyJson
 import mct.serializer.PrettySnbt
 import mct.serializer.Snbt
+import mct.util.snbt.decodeToSnbtTag
 import net.benwoodworth.knbt.NbtTag
 
 val unreachable: Nothing get() = error("Unreachable")
@@ -30,8 +30,7 @@ fun String.isStructureJsonOrSnbt() = trim().run {
 
 fun JsonElement.toJson(pretty: Boolean = false): String = (if (pretty) PrettyJson else MCTJson).encodeToString(this)
 fun NbtTag.toSnbt(pretty: Boolean = false): String = (if (pretty) PrettySnbt else Snbt).encodeToString(this)
-fun String.toNbtTagOrNull() =
-    if (isStructureJsonOrSnbt()) runCatching { Snbt.decodeFromString<NbtTag>(this) }.getOrNull() else null
+fun String.toSnbtNbtTagOrNull() = if (isStructureJsonOrSnbt()) runCatching { this.decodeToSnbtTag() }.getOrNull() else null
 
 fun String.toJsonElementOrNull(strict: Boolean = false): JsonElement? =
     if (isStructureJsonOrSnbt()) runCatching {
@@ -40,7 +39,7 @@ fun String.toJsonElementOrNull(strict: Boolean = false): JsonElement? =
         )
     }.getOrNull() else null
 
-fun String.isSnbt() = toNbtTagOrNull() != null
+fun String.isSnbt() = toSnbtNbtTagOrNull() != null
 fun String.isJson(strict: Boolean = false) = toJsonElementOrNull(strict) != null
 
 inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other

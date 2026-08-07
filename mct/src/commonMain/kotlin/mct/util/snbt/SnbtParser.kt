@@ -6,6 +6,12 @@ private data class Metadata(
     val type: SnbtType? = null,
 )
 
+fun String.decodeToSnbtTag(): SnbtTag {
+    val lexer = SnbtLexer(this)
+    val parser = SnbtParser(this, lexer)
+    return parser.parse()
+}
+
 class SnbtParser(private val snbt: String, private val lexer: SnbtLexer, private val exhaustive: Boolean = false) {
     private var currentToken: SnbtToken? = null
 

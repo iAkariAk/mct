@@ -261,9 +261,10 @@ class TextCompoundTest : FreeSpec({
 
         "recognizes nested compounds" {
             shouldBeJsonTextCompound("""[{"text":"a"},{"keybind":"key.use"}]""")
-            shouldBeSnbtTextCompound("""[{text:"a"},{keybind:"key.use"}]""")
             shouldBeJsonTextCompound("""["A \' illegal escape"]""")
+            shouldBeSnbtTextCompound("""[{text:"a"},{keybind:"key.use"}]""")
             shouldBeSnbtTextCompound("""["A \' illegal escape"]""")
+            shouldBeSnbtTextCompound("""["",{color:"dark_red",text:"Warning!\n"},{color:"yellow",text:"This map is intended to be played in Survival mode only. Scouting in Spectator or Creative mode will spoil puzzles. I will not stop you, but this is not intended or required to solve this map."}]""")
         }
     }
 })

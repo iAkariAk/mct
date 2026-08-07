@@ -10,8 +10,8 @@ import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
 import mct.util.toJsonElementOrNull
-import mct.util.toNbtTagOrNull
 import mct.util.toRegex2
+import mct.util.toSnbtNbtTagOrNull
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
@@ -106,11 +106,11 @@ internal fun Map<String, *>.isTextCompoundShorthanded() =
     "text" !in this && (this[""]?.let { it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
         ?: false)
 
-fun String.isTextCompoundSnbt() = toNbtTagOrNull()?.let {
+fun String.isTextCompoundSnbt() = toSnbtNbtTagOrNull()?.let {
     when (it) {
-        is NbtCompound -> it.isTextCompound()
-        is NbtList<*> -> it.isTextCompound()
-        is NbtString -> true
+        is SnbtCompound -> it.isTextCompound()
+        is SnbtList -> it.isTextCompound()
+        is SnbtString -> true
         else -> false
     }
 } ?: false
