@@ -12,12 +12,12 @@ import mct.model.patch.isString
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
-import mct.util.MCJson
-import mct.util.decodeFromMCJson
+import mct.util.decodeFromString
+import mct.util.encodeToString
 
 context(_: LoggerHolder)
 internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson>): String {
-    val jsonElement = decodeFromMCJson<JsonElement>(this)
+    val jsonElement = MCJson.decodeFromString<JsonElement>(this)
     val ddrg = replacements.map {
         DataPointerWithValue(it.pointer, it.replacement, it.format)
     }.toReplacementGroups()
@@ -32,7 +32,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
         ?.let { terminator ->
             terminator as DataPointerReplacementGroup.Terminator
             try {
-                decodeFromMCJson<T>(terminator.replacement)
+                MCJson.decodeFromString<T>(terminator.replacement)
             } catch (e: Throwable) {
                 logger.error {
                     "Cannot decode ${terminator.replacement} as JSON (${terminator.format}): ${e.message}"

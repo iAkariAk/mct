@@ -1,8 +1,12 @@
 package mct.model.text
 
+import arrow.core.Either
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import mct.command.MCCommandJsonRight
+import mct.util.NonstandardJson
 import mct.util.formatir.IRList
 import mct.util.formatir.IRObject
 import mct.util.formatir.IRString
@@ -115,7 +119,7 @@ fun String.isTextCompoundSnbt() = toSnbtNbtTagOrNull()?.let {
     }
 } ?: false
 
-fun String.isTextCompoundJson(strict: Boolean = false) = toJsonElementOrNull(strict)?.let {
+fun String.isTextCompoundJson(json: Either<Json, NonstandardJson> = MCCommandJsonRight) = toJsonElementOrNull(json)?.let {
     when (it) {
         is JsonArray -> it.isTextCompound()
         is JsonObject -> it.isTextCompound()

@@ -1,55 +1,81 @@
-package mct.dp.mcjson
+package mct.util
 
 import io.kotest.assertions.throwables.shouldNotThrow
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FreeSpec
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import mct.util.standardizeMCJson
+import mct.dp.mcjson.MCJson
 import org.intellij.lang.annotations.Language
 
-private val J = Json {
-    ignoreUnknownKeys = true
-    isLenient = true
-}
-
-private fun shouldBeParsed(@Language("json") json: String) {
-    val std = standardizeMCJson(json)
+private fun NonstandardJson.shouldBeParsed(@Language("json") json: String) {
+    val std = standardize(json)
 
     withClue(std) {
         shouldNotThrow<SerializationException> {
-            J.decodeFromString<JsonElement>(std)
+            StandardJson.decodeFromString<JsonElement>(std)
         }
     }
 }
 
+private fun NonstandardJson.shouldNotBeParsed(@Language("json") json: String) {
+    val std = standardize(json)
 
-class StandardizeMCJsonTest : FreeSpec({
+    withClue(std) {
+        shouldThrow<SerializationException> {
+            StandardJson.decodeFromString<JsonElement>(std)
+        }
+    }
+}
+
+private fun positiveAndNegativeCase(
+    isLenient: Boolean? = null,
+    allowComments: Boolean? = null,
+    allowTrailingComma: Boolean? = null,
+    allowIllegalEscape: Boolean? = null,
+    allowSingleQuote: Boolean? = null,
+    @Language("json") json: String
+) {
+    NonstandardJson(
+        allowComments = allowComments?: false,
+        allowTrailingComma = allowTrailingComma ?: false,
+        isLenient = isLenient ?: false,
+        allowIllegalEscape = allowIllegalEscape ?: false,
+        allowSingleQuote = allowSingleQuote ?: false
+    ).shouldBeParsed(json)
+    NonstandardJson(
+        allowComments = allowComments?.let { !it } ?: false,
+        allowTrailingComma = allowTrailingComma?.let { !it } ?: false,
+        isLenient = isLenient?.let { !it } ?: false,
+        allowIllegalEscape = allowIllegalEscape?.let { !it } ?: false,
+        allowSingleQuote = allowSingleQuote?.let { !it } ?: false
+    ).shouldNotBeParsed(json)
+}
+
+class NonstandardJsonTest : FreeSpec({
     "single quote" {
         @Suppress("JsonStandardCompliance")
-        shouldBeParsed("'hi'")
+        positiveAndNegativeCase(
+            allowSingleQuote = true,
+            json = "'hi'"
+        )
     }
 
     "single quote in double quote" {
-        shouldBeParsed(
-            """
-            "{Name: 'yachiyo'}"
-        """.trimIndent()
-        )
+        MCJson.shouldBeParsed(""""{Name: 'yachiyo'}"""")
     }
 
     "escape single quote" {
         @Suppress("JsonStandardCompliance")
-        shouldBeParsed(
-            """
-            'Ma\'am \\Ugh'
-        """.trimIndent()
+        positiveAndNegativeCase(
+            allowSingleQuote = true,
+            json = """'Ma\'am \\Ugh'"""
         )
     }
 
     "nested json" {
-        shouldBeParsed(
+        MCJson.shouldBeParsed(
             """
             {
               "function": "set_nbt",
@@ -61,7 +87,7 @@ class StandardizeMCJsonTest : FreeSpec({
 
     "should work" {
         @Suppress("JsonStandardCompliance")
-        shouldBeParsed(
+        MCJson.shouldBeParsed(
             """
     {
         "pools": [

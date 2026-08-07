@@ -13,7 +13,7 @@ import mct.model.patch.inferFormatKind
 import mct.model.text.isTextCompound
 import mct.model.text.isTextCompoundShorthanded
 import mct.pointer.*
-import mct.util.decodeFromMCJson
+import mct.util.decodeFromString
 import mct.util.toJson
 import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
@@ -26,7 +26,7 @@ internal fun extractTextMCJ(
     path: Path,
     patterns: List<DataPointerPattern>? = BuiltinMCJPatterns,
 ): Sequence<MCJsonExtraction> = try {
-    val jsonElement = decodeFromMCJson<JsonElement>(json)
+    val jsonElement = MCJson.decodeFromString<JsonElement>(json)
 
     jsonElement.extractTextsByPointer()
         .filter {

@@ -1,5 +1,6 @@
 package mct.util
 
+import arrow.core.Either
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -7,6 +8,7 @@ import mct.serializer.MCTJson
 import mct.serializer.PrettyJson
 import mct.serializer.PrettySnbt
 import mct.serializer.Snbt
+import mct.util.snbt.SnbtTag
 import mct.util.snbt.decodeToSnbtTag
 import net.benwoodworth.knbt.NbtTag
 
@@ -20,27 +22,27 @@ inline fun <T> ArrayDeque<T>.push(element: T) = addLast(element)
 inline fun <T> ArrayDeque<T>.peekOrNull() = lastOrNull()
 inline fun <T> ArrayDeque<T>.popOrNull() = removeLastOrNull()
 
-private val STD_JSON = Json {
-    ignoreUnknownKeys = true
-}
-
-fun String.isStructureJsonOrSnbt() = trim().run {
-    surroundedBy('"') || surroundedBy('\'') || surroundedBy('[', ']') || surroundedBy('{', '}')
-}
-
 fun JsonElement.toJson(pretty: Boolean = false): String = (if (pretty) PrettyJson else MCTJson).encodeToString(this)
 fun NbtTag.toSnbt(pretty: Boolean = false): String = (if (pretty) PrettySnbt else Snbt).encodeToString(this)
-fun String.toSnbtNbtTagOrNull() = if (isStructureJsonOrSnbt()) runCatching { this.decodeToSnbtTag() }.getOrNull() else null
+fun String.toSnbtNbtTagOrNull(): SnbtTag? {
+    val precondition = surroundedBy('"') || surroundedBy('\'') || surroundedBy('[', ']') || surroundedBy('{', '}')
+    return if (precondition) runCatching { this.decodeToSnbtTag() }.getOrNull() else null
+}
 
-fun String.toJsonElementOrNull(strict: Boolean = false): JsonElement? =
-    if (isStructureJsonOrSnbt()) runCatching {
-        if (strict) STD_JSON.decodeFromString<JsonElement>(this) else decodeFromMCJson<JsonElement>(
-            this
+fun String.toJsonElementOrNull(json: Either<Json, NonstandardJson> = StandardJsonLeft): JsonElement? {
+    val precondition =
+        surroundedBy('"') || (json.isRight { it.allowSingleQuote } && surroundedBy('\''))
+                || surroundedBy('[', ']') || surroundedBy('{', '}')
+    return if (precondition) runCatching {
+        json.fold(
+            ifLeft = { it.decodeFromString<JsonElement>(this) },
+            ifRight = { it.decodeFromString<JsonElement>(this) }
         )
     }.getOrNull() else null
+}
 
 fun String.isSnbt() = toSnbtNbtTagOrNull() != null
-fun String.isJson(strict: Boolean = false) = toJsonElementOrNull(strict) != null
+fun String.isJson(json: Either<Json, NonstandardJson> = StandardJsonLeft) = toJsonElementOrNull(json) != null
 
 inline infix fun Byte.divCeil(other: Byte) = (this + other - 1) / other
 inline infix fun Short.divCeil(other: Short) = (this + other - 1) / other

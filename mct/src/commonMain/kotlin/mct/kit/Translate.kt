@@ -2,13 +2,13 @@ package mct.kit
 
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.JsonElement
+import mct.command.MCCommandJson
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.contents
 import mct.model.text.TextCompound
 import mct.model.text.encodeToIR
 import mct.serializer.Snbt
-import mct.util.MCJson
-import mct.util.decodeFromMCJson
+import mct.util.decodeFromString
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
@@ -18,8 +18,8 @@ typealias TranslationMapping = Map<String, String?>
 typealias TranslationPool = Set<String>
 
 private fun trySimply(text: String): String = runCatching {
-    val raw = decodeFromMCJson<JsonElement>(text).toIR()
-    MCJson.encodeToString(JsonElement.serializer(), TextCompound.fromIR(raw).encodeToIR(true).toJsonElement())
+    val raw = MCCommandJson.decodeFromString<JsonElement>(text).toIR()
+    MCCommandJson.encodeToString(JsonElement.serializer(), TextCompound.fromIR(raw).encodeToIR(true).toJsonElement())
 }.getOrElse {
     runCatching {
         val raw = Snbt.decodeFromString<NbtTag>(text).toIR()

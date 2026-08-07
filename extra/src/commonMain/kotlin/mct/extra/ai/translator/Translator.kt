@@ -10,6 +10,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import mct.EnvHolder
+import mct.command.MCCommandJson
 import mct.extra.ai.*
 import mct.kit.TranslationMapping
 import mct.model.patch.*
@@ -240,7 +241,7 @@ internal fun String.strip(format: FormatKind): CompoundStrip {
     var isList = false
     val compound = Option.catch {
         when (format) {
-            JsonStr, JsonObj -> decodeFromMCJson<JsonElement>(raw).toIR()
+            JsonStr, JsonObj -> MCCommandJson.decodeFromString<JsonElement>(raw).toIR()
             SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(raw).toIR()
             PlainStr -> null
         }?.let {

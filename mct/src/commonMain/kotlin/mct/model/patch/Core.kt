@@ -2,6 +2,7 @@ package mct.model.patch
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import mct.command.MCCommandJsonRight
 import mct.model.text.isTextCompoundJson
 import mct.model.text.isTextCompoundSnbt
 import mct.util.*
@@ -79,9 +80,9 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.inferFormatKind(shouldTextCompound: Boolean = false): FormatKind = when {
+fun String.inferFormatKind(shouldTextCompound: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind = when {
     if (shouldTextCompound) isTextCompoundSnbt() else isSnbt() -> FormatKind.SnbtStr
-    if (shouldTextCompound) isTextCompoundJson(false) else isJson(false) -> FormatKind.JsonStr
+    if (shouldTextCompound) isTextCompoundJson(json) else isJson(json) -> FormatKind.JsonStr
     else -> FormatKind.PlainStr
 }
 

@@ -3,13 +3,14 @@ package mct.mtl
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
+import mct.command.MCCommandJson
 import mct.kit.TranslationPool
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.replaceSimply
 import mct.model.text.*
 import mct.serializer.MCTJson
 import mct.serializer.Snbt
-import mct.util.decodeFromMCJson
+import mct.util.decodeFromString
 import mct.util.formatir.toIR
 import mct.util.formatir.toJsonElement
 import mct.util.formatir.toNbtTag
@@ -40,7 +41,7 @@ fun TranslationPool.translateByMTLX(mtlx: MTLX) = associateWith {
 private inline fun String.tryTransformTextCompound(
     transform: (TextCompound<*>) -> TextCompound<*>?
 ): String? = runCatching {
-    val tc = TextCompound.fromIR(decodeFromMCJson<JsonElement>(this).toIR())
+    val tc = TextCompound.fromIR(MCCommandJson.decodeFromString<JsonElement>(this).toIR())
     val r = transform(tc)
     r?.encodeToIR()?.toJsonElement()?.let(MCTJson::encodeToString)
 }.getOrElse {
