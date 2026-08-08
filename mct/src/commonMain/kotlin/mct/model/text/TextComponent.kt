@@ -18,7 +18,7 @@ inline fun <IR : IRElement, TC : TextComponent<IR>> TC.copy(): TC = TextComponen
 operator fun <IR : IRElement, TC : TextComponent<IR>> TC.plus(others: List<TextComponent<*>>): TC {
     val copy = copy()
     when (copy) {
-        is ManyTextComponent -> copy.compounds = copy.compounds + others
+        is ManyTextComponent -> copy.components = copy.components + others
         is SingleTextComponent<*> -> copy.extra = copy.extra?.plus(others) ?: ManyTextComponent(others)
     }
     return copy
@@ -51,15 +51,31 @@ fun TextComponent<*>.hasText(): Boolean = when (this) {
         else -> extra?.hasText() == true
     }
 
-    is ManyTextComponent -> compounds.any { it.hasText() }
+    is ManyTextComponent -> components.any { it.hasText() }
 }
 
-private val REGEX_TRANSLATE_KEY = Regex2("""[\w.]+\.+[\w.]+""")
-fun String.isTranslateKey() = REGEX_TRANSLATE_KEY.matchEntire(this) != null
-fun TextComponent<*>.isPureTranslateKeyCompound() = this is TextComponent.Translatable && with.isNullOrEmpty() && fallback == null && translate.isTranslateKey() && extra == null
+private val REGEX_TRANSLATE_KEY = Regex2("""^[\w.]+\.+[\w.]+$""")
+fun String.isTranslateKey() = REGEX_TRANSLATE_KEY.matches(this)
+fun TextComponent<*>.isPureTranslateKeyCompound() =
+    this is TextComponent.Translatable && with.isNullOrEmpty() && fallback == null && translate.isTranslateKey() && extra == null
+
+private val REGEX_NONHUMBLE_READABLE_TEXT = Regex2("""^[^\p{L}\p{M}]*$""")
+fun String.isHumbleReadableText(): Boolean = !REGEX_NONHUMBLE_READABLE_TEXT.matches(this)
+
+fun TextComponent<*>.hasHumbleReadableText(): Boolean = !isPureTranslateKeyCompound() && when (this) {
+    is ManyTextComponent -> components.any(TextComponent<*>::hasHumbleReadableText)
+    is SingleTextComponent<*> -> when (this) {
+        is TextComponent.Selector -> separator?.hasHumbleReadableText() == true || (extra?.hasHumbleReadableText() == true)
+        is TextComponent.Plain -> text.isHumbleReadableText() || extra?.hasHumbleReadableText() == true
+        is TextComponent.Translatable -> translate.isHumbleReadableText() || fallback?.isHumbleReadableText() == true
+                || with?.any(TextComponent<*>::hasHumbleReadableText) == true || extra?.hasHumbleReadableText() == true
+
+        else -> extra?.hasText() == true
+    }
+}
 
 fun TextComponent<*>.flatten() = when (this) {
-    is ManyTextComponent -> compounds
+    is ManyTextComponent -> components
     is SingleTextComponent<*> -> listOf(this)
 }
 
@@ -335,24 +351,24 @@ sealed class TextComponent<out IR : IRElement> {
 
     companion object {
         fun fromIR(ir: IRElement): TextComponent<*> = when (ir) {
-                is IRString -> Plain(ir)
-                is IRList -> ManyTextComponent(ir)
-                is IRObject -> when (ir.componentType()) {
-                    "text" -> Plain(ir)
-                    "translate", "translatable" -> Translatable(ir)
-                    "keybind" -> Keybind(ir)
-                    "score" -> Score(ir)
-                    "selector" -> Selector(ir)
-                    "nbt" -> Nbt(ir)
-                    "object" -> Object(ir)
-                    "sprite" -> Sprite(ir)
-                    else -> throw TextComponentCodecException("Unknown TextComponent type: $ir")
-                }
-
-                else -> throw TextComponentCodecException(
-                    "TextComponent raw must be IRString, IRObject, or IRList, but was ${ir::class.simpleName}",
-                )
+            is IRString -> Plain(ir)
+            is IRList -> ManyTextComponent(ir)
+            is IRObject -> when (ir.componentType()) {
+                "text" -> Plain(ir)
+                "translate", "translatable" -> Translatable(ir)
+                "keybind" -> Keybind(ir)
+                "score" -> Score(ir)
+                "selector" -> Selector(ir)
+                "nbt" -> Nbt(ir)
+                "object" -> Object(ir)
+                "sprite" -> Sprite(ir)
+                else -> throw TextComponentCodecException("Unknown TextComponent type: $ir")
             }
+
+            else -> throw TextComponentCodecException(
+                "TextComponent raw must be IRString, IRObject, or IRList, but was ${ir::class.simpleName}",
+            )
+        }
     }
 }
 
@@ -363,9 +379,9 @@ class ManyTextComponent(
     constructor(compounds: List<TextComponent<*>>) : this(IRList(compounds.map { it.toIR() }))
     constructor(vararg compounds: TextComponent<*>) : this(compounds.asList())
 
-    var compounds: List<TextComponent<*>> = raw.map { TextComponent.fromIR(it) }
+    var components: List<TextComponent<*>> = raw.map { TextComponent.fromIR(it) }
 
-    override fun toIR(): IRList = IRList(compounds.map { it.toIR() })
+    override fun toIR(): IRList = IRList(components.map { it.toIR() })
 }
 
 sealed class SingleTextComponent<out IR : IRElement>(

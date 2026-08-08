@@ -75,6 +75,6 @@ fun TextComponent<*>.matches(expr: MTLExpression): Boolean = when (this) {
     is SingleTextComponent -> (expr is MTLLiteral && this is TextComponent.Plain && this.extra == null && this.text == expr.content)
             || (expr is MTLPair && expr.left is MTLLiteral && this is TextComponent.Plain && expr.left.content == this.text && (this.extra?.matches(expr.right) == true))
 
-    is ManyTextComponent -> expr is MTLList && compounds.size == expr.exprs.size && compounds.zip(expr.exprs)
+    is ManyTextComponent -> expr is MTLList && components.size == expr.exprs.size && components.zip(expr.exprs)
         .all { (actual, expected) -> actual.matches(expected) }
 }

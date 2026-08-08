@@ -80,7 +80,7 @@ class TranslatorTest : FreeSpec({
             context(Env()) {
                 val (_, result1) = raws1.strips(FormatKind.JsonStr)
 
-                val failures1 = result1.filterIsInstance<CompoundStrip.CannotStrip>()
+                val failures1 = result1.filterIsInstance<ComponentStrip.CannotStrip>()
 
                 if (failures1.isNotEmpty()) {
                     fail("Strip failed for: ${failures1.joinToString { it.original }}")
@@ -89,7 +89,7 @@ class TranslatorTest : FreeSpec({
                 result2.size shouldBe 2
 
                 val (_, result3) = raw3.strips(FormatKind.JsonStr)
-                result3.filterIsInstance<CompoundStrip.NoCompound>().shouldNotBeEmpty()
+                result3.filterIsInstance<ComponentStrip.NoComponent>().shouldNotBeEmpty()
             }
         }
 

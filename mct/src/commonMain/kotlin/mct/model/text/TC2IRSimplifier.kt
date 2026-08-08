@@ -9,7 +9,7 @@ fun TextComponent<*>.encodeToIR(simplify: Boolean = false): IRElement =
     if (simplify) simplifiedIR() else toIR()
 
 private fun TextComponent<*>.simplifiedIR(): IRElement = when (this) {
-    is ManyTextComponent -> IRList(compounds.map { it.simplifiedIR() })
+    is ManyTextComponent -> IRList(components.map { it.simplifiedIR() })
     is TextComponent.Plain -> {
         if (!isPlainStyle() || raw.hasUnmanagedPlainFields()) return toIR()
         val self = IRString(text)

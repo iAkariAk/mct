@@ -12,14 +12,14 @@ import mct.util.formatir.toIR
 import net.benwoodworth.knbt.NbtTag
 
 fun TextComponent<*>.mtlize(): MTLExpression? = when {
-    this is ManyTextComponent -> MTLList(null, compounds.map { it.mtlize() ?: return null })
+    this is ManyTextComponent -> MTLList(null, components.map { it.mtlize() ?: return null })
     this !is TextComponent.Plain -> null
     else -> when (val _extra = extra) {
         null -> MTLLiteral(null, text)
         else -> MTLPair(
             null, MTLLiteral(null, text), when (_extra) {
                 is TextComponent.Plain -> _extra.mtlize() ?: return null
-                is ManyTextComponent -> MTLList(null, _extra.compounds.map { it.mtlize() ?: return null })
+                is ManyTextComponent -> MTLList(null, _extra.components.map { it.mtlize() ?: return null })
                 else -> return null
             }
         )

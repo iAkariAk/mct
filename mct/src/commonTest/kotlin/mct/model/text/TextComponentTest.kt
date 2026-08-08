@@ -183,7 +183,7 @@ class TextComponentTest : FreeSpec({
             }
             val compound = TextComponent.fromIR(raw) as TextComponent.Translatable
             val extra = compound.extra as ManyTextComponent
-            (extra.compounds.single() as TextComponent.Plain).text = "after"
+            (extra.components.single() as TextComponent.Plain).text = "after"
 
             val encoded = compound.toIR()
             encoded["future_field"] shouldBe IRInt(42)
@@ -215,7 +215,7 @@ class TextComponentTest : FreeSpec({
         "propagates a mutation through an IRList" {
             val raw = IRList(IRString("before"), IRString("unchanged"))
             val compound = TextComponent.fromIR(raw) as ManyTextComponent
-            (compound.compounds.first() as TextComponent.Plain).text = "after"
+            (compound.components.first() as TextComponent.Plain).text = "after"
 
             compound.toIR() shouldBe IRList(
                 IRString("after"),

@@ -59,11 +59,11 @@ internal fun TextComponent<*>.replace(expr: MTLExpression): TextComponent<*> = w
         require(expr is MTLList) {
             "expr should be MTLList"
         }
-        require(compounds.size == expr.exprs.size) {
+        require(components.size == expr.exprs.size) {
             "compounds.size == expr.exprs.size"
         }
         copy().apply {
-            compounds = compounds.zip(expr.exprs).map { (l, r) -> l.replace(r) }
+            components = components.zip(expr.exprs).map { (l, r) -> l.replace(r) }
         }
     }
 
