@@ -392,7 +392,16 @@ class CommandExtractPatternTest : FreeSpec({
                         """data modify block ~ ~ ~ CustomName set value {"text":"Named Block"}""",
                         """{"text":"Named Block"}""" withFormat FormatKind.JsonStr,
                     ),
-                    commandCase("give with text component", """give @p stick{display:{Name:"text"}}"""),
+                    commandCase(
+                        "give (old)",
+                        """give @p stick{display:{Name:"text"}}""",
+                        "\"text\""
+                    ),
+                    commandCase(
+                        "give (new)",
+                        """give @s wooden_sword[custom_name={"color":"yellow","italic":false,"text":"盗火匕首"},unbreakable={},attribute_modifiers=[{id:"base_attack_damage",type:"attack_damage",amount:2,operation:"add_value",slot:"mainhand"},{id:"base_attack_speed",type:"attack_speed",amount:-2.4,operation:"add_value",slot:"mainhand"}],tooltip_display={hidden_components:["unbreakable"]},custom_data={true_price:4}]""",
+                        """{"color":"yellow","italic":false,"text":"盗火匕首"}"""
+                    ),
                     commandCase(
                         "summon",
                         """summon block_display -106 3 -436 {NoGravity:1b,Glowing:1b,CustomNameVisible:0b,Tags:["wickedorb"],CustomName:{"bold":true,"color":"dark_purple","text":"彩叶"},glow_color_override:0,transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[3f,3f,3f]},block_state:{Name:"minecraft:crying_obsidian"}}""",

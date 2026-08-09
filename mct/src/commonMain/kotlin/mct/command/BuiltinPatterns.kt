@@ -217,16 +217,8 @@ val BuiltinCommandPatterns = PatternSet {
 
     // ── give (item with text components in NBT) ─────────────────
     command("give") {
-        WithSize(3) then {
-            Positions(2) then {
-                Matches("give item with text component") { _, arg ->
-                    arg.content.contains("\"text\"") ||
-                            arg.content.contains("'text'") ||
-                            arg.content.contains("item_name") ||
-                            arg.content.contains("custom_name") ||
-                            arg.content.contains("lore")
-                }
-            }
+        WithSize(2) then {
+            Positions(2 to ArgSelection.ItemStack).withAry()
         }
     }
 
