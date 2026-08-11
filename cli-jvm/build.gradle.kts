@@ -131,10 +131,10 @@ runtime {
 
         appVersion = "0.0.0"
 
-        imageOptions = listOf(
-            "--win-console"
-        )
-
+        val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+        imageOptions = buildList {
+            if (isWindows) add("--win-console")
+        }
         skipInstaller = true
     }
 }
