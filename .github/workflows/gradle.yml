@@ -19,12 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup GraalVM
-        uses: graalvm/setup-graalvm@v1
+      - name: Setup JDK
+        uses: actions/setup-java@v4
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          distribution: 'temurin'
+          cache: gradle
 
       - name: Build & test
         run: |
@@ -57,12 +57,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup GraalVM
-        uses: graalvm/setup-graalvm@v1
+      - name: Setup JDK
+        uses: actions/setup-java@v4
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          distribution: 'temurin'
           cache: gradle
 
       - name: Cache Kotlin Native compiler + deps (~/.konan)
@@ -128,13 +127,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup GraalVM
-        uses: graalvm/setup-graalvm@v1
+      - name: Setup JDK
+        uses: actions/setup-java@v4
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          native-image-job: true
+          distribution: 'temurin'
           cache: gradle
 
       - name: Package CLI
