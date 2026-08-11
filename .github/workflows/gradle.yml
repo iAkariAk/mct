@@ -116,6 +116,39 @@ jobs:
           name: mct-gui-${{ matrix.target }}
           path: gui/build/compose/binaries/main-release/app/**/*
 
+  jpackage:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linuxX64
+          - os: windows-latest
+            target: mingwX64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job: true
+          cache: gradle
+
+      - name: Package CLI
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :cli-jvm:jpackageImage 
+
+      - name: Upload CLI package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-cli-jpackage-${{ matrix.target }}
+          path: cli-jvm/build/jpackage/mct/*
+
   graalvm-native:
     strategy:
       matrix:
@@ -145,10 +178,10 @@ jobs:
         shell: bash
         run: |
           chmod +x ./gradlew
-          ./gradlew :cli-graal:nativeCompile
+          ./gradlew :cli-jvm:nativeCompile
 
       - name: Upload GraalVM native image
         uses: actions/upload-artifact@v4
         with:
           name: mct-cli-graal-${{ matrix.target }}
-          path: cli-graal/build/native/nativeCompile/*
+          path: cli-jvm/build/native/nativeCompile/*

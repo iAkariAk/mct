@@ -5,12 +5,12 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleJvm" value="graalvm-jdk-25" />
+        <option name="gradleJvm" value="graalvm-jdk-25 (2)" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/cli" />
-            <option value="$PROJECT_DIR$/cli-graal" />
+            <option value="$PROJECT_DIR$/cli-jvm" />
             <option value="$PROJECT_DIR$/extra" />
             <option value="$PROJECT_DIR$/gui" />
             <option value="$PROJECT_DIR$/mct" />

@@ -78,3 +78,4 @@ tasks.shadowJar {
     mergeServiceFiles()
     exclude("META-INF/*.kotlin_module")
 }
+

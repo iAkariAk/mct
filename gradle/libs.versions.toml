@@ -32,6 +32,7 @@ resources = "0.15.0"
 serialization = "1.11.0"
 shadow = "9.6.1"
 slf4j = "2.0.18"
+beryx-runtime = "2.0.1"
 
 [libraries]
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
@@ -114,6 +115,7 @@ okio = [
 ]
 
 [plugins]
+beryx-runtime = { id = "org.beryx.runtime", version.ref = "beryx-runtime" }
 catelog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "catelog-update" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }

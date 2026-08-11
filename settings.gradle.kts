@@ -37,7 +37,7 @@ include(
     "mct",
     "extra",
     "cli",
-    "cli-graal",
+    "cli-jvm",
     "gui",
 //    "web"
 )

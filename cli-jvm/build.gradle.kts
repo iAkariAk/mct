@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar.Companion.shadowJar
+
 buildscript {
     dependencies {
         classpath(libs.proguard)
@@ -7,6 +9,7 @@ buildscript {
 plugins {
     application
     kotlin("jvm")
+    alias(libs.plugins.beryx.runtime)
     alias(libs.plugins.shadow)
     alias(libs.plugins.graalvm.native)
 }
@@ -23,10 +26,13 @@ application {
 
 tasks.shadowJar {
     archiveClassifier.set("all")
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     // kotlin-logging 8.0.01 ships with GraalVM substitution classes that reference
     // KLoggerFactory$Companion which was refactored away. Exclude them to avoid
     // native-image build errors.
     exclude("io/github/oshai/kotlinlogging/internal/Target_**")
+    mergeServiceFiles()
+    exclude("META-INF/*.kotlin_module")
 }
 
 graalvmNative {
@@ -91,5 +97,44 @@ graalvmNative {
         }
 
         tasksToInstrumentPredicate.set { true }
+    }
+}
+
+runtime {
+    options = listOf(
+        "--strip-debug",
+        "--strip-native-commands",
+        "--compress=zip-6",
+        "--no-header-files",
+        "--no-man-pages"
+    )
+
+    additive = true
+    modules = listOf(
+        "jdk.unsupported",
+        "jdk.crypto.ec"
+    )
+
+    launcher {
+        noConsole = false
+
+        jvmArgs = listOf(
+            "--enable-native-access=ALL-UNNAMED"
+        )
+    }
+
+    jpackage {
+        outputDir = "jpackage"
+
+        imageName = "mct"
+        installerName = "mct"
+
+        appVersion = "0.0.0"
+
+        imageOptions = listOf(
+            "--win-console"
+        )
+
+        skipInstaller = true
     }
 }
