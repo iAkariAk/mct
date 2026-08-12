@@ -64,7 +64,7 @@ Keep low-level behavior tests outside the BuiltinSet table:
 - `DataPointer.matchesRight`
 - regex matching behavior
 - `PatternSet` DSL behavior
-- `CustomizedDataPointerPattern.compile`
+- `DataPointerPattern.compile`
 - command condition and selector primitives
 - target selector intrinsic extraction
 - recursive subcommand extraction

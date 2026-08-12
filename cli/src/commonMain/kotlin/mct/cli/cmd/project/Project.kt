@@ -40,7 +40,7 @@ import mct.model.patch.*
 import mct.mtl.MTLX
 import mct.mtl.translateByMTLX
 import mct.nbt.BuiltinNbtPatterns
-import mct.pointer.CustomizedDataPointerPattern
+import mct.pointer.DataPointerPattern
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.copyToRecursively
@@ -217,7 +217,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
         }
 
         val regionPatterns = patterns.nbt.flatMap {
-            requirePath(it, "Region").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "Region").readJson<List<DataPointerPattern>>()
         }.ifEmpty { BuiltinNbtPatterns }
 
         val commandPatterns = patterns.command.flatMap {
@@ -225,11 +225,11 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
         }.let { if (it.isEmpty()) BuiltinCommandPatterns else it.compile() }
 
         val commandDataPatterns = patterns.commandData.flatMap {
-            requirePath(it, "Command data").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "Command data").readJson<List<DataPointerPattern>>()
         }.ifEmpty { BuiltinCommandDataPatterns }
 
         val mcjPatterns = patterns.mcjson.flatMap {
-            requirePath(it, "MCJson").readJson<List<CustomizedDataPointerPattern>>().map { c -> c.compile() }
+            requirePath(it, "MCJson").readJson<List<DataPointerPattern>>()
         }.ifEmpty { BuiltinMCJPatterns }
 
         val commandRegexPatterns = patterns.commandRegex.flatMap {

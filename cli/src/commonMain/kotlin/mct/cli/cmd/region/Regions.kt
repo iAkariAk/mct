@@ -23,7 +23,7 @@ import mct.model.patch.ExtractionGroup
 import mct.model.patch.RegionReplacementGroup
 import mct.model.patch.ReplacementGroup
 import mct.nbt.BuiltinNbtPatterns
-import mct.pointer.CustomizedDataPointerPattern
+import mct.pointer.DataPointerPattern
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.serializer.MCTJson
@@ -67,7 +67,7 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val userPatterns = patternsPath?.readText()?.let {
-            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+            MCTJson.decodeFromString<List<DataPointerPattern>>(it)
         }
         val patterns = when {
             disableFilter -> null
@@ -77,7 +77,7 @@ private class RegionExtract : WorkspaceCommand(name = "extract") {
 
         val commandPatterns = commandPatternsPath?.jsonFile<List<CommandExtractPattern>>()
         val userCommandDataPatterns = commandDataPatternsPath?.readText()?.let {
-            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+            MCTJson.decodeFromString<List<DataPointerPattern>>(it)
         }
         val commandDataPatterns = when {
             disableCommandDataFilter -> null

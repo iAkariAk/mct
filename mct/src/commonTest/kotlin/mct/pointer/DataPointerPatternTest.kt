@@ -137,21 +137,21 @@ class DataPointerPatternTest : FreeSpec({
         }
     }
 
-    "CustomizedDataPointerPattern" - {
+    "DataPointerPattern" - {
         "RightPattern compile - positive (negative=false)" {
-            val pattern = CustomizedDataPointerPattern.RightPattern(
+            val pattern = DataPointerPattern.Right(
                 right = "#display>#Name",
-            ).compile()
+            )
 
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#display>#Name") }
             pattern.match(ptr.compile()) shouldBe true
         }
 
         "RightPattern compile - negative flag inverts result" {
-            val pattern = CustomizedDataPointerPattern.RightPattern(
+            val pattern = DataPointerPattern.Right(
                 right = "#display>#Name",
                 negative = true
-            ).compile()
+            )
 
             val ptrMatch = shouldNotRaise { DataPointer.decodeFromString(">#display>#Name") }
             val ptrNoMatch = shouldNotRaise { DataPointer.decodeFromString(">#display>#Lore") }
@@ -161,19 +161,19 @@ class DataPointerPatternTest : FreeSpec({
         }
 
         "RegexPattern compile - positive (negative=false)" {
-            val pattern = CustomizedDataPointerPattern.RegexPattern(
+            val pattern = DataPointerPattern.Regex(
                 regex = """#lore>\d+(?:>#raw)?$""",
-            ).compile()
+            )
 
             val ptr = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>5>#raw") }
             pattern.match(ptr.compile()) shouldBe true
         }
 
         "RegexPattern compile - negative flag inverts result" {
-            val pattern = CustomizedDataPointerPattern.RegexPattern(
+            val pattern = DataPointerPattern.Regex(
                 regex = """#lore>\d+(?:>#raw)?$""",
                 negative = true
-            ).compile()
+            )
 
             val ptrMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>5>#raw") }
             val ptrNoMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#custom_name") }

@@ -2,20 +2,31 @@
 
 package mct.pointer
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import mct.util.Regex2
 import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
 
-
-fun interface DataPointerPattern {
+@Serializable
+sealed interface DataPointerPattern {
     fun match(pointer: CompiledDataPointer): Boolean
 
-    companion object {
-        fun Right(right: String) = DataPointerPattern { it.matchesRight(right) }
-        fun Regex(@Language("RegExp") regex: String): DataPointerPattern {
-            val _r = regex.toRegex2()
-            return DataPointerPattern { it.matches(_r) }
-        }
+    @SerialName("right")
+    data class Right(
+        val right: String,
+        val negative: Boolean = false,
+    ) : DataPointerPattern {
+        override fun match(pointer: CompiledDataPointer) = pointer.matchesRight(right) != negative
+    }
+
+    @SerialName("regex")
+    data class Regex(
+        @Language("RegExp") val regex: String,
+        val negative: Boolean = false
+    ) : DataPointerPattern {
+        private val _r by lazy {  regex.toRegex2() }
+        override fun match(pointer: CompiledDataPointer): Boolean = pointer.matches(_r) != negative
     }
 }
 

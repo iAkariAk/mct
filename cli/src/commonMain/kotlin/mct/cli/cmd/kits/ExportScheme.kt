@@ -11,7 +11,7 @@ import mct.cli.BaseCommand
 import mct.cli.path
 import mct.command.CommandExtractPattern
 import mct.command.CommandRegexPattern
-import mct.pointer.CustomizedDataPointerPattern
+import mct.pointer.DataPointerPattern
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import mct.util.unreachable
@@ -25,7 +25,7 @@ class ExportScheme : BaseCommand("export-scheme", help = "The JSON-scheme genera
     override suspend fun App() {
         val descriptor = when (kind) {
             "command" -> CommandExtractPattern.serializer().descriptor
-            "data_pointer" -> CustomizedDataPointerPattern.serializer().descriptor
+            "data_pointer" -> DataPointerPattern.serializer().descriptor
             "command_regex" -> CommandRegexPattern.serializer().descriptor
             else -> unreachable
         }

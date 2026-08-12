@@ -1,7 +1,6 @@
 package mct.command
 
 import kotlinx.serialization.Serializable
-import mct.pointer.CustomizedDataPointerPattern
 import mct.pointer.DataPointerPattern
 
 typealias ComponentPatterns = List<ComponentPattern>
@@ -20,9 +19,9 @@ data class ComponentPattern(
 data class CustomizedComponentPattern(
     val namespace: String = "minecraft",
     val name: String,
-    val pattern: CustomizedDataPointerPattern? = null
+    val pattern: DataPointerPattern? = null
 ) {
-    fun compile() = ComponentPattern(namespace, name, pattern?.compile())
+    fun compile() = ComponentPattern(namespace, name, pattern)
 }
 
 private inline fun P(name: String, pattern: DataPointerPattern? = null) =

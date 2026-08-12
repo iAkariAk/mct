@@ -25,7 +25,6 @@ import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
 import mct.nbt.BuiltinNbtPatterns
-import mct.pointer.CustomizedDataPointerPattern
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerPattern
 import mct.pointer.matches
@@ -109,8 +108,7 @@ suspend fun runExtraction(
                         val userPatterns = regionPatternPath.takeIf { it.isNotBlank() }
                             ?.let { p ->
                                 env.fs.read(p.toPath()) { readUtf8() }
-                                    .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
-                                    .map { it.compile() }
+                                    .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
                             }
                         if (userPatterns != null) BuiltinNbtPatterns.toList() + userPatterns
                         else BuiltinNbtPatterns.toList()
@@ -129,8 +127,7 @@ suspend fun runExtraction(
                             val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
-                                        .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
-                                        .map { it.compile() }
+                                        .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
                                 }
                             if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
                             else BuiltinCommandDataPatterns
@@ -159,8 +156,7 @@ suspend fun runExtraction(
                         val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
                             ?.let { p ->
                                 env.fs.read(p.toPath()) { readUtf8() }
-                                    .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
-                                    .map { it.compile() }
+                                    .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
                             }
                         if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
                         else BuiltinCommandDataPatterns
@@ -172,8 +168,7 @@ suspend fun runExtraction(
                             val userPatterns = mcjPatternPath.takeIf { it.isNotBlank() }
                                 ?.let { p ->
                                     env.fs.read(p.toPath()) { readUtf8() }
-                                        .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
-                                        .map { it.compile() }
+                                        .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
                                 }
                             if (userPatterns != null) MCJBuiltinPatterns + userPatterns
                             else MCJBuiltinPatterns
@@ -486,8 +481,7 @@ suspend fun runPointerTest(
 ): Boolean = withContext(Dispatchers.IO) {
     val extra = if (patternPath != null) {
         env.fs.read(patternPath.toPath()) { readUtf8() }
-            .let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it) }
-            .map { it.compile() }
+            .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
     } else emptyList()
 
     val builtin: List<DataPointerPattern> = when (kind) {

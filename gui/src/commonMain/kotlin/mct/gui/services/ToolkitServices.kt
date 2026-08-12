@@ -28,7 +28,6 @@ import mct.model.patch.*
 import mct.mtl.MTLX
 import mct.mtl.generateMTLXTemplate
 import mct.mtl.translateByMTLX
-import mct.pointer.CustomizedDataPointerPattern
 import mct.pointer.DataPointerPattern
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
@@ -130,7 +129,7 @@ suspend fun exportPatternSchema(
 ) = withContext(Dispatchers.IO) {
     val descriptor = when (kind) {
         PatternSchemaKind.Command -> CommandExtractPattern.serializer().descriptor
-        PatternSchemaKind.DataPointer -> CustomizedDataPointerPattern.serializer().descriptor
+        PatternSchemaKind.DataPointer -> DataPointerPattern.serializer().descriptor
         PatternSchemaKind.CommandRegex -> CommandRegexPattern.serializer().descriptor
     }
     val schema = SerializationClassJsonSchemaGenerator(json = MCTJson).generateSchema(descriptor)
@@ -157,7 +156,7 @@ suspend fun testCommandPatterns(
         ?.let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
     val extraCommandData = commandDataPatternPath?.takeIf(String::isNotBlank)
         ?.let { path -> env.fs.read(path.toPath()) { readUtf8() } }
-        ?.let { MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { pattern -> pattern.compile() } }
+        ?.let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
         .orEmpty()
     val command = extraCommand?.compile(!noBuiltin) ?: BuiltinCommandPatterns
     val commandData: List<DataPointerPattern> = if (noBuiltin) extraCommandData

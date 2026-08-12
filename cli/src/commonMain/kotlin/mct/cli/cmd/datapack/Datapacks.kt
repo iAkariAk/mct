@@ -24,7 +24,7 @@ import mct.dp.mcjson.BuiltinMCJPatterns
 import mct.model.patch.DatapackReplacementGroup
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.ReplacementGroup
-import mct.pointer.CustomizedDataPointerPattern
+import mct.pointer.DataPointerPattern
 import mct.serializer.MCTJson
 import mct.util.io.readText
 import mct.util.io.writeJson
@@ -74,10 +74,10 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
     override suspend fun App() {
         val commandPatterns = commandPatternsPath?.jsonFile<List<CommandExtractPattern>>()
         val userMcjPatterns = mcjPatternsPath?.readText()?.let {
-            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+            MCTJson.decodeFromString<List<DataPointerPattern>>(it)
         }
         val userCommandDataPatterns = commandDataPatternsPath?.readText()?.let {
-            MCTJson.decodeFromString<List<CustomizedDataPointerPattern>>(it).map { it.compile() }
+            MCTJson.decodeFromString<List<DataPointerPattern>>(it)
         }
         val mcjPatterns = when {
             disableMCJFilter -> null
