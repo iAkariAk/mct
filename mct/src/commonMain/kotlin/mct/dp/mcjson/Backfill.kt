@@ -19,7 +19,7 @@ context(_: LoggerHolder)
 internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson>): String {
     val jsonElement = MCJson.decodeFromString<JsonElement>(this)
     val ddrg = replacements.map {
-        DataPointerWithValue(it.pointer, it.replacement, it.format)
+        DataPointerWithValue(it.pointer, it.replacement.replacement, it.format)
     }.toReplacementGroups()
     val backfilledJsonElement = jsonElement.transform(ddrg)
     return MCJson.encodeToString(backfilledJsonElement)

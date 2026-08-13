@@ -41,7 +41,7 @@ private fun Sequence<StringIndicesWithSyntaxFormat>.offset(baseIndex: Int): Sequ
 // Refer to https://minecraft.wiki/w/Argument_types
 context(_: Raise<IndexSelectError>)
 private fun selectSnbt(baseIndex: Int, snbt: String, patterns: List<DataPointerPattern>?): SelectResult {
-    val tag = runCatching<SnbtTag> {
+    val tag = runCatching {
         SnbtTag.decodeFromString(snbt)
     }.getOrElse {
         raise(IndexSelectError.Parse(snbt, it.message ?: "<null>"))

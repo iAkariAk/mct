@@ -38,10 +38,9 @@ sealed interface DatapackExtraction : Extraction {
     @SerialName("mcjson")
     data class MCJson(
         val pointer: DataPointer,
-        val content: String,
-        val format: FormatKind
+        val content: ExtractionContent,
     ) : DatapackExtraction {
-        inline fun replace(replacement: (String) -> String) = DatapackReplacement.MCJson(pointer, replacement(content), format)
+        inline fun replace(replacement: (ExtractionContent) -> ReplacementContent) = DatapackReplacement.MCJson(pointer, replacement(content), content.format)
     }
 
     /**
@@ -73,11 +72,11 @@ sealed interface DatapackExtraction : Extraction {
     }
 }
 
-internal inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
-    is DatapackExtraction.MCFunction -> replace(replacement)
-    is DatapackExtraction.MCJson -> replace(replacement)
-    is DatapackExtraction.Nbt -> TODO()
-}
+//internal inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
+//    is DatapackExtraction.MCFunction -> replace(replacement)
+//    is DatapackExtraction.MCJson -> replace(replacement)
+//    is DatapackExtraction.Nbt -> TODO()
+//}
 
 
 /**
@@ -106,7 +105,7 @@ sealed interface DatapackReplacement : Replacement {
     @SerialName("mcfunction")
     data class MCFunction(
         val indices: IntRangeSerializable,
-        override val replacement: String,
+        val replacement: String,
         val syntax: SnbtSyntaxKind?,
     ) : DatapackReplacement
 
@@ -119,7 +118,7 @@ sealed interface DatapackReplacement : Replacement {
     @SerialName("mcjson")
     data class MCJson(
         val pointer: DataPointer,
-        override val replacement: String,
+        val replacement: ReplacementContent,
         val format: FormatKind
     ) : DatapackReplacement
 
@@ -128,6 +127,5 @@ sealed interface DatapackReplacement : Replacement {
     data class Nbt(
         val nbt: NbtReplacement,
     ) : DatapackReplacement {
-        override val replacement get() = nbt.replacement
     }
 }

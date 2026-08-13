@@ -24,9 +24,7 @@ sealed interface ReplacementGroup {
 }
 
 @Serializable
-sealed interface Replacement {
-    val replacement: String
-}
+sealed interface Replacement
 
 // Used for representing which form a data was stored
 @Serializable
@@ -80,11 +78,12 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.inferFormatKind(shouldTextComponent: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind = when {
-    if (shouldTextComponent) isTextComponentSnbt() else isSnbt() -> FormatKind.SnbtStr
-    if (shouldTextComponent) isTextComponentJson(json) else isJson(json) -> FormatKind.JsonStr
-    else -> FormatKind.PlainStr
-}
+fun String.inferFormatKind(shouldTextComponent: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind =
+    when {
+        if (shouldTextComponent) isTextComponentSnbt() else isSnbt() -> FormatKind.SnbtStr
+        if (shouldTextComponent) isTextComponentJson(json) else isJson(json) -> FormatKind.JsonStr
+        else -> FormatKind.PlainStr
+    }
 
 fun FormatKind.isString(): Boolean =
     this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr
@@ -95,16 +94,18 @@ fun FormatKind.validate(value: String): Boolean = when (this) {
     PlainStr -> true
 }
 
-inline fun Extraction.contents() = when (this) {
+inline fun Extraction.contents(): Sequence<String> = when (this) {
     is DatapackExtraction.MCFunction -> sequenceOf(unquoted())
-    is DatapackExtraction.MCJson -> sequenceOf(content)
-    is RegionExtraction -> when (nbt) {
-        is NbtExtraction.Command -> nbt.locations.asSequence().map { it.unquoted() }
-        is NbtExtraction.Text -> sequenceOf(nbt.content)
-    }
-
-    is DatapackExtraction.Nbt -> when (nbt) {
-        is NbtExtraction.Command -> nbt.locations.asSequence().map { it.unquoted() }
-        is NbtExtraction.Text -> sequenceOf(nbt.content)
+    else -> {
+        val content = when (this) {
+            is DatapackExtraction.MCJson -> content
+            is DatapackExtraction.Nbt -> nbt.content
+            is RegionExtraction -> nbt.content
+        }
+        when (content) {
+            is Command -> content.locations.asSequence().map { it.unquoted() }
+            is Text -> sequenceOf(content.content)
+            // TODO
+        }
     }
 }

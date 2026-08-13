@@ -7,38 +7,51 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import mct.LoggerHolder
+import mct.MCTPattern
 import mct.dp.MCJsonExtractError
+import mct.model.patch.ExtractionContent
 import mct.model.patch.FormatKind
 import mct.model.patch.inferFormatKind
 import mct.model.text.isTextComponent
 import mct.model.text.isTextComponentShorthanded
-import mct.pointer.*
+import mct.pointer.DataPointer
+import mct.pointer.compile
+import mct.pointer.markArray
+import mct.pointer.markMap
 import mct.util.decodeFromString
 import mct.util.toJson
 import okio.Path
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
 
 
-context(_: Raise<MCJsonExtractError>)
+context(_: Raise<MCJsonExtractError>, _: LoggerHolder)
 internal fun extractTextMCJ(
     json: String,
     source: String,
     path: Path,
-    patterns: List<DataPointerPattern>? = BuiltinMCJPatterns,
+    pattern: MCTPattern = MCTPattern.Default,
 ): Sequence<MCJsonExtraction> = try {
     val jsonElement = MCJson.decodeFromString<JsonElement>(json)
 
-    jsonElement.extractTextsByPointer()
-        .filter {
-            it.pointer.compile().matches(patterns)
-        }
+    val mcjsonPatterns = pattern.mcjson
+    jsonElement.extractTextsByPointer().mapNotNull { pwe ->
+        if (mcjsonPatterns != null) pwe.pointer.compile().matched(mcjsonPatterns)?.let { mcjsonPattern ->
+            val content = mcjsonPattern.kind.parse(pwe.content, pwe.format, pattern) ?: return@mapNotNull null
+            MCJsonExtraction(pwe.pointer, content)
+        } else MCJsonExtraction(pwe.pointer, ExtractionContent.Text(pwe.format, pwe.content))
+    }
 
 } catch (e: SerializationException) {
     raise(MCJsonExtractError.JsonSyntaxError(source, path, e))
 }
 
 
-private typealias PointerWithExtension = MCJsonExtraction // avoid to map object
+private data class PointerWithExtension(
+    val pointer: DataPointer,
+    val content: String,
+    val format: FormatKind
+)
 
 // coped from NbtTag.PointerWithExtension
 private fun JsonElement.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {

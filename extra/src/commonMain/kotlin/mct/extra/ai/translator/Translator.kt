@@ -379,10 +379,10 @@ suspend fun Translator.translate(
     }
     val extractions = groups.flatMap { it.extractions }.groupBy {
         when (it) {
-            is DatapackExtraction.MCJson -> it.format
+            is DatapackExtraction.MCJson -> it.content.format
             is DatapackExtraction.MCFunction -> it.format
-            is RegionExtraction -> it.nbt.format
-            is DatapackExtraction.Nbt -> it.nbt.format
+            is RegionExtraction -> it.nbt.content.format
+            is DatapackExtraction.Nbt -> it.nbt.content.format
         }
     }
     val mapping = mutableMapOf<String, String?>()

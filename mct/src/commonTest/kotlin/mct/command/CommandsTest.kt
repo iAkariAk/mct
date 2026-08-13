@@ -16,7 +16,6 @@ import mct.dp.mcfunction.backfillMCFunction
 import mct.mappings
 import mct.model.patch.*
 import mct.model.patch.DatapackReplacement.MCFunction
-import mct.pointer.DataPointer
 import mct.util.unreachable
 
 class CommandsTest : StringSpec({
@@ -107,7 +106,7 @@ class CommandsTest : StringSpec({
     "test practice" {
         val extractions = extractText(TestFunctions.update_billboard)
         val replacements = extractions.mapNotNull {
-            it.replace {
+            it.replaceSimply {
                 mappings[it] ?: return@mapNotNull null
             } as MCFunction
         }
@@ -224,12 +223,11 @@ class CommandsTest : StringSpec({
 
         val raw = "AAAAABBBBB"
         val locations = listOf(
-            NbtExtraction.Command.Location(0..4, "AAAAA", null),
-            NbtExtraction.Command.Location(5..9, "BBBBB", null),
+            ExtractionContent.Command.Location(0..4, "AAAAA", null),
+            ExtractionContent.Command.Location(5..9, "BBBBB", null),
         )
 
-        val cmd = NbtExtraction.Command(
-            pointer = DataPointer.Terminator,
+        val cmd = ExtractionContent.Command(
             raw = raw,
             locations = locations,
         )
@@ -248,12 +246,11 @@ class CommandsTest : StringSpec({
         // Broken:  A->YYYYY, B->XXXXX  (result: "YYYYY-XXXXX")
         val raw = "AAAAA-BBBBB"
         val locations = listOf(
-            NbtExtraction.Command.Location(0..4, "AAAAA", null),
-            NbtExtraction.Command.Location(6..10, "BBBBB", null),
+            ExtractionContent.Command.Location(0..4, "AAAAA", null),
+            ExtractionContent.Command.Location(6..10, "BBBBB", null),
         )
 
-        val cmd = NbtExtraction.Command(
-            pointer = DataPointer.Terminator,
+        val cmd = ExtractionContent.Command(
             raw = raw,
             locations = locations,
         )
@@ -263,12 +260,11 @@ class CommandsTest : StringSpec({
     }
 
     "test NBT command replacement should fail when locations overlap" {
-        val command = NbtExtraction.Command(
-            pointer = DataPointer.Terminator,
+        val command = ExtractionContent.Command(
             raw = "say @p[name=foo]",
             locations = listOf(
-                NbtExtraction.Command.Location(4..15, "@p[name=foo]", null),
-                NbtExtraction.Command.Location(12..14, "foo", SnbtSyntaxKind.LiteralString),
+                ExtractionContent.Command.Location(4..15, "@p[name=foo]", null),
+                ExtractionContent.Command.Location(12..14, "foo", SnbtSyntaxKind.LiteralString),
             ),
         )
 
@@ -325,7 +321,7 @@ class CommandsTest : StringSpec({
         slice shouldNotBe null
 
         // Convert to Location as done in region/Extract.kt
-        val location = NbtExtraction.Command.Location(
+        val location = ExtractionContent.Command.Location(
             indices = slice!!.indices,
             content = slice.content,
             syntax = slice.syntax,

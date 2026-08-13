@@ -74,8 +74,6 @@ data class RegionReplacement(
     val index: Int,
     val nbt: NbtReplacement,
 ) : Replacement {
-    override val replacement: String
-        get() = nbt.replacement
 }
 
 

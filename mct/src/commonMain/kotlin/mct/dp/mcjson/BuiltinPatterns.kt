@@ -2,6 +2,7 @@
 
 package mct.dp.mcjson
 
+import mct.model.patch.ContentKind
 import mct.pointer.ComponentPatterns
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
@@ -49,4 +50,7 @@ val BuiltinMCJPatterns = PatternSet {
     // Song title/description as plain string, e.g. "Cat - C418"
     // Or item desctiption
     +RightPattern(">#description")
+
+    // --- Functions ---
+    +RegexPattern(""">#functions>\d+>#tag$""", kind = ContentKind.Structure(SnbtStr)) // minecraft:set_nbt
 }

@@ -22,7 +22,7 @@ private fun List<NbtTag>.toTCListStandardized() = map {
             buildIRObject { put("text", it.value) },
         ).toIR().toNbtTag() as NbtCompound
         is NbtCompound -> it
-        else -> error("Unexpected tag type $it")
+        else -> error("Unexpected tag type $it in $this")
     }
 }.let { NbtList(it) }
 

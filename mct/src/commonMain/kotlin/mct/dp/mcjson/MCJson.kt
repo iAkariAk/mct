@@ -23,7 +23,7 @@ internal fun MCJsonExtractor(
             text,
             source = sourcePath.name,
             path = file.path,
-            pattern.mcjson
+            pattern
         ).toList()
     } finally {
         close(source)

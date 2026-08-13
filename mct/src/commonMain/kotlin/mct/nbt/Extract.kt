@@ -2,7 +2,7 @@ package mct.nbt
 
 import mct.LoggerHolder
 import mct.MCTPattern
-import mct.command.extractTextFromCommands
+import mct.model.patch.ExtractionContent
 import mct.model.patch.FormatKind
 import mct.model.patch.NbtExtraction
 import mct.model.patch.inferFormatKind
@@ -22,25 +22,11 @@ import net.benwoodworth.knbt.NbtTag
 context(_: LoggerHolder)
 internal fun NbtTag.extractTexts(pattern: MCTPattern): Sequence<NbtExtraction> =
     extractTextsByPointer().mapNotNull { pwe ->
-        val (pointer, _, format, type) = pwe
-        when (type) {
-            Command -> {
-                val content = pwe.content
-                NbtExtraction.Command(
-                    pointer = pointer,
-                    raw = content,
-                    locations = extractTextFromCommands(
-                        commandStr = content,
-                        patterns = pattern
-                    ).takeIf { it.isNotEmpty() }?.map {
-                        NbtExtraction.Command.Location(it.indices, it.content, it.syntax, it.format)
-                    } ?: return@mapNotNull null)
-            }
-
-            Text if pointer.compile().matches(pattern.nbt) -> NbtExtraction.Text(pointer, format, pwe.content)
-
-            else -> null
-        }
+        val nbtPatterns = pattern.nbt
+        if (nbtPatterns != null) pwe.pointer.compile().matched(nbtPatterns)?.let { dataPointerPattern ->
+            val content = dataPointerPattern.kind.parse(pwe.content, pwe.format, pattern) ?: return@mapNotNull null
+            NbtExtraction(pwe.pointer, content)
+        } else NbtExtraction(pwe.pointer, ExtractionContent.Text(pwe.format, pwe.content))
     }
 
 
@@ -48,7 +34,6 @@ private data class PointerWithExtension(
     val pointer: DataPointer,
     val contentProvider: Any, // () -> String | String
     val format: FormatKind,
-    val type: Type = Text,
 ) {
     @Suppress("UNCHECKED_CAST")
     val content
@@ -56,10 +41,6 @@ private data class PointerWithExtension(
             is String -> contentProvider
             else -> (contentProvider as? () -> String ?: unreachable)()
         }
-
-    enum class Type {
-        Command, Text
-    }
 }
 
 private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = when (this) {
@@ -87,15 +68,6 @@ private fun NbtTag.extractTextsByPointer(): Sequence<PointerWithExtension> = whe
 
         sequenceOf(PointerWithExtension(DataPointer.Terminator, { expanded.toSnbt() }, FormatKind.Nbt))
     } else asSequence().flatMap { (key, value) ->
-        if (key == "Command" && value is NbtString) {
-            val pwe = PointerWithExtension(
-                DataPointer.Map("Command", DataPointer.Terminator),
-                value.value,
-                FormatKind.PlainStr,
-                Command
-            )
-            return@flatMap sequenceOf(pwe)
-        }
         value.extractTextsByPointer().map {
             it.copy(pointer = it.pointer.markMap(key))
         }
