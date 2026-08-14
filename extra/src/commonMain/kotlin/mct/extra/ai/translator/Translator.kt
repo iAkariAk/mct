@@ -13,7 +13,10 @@ import mct.EnvHolder
 import mct.command.MCCommandJson
 import mct.extra.ai.*
 import mct.kit.TranslationMapping
-import mct.model.patch.*
+import mct.model.patch.ExtractionGroup
+import mct.model.patch.FormatKind
+import mct.model.patch.contentsWithFormat
+import mct.model.patch.validate
 import mct.model.text.*
 import mct.notify
 import mct.serializer.MCTJson
@@ -377,14 +380,11 @@ suspend fun Translator.translate(
         logger.debug { "Skipping empty group" }
         return@coroutineScope emptyMap()
     }
-    val extractions = groups.flatMap { it.extractions }.groupBy {
-        when (it) {
-            is DatapackExtraction.MCJson -> it.content.format
-            is DatapackExtraction.MCFunction -> it.format
-            is RegionExtraction -> it.nbt.content.format
-            is DatapackExtraction.Nbt -> it.nbt.content.format
-        }
-    }
+    val extractions = LinkedHashMap<FormatKind, MutableList<String>>()
+    for ((key, second) in groups.flatMap { it.extractions.flatMap { it.contentsWithFormat() } }) {
+        val list = extractions.getOrPut(key) { ArrayList() }
+        list.add(second)
+    } // group by kind and map its value
     val mapping = mutableMapOf<String, String?>()
     val mappingMutex = Mutex()
 
@@ -403,9 +403,10 @@ suspend fun Translator.translate(
     val cancelled = AtomicBoolean(false)
     extractions.forEach { (kind, extractions) ->
         execute { append ->
-            val sources = extractions.asSequence().flatMap {
-                it.contents().filter(String::isNotBlank)
-            }.distinct().filter { it !in caches }.toList()
+            val sources = extractions.asSequence()
+                    .filter(String::isNotBlank)
+                    .distinct()
+                    .filter { it !in caches }.toList()
             val translated = translate(kind, sources) { translated ->
                 val salvaged = translated.export(sources)
                 if (cancelled.compareAndSet(expected = false, new = true)) {

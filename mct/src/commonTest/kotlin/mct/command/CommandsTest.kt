@@ -106,9 +106,9 @@ class CommandsTest : StringSpec({
     "test practice" {
         val extractions = extractText(TestFunctions.update_billboard)
         val replacements = extractions.mapNotNull {
-            it.replaceSimply {
-                mappings[it] ?: return@mapNotNull null
-            } as MCFunction
+            context(Logger.Console()) {
+                it.replaceSimply { mappings[it] } as MCFunction?
+            }
         }
 
         extractions.forEach {

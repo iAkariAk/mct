@@ -15,8 +15,10 @@ val BuiltinNbtPatterns = PatternSet {
     +RightPattern(">#CustomName")
 
     // --- Item Display & Lore (Legacy/General) ---
-    +RightPattern("#display>#Name")                   // Item custom name
-    +RightPattern("#display>#Lore")                   // Item lore lines
+    listOf("display", "SkullOwner").forEach { parent ->
+        +RightPattern(">#$parent>#Name")                   // Item custom name
+        +RightPattern(">#$parent>#Lore")                   // Item lore lines
+    }
 
     // Nested text in data components: instrument.description (text component)
     +RegexPattern("""#instrument>#description$""")

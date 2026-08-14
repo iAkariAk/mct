@@ -3,6 +3,7 @@ package mct.mtl
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
+import mct.LoggerHolder
 import mct.command.MCCommandJson
 import mct.kit.TranslationPool
 import mct.model.patch.ExtractionGroup
@@ -21,6 +22,7 @@ import net.benwoodworth.knbt.NbtTag
  * Should keep all mapping follow [isConsistent];
  * otherwise will cause unexpected loss
  */
+context(_: LoggerHolder)
 fun List<ExtractionGroup>.replaceByMTL(
     mappings: MTLMappings,
     default: (String) -> String?
@@ -30,6 +32,7 @@ fun List<ExtractionGroup>.replaceByMTL(
     } ?: default(it)
 }
 
+context(_: LoggerHolder)
 fun List<ExtractionGroup>.replaceByMTLX(mtlx: MTLX) = replaceByMTL(mtlx.mtlMappings, mtlx.rawMappings::get)
 
 fun TranslationPool.translateByMTLX(mtlx: MTLX) = associateWith {

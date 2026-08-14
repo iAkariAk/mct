@@ -83,7 +83,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                             val ddrg = replacements.map {
                                 DataPointerWithValue(it.nbt.pointer, it.nbt.content.replacement, it.nbt.content.format)
                             }.toReplacementGroups()
-                            val handled = origin.transform(ddrg) ?: origin
+                            val handled = origin.transform(ddrg)
                             runCatching {
                                 val sink = getSink()
                                 NbtGzip.encodeToSink(handled, sink)
@@ -103,4 +103,5 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
         }
     }
 }
+
 

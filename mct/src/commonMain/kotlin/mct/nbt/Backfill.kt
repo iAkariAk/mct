@@ -1,12 +1,16 @@
 package mct.nbt
 
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import mct.LoggerHolder
 import mct.logger
 import mct.model.patch.FormatKind
+import mct.model.patch.IPointedReplacementContent
 import mct.model.patch.isString
 import mct.model.text.TextComponent
 import mct.pointer.DataPointerReplacementGroup
+import mct.pointer.DataPointerWithValue
+import mct.pointer.toReplacementGroups
 import mct.serializer.Snbt
 import mct.util.formatir.buildIRObject
 import mct.util.formatir.put
@@ -16,11 +20,27 @@ import net.benwoodworth.knbt.NbtList
 import net.benwoodworth.knbt.NbtString
 import net.benwoodworth.knbt.NbtTag
 
+context(_: LoggerHolder)
+fun String.backfillSnbt(replacements: List<IPointedReplacementContent>): String {
+    val tag = Snbt.decodeFromString<NbtTag>(this)
+    val backfilledTag = tag.backfill(replacements)
+    return Snbt.encodeToString(backfilledTag)
+}
+
+context(_: LoggerHolder)
+fun NbtTag.backfill(replacements: List<IPointedReplacementContent>): NbtTag {
+    val ddrg = replacements.map {
+        DataPointerWithValue(it.pointer, it.replacement, it.format)
+    }.toReplacementGroups()
+    return transform(ddrg)
+}
+
 private fun List<NbtTag>.toTCListStandardized() = map {
     when (it) {
         is NbtString -> TextComponent.Plain(
             buildIRObject { put("text", it.value) },
         ).toIR().toNbtTag() as NbtCompound
+
         is NbtCompound -> it
         else -> error("Unexpected tag type $it in $this")
     }
@@ -44,7 +64,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
 
 
 context(_: LoggerHolder)
-internal fun NbtTag.transform(pointers: List<DataPointerReplacementGroup>): NbtTag? = when (this) {
+internal fun NbtTag.transform(pointers: List<DataPointerReplacementGroup>): NbtTag = when (this) {
     is NbtList<*> -> {
         pointers.decodeTerminatorOrNull<NbtList<NbtTag>>()?.let {
             return it
@@ -56,7 +76,7 @@ internal fun NbtTag.transform(pointers: List<DataPointerReplacementGroup>): NbtT
         val transformed = toMutableList()
         pointers.forEach { pointer ->
             val orig = transformed[pointer.point]
-            transformed[pointer.point] = orig.transform(pointer.values) ?: orig
+            transformed[pointer.point] = orig.transform(pointer.values)
         }
         transformed.toTCListStandardized()
     }
@@ -70,7 +90,7 @@ internal fun NbtTag.transform(pointers: List<DataPointerReplacementGroup>): NbtT
         val transformed = toMutableMap()
         pointers.forEach { pointer ->
             transformed[pointer.point]?.let {
-                transformed[pointer.point] = it.transform(pointer.values) ?: it
+                transformed[pointer.point] = it.transform(pointer.values)
             }
         }
         NbtCompound(transformed)

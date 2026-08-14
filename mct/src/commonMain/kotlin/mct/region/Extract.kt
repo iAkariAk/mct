@@ -7,7 +7,7 @@ import mct.MCTPattern
 import mct.MCTWorkspace
 import mct.model.patch.RegionExtraction
 import mct.model.patch.RegionExtractionGroup
-import mct.nbt.extractTexts
+import mct.nbt.extractText
 import mct.region.anvil.Coord
 import mct.region.anvil.model.ChunkDataKind
 import mct.util.IO
@@ -38,7 +38,7 @@ fun MCTWorkspace.extractFromRegion(
                                         emptySequence()
                                     },
                                     ifRight = { data ->
-                                        data.extractTexts(pattern).map {
+                                        data.extractText(pattern).map {
                                             RegionExtraction(index = chunk.index, nbt = it)
                                         }
                                     }

@@ -2,7 +2,6 @@ package mct.model.patch
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.pointer.DataPointer
 import mct.serializer.IntRangeSerializable
 
 /**
@@ -32,15 +31,18 @@ data class DatapackExtractionGroup(
 sealed interface DatapackExtraction : Extraction {
     /**
      * A text-based extraction from a file within a datapack.
-     * @property pointer The JsonElement path/pointer to the specific tag.
      */
     @Serializable
     @SerialName("mcjson")
     data class MCJson(
-        val pointer: DataPointer,
-        val content: ExtractionContent,
-    ) : DatapackExtraction {
-        inline fun replace(replacement: (ExtractionContent) -> ReplacementContent) = DatapackReplacement.MCJson(pointer, replacement(content), content.format)
+        val content: PointedExtractionContent,
+    ) : DatapackExtraction, IPointedExtractionContent {
+        override val pointer get() = content.pointer
+        override val format get() = content.content.format
+        override val extraction get() = content.content
+
+        inline fun replace(replace: (ExtractionContent) -> ReplacementContent) =
+            DatapackReplacement.MCJson(content.replace(replace))
     }
 
     /**
@@ -66,9 +68,14 @@ sealed interface DatapackExtraction : Extraction {
     @Serializable
     @SerialName("nbt")
     data class Nbt(
-        val nbt: NbtExtraction,
+        val nbt: PointedExtractionContent,
     ) : DatapackExtraction {
-        inline fun replace(replace: (NbtExtraction) -> NbtReplacement) = DatapackReplacement.Nbt(replace(nbt))
+        val pointer get() = nbt.pointer
+        val format get() = nbt.content.format
+        val extraction get() = nbt.content
+
+        inline fun replace(replace: (ExtractionContent) -> ReplacementContent) =
+            DatapackReplacement.Nbt(nbt.replace(replace))
     }
 }
 
@@ -111,21 +118,25 @@ sealed interface DatapackReplacement : Replacement {
 
     /**
      * A text replacement for a datapack file.
-     * @property pointer The JSONElement path/pointer to the specific tag.
-     * @property replacement The new string content to insert.
+     * Delegated to MCJsonBackfillReplacement
      */
     @Serializable
     @SerialName("mcjson")
     data class MCJson(
-        val pointer: DataPointer,
-        val replacement: ReplacementContent,
-        val format: FormatKind
-    ) : DatapackReplacement
+        val content: PointedReplacementContent,
+    ) : DatapackReplacement, IPointedReplacementContent {
+        override val pointer get() = content.pointer
+        override val replacement get() = content.content.replacement
+        override val format get() = content.content.format
+    }
 
     @Serializable
     @SerialName("nbt")
     data class Nbt(
-        val nbt: NbtReplacement,
+        val nbt: PointedReplacementContent,
     ) : DatapackReplacement {
+        val pointer get() = nbt.pointer
+        val format get() = nbt.content.format
+        val replacement get() = nbt.content.replacement
     }
 }

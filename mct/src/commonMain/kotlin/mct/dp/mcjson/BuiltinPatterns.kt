@@ -3,6 +3,7 @@
 package mct.dp.mcjson
 
 import mct.model.patch.ContentKind
+import mct.model.patch.ContentKind.Structure.PatternKind
 import mct.pointer.ComponentPatterns
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
@@ -46,11 +47,17 @@ val BuiltinMCJPatterns = PatternSet {
     +RegexPattern(""">#functions>\d+>#modifiers>\d+>#name$""")
     +RegexPattern(""">\d+>#lore""")
 
+    // --- Functions ---
+    // minecraft:set_nbt
+    +RegexPattern(
+        """>#functions>\d+>#tag$""",
+        kind = ContentKind.Structure(SnbtStr, PatternKind.InheritFrom.Nbt)
+    ) // minecraft:set_nbt
+
+
     // --- Jukebox Songs (1.21+) ---
     // Song title/description as plain string, e.g. "Cat - C418"
     // Or item desctiption
     +RightPattern(">#description")
 
-    // --- Functions ---
-    +RegexPattern(""">#functions>\d+>#tag$""", kind = ContentKind.Structure(SnbtStr)) // minecraft:set_nbt
 }

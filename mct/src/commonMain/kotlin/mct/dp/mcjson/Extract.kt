@@ -12,40 +12,55 @@ import mct.MCTPattern
 import mct.dp.MCJsonExtractError
 import mct.model.patch.ExtractionContent
 import mct.model.patch.FormatKind
+import mct.model.patch.PointedExtractionContent
 import mct.model.patch.inferFormatKind
 import mct.model.text.isTextComponent
 import mct.model.text.isTextComponentShorthanded
-import mct.pointer.DataPointer
-import mct.pointer.compile
-import mct.pointer.markArray
-import mct.pointer.markMap
+import mct.pointer.*
 import mct.util.decodeFromString
 import mct.util.toJson
 import okio.Path
+import org.intellij.lang.annotations.Language
 import mct.model.patch.DatapackExtraction.MCJson as MCJsonExtraction
 
 
 context(_: Raise<MCJsonExtractError>, _: LoggerHolder)
-internal fun extractTextMCJ(
+internal fun extractTextFromMCJson(
+    @Language("json")
     json: String,
     source: String,
     path: Path,
     pattern: MCTPattern = MCTPattern.Default,
+    mcjsonPatterns: List<DataPointerPattern>? = pattern.mcjson
 ): Sequence<MCJsonExtraction> = try {
-    val jsonElement = MCJson.decodeFromString<JsonElement>(json)
-
-    val mcjsonPatterns = pattern.mcjson
-    jsonElement.extractTextsByPointer().mapNotNull { pwe ->
-        if (mcjsonPatterns != null) pwe.pointer.compile().matched(mcjsonPatterns)?.let { mcjsonPattern ->
-            val content = mcjsonPattern.kind.parse(pwe.content, pwe.format, pattern) ?: return@mapNotNull null
-            MCJsonExtraction(pwe.pointer, content)
-        } else MCJsonExtraction(pwe.pointer, ExtractionContent.Text(pwe.format, pwe.content))
-    }
-
+    extractTextFromMCJson(json, pattern, mcjsonPatterns).map { MCJsonExtraction(it) }
 } catch (e: SerializationException) {
     raise(MCJsonExtractError.JsonSyntaxError(source, path, e))
 }
 
+context(_: LoggerHolder)
+internal fun extractTextFromMCJson(
+    @Language("json")
+    json: String,
+    pattern: MCTPattern = MCTPattern.Default,
+    mcjsonPatterns: List<DataPointerPattern>? = pattern.mcjson
+): Sequence<PointedExtractionContent> {
+    val jsonElement = MCJson.decodeFromString<JsonElement>(json)
+    return jsonElement.extractText(pattern, mcjsonPatterns)
+}
+
+context(_: LoggerHolder)
+internal fun JsonElement.extractText(
+    pattern: MCTPattern = MCTPattern.Default,
+    mcjsonPatterns: List<DataPointerPattern>? = pattern.mcjson
+): Sequence<PointedExtractionContent> {
+    return extractTextsByPointer().mapNotNull { pwe ->
+        if (mcjsonPatterns != null) pwe.pointer.compile().matched(mcjsonPatterns)?.let { mcjsonPattern ->
+            val content = mcjsonPattern.kind.parse(pwe.content, pwe.format, pattern) ?: return@mapNotNull null
+            PointedExtractionContent(pwe.pointer, content)
+        } else PointedExtractionContent(pwe.pointer, ExtractionContent.Text(pwe.format, pwe.content))
+    }
+}
 
 private data class PointerWithExtension(
     val pointer: DataPointer,

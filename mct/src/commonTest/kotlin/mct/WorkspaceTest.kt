@@ -41,8 +41,10 @@ class WorkspaceTest : StringSpec({
         val workspace = TestMapWorkspace()
         shouldNotRaise {
             val extractions = workspace.extractFromRegion().toList()
-            val replacements = extractions.replaceSimply {
-                "Kaguya&Iroha"
+            val replacements = context(workspace) {
+                extractions.replaceSimply {
+                    "Kaguya&Iroha"
+                }
             }
             workspace.backfillRegion(replacements.filterIsInstance<RegionReplacementGroup>())
 
@@ -57,8 +59,10 @@ class WorkspaceTest : StringSpec({
         val workspace = TestMapWorkspace()
         shouldNotRaise {
             val extractions = workspace.extractFromDatapack().toList()
-            val replacements = extractions.replaceSimply {
-                "Kaguya&Iroha"
+            val replacements = context(workspace) {
+                extractions.replaceSimply {
+                    "Kaguya&Iroha"
+                }
             }
             workspace.backfillDatapack(replacements.filterIsInstance<DatapackReplacementGroup>())
 

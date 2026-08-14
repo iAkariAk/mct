@@ -30,11 +30,13 @@ fun String.escaped(): String {
 }
 
 fun String.doubleQuoted() = """"${escaped()}""""
-fun String.singleQuoted(): String {
-    require('\'' !in this) {
-        "Cannot quote '"
+fun String.singleQuoted(): String = buildString {
+    append('\'')
+    for (ch in this@singleQuoted) {
+        if (ch == '\'') append("\\'")
+        else append(ch)
     }
-    return "'$this'"
+    append('\'')
 }
 
 fun String.singleUnquoted(): String {
@@ -98,7 +100,7 @@ fun CharSequence.removeSuffixOrNull(suffix: CharSequence): CharSequence? =
     else null
 
 
-fun Int.codePointToString() = when(this) {
+fun Int.codePointToString() = when (this) {
     in 0..0xFFFF -> toChar().toString()
     in 0x10000..0x10FFFF -> {
         val offset = (this - 0x10000)
@@ -109,5 +111,6 @@ fun Int.codePointToString() = when(this) {
             append((0xDC00 + low10).toChar())
         }
     }
+
     else -> throw IllegalArgumentException("$this isn't a legal code point")
 }

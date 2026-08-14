@@ -19,7 +19,7 @@ internal fun MCJsonExtractor(
     val source = getSource()
     val text = source.readUtf8()
     try {
-        extractTextMCJ(
+        extractTextFromMCJson(
             text,
             source = sourcePath.name,
             path = file.path,

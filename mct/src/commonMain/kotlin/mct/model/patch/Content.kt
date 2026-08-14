@@ -5,23 +5,83 @@ import kotlinx.serialization.Serializable
 import mct.LoggerHolder
 import mct.MCTPattern
 import mct.command.extractTextFromCommands
+import mct.dp.mcjson.backfillMCJson
+import mct.dp.mcjson.extractTextFromMCJson
+import mct.nbt.backfillSnbt
+import mct.nbt.extractTextFromSnbt
+import mct.pointer.DataPointer
+import mct.pointer.DataPointerPattern
 import mct.serializer.IntRangeSerializable
 import mct.util.StringIndices
 
+context(_: LoggerHolder)
 inline fun ExtractionContent.replace(
-    replace: (String) -> String?,
+    noinline replace: (String) -> String?,
 ): ReplacementContent? = replace(
     replaceText = replace,
     replaceCommand = { it.map(replace) }
 )
 
-inline fun ExtractionContent.replace(
+context(_: LoggerHolder)
+fun ExtractionContent.replace(
     replaceText: (String) -> String?,
     replaceCommand: (List<String>) -> List<String?>,
 ): ReplacementContent? = when (this) {
     is ExtractionContent.Command -> replace(replaceCommand)
     is ExtractionContent.Text -> replace(replaceText)
+    is ExtractionContent.Structure -> replaceX(replaceText, replaceCommand)
 }
+
+fun ExtractionContent.contentsWithFormat(): Sequence<Pair<FormatKind, String>> = when (this) {
+    is ExtractionContent.Command -> locations.asSequence().map { it.format to it.unquoted() }
+    is ExtractionContent.Structure -> contents.asSequence().flatMap { it.content.contentsWithFormat() }
+    is ExtractionContent.Text -> sequenceOf(format to content)
+}
+
+fun ExtractionContent.contents(): Sequence<String> = when (this) {
+    is ExtractionContent.Command -> locations.asSequence().map { it.unquoted() }
+    is ExtractionContent.Structure -> contents.asSequence().flatMap { it.content.contents() }
+    is ExtractionContent.Text -> sequenceOf(content)
+}
+
+interface PointedContent<T> {
+    val pointer: DataPointer
+    val content: T
+}
+
+interface IPointedExtractionContent {
+    val pointer: DataPointer
+    val format: FormatKind
+    val extraction: ExtractionContent
+}
+
+@Serializable
+data class PointedExtractionContent(
+    override val pointer: DataPointer,
+    override val content: ExtractionContent
+) : PointedContent<ExtractionContent>, IPointedExtractionContent {
+    override val format get() = content.format
+    override val extraction get() = content
+}
+
+
+interface IPointedReplacementContent {
+    val pointer: DataPointer
+    val replacement: String
+    val format: FormatKind
+}
+
+@Serializable
+data class PointedReplacementContent(
+    override val pointer: DataPointer,
+    override val content: ReplacementContent
+) : PointedContent<ReplacementContent>, IPointedReplacementContent {
+    override val format get() = content.format
+    override val replacement get() = content.replacement
+}
+
+inline fun PointedExtractionContent.replace(replace: (ExtractionContent) -> ReplacementContent) =
+    PointedReplacementContent(pointer, replace(content))
 
 @Serializable
 sealed interface ExtractionContent {
@@ -33,7 +93,8 @@ sealed interface ExtractionContent {
         override val format: FormatKind = PlainStr,
         val content: String,
     ) : ExtractionContent {
-        inline fun replace(replace: (String) -> String?): ReplacementContent.Text? = ReplacementContent.Text(format, replace(content) ?: return null)
+        inline fun replace(replace: (String) -> String?): ReplacementContent.Text? =
+            ReplacementContent.Text(format, replace(content) ?: return null)
     }
 
     @Serializable
@@ -73,6 +134,32 @@ sealed interface ExtractionContent {
             )
         }
     }
+
+    @Serializable
+    @SerialName("structure")
+    data class Structure(
+        override val format: FormatKind = PlainStr,
+        val raw: String,
+        val contents: List<PointedExtractionContent>
+    ) : ExtractionContent {
+        context(_: LoggerHolder)
+        fun replaceX(
+            replaceText: (String) -> String?,
+            replaceCommand: (List<String>) -> List<String?>,
+        ): ReplacementContent.Structure? = if (contents.isEmpty()) null
+        else {
+            val replacements = contents.mapNotNull {
+                it.replace { it.replace(replaceText, replaceCommand) ?: return@mapNotNull null }
+            }.ifEmpty { return null }
+            val replacement = when (format) {
+                PlainStr -> raw
+                SnbtStr, Nbt -> raw.backfillSnbt(replacements)
+                JsonStr, JsonObj -> raw.backfillMCJson(replacements)
+            }
+
+            ReplacementContent.Structure(format, replacement)
+        }
+    }
 }
 
 @Serializable
@@ -95,19 +182,35 @@ sealed interface ReplacementContent {
     ) : ReplacementContent {
         override val format: FormatKind get() = FormatKind.PlainStr
     }
+
+    @Serializable
+    @SerialName("structure")
+    data class Structure(
+        override val format: FormatKind,
+        override val replacement: String
+    ) : ReplacementContent
+
+
 }
 
 @Serializable
-sealed interface ContentKind {
+sealed class ContentKind {
     context(_: LoggerHolder)
-    fun parse(raw: String, format: FormatKind = PlainStr, pattern: MCTPattern = MCTPattern.Default): ExtractionContent?
+    abstract fun parse(
+        raw: String,
+        format: FormatKind = PlainStr,
+        pattern: MCTPattern = MCTPattern.Default
+    ): ExtractionContent?
 
-    data object Text : ContentKind {
+    @Serializable
+    data object Text : ContentKind() {
         context(_: LoggerHolder)
-        override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent = ExtractionContent.Text(format, raw)
+        override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent =
+            ExtractionContent.Text(format, raw)
     }
 
-    data object Command : ContentKind {
+    @Serializable
+    data object Command : ContentKind() {
         context(_: LoggerHolder)
         override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? {
             return ExtractionContent.Command(
@@ -121,14 +224,54 @@ sealed interface ContentKind {
         }
     }
 
-    data class Structure(val format: FormatKind) : ContentKind {
-        context(_: LoggerHolder)
-        override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? = when (this.format) {
-            PlainStr -> ExtractionContent.Text(PlainStr, raw)
-            SnbtStr, Nbt -> TODO()
-            JsonStr, JsonObj -> TODO()
+    @Serializable
+    data class Structure(val format: FormatKind, val patterns: PatternKind) : ContentKind() {
+        @Serializable
+        sealed interface PatternKind {
+            fun patternsFrom(pattern: MCTPattern): List<DataPointerPattern>?
+
+            @Serializable
+            @SerialName("inherit_from")
+            enum class InheritFrom : PatternKind {
+                @SerialName("nbt")
+                Nbt,
+
+                @SerialName("mcjson")
+                MCJson,
+
+                @SerialName("command_data")
+                CommandData;
+
+                override fun patternsFrom(pattern: MCTPattern) = when (this) {
+                    Nbt -> pattern.nbt
+                    MCJson -> pattern.mcjson
+                    CommandData -> pattern.commandData
+                }
+            }
+
+            @Serializable
+            @SerialName("custom")
+            data class Custom(val patterns: List<DataPointerPattern>?) : PatternKind {
+                override fun patternsFrom(pattern: MCTPattern) = patterns
+            }
         }
+
+        context(_: LoggerHolder)
+        override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? =
+            when (this.format) {
+                PlainStr -> ExtractionContent.Text(PlainStr, raw)
+                SnbtStr, Nbt -> {
+                    val patterns = patterns.patternsFrom(pattern)
+                    val contents = extractTextFromSnbt(raw, pattern, patterns).toList()
+                    ExtractionContent.Structure(this.format, raw, contents)
+                }
+
+                JsonStr, JsonObj -> {
+                    val patterns = patterns.patternsFrom(pattern)
+                    val contents = extractTextFromMCJson(raw, pattern, patterns).toList()
+                    ExtractionContent.Structure(this.format, raw, contents)
+                }
+            }
     }
-
-
 }
+

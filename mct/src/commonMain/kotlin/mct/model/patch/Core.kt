@@ -98,14 +98,22 @@ inline fun Extraction.contents(): Sequence<String> = when (this) {
     is DatapackExtraction.MCFunction -> sequenceOf(unquoted())
     else -> {
         val content = when (this) {
-            is DatapackExtraction.MCJson -> content
-            is DatapackExtraction.Nbt -> nbt.content
-            is RegionExtraction -> nbt.content
+            is DatapackExtraction.MCJson -> extraction
+            is DatapackExtraction.Nbt -> extraction
+            is RegionExtraction -> extraction
         }
-        when (content) {
-            is Command -> content.locations.asSequence().map { it.unquoted() }
-            is Text -> sequenceOf(content.content)
-            // TODO
+        content.contents()
+    }
+}
+
+inline fun Extraction.contentsWithFormat(): Sequence<Pair<FormatKind, String>> = when (this) {
+    is DatapackExtraction.MCFunction -> sequenceOf(format to unquoted())
+    else -> {
+        val content = when (this) {
+            is DatapackExtraction.MCJson -> extraction
+            is DatapackExtraction.Nbt -> extraction
+            is RegionExtraction -> extraction
         }
+        content.contentsWithFormat()
     }
 }

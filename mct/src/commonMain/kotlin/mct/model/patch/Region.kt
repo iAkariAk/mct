@@ -41,9 +41,14 @@ data class RegionExtractionGroup(
 @SerialName("region")
 data class RegionExtraction(
     val index: Int,
-    val nbt: NbtExtraction,
+    val nbt: PointedExtractionContent,
 ) : Extraction {
-    inline fun substitute(replace: (NbtExtraction) -> NbtReplacement) = RegionReplacement(index, replace(nbt))
+    val pointer get() = nbt.pointer
+    val format get() = nbt.content.format
+    val extraction get() = nbt.content
+
+    inline fun replace(replace: (ExtractionContent) -> ReplacementContent) =
+        RegionReplacement(index, nbt.replace(replace))
 }
 
 
@@ -64,7 +69,7 @@ data class RegionReplacementGroup(
 
 
 /**
- * A wrapper of [NbtReplacement] used to region
+ * A wrapper of [PointedReplacementContent] used to region
  *
  * @property index The linear index of the chunk (0-1023).
  */
@@ -72,8 +77,11 @@ data class RegionReplacementGroup(
 @SerialName("region")
 data class RegionReplacement(
     val index: Int,
-    val nbt: NbtReplacement,
+    val nbt: PointedReplacementContent,
 ) : Replacement {
+    val pointer get() = nbt.pointer
+    val format get() = nbt.content.format
+    val replacement get() = nbt.content.replacement
 }
 
 

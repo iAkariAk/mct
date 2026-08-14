@@ -6,8 +6,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import mct.LoggerHolder
 import mct.logger
-import mct.model.patch.DatapackReplacement
 import mct.model.patch.FormatKind
+import mct.model.patch.IPointedReplacementContent
 import mct.model.patch.isString
 import mct.pointer.DataPointerReplacementGroup
 import mct.pointer.DataPointerWithValue
@@ -16,15 +16,19 @@ import mct.util.decodeFromString
 import mct.util.encodeToString
 
 context(_: LoggerHolder)
-internal fun String.backfillMCJson(replacements: List<DatapackReplacement.MCJson>): String {
+fun String.backfillMCJson(replacements: List<IPointedReplacementContent>): String {
     val jsonElement = MCJson.decodeFromString<JsonElement>(this)
-    val ddrg = replacements.map {
-        DataPointerWithValue(it.pointer, it.replacement.replacement, it.format)
-    }.toReplacementGroups()
-    val backfilledJsonElement = jsonElement.transform(ddrg)
+    val backfilledJsonElement = jsonElement.backfill(replacements)
     return MCJson.encodeToString(backfilledJsonElement)
 }
 
+context(_: LoggerHolder)
+fun JsonElement.backfill(replacements: List<IPointedReplacementContent>): JsonElement {
+    val ddrg = replacements.map {
+        DataPointerWithValue(it.pointer, it.replacement, it.format)
+    }.toReplacementGroups()
+    return transform(ddrg)
+}
 
 context(_: LoggerHolder)
 private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminatorOrNull() =
@@ -43,7 +47,7 @@ private inline fun <reified T> List<DataPointerReplacementGroup>.decodeTerminato
 
 
 context(_: LoggerHolder)
-internal fun JsonElement.transform(pointers: List<DataPointerReplacementGroup>): JsonElement? = when (this) {
+internal fun JsonElement.transform(pointers: List<DataPointerReplacementGroup>): JsonElement = when (this) {
     is JsonArray -> {
         pointers.decodeTerminatorOrNull<JsonArray>()?.let {
             return it
@@ -55,7 +59,7 @@ internal fun JsonElement.transform(pointers: List<DataPointerReplacementGroup>):
         val transformed = toMutableList()
         pointers.forEach { pointer ->
             val orig = transformed[pointer.point]
-            transformed[pointer.point] = orig.transform(pointer.values) ?: orig
+            transformed[pointer.point] = orig.transform(pointer.values)
         }
         JsonArray(transformed)
     }
@@ -69,7 +73,7 @@ internal fun JsonElement.transform(pointers: List<DataPointerReplacementGroup>):
         val transformed = toMutableMap()
         pointers.forEach { pointer ->
             transformed[pointer.point]?.let {
-                transformed[pointer.point] = it.transform(pointer.values) ?: it
+                transformed[pointer.point] = it.transform(pointer.values)
             }
         }
         JsonObject(transformed)
