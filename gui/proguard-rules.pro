@@ -3,6 +3,13 @@
 -keep class okio.** { *; }
 -keep interface okio.** { *; }
 
+# ── Compose text factory ──────────────────────────────
+# ProGuard's return-type optimization makes this factory fail JVM verification.
+# Keep its bytecode intact while still permitting shrinking and obfuscation.
+-keep,allowshrinking,allowobfuscation class androidx.compose.ui.text.ParagraphKt__ActualParagraph_skikoKt {
+    public static androidx.compose.ui.text.Paragraph Paragraph*(androidx.compose.ui.text.ParagraphIntrinsics, long, int, int);
+}
+
 
 # ── JNA (used by filekit-dialogs-compose) ─────────────
 -dontwarn com.sun.jna.**
