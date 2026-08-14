@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -58,17 +58,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
-          distribution: 'temurin'
+          distribution: 'zulu'
           cache: gradle
 
       - name: Cache Kotlin Native compiler + deps (~/.konan)
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: ${{ runner.os }}-konan-2.4.0
+          key: ${{ runner.os }}-konan-2.4.10
           restore-keys: |
             ${{ runner.os }}-konan-
 
@@ -128,7 +128,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
