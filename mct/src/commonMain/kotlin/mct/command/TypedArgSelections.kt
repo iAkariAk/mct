@@ -20,7 +20,6 @@ import mct.util.offset
 import mct.util.snbt.SnbtLexer
 import mct.util.snbt.SnbtParser
 import mct.util.snbt.SnbtTag
-import mct.util.unreachable
 
 private inline fun Sequence<StringIndicesWithSyntaxFormat>.asSelectResult(): SelectResult =
     toList().wrapAsSelectResult()
@@ -168,7 +167,7 @@ sealed interface ArgSelection {
     @Serializable
     @SerialName("item_stack")
     data object ItemStack : ArgSelection {
-        private val ITEM_STACK_REGX = Regex2("""^(?<id>[\w:.]+)(?:\[(?<new>.*)]|(?<old>\{.*}))$""")
+        private val ITEM_STACK_REGX = Regex2("""^(?<id>[\w:.]+)(?:\[(?<new>.*)]|(?<old>\{.*}))?$""")
 
         context(_: Raise<IndexSelectError>)
         override fun select(
@@ -196,7 +195,7 @@ sealed interface ArgSelection {
                     patterns?.commandData
                 )
 
-                else -> unreachable
+                else -> SelectResult.None
             }
         }
     }
