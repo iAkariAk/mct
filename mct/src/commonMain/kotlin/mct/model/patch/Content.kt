@@ -7,6 +7,7 @@ import mct.MCTPattern
 import mct.command.extractTextFromCommands
 import mct.dp.mcjson.backfillMCJson
 import mct.dp.mcjson.extractTextFromMCJson
+import mct.logger
 import mct.nbt.backfillSnbt
 import mct.nbt.extractTextFromSnbt
 import mct.pointer.DataPointer
@@ -193,6 +194,7 @@ sealed interface ReplacementContent {
 
 }
 
+
 @Serializable
 sealed class ContentKind {
     context(_: LoggerHolder)
@@ -257,7 +259,7 @@ sealed class ContentKind {
         }
 
         context(_: LoggerHolder)
-        override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? =
+        override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? = runCatching {
             when (this.format) {
                 PlainStr -> ExtractionContent.Text(PlainStr, raw)
                 SnbtStr, Nbt -> {
@@ -272,6 +274,9 @@ sealed class ContentKind {
                     ExtractionContent.Structure(this.format, raw, contents)
                 }
             }
+        }.getOrElse {
+            logger.error { "When parsing ```$raw```, $this occurs ${it.message}" }
+            null
+        }
     }
 }
-

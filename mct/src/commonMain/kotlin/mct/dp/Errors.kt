@@ -10,7 +10,6 @@ sealed interface DBError : MCTError
 sealed interface BackfillError : DBError
 
 sealed interface ExtractError : DBError
-sealed interface MCFunctionExtractError : ExtractError
 
 sealed interface MCJsonExtractError : ExtractError {
     data class JsonSyntaxError(val source: String, val filePath: Path, val exception: SerializationException) :
