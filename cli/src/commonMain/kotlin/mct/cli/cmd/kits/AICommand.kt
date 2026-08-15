@@ -18,6 +18,7 @@ import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
+import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.replace
@@ -157,7 +158,7 @@ class AITranslate : AICommand(
         logger.info { "Loading extractions from $input" }
         val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
         val terms = term.jsonFile<TermTable>(emptyMap())
-        val caches = caches.jsonFile<Map<String, String>>(emptyMap())
+        val caches = caches.jsonFile<TranslationMapping>(emptyMap())
         var consumedTokenCount = 0L
         NotifierHooks.onAiSign {
             if (it is AiSign.ConsumeToken) {
@@ -183,7 +184,7 @@ class AITranslate : AICommand(
 
 
         logger.info { "Starting translation..." }
-        val mapping = translator.translate(extractionGroups, caches, concurrentByKind) { terms, salvaged ->
+        val mapping = caches + translator.translate(extractionGroups, caches, concurrentByKind) { terms, salvaged ->
             mappingOutput.writeJson(caches + salvaged)
             termOutput.writeJson(terms)
         }

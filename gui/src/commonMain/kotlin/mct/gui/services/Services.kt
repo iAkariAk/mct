@@ -21,6 +21,7 @@ import mct.extra.ai.translator.*
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
 import mct.gui.util.setting
+import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
@@ -241,7 +242,7 @@ suspend fun runTranslation(
 
         val caches = if (cachesPath != null && env.fs.exists(cachesPath.toPath())) {
             val cacheJson = env.fs.read(cachesPath.toPath()) { readUtf8() }
-            MCTJson.decodeFromString<Map<String, String>>(cacheJson).also {
+            MCTJson.decodeFromString<TranslationMapping>(cacheJson).also {
                 env.logger.info { "已加载 ${it.size} 个已有术语" }
             }
         } else emptyMap()
@@ -271,6 +272,7 @@ suspend fun runTranslation(
 
     val wrappedOnCancel: OnTranslateCancel = { terms, salvaged ->
         runCatching {
+            val salvaged = caches + salvaged
             mappingOutput.toPath().writeJson(salvaged, pretty = GuiSettings.prettyOutput)
             termOutput.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
             env.logger.info { "已保存 ${salvaged.size} 条部分映射到 $mappingOutput" }
@@ -281,7 +283,7 @@ suspend fun runTranslation(
 
     withContext(Dispatchers.IO) {
         try {
-            val mapping = translator.translate(
+            val mapping = caches + translator.translate(
                 extractionGroups,
                 caches,
                 concurrentByKind = GuiSettings.concurrentByKind,
@@ -290,7 +292,7 @@ suspend fun runTranslation(
             val replacements = extractionGroups.replace(mapping)
 
             output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
-            mappingOutput.toPath().writeJson(caches + mapping, pretty = GuiSettings.prettyOutput)
+            mappingOutput.toPath().writeJson(mapping, pretty = GuiSettings.prettyOutput)
             termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
 
             env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }

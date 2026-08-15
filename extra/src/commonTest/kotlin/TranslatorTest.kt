@@ -1,3 +1,4 @@
+import arrow.atomic.AtomicInt
 import arrow.core.raise.context.Raise
 import com.aallam.openai.client.OpenAI
 import io.kotest.assertions.arrow.core.shouldNotRaise
@@ -6,16 +7,21 @@ import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.withTimeout
 import mct.Env
 import mct.Logger
+import mct.Notifier
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.translator.*
-import mct.model.patch.FormatKind
-import mct.model.patch.RegionExtractionGroup
+import mct.model.patch.*
 import mct.serializer.MCTJson
 import mct.util.envvar
 import mct.util.unreachable
+import kotlin.time.Duration.Companion.seconds
 
 class TranslatorTest : FreeSpec({
     val apiUrl = envvar("OPENAI_URL")
@@ -104,20 +110,7 @@ class TranslatorTest : FreeSpec({
 
 
         "mock" - {
-            val mockCall = object : ChatCompletionCall {
-                override val client: OpenAI get() = unreachable
-                override val model: String get() = "mock-model"
-                override val env: Env get() = contextOf<Env>()
-
-                context(_: Raise<ChatCompletionCallError>)
-                override suspend fun <T> chat(
-                    prompt: String,
-                    message: String,
-                    parseLLM: suspend (String) -> T,
-                    validate: (T) -> Boolean,
-                ): T = unreachable
-
-            }
+            val mockCall = testChatCompletionCall(contextOf<Env>())
             "plain text" {
                 val mockResponse = """
             -- MCT-CLI:TRANSLATED --
@@ -253,6 +246,99 @@ class TranslatorTest : FreeSpec({
                     (callIndex >= 1) shouldBe true
                 }
             }
+
+            "cancellation salvage" - {
+                "sequential failure invokes cancellation once and propagates the original failure" {
+                    val cancellationCalls = AtomicInt(0)
+                    val translator = Translator(
+                        call = mockCall,
+                        requestTranslation = { _, _, _, _ -> throw ExpectedTranslationFailure() },
+                        defaultTerms = emptyMap(),
+                    )
+
+                    val thrown = try {
+                        shouldNotRaise {
+                            translator.translate(
+                                groups = extractionGroup(FormatKind.PlainStr to "failing"),
+                                onCancel = { _, _ -> cancellationCalls.incrementAndGet() },
+                            )
+                        }
+                        null
+                    } catch (e: Throwable) {
+                        e
+                    }
+
+                    cancellationCalls.get() shouldBe 1
+                    thrown.shouldBeInstanceOf<ExpectedTranslationFailure>()
+                }
+
+                "concurrent kind failure rescues translations committed before sibling cancellation" {
+                    val plainChunkCommitted = CompletableDeferred<Unit>()
+                    val cancellationCalls = AtomicInt(0)
+                    var rescued = emptyMap<String, String?>()
+                    val testEnv = Env(
+                        logger = Logger.Console(),
+                        notifier = Notifier { _, value ->
+                            if (value is TranslateSign.Progress && value.progress < 1f) {
+                                plainChunkCommitted.complete(Unit)
+                            }
+                        },
+                    )
+
+                    context(testEnv) {
+                        val translator = Translator(
+                            call = testChatCompletionCall(testEnv),
+                            requestTranslation = { expectedSize, message, format, _ ->
+                                when (format) {
+                                    FormatKind.PlainStr -> when {
+                                        "plain-completed" in message ->
+                                            emptyMap<String, String>() to List(expectedSize) { "translated-completed" }
+
+                                        "plain-blocked" in message -> awaitCancellation()
+                                        else -> error("Unexpected plain-text request: $message")
+                                    }
+
+                                    FormatKind.JsonStr -> {
+                                        plainChunkCommitted.await()
+                                        throw ExpectedTranslationFailure()
+                                    }
+
+                                    else -> error("Unexpected format: $format")
+                                }
+                            },
+                            defaultTerms = emptyMap(),
+                            tokenThreshold = 1,
+                            concurrency = 2,
+                        )
+
+                        val thrown = try {
+                            withTimeout(5.seconds) {
+                                shouldNotRaise {
+                                    translator.translate(
+                                        groups = extractionGroup(
+                                            FormatKind.PlainStr to "plain-completed",
+                                            FormatKind.PlainStr to "plain-blocked",
+                                            FormatKind.JsonStr to "json-failing",
+                                        ),
+                                        concurrentByKind = true,
+                                        onCancel = { _, salvaged ->
+                                            cancellationCalls.incrementAndGet()
+                                            rescued = salvaged
+                                        },
+                                    )
+                                }
+                            }
+                            null
+                        } catch (e: Throwable) {
+                            e
+                        }
+
+                        cancellationCalls.get() shouldBe 1
+                        rescued shouldBe mapOf("plain-completed" to "translated-completed")
+                        thrown.shouldBeInstanceOf<ExpectedTranslationFailure>()
+                    }
+                }
+            }
         }
     }
 })
@@ -263,4 +349,34 @@ class TranslatorTest : FreeSpec({
  */
 fun mockChatCompletion(content: String): RequestTranslation =
     { expectedSize, _, _, validate -> parseLLMResponse(content, expectedSize).also { validate(it).shouldBeTrue() } }
+
+private fun extractionGroup(vararg contents: Pair<FormatKind, String>): List<ExtractionGroup> = listOf(
+    DatapackExtractionGroup(
+        source = "test",
+        path = "test.mcfunction",
+        extractions = contents.mapIndexed { index, (format, content) ->
+            DatapackExtraction.MCFunction(
+                indices = index..index,
+                content = content,
+                format = format,
+            )
+        },
+    )
+)
+
+private class ExpectedTranslationFailure : RuntimeException("expected translation failure")
+
+private fun testChatCompletionCall(testEnv: Env) = object : ChatCompletionCall {
+    override val client: OpenAI get() = unreachable
+    override val model: String get() = "mock-model"
+    override val env: Env = testEnv
+
+    context(_: Raise<ChatCompletionCallError>)
+    override suspend fun <T> chat(
+        prompt: String,
+        message: String,
+        parseLLM: suspend (String) -> T,
+        validate: (T) -> Boolean,
+    ): T = unreachable
+}
 

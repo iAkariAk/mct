@@ -1,9 +1,12 @@
+@file:OptIn(InternalCoroutinesApi::class)
+
 package mct.extra.ai.translator
 
-import arrow.atomic.AtomicBoolean
 import arrow.core.Option
 import arrow.core.raise.Raise
 import kotlinx.coroutines.*
+import kotlinx.coroutines.internal.SynchronizedObject
+import kotlinx.coroutines.internal.synchronized
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
@@ -125,8 +128,9 @@ class Translator internal constructor(
 
         suspend fun processChunk(chunkIndex: Int, chunk: List<IndexedValue<String>>) {
             val (untranslatable, translatableStrips) = chunk.stripsWithIndex(format)
-            untranslatable.forEach { (index, _) ->
+            untranslatable.forEach { (index, value) ->
                 translated[index] = Untranslatable
+                logger.info { "Skip: ${value.original}" }
             }
             val strippedCount =
                 translatableStrips.count { (_, strip) -> strip is ComponentStrip.Simplified }
@@ -184,11 +188,12 @@ class Translator internal constructor(
             }
             logger.info { "Handled ${chunkIndex + 1} (total $totalChunkSize)" }
             logger.debug {
-                chunk.zip(appendedTranslated).joinToString("\n") { (x, y) ->
+                translatableStrips.zip(appendedTranslated).joinToString("\n") { (x, y) ->
+                    val original = unescapeEspecialUnicode(x.value.original)
                     when (val result = y.value) {
-                        is TranslationResult.Translated -> "Translate: ${x.value} => ${result.content}"
-                        Untranslatable -> "Skip: ${x.value}"
-                        Untranslated -> "Cannot translate: ${x.value}"
+                        is TranslationResult.Translated -> "Translate: $original => ${result.content}"
+                        Untranslated -> "Cannot translate: $original"
+                        Untranslatable -> unreachable
                     }
                 }
             }
@@ -267,7 +272,7 @@ internal fun String.strip(format: FormatKind): ComponentStrip {
             PlainStr -> null
         }?.let {
             if (it is IRList) {
-                it.takeIf { it.size == 1 }?.first()?.also { isList = true }.bind()
+                it.takeIf { it.size == 1 }?.first()?.also { isList = true } ?: return ComponentStrip.CannotStrip(raw)
             } else it
         }?.decodeToCompound()
     }.getOrNull() ?: return ComponentStrip.NoComponent(raw)
@@ -375,20 +380,20 @@ suspend fun Translator.translate(
     caches: TranslationMapping = emptyMap(),
     concurrentByKind: Boolean = false,
     onCancel: OnTranslateCancel = { _, _ -> },
-): TranslationMapping = coroutineScope {
+): TranslationMapping {
     if (groups.isEmpty()) {
         logger.debug { "Skipping empty group" }
-        return@coroutineScope emptyMap()
+        return emptyMap()
     }
-    val extractions = LinkedHashMap<FormatKind, MutableList<String>>()
+    val extractions = mutableMapOf<FormatKind, MutableList<String>>()
     for ((key, second) in groups.flatMap { it.extractions.flatMap { it.contentsWithFormat() } }) {
         val list = extractions.getOrPut(key) { ArrayList() }
         list.add(second)
     } // group by kind and map its value
-    val mapping = mutableMapOf<String, String?>()
+    val mapping: MutableMap<String, String?> = mutableMapOf()
     val mappingMutex = Mutex()
 
-    suspend fun execute(block: suspend (append: suspend (Map<String, String?>) -> Unit) -> Unit) {
+    suspend fun CoroutineScope.execute(block: suspend (append: suspend (Map<String, String?>) -> Unit) -> Unit) {
         if (concurrentByKind) {
             launch(Dispatchers.IO) {
                 block { others ->
@@ -400,26 +405,33 @@ suspend fun Translator.translate(
         } else block(mapping::putAll)
     }
 
-    val cancelled = AtomicBoolean(false)
-    extractions.forEach { (kind, extractions) ->
-        execute { append ->
-            val sources = extractions.asSequence()
-                    .filter(String::isNotBlank)
-                    .distinct()
-                    .filter { it !in caches }.toList()
-            val translated = translate(kind, sources) { translated ->
-                val salvaged = translated.export(sources)
-                if (cancelled.compareAndSet(expected = false, new = true)) {
-                    onCancel(terms, mapping + salvaged)
+    val salvages = mutableMapOf<String, String?>()
+    val salvagesLock = SynchronizedObject()
+    try {
+        coroutineScope {
+            extractions.forEach { (kind, extractions) ->
+                execute { append ->
+                    val sources = extractions.asSequence()
+                        .filter(String::isNotBlank)
+                        .distinct()
+                        .filter { it !in caches }.toList()
+                    val translated = translate(kind, sources) { translated ->
+                        val salvaged = translated.export(sources)
+                        synchronized(salvagesLock) {
+                            salvages.putAll(salvaged)
+                        }
+                    }
+                    append(translated.export(sources))
                 }
             }
-            append(translated.export(sources))
         }
+    } catch (e: Throwable) {
+        onCancel(terms, mapping + salvages)
+        throw e
     }
-    mapping.toMutableMap().putAll(caches)
     notifier.notify<TranslateSign> { TranslateSign.Progress(1f) }
     env.logger.info { "Built mapping with ${mapping.size} entries" }
-    mapping
+    return mapping
 }
 
 private fun List<TranslationResult>.export(sources: List<String>) = buildMap {
