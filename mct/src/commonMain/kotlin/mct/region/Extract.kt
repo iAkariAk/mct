@@ -56,5 +56,5 @@ fun MCTWorkspace.extractFromRegion(
                     }.flowOn(Dispatchers.Default)
                 }
             }
-    }.flowOn(Dispatchers.IO.limitedParallelism(72))
+    }.flowOn(Dispatchers.IO.limitedParallelism(128))
 }
