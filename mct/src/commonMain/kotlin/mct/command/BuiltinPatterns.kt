@@ -1,11 +1,13 @@
 package mct.command
 
-import mct.model.text.isTextComponent
 import mct.model.text.isTextComponentJson
 import mct.model.text.isTextComponentSnbt
 import mct.nbt.BuiltinNbtPatterns
+import mct.pointer.EqualPattern
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
+import mct.util.isJson
+import mct.util.isNamespacedId
 
 private fun String.isSerializedTextComponent() = isTextComponentJson() || isTextComponentSnbt()
 
@@ -224,40 +226,199 @@ val BuiltinCommandPatterns = PatternSet {
 
 
     // ── item ─────────────────────────────────────────────────────
-    // item modify (block|entity) <target> <slot> <modifier>
+    // https://zh.minecraft.wiki/w/%E5%91%BD%E4%BB%A4/item
+    // <modifier>: minecraft:loot_modifier to SnbtEntire
+    // <item>: minecraft:item_stack to ItemStack
+    // <pos>: X Y Z
+    // <target> when block: X Y Z
+    // <source> when block: X Y Z
     command("item") {
-        WithSize(5) then {
-            Positions(5) then {
-                Matches("item modifier (json)") { cmd, arg ->
-                    cmd[1].content == "modify" && (
-                            arg.content.isTextComponent() || arg.content.contains("{")
-                            )
+        // item modify (block <pos>|entity <targets>) <slot> <modifier>
+        WithSize(5, strict = true) then {
+            Positions(5 to ArgSelection.SnbtEntire) then {
+                Matches("item modify entity ... modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "modify" && cmd[2].content == "entity" && !arg.content.isNamespacedId()
                 }
             }
         }
-    }
+        WithSize(7, strict = true) then {
+            Positions(7 to ArgSelection.SnbtEntire) then {
+                Matches("item modify block ... modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "modify" && cmd[2].content == "block" && !arg.content.isNamespacedId()
+                }
+            }
+        }
 
-    // item replace (block|entity) <target> <slot> with <item> [count]
-    command("item") {
+        // item replace (block <pos>|entity <targets>) <slot> with <item> [<count>]
         WithSize(6) then {
-            Positions(6) then {
-                Matches("item stack component") { cmd, arg ->
-                    cmd[1].content == "replace" &&
-                            cmd[5].content == "with" &&
-                            arg.content.isTextComponent()
+            Positions(6 to ArgSelection.ItemStack) then {
+                Matches("item replace entity ... item (item_stack)") { cmd, _ ->
+                    cmd[1].content == "replace" && cmd[2].content == "entity" && cmd[5].content == "with"
                 }
             }
         }
+        WithSize(8) then {
+            Positions(8 to ArgSelection.ItemStack) then {
+                Matches("item replace block ... item (item_stack)") { cmd, _ ->
+                    cmd[1].content == "replace" && cmd[2].content == "block" && cmd[7].content == "with"
+                }
+            }
+        }
+
+        // item replace (block <pos>|entity <targets>) <slot> from (block|entity) <source> <sourceSlot> [<modifier>]
+        WithSize(9, strict = true) then {
+            Positions(9 to ArgSelection.SnbtEntire) then {
+                Matches("item replace entity ...  modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "replace" && cmd[2].content == "entity" &&
+                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(11, strict = true) then {
+            Positions(11 to ArgSelection.SnbtEntire) then {
+                Matches("item replace cross source modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "replace" && (
+                            (cmd[2].content == "entity" && cmd[5].content == "from" && cmd[6].content == "block") ||
+                                    (cmd[2].content == "block" && cmd[7].content == "from" && cmd[8].content == "entity")
+                            ) && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(13, strict = true) then {
+            Positions(13 to ArgSelection.SnbtEntire) then {
+                Matches("item replace block ...  modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "replace" && cmd[2].content == "block" &&
+                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+
+        // --- 26.3+---
+
+        // item fill (block|entity) <target> <slots> from (block|entity) <source> <sourceSlots> [<modifier>]
+        WithSize(9, strict = true) then {
+            Positions(9 to ArgSelection.SnbtEntire) then {
+                Matches("item fill entity ...  modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "fill" && cmd[2].content == "entity" &&
+                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(11, strict = true) then {
+            Positions(11 to ArgSelection.SnbtEntire) then {
+                Matches("item fill cross source modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "fill" && (
+                            (cmd[2].content == "entity" && cmd[5].content == "from" && cmd[6].content == "block") ||
+                                    (cmd[2].content == "block" && cmd[7].content == "from" && cmd[8].content == "entity")
+                            ) && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(13, strict = true) then {
+            Positions(13 to ArgSelection.SnbtEntire) then {
+                Matches("item fill block from block modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "fill" && cmd[2].content == "block" &&
+                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+
+        // item fill (block|entity) <target> <slots> with <item> [<count>]
+        WithSize(6) then {
+            Positions(6 to ArgSelection.ItemStack) then {
+                Matches("item fill entity ...  item (ItemStack)") { cmd, arg ->
+                    cmd[1].content == "fill" && cmd[2].content == "entity" && cmd[5].content == "with" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(8) then {
+            Positions(8 to ArgSelection.ItemStack) then {
+                Matches("item fill block ...  item (ItemStack)") { cmd, arg ->
+                    cmd[1].content == "fill" && cmd[2].content == "block" && cmd[7].content == "with" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        // item modify (block|entity) <target> <slots> <modifier>
+        // as the above old
+        // item override (block|entity) <target> <slots> from (block|entity) <source> <sourceSlots> [<modifier>]
+        WithSize(9, strict = true) then {
+            Positions(9 to ArgSelection.SnbtEntire) then {
+                Matches("item override entity ... from ... modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "override" && cmd[2].content == "entity" &&
+                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(11, strict = true) then {
+            Positions(11 to ArgSelection.SnbtEntire) then {
+                Matches("item override cross source modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "override" && (
+                            (cmd[2].content == "entity" && cmd[5].content == "from" && cmd[6].content == "block") ||
+                                    (cmd[2].content == "block" && cmd[7].content == "from" && cmd[8].content == "entity")
+                            ) && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        WithSize(13, strict = true) then {
+            Positions(13 to ArgSelection.SnbtEntire) then {
+                Matches("item override block from block modifier (modifier)") { cmd, arg ->
+                    cmd[1].content == "override" && cmd[2].content == "block" &&
+                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isNamespacedId()
+                }
+            }
+        }
+        // item override (block|entity) <target> <slots> with <item> [<count>]
+        WithSize(6) then {
+            Positions(6 to ArgSelection.ItemStack) then {
+                Matches("item override entity ... with ...  item (ItemStack)") { cmd, _ ->
+                    cmd[1].content == "override" && cmd[2].content == "entity" && cmd[5].content == "with"
+                }
+            }
+        }
+        WithSize(8) then {
+            Positions(8 to ArgSelection.ItemStack) then {
+                Matches("item override block ... with ...  item (ItemStack)") { cmd, _ ->
+                    cmd[1].content == "override" && cmd[2].content == "block" && cmd[7].content == "with"
+                }
+            }
+        }
+        // item replace (block|entity) <target> <slots> from (block|entity) <source> <sourceSlots> [<modifier>]
+        // as the above old
+        // item replace (block|entity) <target> <slots> with <item> [<count>]
+        // as the above old
     }
 
-    // item replace * <targets> <slot> from * <sourceTarget> <sourceSlot> [<modifier>]
-    command("item") {
-        WithSize(9) then {
-            Positions(9) then {
-                Matches("item replace from modifier") { cmd, arg ->
-                    cmd[1].content == "replace" &&
-                            cmd[5].content == "from" &&
-                            arg.content.isTextComponent()
+    // https://zh.minecraft.wiki/w/%E5%91%BD%E4%BB%A4/replaceitem
+    command("replaceitem") {
+        // replaceitem block <position: x y z> slot.container <slotId: int> <itemName: Item> [amount: int] [data: int] [components: json]
+        WithSize(10, strict = true) then {
+            Positions(10 to ArgSelection.WithInfo(JsonStr)) then {
+                Matches("replaceitem block (json)") { cmd, arg ->
+                    cmd[1].content == "block" && arg.content.isJson(MCCommandJsonRight)
+                }
+            }
+        }
+        // replaceitem block <position: x y z> slot.container <slotId: int> <oldItemHandling: ReplaceMode> <itemName: Item> [amount: int] [data: int] [components: json]
+        WithSize(11, strict = true) then {
+            Positions(11 to ArgSelection.WithInfo(JsonStr)) then {
+                Matches("replaceitem block (json)") { cmd, arg ->
+                    cmd[1].content == "block" && arg.content.isJson(MCCommandJsonRight)
+                }
+            }
+        }
+        // replaceitem entity <target: target> <slotType: EntityEquipmentSlot> <slotId: int> <itemName: Item> [amount: int] [data: int] [components: json]
+        WithSize(8, strict = true) then {
+            Positions(8 to ArgSelection.WithInfo(JsonStr)) then {
+                Matches("replaceitem entity (json)") { cmd, arg ->
+                    cmd[1].content == "entity" && arg.content.isJson(MCCommandJsonRight)
+                }
+            }
+        }
+        // replaceitem entity <target: target> <slotType: EntityEquipmentSlot> <slotId: int> <oldItemHandling: ReplaceMode> <itemName: Item> [amount: int] [data: int] [components: json]
+        WithSize(9, strict = true) then {
+            Positions(9 to ArgSelection.WithInfo(JsonStr)) then {
+                Matches("replaceitem entity (json)") { cmd, arg ->
+                    cmd[1].content == "entity" && arg.content.isJson(MCCommandJsonRight)
                 }
             }
         }
@@ -340,6 +501,7 @@ val BuiltinCommandPatterns = PatternSet {
 val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     dependsOn(BuiltinNbtPatterns)
 
+    +EqualPattern(">#name")
     // ── Display entity text ──────────────────────────────────────
     +RightPattern(">#text")
 

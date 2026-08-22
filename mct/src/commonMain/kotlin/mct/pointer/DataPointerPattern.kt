@@ -15,6 +15,15 @@ sealed interface DataPointerPattern {
 
     fun match(pointer: CompiledDataPointer): Boolean
 
+    @SerialName("equal")
+    data class Equal(
+        val value: String,
+        val negative: Boolean = false,
+        override val kind: ContentKind = Text
+    ) : DataPointerPattern {
+        override fun match(pointer: CompiledDataPointer) = pointer.encoded == value != negative
+    }
+
     @SerialName("right")
     data class Right(
         val right: String,
@@ -36,7 +45,7 @@ sealed interface DataPointerPattern {
 }
 
 data class CompiledDataPointer(val pointer: DataPointer) {
-    private val str = pointer.encodeToString()
+    val encoded = pointer.encodeToString()
 
     fun matches(
         patterns: Iterable<DataPointerPattern>?,
@@ -46,9 +55,9 @@ data class CompiledDataPointer(val pointer: DataPointer) {
         patterns: Iterable<DataPointerPattern>,
     ): DataPointerPattern? = patterns.find { it.match(this) }
 
-    fun matches(regex: Regex2) = regex.containsMatchIn(str)
-    fun matchesRight(right: String) = str.endsWith(right)
-    fun matchesRight(right: CompiledDataPointer) = str.endsWith(right.str)
+    fun matches(regex: Regex2) = regex.containsMatchIn(encoded)
+    fun matchesRight(right: String) = encoded.endsWith(right)
+    fun matchesRight(right: CompiledDataPointer) = encoded.endsWith(right.encoded)
 }
 
 fun DataPointer.compile() = CompiledDataPointer(this)
@@ -92,6 +101,9 @@ interface DataPointerPatternSetBuilderScope {
 }
 
 private typealias S = DataPointerPatternSetBuilderScope
+
+inline fun S.EqualPattern(value: String, negative: Boolean = false, kind: ContentKind = Text) =
+    DataPointerPattern.Equal(value, negative, kind)
 
 inline fun S.RightPattern(right: String, negative: Boolean = false, kind: ContentKind = Text) =
     DataPointerPattern.Right(right, negative, kind)

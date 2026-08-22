@@ -10,6 +10,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.MCTPattern
 import mct.command.SelectResult.Portions
+import mct.model.patch.FormatKind
+import mct.model.patch.SnbtSyntaxKind
 import mct.model.text.isTextComponentJson
 import mct.model.text.isTextComponentSnbt
 import mct.pointer.DataPointerPattern
@@ -160,6 +162,17 @@ sealed interface ArgSelection {
             patterns: MCTPattern?,
             arg: MCCommand.Arg,
         ): SelectResult = selectSnbt(arg.indices.first, arg.content, patterns?.commandData)
+    }
+
+    @Serializable
+    @SerialName("with_info")
+    data class WithInfo(
+        val format: FormatKind,
+        val syntax: SnbtSyntaxKind? = null
+    ) : ArgSelection {
+        context(_: Raise<IndexSelectError>)
+        override fun select(patterns: MCTPattern?, arg: MCCommand.Arg): SelectResult =
+            SelectResult.Entire(syntax, format)
     }
 
 

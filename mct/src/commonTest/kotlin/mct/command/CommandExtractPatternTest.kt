@@ -22,7 +22,10 @@ sealed interface Expectation<out T> {
     data object Ignore : Expectation<Nothing>
 }
 
-fun <T> Expectation<T>.matches(other: T): Boolean = this is Expect && value == other
+fun <T> Expectation<T>.matches(other: T): Boolean = when (this) {
+    is Expect -> value == other
+    Ignore -> true
+}
 
 
 data class ExtractionExpectation(
@@ -88,8 +91,8 @@ fun List<CommandPatternCase>.test() {
             }
             case.expectedExtractions?.let { expected ->
                 val actual = matches
-                if (expected.size != actual.size && expected.zip(actual).any { (expected, actual) ->
-                        expected.matches(actual)
+                if (expected.size != actual.size || expected.zip(actual).any { (expected, actual) ->
+                        !expected.matches(actual)
                     }
                 ) {
                     error("expected extractions $expected, but actual extractions were $actual")
@@ -429,8 +432,129 @@ class CommandExtractPatternTest : FreeSpec({
                         """{"bold":true,"color":"dark_purple","text":"彩叶"}"""
                     ),
                     commandContentCase(
-                        "item modify",
-                        """item modify entity @p weapon.mainhand {"function":"minecraft:set_name","name":"text"}""",
+                        "item modify entity inline component",
+                        """item modify entity @p weapon.mainhand {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Modify entity"}}}""",
+                        """{text:"Modify entity"}""",
+                    ),
+                    commandContentCase(
+                        "item modify block inline component",
+                        """item modify block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Modify block"}}}""",
+                        """{text:"Modify block"}""",
+                    ),
+                    commandContentCase(
+                        "item modify inline name",
+                        """item modify entity @p weapon.mainhand {function:"minecraft:set_name",name:"Modifier name"}""",
+                        "\"Modifier name\"",
+                    ),
+                    commandContentCase(
+                        "item replace entity with item component",
+                        """item replace entity @s weapon.mainhand with minecraft:paper[custom_name={text:"Replace entity"}]""",
+                        """{text:"Replace entity"}""",
+                    ),
+                    commandContentCase(
+                        "item replace block with item component",
+                        """item replace block ~ ~ ~ container.0 with minecraft:paper[custom_name={text:"Replace block"}]""",
+                        """{text:"Replace block"}""",
+                    ),
+                    commandContentCase(
+                        "item fill entity with item component",
+                        """item fill entity @s container.* with minecraft:paper[custom_name={text:"Fill entity"}]""",
+                        """{text:"Fill entity"}""",
+                    ),
+                    commandContentCase(
+                        "item fill block with item component",
+                        """item fill block ~ ~ ~ container.* with minecraft:paper[custom_name={text:"Fill block"}]""",
+                        """{text:"Fill block"}""",
+                    ),
+                    commandContentCase(
+                        "item override entity with item component",
+                        """item override entity @s container.* with minecraft:paper[custom_name={text:"Override entity"}]""",
+                        """{text:"Override entity"}""",
+                    ),
+                    commandContentCase(
+                        "item override block with item component",
+                        """item override block ~ ~ ~ container.* with minecraft:paper[custom_name={text:"Override block"}]""",
+                        """{text:"Override block"}""",
+                    ),
+                    commandContentCase(
+                        "item replace entity from entity modifier",
+                        """item replace entity @s weapon.mainhand from entity @p hotbar.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Replace entity entity"}}}""",
+                        """{text:"Replace entity entity"}""",
+                    ),
+                    commandContentCase(
+                        "item replace entity from block modifier",
+                        """item replace entity @s weapon.mainhand from block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Replace entity block"}}}""",
+                        """{text:"Replace entity block"}""",
+                    ),
+                    commandContentCase(
+                        "item replace block from entity modifier",
+                        """item replace block ~ ~ ~ container.0 from entity @s hotbar.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Replace block entity"}}}""",
+                        """{text:"Replace block entity"}""",
+                    ),
+                    commandContentCase(
+                        "item replace block from block modifier",
+                        """item replace block ~ ~ ~ container.0 from block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Replace block block"}}}""",
+                        """{text:"Replace block block"}""",
+                    ),
+                    commandContentCase(
+                        "item fill entity from entity modifier",
+                        """item fill entity @s container.* from entity @p hotbar.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Fill entity entity"}}}""",
+                        """{text:"Fill entity entity"}""",
+                    ),
+                    commandContentCase(
+                        "item fill entity from block modifier",
+                        """item fill entity @s container.* from block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Fill entity block"}}}""",
+                        """{text:"Fill entity block"}""",
+                    ),
+                    commandContentCase(
+                        "item fill block from entity modifier",
+                        """item fill block ~ ~ ~ container.* from entity @s hotbar.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Fill block entity"}}}""",
+                        """{text:"Fill block entity"}""",
+                    ),
+                    commandContentCase(
+                        "item fill block from block modifier",
+                        """item fill block ~ ~ ~ container.* from block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Fill block block"}}}""",
+                        """{text:"Fill block block"}""",
+                    ),
+                    commandContentCase(
+                        "item override entity from entity modifier",
+                        """item override entity @s container.* from entity @p hotbar.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Override entity entity"}}}""",
+                        """{text:"Override entity entity"}""",
+                    ),
+                    commandContentCase(
+                        "item override entity from block modifier",
+                        """item override entity @s container.* from block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Override entity block"}}}""",
+                        """{text:"Override entity block"}""",
+                    ),
+                    commandContentCase(
+                        "item override block from entity modifier",
+                        """item override block ~ ~ ~ container.* from entity @s hotbar.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Override block entity"}}}""",
+                        """{text:"Override block entity"}""",
+                    ),
+                    commandContentCase(
+                        "item override block from block modifier",
+                        """item override block ~ ~ ~ container.* from block ~ ~ ~ container.0 {function:"minecraft:set_components",components:{"minecraft:item_name":{text:"Override block block"}}}""",
+                        """{text:"Override block block"}""",
+                    ),
+                    commandCase(
+                        "replaceitem block components",
+                        """replaceitem block ~ ~ ~ slot.container 0 minecraft:paper 1 0 {"minecraft:keep_on_death":{}}""",
+                        """{"minecraft:keep_on_death":{}}""" withFormat FormatKind.JsonStr,
+                    ),
+                    commandCase(
+                        "replaceitem block old handling components",
+                        """replaceitem block ~ ~ ~ slot.container 0 destroy minecraft:paper 1 0 {"minecraft:keep_on_death":{}}""",
+                        """{"minecraft:keep_on_death":{}}""" withFormat FormatKind.JsonStr,
+                    ),
+                    commandCase(
+                        "replaceitem entity components",
+                        """replaceitem entity @s slot.weapon.mainhand 0 minecraft:paper 1 0 {"minecraft:keep_on_death":{}}""",
+                        """{"minecraft:keep_on_death":{}}""" withFormat FormatKind.JsonStr,
+                    ),
+                    commandCase(
+                        "replaceitem entity old handling components",
+                        """replaceitem entity @s slot.weapon.mainhand 0 destroy minecraft:paper 1 0 {"minecraft:keep_on_death":{}}""",
+                        """{"minecraft:keep_on_death":{}}""" withFormat FormatKind.JsonStr,
                     ),
                     commandCase(
                         "team add displayName",

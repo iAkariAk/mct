@@ -114,3 +114,7 @@ fun Int.codePointToString() = when (this) {
 
     else -> throw IllegalArgumentException("$this isn't a legal code point")
 }
+
+// https://zh.minecraft.wiki/w/%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4ID
+private val NAMESPACED_IDENTIFIER = Regex2("""(?:(?<namespace>[\w\-.]+):)?(?<name>[\w\-./]+)""")
+fun String.isNamespacedId() = NAMESPACED_IDENTIFIER.matches(this)

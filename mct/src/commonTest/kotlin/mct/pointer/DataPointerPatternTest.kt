@@ -135,6 +135,18 @@ class DataPointerPatternTest : FreeSpec({
             ptrBack.matches(patterns) shouldBe true
             ptrOther.matches(patterns) shouldBe false
         }
+
+        "EqualPattern matches only the complete path" {
+            val patterns = PatternSet {
+                +EqualPattern(">#name")
+            }
+
+            val ptrName = shouldNotRaise { DataPointer.decodeFromString(">#name") }
+            val ptrNestedName = shouldNotRaise { DataPointer.decodeFromString(">#components>#name") }
+
+            ptrName.matches(patterns) shouldBe true
+            ptrNestedName.matches(patterns) shouldBe false
+        }
     }
 
     "DataPointerPattern" - {
@@ -177,6 +189,19 @@ class DataPointerPatternTest : FreeSpec({
 
             val ptrMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#lore>5>#raw") }
             val ptrNoMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#custom_name") }
+
+            pattern.match(ptrMatch.compile()) shouldBe false
+            pattern.match(ptrNoMatch.compile()) shouldBe true
+        }
+
+        "EqualPattern compile - negative flag inverts result" {
+            val pattern = DataPointerPattern.Equal(
+                value = ">#name",
+                negative = true,
+            )
+
+            val ptrMatch = shouldNotRaise { DataPointer.decodeFromString(">#name") }
+            val ptrNoMatch = shouldNotRaise { DataPointer.decodeFromString(">#components>#name") }
 
             pattern.match(ptrMatch.compile()) shouldBe false
             pattern.match(ptrNoMatch.compile()) shouldBe true
