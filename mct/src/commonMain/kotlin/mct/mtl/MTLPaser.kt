@@ -76,8 +76,8 @@ class MTLPaser(private val lexer: MTLLexer, private val str: String) {
         L_PARENTHESIS -> parsePair()
         L_BRACKET -> parseList()
         NEWLINE -> unreachable
-        ARROW -> parseError("There shouldn't be ARROW(==>) at ${currentToken.indices}.", currentToken.indices)
-        else -> parseError("Unexpected token $_currentToken at ${currentToken.indices}", currentToken.indices)
+        ARROW -> parseError("There shouldn't be ARROW(==>)", currentToken.indices)
+        else -> parseError("Unexpected token $_currentToken", currentToken.indices)
     }
 
     private fun parseLiteral(): MTLLiteral {
