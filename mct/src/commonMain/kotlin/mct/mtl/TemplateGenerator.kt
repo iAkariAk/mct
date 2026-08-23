@@ -27,7 +27,6 @@ fun TextComponent<*>.mtlize(): MTLExpression? = when {
 }
 
 
-
 internal inline fun String.tryDecodeAsTextComponent() = runCatching {
     TextComponent.fromIR(MCCommandJson.decodeFromString<JsonElement>(this).toIR())
 }.getOrElse {
@@ -48,6 +47,30 @@ fun Collection<String>.generateMTLXTemplate(placeholder: String = "TODO"): MTLX 
 
     @Suppress("UNCHECKED_CAST")
     val raws = _raws.associateWith { placeholder } as TranslationMapping
+    return MTLX(
+        mtlMappings = mtls,
+        rawMappings = raws
+    )
+}
+
+fun TranslationMapping.generateMTLXTemplate(): MTLX {
+    @Suppress("UNCHECKED_CAST")
+    val (_mtls, _raws) = asSequence()
+        .map { (key, value) ->
+            key.tryDecodeAsTextComponent()?.mtlize()?.let { k ->
+                value?.tryDecodeAsTextComponent()?.mtlize()?.let { v ->
+                    k to v
+                }
+            } ?: (key to value)
+        }
+        .onEach { (key, value) -> require((key is MTLExpression && value is MTLExpression) || (key !is MTLExpression && value !is MTLExpression)) {
+            "Unaligned key and value ($key : $value)"
+        } }
+        .partition { (key, _) -> key is MTLExpression } as Pair<List<Pair<MTLExpression, MTLExpression>>, List<Pair<String, String?>>>
+
+    val mtls = _mtls.map { (key, value) -> MTLMapping(null, key, value) }
+
+    val raws = _raws.toMap()
     return MTLX(
         mtlMappings = mtls,
         rawMappings = raws
