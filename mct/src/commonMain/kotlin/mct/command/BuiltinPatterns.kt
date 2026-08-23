@@ -501,6 +501,8 @@ val BuiltinCommandPatterns = PatternSet {
 val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     dependsOn(BuiltinNbtPatterns)
 
+    +EqualPattern("") // top-level TextComponent
+
     +EqualPattern(">#name")
     // ── Display entity text ──────────────────────────────────────
     +RightPattern(">#text")
