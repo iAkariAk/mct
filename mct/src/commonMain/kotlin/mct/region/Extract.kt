@@ -3,12 +3,15 @@ package mct.region
 import arrow.core.raise.Raise
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import mct.LoggerHolder
 import mct.MCTPattern
 import mct.MCTWorkspace
+import mct.logger
 import mct.model.patch.RegionExtraction
 import mct.model.patch.RegionExtractionGroup
 import mct.nbt.extractText
 import mct.region.anvil.Coord
+import mct.region.anvil.RawRegion
 import mct.region.anvil.model.ChunkDataKind
 import mct.util.IO
 
@@ -29,21 +32,9 @@ fun MCTWorkspace.extractFromRegion(
             .flatMapMerge { (manager, kind) ->
                 manager!!.regions().asFlow().flatMapMerge { region ->
                     flow {
-                        val extractions = region.chunks.asSequence()
-                            .filterNotNull()
-                            .flatMap { chunk ->
-                                chunk.data.fold(
-                                    ifLeft = {
-                                        logger.error { "Cannot decode data from $dimension/$kind/${region.inferFilename()}: ${it.message}" }
-                                        emptySequence()
-                                    },
-                                    ifRight = { data ->
-                                        data.extractText(pattern).map {
-                                            RegionExtraction(index = chunk.index, nbt = it)
-                                        }
-                                    }
-                                )
-                            }
+                        val extractions = region.extractText(pattern) {
+                            "Cannot decode data from $dimension/$kind/${region.inferFilename()}: ${it.message}"
+                        }
                         emit(
                             RegionExtractionGroup(
                                 dimension = dimension.id,
@@ -58,3 +49,23 @@ fun MCTWorkspace.extractFromRegion(
             }
     }.flowOn(Dispatchers.IO.limitedParallelism(128))
 }
+
+context(_: LoggerHolder)
+fun RawRegion.extractText(
+    pattern: MCTPattern = MCTPattern.Default,
+    errorMessage: (Throwable) -> String
+) = chunks.asSequence()
+    .filterNotNull()
+    .flatMap { chunk ->
+        chunk.data.fold(
+            ifLeft = { e ->
+                logger.error { errorMessage(e) }
+                emptySequence()
+            },
+            ifRight = { data ->
+                data.extractText(pattern).map {
+                    RegionExtraction(index = chunk.index, nbt = it)
+                }
+            }
+        )
+    }

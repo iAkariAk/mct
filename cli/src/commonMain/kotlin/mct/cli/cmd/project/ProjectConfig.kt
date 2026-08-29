@@ -48,6 +48,9 @@ data class PatternsConfig(
     @TomlComments("Paths to region data-pointer pattern JSON files (extract texts from block entities, signs, etc.)")
     val nbt: Set<String> = emptySet(),
 
+    @TomlComments("Paths to mcjson data-pointer pattern JSON files")
+    val mcjson: Set<String> = emptySet(),
+
     @TomlComments("Paths to command extract pattern JSON files")
     val command: Set<String> = emptySet(),
 
@@ -55,12 +58,17 @@ data class PatternsConfig(
     @TomlComments("Paths to command SNBT data-pointer pattern JSON files (extract data from command arguments)")
     val commandData: Set<String> = emptySet(),
 
-    @TomlComments("Paths to mcjson data-pointer pattern JSON files")
-    val mcjson: Set<String> = emptySet(),
+    @SerialName("command_component")
+    @TomlComments("Paths to command component pattern JSON files (extract data from command arguments which has component)")
+    val commandComponent: Set<String> = emptySet(),
 
     @SerialName("command_regex")
     @TomlComments("Paths to command regex pattern JSON files")
     val commandRegex: Set<String> = emptySet(),
+
+    @SerialName("cext")
+    @TomlComments("Paths to cext pattern JSON files")
+    val cext: List<String> = emptyList(),
 ) {
     companion object {
         val Empty = PatternsConfig()
@@ -121,7 +129,7 @@ data class AIConfig(
     @TomlComments("Translate different kinds of extraction concurrently. (WARN: parallelism will cause terms to be ineffective; default: false)")
     @SerialName("concurrent_by_kind")
     val concurrentByKind: Boolean = false,
-    ) {
+) {
     companion object {
         val Default = AIConfig()
     }

@@ -15,6 +15,7 @@ sealed interface DataPointerPattern {
 
     fun match(pointer: CompiledDataPointer): Boolean
 
+    @Serializable
     @SerialName("equal")
     data class Equal(
         val value: String,
@@ -24,6 +25,7 @@ sealed interface DataPointerPattern {
         override fun match(pointer: CompiledDataPointer) = pointer.encoded == value != negative
     }
 
+    @Serializable
     @SerialName("right")
     data class Right(
         val right: String,
@@ -33,6 +35,7 @@ sealed interface DataPointerPattern {
         override fun match(pointer: CompiledDataPointer) = pointer.matchesRight(right) != negative
     }
 
+    @Serializable
     @SerialName("regex")
     data class Regex(
         @Language("RegExp") val regex: String,

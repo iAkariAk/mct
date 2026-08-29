@@ -34,7 +34,7 @@ import mct.region.extractFromRegion
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import okio.Path.Companion.toPath
-import mct.dp.mcjson.BuiltinMCJPatterns as MCJBuiltinPatterns
+import mct.dp.mcjson.BuiltinMCJsonPatterns as MCJBuiltinPatterns
 
 
 @Serializable

@@ -2,14 +2,14 @@
 
 package mct.dp.mcjson
 
+import mct.model.DataPointerPatternKind
 import mct.model.patch.ContentKind
-import mct.model.patch.ContentKind.Structure.PatternKind
 import mct.pointer.ComponentPatterns
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
-val BuiltinMCJPatterns = PatternSet {
+val BuiltinMCJsonPatterns = PatternSet {
     dependsOn(ComponentPatterns)
 
     // --- Advancements ---
@@ -51,7 +51,7 @@ val BuiltinMCJPatterns = PatternSet {
     // minecraft:set_nbt
     +RegexPattern(
         """>#functions>\d+>#tag$""",
-        kind = ContentKind.Structure(SnbtStr, PatternKind.InheritFrom.Nbt)
+        kind = ContentKind.Structure(SnbtStr, DataPointerPatternKind.InheritFrom.Nbt)
     ) // minecraft:set_nbt
 
 

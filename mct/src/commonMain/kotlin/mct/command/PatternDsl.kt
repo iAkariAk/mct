@@ -115,7 +115,7 @@ class RootBuilderScope {
         patterns.getOrPut(command) { mutableListOf() } as MutableList<CommandExtractPattern>
 }
 
-fun PatternSet(builder: RootBuilderScope.() -> Unit): Map<String, List<CommandExtractPattern>> {
+fun PatternSet(builder: RootBuilderScope.() -> Unit): ExtractPatternSet {
     val scope = RootBuilderScope()
     context(scope) {
         scope.builder()

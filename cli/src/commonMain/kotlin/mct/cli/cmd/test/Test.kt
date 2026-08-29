@@ -19,7 +19,7 @@ import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
 import mct.command.extractTextFromCommands
 import mct.dp.compile
-import mct.dp.mcjson.BuiltinMCJPatterns
+import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerPattern
@@ -50,7 +50,7 @@ private class DataPointerTest : BaseCommand(name = "pointer") {
     override suspend fun App() {
         val extra = pattern.jsonFile<List<DataPointerPattern>>(emptyList())
         val builtin = when (kind) {
-            "mcjson" -> BuiltinMCJPatterns
+            "mcjson" -> BuiltinMCJsonPatterns
             "region" -> BuiltinNbtPatterns
             else -> unreachable
         }

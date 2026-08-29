@@ -20,16 +20,16 @@ import kotlinx.coroutines.flow.toList
 import mct.MCTError
 import mct.MCTPattern
 import mct.MCTWorkspace
+import mct.cext.CextPattern
+import mct.cext.backfillCext
+import mct.cext.extractByCext
 import mct.cli.*
 import mct.cli.util.CURRENT_PATH
-import mct.command.BuiltinCommandDataPatterns
-import mct.command.BuiltinCommandPatterns
-import mct.command.CommandExtractPattern
-import mct.command.CommandRegexPattern
+import mct.command.*
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
-import mct.dp.mcjson.BuiltinMCJPatterns
+import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.*
@@ -53,9 +53,11 @@ import okio.Path.Companion.toPath
 private const val POOL_CACHE = "all_texts.json"
 private const val REGION_EXTRACTION_CACHE = "region_extractions.json"
 private const val DATAPACK_EXTRACTION_CACHE = "datapack_extractions.json"
+private const val CEXT_EXTRACTION_CACHE = "cext_extractions.json"
 private const val MISSING = "missing.json"
 private const val REGION_REPLACEMENTS = "region_replacements.json"
 private const val DATAPACK_REPLACEMENTS = "datapack_replacements.json"
+private const val CEXT_REPLACEMENTS = "cext_replacements.json"
 
 class Project : SuspendingCliktCommand(name = "project") {
     init {
@@ -125,6 +127,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     val poolFile by lazy { cache(POOL_CACHE) }
     val regionExtractionFile by lazy { cache(REGION_EXTRACTION_CACHE) }
     val datapackExtractionFile by lazy { cache(DATAPACK_EXTRACTION_CACHE) }
+    val cextExtractionFile by lazy { cache(CEXT_EXTRACTION_CACHE) }
     val termsFile by lazy { projectDir / projectConfig.terms }
     val mappingFile by lazy { projectDir / projectConfig.mappings }
     val mtlxFile by lazy { projectConfig.mtlx?.let { projectDir / it } }
@@ -146,7 +149,10 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
 
     context(_: Raise<MCTError>)
     fun ensureExtracted() {
-        if (!fs.exists(regionExtractionFile) && !fs.exists(datapackExtractionFile) && !fs.exists(poolFile)) {
+        if (!fs.exists(regionExtractionFile) && !fs.exists(datapackExtractionFile) && !fs.exists(cextExtractionFile) && !fs.exists(
+                poolFile
+            )
+        ) {
             panic("No extractions found in cache. Run `project update` first.")
         }
     }
@@ -216,7 +222,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             return p
         }
 
-        val regionPatterns = patterns.nbt.flatMap {
+        val nbtPatterns = patterns.nbt.flatMap {
             requirePath(it, "Region").readJson<List<DataPointerPattern>>()
         }.ifEmpty { BuiltinNbtPatterns }
 
@@ -224,17 +230,41 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
             requirePath(it, "Command").readJson<List<CommandExtractPattern>>()
         }.let { if (it.isEmpty()) BuiltinCommandPatterns else it.compile() }
 
+        val mcjsonPatterns = patterns.mcjson.flatMap {
+            requirePath(it, "MCJson").readJson<List<DataPointerPattern>>()
+        }.ifEmpty { BuiltinMCJsonPatterns }
+
+        val commandComponentPatterns = patterns.commandComponent.flatMap {
+            requirePath(it, "Command Component").readJson<List<ComponentPattern>>()
+        }.ifEmpty { BuiltinMinecraftComponentPatterns }
+
         val commandDataPatterns = patterns.commandData.flatMap {
-            requirePath(it, "Command data").readJson<List<DataPointerPattern>>()
+            requirePath(it, "Command Data").readJson<List<DataPointerPattern>>()
         }.ifEmpty { BuiltinCommandDataPatterns }
 
-        val mcjPatterns = patterns.mcjson.flatMap {
-            requirePath(it, "MCJson").readJson<List<DataPointerPattern>>()
-        }.ifEmpty { BuiltinMCJPatterns }
 
         val commandRegexPatterns = patterns.commandRegex.flatMap {
             requirePath(it, "Command Regex").readJson<List<CommandRegexPattern>>()
         }
+
+        val cextPattern = patterns.cext.map {
+            requirePath(it, "Cext").readJson<CextPattern>()
+        }.let {
+            CextPattern(
+                optIn = it.flatMap(CextPattern::optIn),
+                customs = it.flatMap(CextPattern::customs)
+            )
+        }
+
+        val pattern = MCTPattern(
+            nbt = nbtPatterns,
+            mcjson = mcjsonPatterns,
+            command = commandPatterns,
+            commandData = commandDataPatterns,
+            commandComponent = commandComponentPatterns,
+            commandRegex = commandRegexPatterns,
+            cext = cextPattern
+        )
 
         val w = workspace()
 
@@ -246,32 +276,28 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
 
         val pool = coroutineScope {
             val regionJob = async(Dispatchers.IO) {
-                val groups = w.extractFromRegion(
-                    MCTPattern(
-                        nbt = regionPatterns,
-                        command = commandPatterns,
-                        commandData = commandDataPatterns,
-                        commandRegex = commandRegexPatterns
-                    )
-                ).toList()
+                val groups = w.extractFromRegion(pattern).toList()
                 cache(REGION_EXTRACTION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 printlnGreen("Extracted " + bold("${groups.size}") + " groups from region")
                 groups
             }
             val datapackJob = async(Dispatchers.IO) {
-                val groups = w.extractFromDatapack(
-                    MCTPattern(
-                        command = commandPatterns,
-                        commandData = commandDataPatterns,
-                        mcjson = mcjPatterns,
-                        commandRegex = commandRegexPatterns
-                    )
-                ).toList()
+                val groups = w.extractFromDatapack(pattern).toList()
                 cache(DATAPACK_EXTRACTION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
                 printlnGreen("Extracted " + bold("${groups.size}") + " groups from datapack")
                 groups
             }
-            (regionJob.await() + datapackJob.await()).exportIntoPool(simply = false)
+            val cextJob = async(Dispatchers.IO) {
+                val groups = w.extractByCext(pattern).toList()
+                cache(CEXT_EXTRACTION_CACHE).writeJson<List<ExtractionGroup>>(groups, projectConfig.prettyJson)
+                printlnGreen("Extracted " + bold("${groups.size}") + " groups by cext")
+                groups
+            }
+            buildList {
+                addAll(regionJob.await())
+                addAll(datapackJob.await())
+                addAll(cextJob.await())
+            }.exportIntoPool(simply = false)
         }
         cache(POOL_CACHE).writeJson(pool, projectConfig.prettyJson)
         val missingPool = pool.filter { it !in existingMapping }
@@ -354,6 +380,10 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         if (fs.exists(datapackExtractionFile)) {
             extractionGroups += datapackExtractionFile.readJson<List<ExtractionGroup>>()
             printlnGreen("Loaded datapack extractions")
+        }
+        if (fs.exists(cextExtractionFile)) {
+            extractionGroups += cextExtractionFile.readJson<List<ExtractionGroup>>()
+            printlnGreen("Loaded cext extractions")
         }
 
         if (extractionGroups.isEmpty()) {
@@ -453,15 +483,16 @@ private class Build : ProjectCommand("build", "Build translated world") {
 
         val regionGroups = if (fs.exists(regionExtractionFile)) {
             regionExtractionFile.readJson<List<ExtractionGroup>>()
-        } else {
-            emptyList()
-        }
+        } else emptyList()
         val datapackGroups = if (fs.exists(datapackExtractionFile)) {
             datapackExtractionFile.readJson<List<ExtractionGroup>>()
-        } else {
-            emptyList()
-        }
-        if (regionGroups.isEmpty() && datapackGroups.isEmpty()) {
+        } else emptyList()
+
+        val cextGroups = if (fs.exists(cextExtractionFile)) {
+            cextExtractionFile.readJson<List<ExtractionGroup>>()
+        } else emptyList()
+
+        if (regionGroups.isEmpty() && datapackGroups.isEmpty() && cextGroups.isEmpty()) {
             panic("All cache files are empty. Run 'project update' first.")
         }
 
@@ -470,18 +501,21 @@ private class Build : ProjectCommand("build", "Build translated world") {
                 cache(REGION_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
                 printlnGreen("Generated " + bold("${it.size}") + " region replacement groups")
             }
-        } else {
-            emptyList()
-        }
+        } else emptyList()
 
         val datapackReplacements = if (datapackGroups.isNotEmpty()) {
             @Suppress("UNCHECKED_CAST") (datapackGroups.replace(mapping) as List<DatapackReplacementGroup>).also {
                 cache(DATAPACK_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
                 printlnGreen("Generated " + bold("${it.size}") + " datapack replacement groups")
             }
-        } else {
-            emptyList()
-        }
+        } else emptyList()
+
+        val cextReplacements = if (cextGroups.isNotEmpty()) {
+            @Suppress("UNCHECKED_CAST") (cextGroups.replace(mapping) as List<CextReplacementGroup>).also {
+                cache(CEXT_REPLACEMENTS).writeJson<List<ReplacementGroup>>(it, projectConfig.prettyJson)
+                printlnGreen("Generated " + bold("${it.size}") + " cext replacement groups")
+            }
+        } else emptyList()
 
         val targetDir = projectDir / "build"
         if (!fs.exists(srcDir)) {
@@ -531,6 +565,22 @@ private class Build : ProjectCommand("build", "Build translated world") {
                         printlnGreen("Datapack backfill complete.")
                     } catch (e: Exception) {
                         printlnRed("Datapack backfill failed: ${e.stackTraceToString()}")
+                        hasBackfillErrors = true
+                    }
+                }
+            }
+            if (cextReplacements.isNotEmpty()) {
+                launch(Dispatchers.IO) {
+                    try {
+                        terminal.println(
+                            cyan("Backfilling ") + (cyan + bold)("${cextReplacements.size}") + cyan(
+                                " cext groups..."
+                            )
+                        )
+                        buildWorkspace.backfillCext(cextReplacements)
+                        printlnGreen("Cext backfill complete.")
+                    } catch (e: Exception) {
+                        printlnRed("Cext backfill failed: ${e.stackTraceToString()}")
                         hasBackfillErrors = true
                     }
                 }

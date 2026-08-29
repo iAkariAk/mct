@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.command.main
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.mordant.platform.MultiplatformSystem.exitProcess
+import mct.cli.cmd.cext.Cext
 import mct.cli.cmd.datapack.Datapack
 import mct.cli.cmd.kits.Kit
 import mct.cli.cmd.project.Project
@@ -28,7 +29,7 @@ class MCT : SuspendingCliktCommand("MCT") {
             exitProcess = { statusCode -> throw CliExit(statusCode) }
         }
         versionOption("SNAPSHOT")
-        subcommands(Datapack(), Region(), Kit(), Project(), Test())
+        subcommands(Datapack(), Region(), Cext(), Kit(), Project(), Test())
     }
 
     override suspend fun run() = Unit
@@ -40,3 +41,9 @@ private class CliExit(val statusCode: Int) : RuntimeException("Exit with status 
 class Panic(message: String) : Throwable(message)
 
 inline fun panic(message: String): Nothing = throw Panic(message)
+inline fun enforce(value: Boolean, message: () -> String) {
+    if (!value) panic(message())
+}
+inline fun enforceNotNull(value: Any?, message: () -> String) {
+    if (value == null) panic(message())
+}

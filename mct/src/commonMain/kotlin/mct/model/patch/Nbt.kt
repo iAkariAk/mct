@@ -1,26 +1,71 @@
 package mct.model.patch
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.pointer.DataPointer
+import mct.serializer.NbtGzip
+import mct.serializer.NbtNone
+import mct.serializer.NbtZlib
 
-/**
- *  @property pointer The NBT path/pointer to the specific tag
- */
 @Serializable
-data class NbtExtraction(
-    val pointer: DataPointer,
-    val content: ExtractionContent
-) {
+enum class NbtCompressionKind {
+    @SerialName("None")
+    None,
 
-    inline fun replace(replace: (ExtractionContent) -> ReplacementContent) = NbtReplacement(pointer, replace(content))
+    @SerialName("gzip")
+    Gzip,
 
+    @SerialName("zlib")
+    Zlib;
+
+
+    val nbtSerializer
+        get() = when (this) {
+            None -> NbtNone
+            Gzip -> NbtGzip
+            Zlib -> NbtZlib
+        }
 }
 
-/**
- *  @property pointer The NBT path/pointer identifying the tag to replace
- */
+@Serializable
+data class NbtExtraction(
+    val compressionKind: NbtCompressionKind = None,
+    val content: PointedExtractionContent
+) : Extraction {
+    val pointer get() = content.pointer
+    val format get() = content.format
+    val extraction get() = content.extraction
+
+    inline fun replace(replace: (ExtractionContent) -> ReplacementContent) =
+        NbtReplacement(compressionKind, content.replace(replace))
+}
+
 @Serializable
 data class NbtReplacement(
-    val pointer: DataPointer,
-    val content: ReplacementContent
-) : Replacement
+    val compressionKind: NbtCompressionKind,
+    val content: PointedReplacementContent
+) : Replacement, IPointedReplacementContent {
+    override val pointer get() = content.pointer
+    override val format get() = content.format
+    override val replacement get() = content.replacement
+}
+
+@Serializable
+data class SnbtExtraction(
+    val content: PointedExtractionContent
+) : Extraction {
+    val pointer get() = content.pointer
+    val format get() = content.format
+    val extraction get() = content.extraction
+
+    inline fun replace(replace: (ExtractionContent) -> ReplacementContent) =
+        SnbtReplacement(content.replace(replace))
+}
+
+@Serializable
+data class SnbtReplacement(
+    val content: PointedReplacementContent
+) : Replacement, IPointedReplacementContent {
+    override val pointer get() = content.pointer
+    override val format get() = content.format
+    override val replacement get() = content.replacement
+}

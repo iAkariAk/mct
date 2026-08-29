@@ -8,10 +8,10 @@ import mct.command.extractTextFromCommands
 import mct.dp.mcjson.backfillMCJson
 import mct.dp.mcjson.extractTextFromMCJson
 import mct.logger
+import mct.model.DataPointerPatternKind
 import mct.nbt.backfillSnbt
 import mct.nbt.extractTextFromSnbt
 import mct.pointer.DataPointer
-import mct.pointer.DataPointerPattern
 import mct.serializer.IntRangeSerializable
 import mct.util.StringIndices
 
@@ -227,37 +227,7 @@ sealed class ContentKind {
     }
 
     @Serializable
-    data class Structure(val format: FormatKind, val patterns: PatternKind) : ContentKind() {
-        @Serializable
-        sealed interface PatternKind {
-            fun patternsFrom(pattern: MCTPattern): List<DataPointerPattern>?
-
-            @Serializable
-            @SerialName("inherit_from")
-            enum class InheritFrom : PatternKind {
-                @SerialName("nbt")
-                Nbt,
-
-                @SerialName("mcjson")
-                MCJson,
-
-                @SerialName("command_data")
-                CommandData;
-
-                override fun patternsFrom(pattern: MCTPattern) = when (this) {
-                    Nbt -> pattern.nbt
-                    MCJson -> pattern.mcjson
-                    CommandData -> pattern.commandData
-                }
-            }
-
-            @Serializable
-            @SerialName("custom")
-            data class Custom(val patterns: List<DataPointerPattern>?) : PatternKind {
-                override fun patternsFrom(pattern: MCTPattern) = patterns
-            }
-        }
-
+    data class Structure(val format: FormatKind, val patterns: DataPointerPatternKind) : ContentKind() {
         context(_: LoggerHolder)
         override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? = runCatching {
             when (this.format) {

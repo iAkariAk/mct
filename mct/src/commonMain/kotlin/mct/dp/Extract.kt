@@ -10,6 +10,7 @@ import mct.MCTPattern
 import mct.MCTWorkspace
 import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
+import mct.command.ExtractPatternSet
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
 import mct.dp.nbt.NbtExtractor
@@ -20,9 +21,12 @@ import mct.util.IO
 import mct.util.io.*
 import okio.Path
 
-fun List<CommandExtractPattern>.compile(hasBuiltin: Boolean = true): Map<String, List<CommandExtractPattern>> {
+fun List<CommandExtractPattern>.compile(hasBuiltin: Boolean = true) =
+    compileWith(if (hasBuiltin) BuiltinCommandPatterns else null)
+
+fun List<CommandExtractPattern>.compileWith(inheritance: ExtractPatternSet? = null): ExtractPatternSet {
     val new = groupBy { it.command }.toMap()
-    return if (hasBuiltin) BuiltinCommandPatterns + new else new
+    return if (inheritance != null) inheritance + new else new
 }
 
 fun MCTWorkspace.extractFromDatapack(

@@ -198,9 +198,7 @@ sealed interface ArgSelection {
                     arg.indices.first + new.range.first,
                     new.value,
                     patterns?.commandComponent
-                ).also {
-                    println(it)
-                }
+                )
 
                 old != null && old.value.isNotEmpty() -> selectSnbt(
                     arg.indices.first + old.range.first,

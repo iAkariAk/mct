@@ -1,0 +1,20 @@
+{
+  "customs": [
+    {
+      "select": "level.dat",
+      "kind": {
+        "type": "nbt",
+        "compression": "gzip",
+        "patterns": {
+          "type": "custom",
+          "patterns": [
+            {
+              "type": "right",
+              "right": ">#LevelName"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -20,7 +20,7 @@ import mct.command.CommandRegexPattern
 import mct.dp.backfillDatapack
 import mct.dp.compile
 import mct.dp.extractFromDatapack
-import mct.dp.mcjson.BuiltinMCJPatterns
+import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.model.patch.DatapackReplacementGroup
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.ReplacementGroup
@@ -81,8 +81,8 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
         }
         val mcjPatterns = when {
             disableMCJFilter -> null
-            userMcjPatterns != null -> BuiltinMCJPatterns + userMcjPatterns
-            else -> BuiltinMCJPatterns
+            userMcjPatterns != null -> BuiltinMCJsonPatterns + userMcjPatterns
+            else -> BuiltinMCJsonPatterns
         }
         val commandDataPatterns = when {
             disableCommandDataFilter -> null

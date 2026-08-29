@@ -12,6 +12,9 @@ import mct.util.*
 sealed interface ExtractionGroup {
     val extractions: List<Extraction>
 
+    /**
+     * Note: Always guarantee the Replacement is what the Replacement associated
+     */
     fun replace(replacements: List<Replacement>): ReplacementGroup
 }
 
@@ -94,25 +97,30 @@ fun FormatKind.validate(value: String): Boolean = when (this) {
     PlainStr -> true
 }
 
-inline fun Extraction.contents(): Sequence<String> = when (this) {
+
+fun Extraction.contents(): Sequence<String> = when (this) {
     is DatapackExtraction.MCFunction -> sequenceOf(unquoted())
     else -> {
         val content = when (this) {
             is DatapackExtraction.MCJson -> extraction
             is DatapackExtraction.Nbt -> extraction
             is RegionExtraction -> extraction
+            is NbtExtraction -> extraction
+            is SnbtExtraction -> extraction
         }
         content.contents()
     }
 }
 
-inline fun Extraction.contentsWithFormat(): Sequence<Pair<FormatKind, String>> = when (this) {
+fun Extraction.contentsWithFormat(): Sequence<Pair<FormatKind, String>> = when (this) {
     is DatapackExtraction.MCFunction -> sequenceOf(format to unquoted())
     else -> {
         val content = when (this) {
             is DatapackExtraction.MCJson -> extraction
             is DatapackExtraction.Nbt -> extraction
             is RegionExtraction -> extraction
+            is NbtExtraction -> extraction
+            is SnbtExtraction -> extraction
         }
         content.contentsWithFormat()
     }

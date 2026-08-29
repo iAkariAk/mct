@@ -33,32 +33,21 @@ inline fun Extraction.replace(
     is DatapackExtraction.MCJson -> replace { mcjReplace(it) ?: return null }
     is DatapackExtraction.Nbt -> replace { nbtReplace(it) ?: return null }
     is RegionExtraction -> replace { nbtReplace(it) ?: return null }
+    is NbtExtraction -> replace { nbtReplace(it) ?: return null }
+    is SnbtExtraction -> replace { nbtReplace(it) ?: return null }
 }
 
 inline fun List<ExtractionGroup>.replace(
     mcfReplace: (String) -> String?,
     mcjReplace: (ExtractionContent) -> ReplacementContent?,
     nbtReplace: (ExtractionContent) -> ReplacementContent?,
-) = mapNotNull outer@{ group ->
-    when (group) {
-        is DatapackExtractionGroup -> {
-            val replacements = group.extractions.mapNotNull { extraction ->
-                when (extraction) {
-                    is DatapackExtraction.MCFunction -> extraction.replace { mcfReplace(it) ?: return@mapNotNull null }
-                    is DatapackExtraction.MCJson -> extraction.replace { mcjReplace(it) ?: return@mapNotNull null }
-                    is DatapackExtraction.Nbt -> extraction.replace { nbtReplace(it) ?: return@mapNotNull null }
-                }
-            }
-            DatapackReplacementGroup(group.source, group.path, replacements.ifEmpty { return@outer null })
-        }
-
-        is RegionExtractionGroup -> {
-            val replacements = group.extractions.mapNotNull { extraction ->
-                extraction.replace { nbtReplace(it) ?: return@mapNotNull null }
-            }
-            RegionReplacementGroup(group.dimension, group.kind, group.coord, replacements.ifEmpty { return@outer null })
-        }
+) = mapNotNull { group ->
+    val replacements = group.extractions.mapNotNull { extraction ->
+        extraction.replace(mcfReplace, mcjReplace, nbtReplace)
     }
+    if (replacements.isEmpty()) return@mapNotNull null
+
+    group.replace(replacements)
 }
 
 
