@@ -55,7 +55,8 @@ graalvmNative {
             buildArgs.add("--link-at-build-time")
             buildArgs.add("--initialize-at-build-time=io.github.oshai.kotlinlogging")
 
-            buildArgs.add("-O4")
+            buildArgs.add("--gc=G1")
+            buildArgs.add("-O3")
             buildArgs.add("-H:+UnlockExperimentalVMOptions")
             buildArgs.add("-H:+ReportExceptionStackTraces")
             buildArgs.add("-H:+InstallExitHandlers")
