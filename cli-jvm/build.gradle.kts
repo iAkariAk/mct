@@ -35,6 +35,8 @@ tasks.shadowJar {
     exclude("META-INF/*.kotlin_module")
 }
 
+val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+
 graalvmNative {
     metadataRepository {
         enabled = true
@@ -55,7 +57,7 @@ graalvmNative {
             buildArgs.add("--link-at-build-time")
             buildArgs.add("--initialize-at-build-time=io.github.oshai.kotlinlogging")
 
-            buildArgs.add("--gc=G1")
+            if (!isWindows) buildArgs.add("--gc=G1")
             buildArgs.add("-O3")
             buildArgs.add("-H:+UnlockExperimentalVMOptions")
             buildArgs.add("-H:+ReportExceptionStackTraces")
@@ -132,7 +134,6 @@ runtime {
 
         appVersion = "0.0.0"
 
-        val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
         imageOptions = buildList {
             if (isWindows) add("--win-console")
         }
