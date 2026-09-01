@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.toList
 import mct.MCTError
 import mct.cext.backfillCext
 import mct.cext.extractByCext
-import mct.cli.ExtractingCommand
 import mct.cli.WorkspaceCommand
 import mct.cli.enforceNotNull
 import mct.cli.path
+import mct.cli.withPattern
 import mct.model.patch.CextReplacementGroup
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.ReplacementGroup
@@ -30,7 +30,8 @@ class Cext : SuspendingCliktCommand(name = "cext") {
     override fun help(context: Context) = "Customize your extractor"
 }
 
-private class CextExtract : ExtractingCommand(name = "extract") {
+private class CextExtract : WorkspaceCommand(name = "extract") {
+    val pattern by withPattern()
     val output by option("--output", "-o", help = "The JSON output path for extracted texts").path().required()
 
     context(_: Raise<MCTError>)

@@ -10,28 +10,24 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
-import com.github.ajalt.mordant.rendering.TextColors
+import com.github.ajalt.mordant.rendering.TextColors.blue
+import com.github.ajalt.mordant.rendering.TextColors.green
+import com.github.ajalt.mordant.rendering.TextStyles.bold
 import mct.MCTError
-import mct.MCTPattern
 import mct.cli.*
-import mct.command.BuiltinCommandDataPatterns
-import mct.command.BuiltinCommandPatterns
-import mct.command.CommandExtractPattern
 import mct.command.extractTextFromCommands
-import mct.dp.compile
 import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerPattern
 import mct.pointer.decodeFromString
 import mct.pointer.matches
-import mct.util.io.readJson
 import mct.util.io.readText
 import mct.util.unreachable
 
 class Test : SuspendingCliktCommand(name = "test") {
     init {
-        subcommands(DataPointerTest(), CommandTest())
+        subcommands(DataPointerTest(), CommandTest(), PatternDisplay())
     }
 
     override suspend fun run() = Unit
@@ -64,32 +60,48 @@ private class DataPointerTest : BaseCommand(name = "pointer") {
 }
 
 private class CommandTest : BaseCommand(name = "command", help = "Test command pattern") {
-    val commandPattern by option("--command-pattern", "-pF", help = "The pattern to match the test").path()
-    val commandDataPattern by option(
-        "--command-data-pattern", "-pFD", help = "The pattern to match the test"
-    ).path()
+    val pattern by withPattern()
     val testedFile by option("--input", "-i", help = "A file which will be used to test the pattern").path().required()
-    val noBuiltin by option("--no-builtin", "-N", help = "Disable builtin pattern").flag()
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val testedContent = testedFile.readText()
-        val extraCommandPattern = commandPattern?.readJson<List<CommandExtractPattern>>()
-        val extraCommandDataPattern = commandDataPattern?.readJson<List<DataPointerPattern>>()
-        val combinedCommandPattern = extraCommandPattern?.compile(!noBuiltin) ?: BuiltinCommandPatterns
-        val combinedCommandDataPattern =
-            (if (noBuiltin) extraCommandDataPattern else extraCommandDataPattern?.let { it + BuiltinCommandDataPatterns })
-                ?: BuiltinCommandDataPatterns
-        printlnBlue(combinedCommandDataPattern)
-        val pattern = MCTPattern(
-            command = combinedCommandPattern,
-            commandData = combinedCommandDataPattern
-        )
         val matchResults = extractTextFromCommands(testedContent, pattern).sortedByDescending { it.indices.first }
         val display = matchResults.fold(StringBuilder(testedContent)) { acc, r ->
-            acc.setRange(r.indices.first, r.indices.last + 1, TextColors.green(r.content))
+            acc.setRange(r.indices.first, r.indices.last + 1, (bold + green)(r.content))
             acc
         }
         terminal.println(display)
+    }
+}
+
+private class PatternDisplay : BaseCommand(name = "pattern", help = "Display the pattern you passed") {
+    val pattern by withPattern()
+    val compact by option("--compact", "-c", help = "Print the pattern in a compact format").flag()
+
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        if (compact) {
+            printlnGreen(pattern.toString())
+            return
+        }
+
+        val pretty = buildString {
+            appendLine(blue("MCT Pattern:"))
+            fun newItemLine(name: String, value: String) {
+                append(blue(name))
+                append(": ")
+                append((green + bold)(value))
+                appendLine()
+            }
+            newItemLine("Command", pattern.command.toString())
+            newItemLine("Command Data", pattern.commandData.toString())
+            newItemLine("Command Component", pattern.commandComponent.toString())
+            newItemLine("Command Regex", pattern.commandRegex.toString())
+            newItemLine("Nbt", pattern.nbt.toString())
+            newItemLine("MCJson", pattern.mcjson.toString())
+            newItemLine("Cext", pattern.cext.toString())
+        }
+        terminal.println(pretty)
     }
 }

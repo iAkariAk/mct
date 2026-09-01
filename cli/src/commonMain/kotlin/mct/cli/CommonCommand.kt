@@ -4,6 +4,7 @@ import arrow.core.getOrElse
 import arrow.core.raise.Raise
 import arrow.core.raise.either
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
+import com.github.ajalt.clikt.core.BaseCliktCommand
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.terminal
@@ -81,80 +82,78 @@ abstract class WorkspaceCommand(
     }
 }
 
-abstract class ExtractingCommand(
-    name: String? = null,
-    help: String? = null,
-) : WorkspaceCommand(name, help) {
-    private val mcjson by option("--pattern-mcjson-pattern").path()
-    private val nbt by option("--pattern-nbt-pattern").path()
-    private val command by option("--pattern-command").path()
-    private val commandData by option("--pattern-command-data").path()
-    private val commandComponent by option("--pattern-command-component").path()
-    private val commandRegex by option("--pattern-command-regex").path()
-    private val cext by option("--pattern-cext").path()
+context(_: FSHolder)
+private inline fun <reified T : Any> gatherPattern(
+    path: Path?,
+    disableBuiltin: Boolean,
+    disableFilter: Boolean,
+    builtin: T,
+    merge: (T, T) -> T
+): T? = when {
+    disableFilter -> null
+    path == null -> builtin.takeUnless { disableBuiltin }
+    disableBuiltin -> path.readJson<T>()
+    else -> merge(builtin, path.readJson<T>())
+}
 
-    private val disableBuiltinForMCJson by option("--disable-builtin-mcjson").flag()
-    private val disableBuiltinForNbt by option("--disable-builtin-nbt").flag()
-    private val disableBuiltinForCommand by option("--disable-builtin-command").flag()
-    private val disableBuiltinForCommandData by option("--disable-builtin-command-data").flag()
-    private val disableBuiltinForCommandComponent by option("--disable-builtin-command-component").flag()
+context(_: FSHolder)
+fun BaseCliktCommand<*>.withPattern(): Lazy<MCTPattern> {
+    val mcjson = option("--pattern-mcjson-pattern").path().also(::registerOption)
+    val nbt = option("--pattern-nbt-pattern").path().also(::registerOption)
+    val command = option("--pattern-command").path().also(::registerOption)
+    val commandData = option("--pattern-command-data").path().also(::registerOption)
+    val commandComponent = option("--pattern-command-component").path().also(::registerOption)
+    val commandRegex = option("--pattern-command-regex").path().also(::registerOption)
+    val cext = option("--pattern-cext").path().also(::registerOption)
 
-    private val disableFilterForMCJson by option("--disable-filter-mcjson").flag()
-    private val disableFilterForNbt by option("--disable-filter-nbt").flag()
-    private val disableFilterForCommandData by option("--disable-filter-command-data").flag()
+    val disableBuiltinForMCJson = option("--disable-builtin-mcjson").flag().also(::registerOption)
+    val disableBuiltinForNbt = option("--disable-builtin-nbt").flag().also(::registerOption)
+    val disableBuiltinForCommand = option("--disable-builtin-command").flag().also(::registerOption)
+    val disableBuiltinForCommandData = option("--disable-builtin-command-data").flag().also(::registerOption)
+    val disableBuiltinForCommandComponent = option("--disable-builtin-command-component").flag().also(::registerOption)
 
-    context(_: FSHolder)
-    private inline fun <reified T : Any> gatherPattern(
-        path: Path?,
-        disableBuiltin: Boolean,
-        disableFilter: Boolean,
-        builtin: T,
-        merge: (T, T) -> T
-    ): T? = when {
-        disableFilter -> null
-        path == null -> builtin.takeUnless { disableBuiltin }
-        disableBuiltin -> path.readJson<T>()
-        else -> merge(builtin, path.readJson<T>())
-    }
-
-    val pattern by lazy {
+    val disableFilterForMCJson = option("--disable-filter-mcjson").flag().also(::registerOption)
+    val disableFilterForNbt = option("--disable-filter-nbt").flag().also(::registerOption)
+    val disableFilterForCommandData = option("--disable-filter-command-data").flag().also(::registerOption)
+    return lazy {
         MCTPattern(
             nbt = gatherPattern(
-                nbt,
-                disableBuiltinForNbt,
-                disableFilterForNbt,
+                nbt.value,
+                disableBuiltinForNbt.value,
+                disableFilterForNbt.value,
                 BuiltinNbtPatterns
             ) { x, y -> x + y },
             mcjson = gatherPattern(
-                mcjson,
-                disableBuiltinForMCJson,
-                disableFilterForMCJson,
+                mcjson.value,
+                disableBuiltinForMCJson.value,
+                disableFilterForMCJson.value,
                 BuiltinMCJsonPatterns
             ) { x, y -> x + y },
             command = gatherPattern(
-                command,
-                disableBuiltinForCommand,
+                command.value,
+                disableBuiltinForCommand.value,
                 false,
                 BuiltinCommandPatterns
             ) { x, y -> x + y }
                 ?: panic("Cannot use the `--disable-builtin-command` when no path to the pattern is passed"),
             commandData = gatherPattern(
-                commandData,
-                disableBuiltinForCommandData,
-                disableFilterForCommandData,
+                commandData.value,
+                disableBuiltinForCommandData.value,
+                disableFilterForCommandData.value,
                 BuiltinCommandDataPatterns
             ) { x, y -> x + y },
             commandComponent = gatherPattern(
-                commandComponent,
-                disableBuiltinForCommandComponent,
+                commandComponent.value,
+                disableBuiltinForCommandComponent.value,
                 false,
                 BuiltinMinecraftComponentPatterns
             ) { x, y -> x + y }
                 ?: panic("Cannot use the `--disable-builtin-command-component` when no path to the pattern is passed"),
-            commandRegex = commandRegex?.readJson() ?: emptyList(),
-            cext = cext?.readJson(),
+            commandRegex = commandRegex.value?.readJson() ?: emptyList(),
+            cext = cext.value?.readJson(),
         )
     }
+
 }
 
 fun BaseCommand.printlnGreen(message: Any?) = terminal.println(TextColors.green(message.toString()))
