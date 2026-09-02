@@ -23,10 +23,6 @@ data class CextPattern(
     fun flatten(): List<CextPatternEntry> = optIn.flatMap(CextBuiltinPattern::patterns) + customs
 }
 
-@Serializable
-sealed interface CextBuiltinPattern {
-    val patterns: List<CextPatternEntry>
-}
 
 @Serializable
 data class CextPatternEntry(

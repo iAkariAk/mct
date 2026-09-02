@@ -8,6 +8,8 @@ import mct.command.CommandRegexPattern
 import mct.command.ExtractPatternSet
 import mct.dp.compileWith
 import mct.pointer.DataPointerPattern
+import mct.pointer.DataPointerPatternSetBuilderScope
+import mct.pointer.PatternSet
 import mct.util.unreachable
 
 @Serializable
@@ -49,6 +51,10 @@ data class CommandPatternKind(
 
 @Serializable
 sealed interface DataPointerPatternKind {
+    companion object {
+        fun customOf(builder: DataPointerPatternSetBuilderScope.() -> Unit) = Custom(PatternSet(builder))
+    }
+
     fun patternsFrom(pattern: MCTPattern): List<DataPointerPattern>?
 
     @Serializable
@@ -73,7 +79,8 @@ sealed interface DataPointerPatternKind {
     @Serializable
     @SerialName("custom")
     data class Custom(
-        val patterns: List<DataPointerPattern>?, @SerialName("inherit_from") val inheritFrom: InheritFrom? = null
+        val patterns: List<DataPointerPattern>?,
+        @SerialName("inherit_from") val inheritFrom: InheritFrom? = null
     ) : DataPointerPatternKind {
         override fun patternsFrom(pattern: MCTPattern): List<DataPointerPattern>? {
             val inheritFrom = inheritFrom?.patternsFrom(pattern)
