@@ -1,6 +1,5 @@
 package mct.region
 
-import arrow.core.raise.Raise
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import mct.LoggerHolder
@@ -16,7 +15,6 @@ import mct.region.anvil.model.ChunkDataKind
 import mct.util.IO
 
 
-context(_: Raise<ExtractError>)
 fun MCTWorkspace.extractFromRegion(
     pattern: MCTPattern = MCTPattern.Default,
 ): Flow<RegionExtractionGroup> {

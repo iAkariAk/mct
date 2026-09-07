@@ -46,7 +46,7 @@
           "position": 4,
           "condition": {
             "type": "regex",
-            "regex": "Name|Lore|ConsumeItem.Item"
+            "regex": "Name|Lore|ConsumeItem\\.Item|Temp\\.Trigger"
           }
         }
       ]

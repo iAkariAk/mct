@@ -9,6 +9,7 @@ internal fun ComponentPatterns.findByCompoundKey(key: String) = find { pattern -
     (pattern.namespace == "minecraft" && pattern.name == key) || "${pattern.namespace}:${pattern.name}" == key
 }
 
+@Serializable
 data class ComponentPattern(
     val namespace: String = "minecraft",
     val name: String,

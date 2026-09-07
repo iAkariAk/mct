@@ -3,9 +3,16 @@ package mct
 import arrow.core.raise.context.Raise
 import arrow.core.raise.context.either
 import arrow.core.raise.context.ensure
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flattenMerge
+import kotlinx.coroutines.flow.flowOf
+import mct.cext.extractByCext
+import mct.dp.extractFromDatapack
 import mct.model.DataVersions
 import mct.model.LevelRoot
+import mct.model.patch.ExtractionGroup
 import mct.region.anvil.*
+import mct.region.extractFromRegion
 import mct.serializer.NbtGzip
 import mct.util.toSnbt
 import net.benwoodworth.knbt.NbtCompound
@@ -65,6 +72,15 @@ class MCTWorkspace private constructor(
         }
     }
 
+}
+
+fun MCTWorkspace.extractAll(
+    pattern: MCTPattern,
+): Flow<ExtractionGroup> {
+    val region = extractFromRegion(pattern)
+    val datapack = extractFromDatapack(pattern)
+    val cext = extractByCext(pattern)
+    return flowOf(region, datapack, cext).flattenMerge()
 }
 
 interface DimensionProvider : Map<String, Dimension>
