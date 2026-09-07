@@ -10,13 +10,13 @@ import kotlinx.coroutines.launch
 import mct.MCTWorkspace
 import mct.cext.backfillCext
 import mct.dp.backfillDatapack
-import mct.model.patch.*
+import mct.model.patch.Patch
+import mct.model.patch.PatchValidationFailureStrategy
 import mct.region.backfillRegion
 import mct.util.IO
 import mct.util.NotMatchedItem
 import mct.util.io.HashKind.SHA1
 import mct.util.io.computeHashTree
-import mct.util.tripartition
 
 sealed interface PatchResult {
     data class Success(val warning: Map<String, NotMatchedItem<String>>) : PatchResult
@@ -47,7 +47,7 @@ suspend fun MCTWorkspace.applyPatch(
     }
 
     coroutineScope {
-        val (region, datapack, cext) = replacementGroups.tripartition<ReplacementGroup, RegionReplacementGroup, DatapackReplacementGroup, CextReplacementGroup>()
+        val (region, datapack, cext) = replacementGroups
         launch(Dispatchers.IO) {
             either {
                 backfillRegion(region)

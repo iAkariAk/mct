@@ -76,6 +76,7 @@ kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.re
 kotlinx-schema-generator-json = { module = "org.jetbrains.kotlinx:kotlinx-schema-generator-json", version.ref = "kotlinx-schema-generator-json" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
+kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "serialization" }
 ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
 ktoml-file = { module = "com.akuleshov7:ktoml-file", version.ref = "ktoml" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }

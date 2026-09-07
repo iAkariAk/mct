@@ -43,6 +43,7 @@ kotlin {
         commonMain.dependencies {
             api(libs.kotlinx.serialization.json)
             api(libs.kotlinx.serialization.json.okio)
+            api(libs.kotlinx.serialization.cbor)
             api(libs.kotlinx.coroutines.core)
             api(project.dependencies.platform((libs.arrow.stack)))
             api(libs.bundles.arrow)

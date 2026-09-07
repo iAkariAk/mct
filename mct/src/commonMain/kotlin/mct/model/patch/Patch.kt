@@ -48,8 +48,15 @@ sealed interface Patch {
         override val metadata: PatchMetadata? = null,
         override val validation: PatchValidation? = null,
         @SerialName("replacement_groups")
-        val replacementGroups: List<ReplacementGroup>
-    ) : Patch
+        val replacementGroups: ReplacementGroups
+    ) : Patch {
+        @Serializable
+        data class ReplacementGroups(
+            val region: List<RegionReplacementGroup>,
+            val datapack: List<DatapackReplacementGroup>,
+            val cext: List<CextReplacementGroup>
+        )
+    }
 }
 
 @Serializable

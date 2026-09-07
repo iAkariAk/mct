@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package mct.serializer
 
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import mct.command.extractPatternModule
 import net.benwoodworth.knbt.Nbt
@@ -21,6 +25,12 @@ val MCTJson = Json {
 val PrettyJson = Json(MCTJson) {
     prettyPrint = true
     prettyPrintIndent = "  "
+}
+
+val MCTCbor = Cbor {
+    alwaysUseByteString = true
+    encodeDefaults = false
+    ignoreUnknownKeys = true
 }
 
 private val CommonNbt = Nbt {

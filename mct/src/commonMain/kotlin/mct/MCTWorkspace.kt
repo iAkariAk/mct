@@ -10,7 +10,10 @@ import mct.cext.extractByCext
 import mct.dp.extractFromDatapack
 import mct.model.DataVersions
 import mct.model.LevelRoot
+import mct.model.patch.CextExtractionGroup
+import mct.model.patch.DatapackExtractionGroup
 import mct.model.patch.ExtractionGroup
+import mct.model.patch.RegionExtractionGroup
 import mct.region.anvil.*
 import mct.region.extractFromRegion
 import mct.serializer.NbtGzip
@@ -74,7 +77,7 @@ class MCTWorkspace private constructor(
 
 }
 
-fun MCTWorkspace.extractAll(
+fun MCTWorkspace.extractAllMerged(
     pattern: MCTPattern,
 ): Flow<ExtractionGroup> {
     val region = extractFromRegion(pattern)
@@ -82,6 +85,16 @@ fun MCTWorkspace.extractAll(
     val cext = extractByCext(pattern)
     return flowOf(region, datapack, cext).flattenMerge()
 }
+
+fun MCTWorkspace.extractAll(
+    pattern: MCTPattern,
+): Triple<Flow<RegionExtractionGroup>, Flow<DatapackExtractionGroup>, Flow<CextExtractionGroup>> {
+    val region = extractFromRegion(pattern)
+    val datapack = extractFromDatapack(pattern)
+    val cext = extractByCext(pattern)
+    return Triple(region, datapack, cext)
+}
+
 
 interface DimensionProvider : Map<String, Dimension>
 
@@ -113,10 +126,8 @@ private fun MutableMap<String, Dimension>.scanCustomizedDimensions(workspace: MC
     val fs = workspace.fs
     val logger = workspace.logger
     if (!fs.exists(dimDir)) return
-    val outerDimensions =
-        fs.list(dimDir).asSequence()
-            .filter { it.name != "minecraft" }
-            .map { it.name to fs.list(it).map { it.name to it } }
+    val outerDimensions = fs.list(dimDir).asSequence().filter { it.name != "minecraft" }
+        .map { it.name to fs.list(it).map { it.name to it } }
     outerDimensions.forEach { (namespace, innerDimensions) ->
         innerDimensions.forEach { (name, path) ->
             val id = "$namespace:$name"
