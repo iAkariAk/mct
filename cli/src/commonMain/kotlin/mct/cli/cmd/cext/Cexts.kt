@@ -21,7 +21,7 @@ import mct.model.patch.ReplacementGroup
 import mct.util.io.readJson
 import mct.util.io.writeJson
 
-class Cext : SuspendingCliktCommand(name = "cext") {
+class CextCommands : SuspendingCliktCommand(name = "cext") {
     init {
         subcommands(CextExtract(), CextBackfill())
     }

@@ -20,7 +20,7 @@ import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.writeJson
 
-class Region : SuspendingCliktCommand(name = "region") {
+class RegionCommands : SuspendingCliktCommand(name = "region") {
     init {
         subcommands(RegionExtract(), RegionBackfill())
     }

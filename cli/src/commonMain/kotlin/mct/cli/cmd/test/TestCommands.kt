@@ -25,7 +25,7 @@ import mct.pointer.matches
 import mct.util.io.readText
 import mct.util.unreachable
 
-class Test : SuspendingCliktCommand(name = "test") {
+class TestCommands : SuspendingCliktCommand(name = "test") {
     init {
         subcommands(DataPointerTest(), CommandTest(), PatternDisplay())
     }

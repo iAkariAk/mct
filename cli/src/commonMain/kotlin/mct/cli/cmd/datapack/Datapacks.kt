@@ -19,7 +19,7 @@ import mct.model.patch.ExtractionGroup
 import mct.model.patch.ReplacementGroup
 import mct.util.io.writeJson
 
-class Datapack : SuspendingCliktCommand(name = "datapack") {
+class DatapackCommands : SuspendingCliktCommand(name = "datapack") {
     override suspend fun run() = Unit
     override fun help(context: Context) = "Datapack operators"
 

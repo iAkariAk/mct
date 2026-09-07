@@ -5,7 +5,7 @@ import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.subcommands
 
 
-class Kit : SuspendingCliktCommand(name = "kit") {
+class KitCommands : SuspendingCliktCommand(name = "kit") {
     init {
         subcommands(ExportSnbt(), ExportScheme(), ReplaceAll(), TextPool(), TermExtract(), AITranslate(), MTLXKit(), OfficialLang())
     }

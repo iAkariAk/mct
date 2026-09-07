@@ -59,7 +59,7 @@ private const val REGION_REPLACEMENTS = "region_replacements.json"
 private const val DATAPACK_REPLACEMENTS = "datapack_replacements.json"
 private const val CEXT_REPLACEMENTS = "cext_replacements.json"
 
-class Project : SuspendingCliktCommand(name = "project") {
+class ProjectCommands : SuspendingCliktCommand(name = "project") {
     init {
         subcommands(Init(), Update(), TermExtract(), Translate(), Build())
     }
