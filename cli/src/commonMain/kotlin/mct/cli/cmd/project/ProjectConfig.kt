@@ -5,6 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.extra.ai.translator.MapInfo
 import mct.extra.ai.translator.TranslationPrompts
+import mct.model.patch.PathKind
 
 @Serializable
 @SerialName("project")
@@ -40,6 +41,9 @@ data class ProjectConfig(
 
     @TomlComments("AI translation configuration")
     val ai: AIConfig = AIConfig.Default,
+
+    @TomlComments("MCT Patch configuration")
+    val patch: PatchConfig = PatchConfig.Default,
 )
 
 @Serializable
@@ -88,49 +92,64 @@ data class AIConfig(
     @TomlComments("Model name (e.g. gpt-4o, deepseek-v4-pro, gemini-2.0-flash)")
     val model: String = "gpt-4o",
 
-    @TomlComments("Use streaming API (can resolve empty response issues on some providers; default: true)")
     @SerialName("use_stream_api")
+    @TomlComments("Use streaming API (can resolve empty response issues on some providers; default: true)")
     val useStreamApi: Boolean = true,
 
-    @TomlComments("Max tokens per translation request")
     @SerialName("token_threshold")
+    @TomlComments("Max tokens per translation request")
     val tokenThreshold: Int = 2048,
 
-    @TomlComments("Custom literature-style prompt for translation")
     @SerialName("literature_style")
+    @TomlComments("Custom literature-style prompt for translation")
     val literatureStyle: String = TranslationPrompts.literatureStyle,
 
-    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${TranslationPrompts.targetLanguage})")
-    @SerialName("target_language")
+    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${TranslationPrompts.targetLanguage})") @SerialName(
+        "target_language"
+    )
     val targetLanguage: String = TranslationPrompts.targetLanguage,
 
-    @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY")
-    @SerialName("extra_prompts")
+    @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY") @SerialName(
+        "extra_prompts"
+    )
     val extraPrompts: String? = TranslationPrompts.extraPrompts,
 
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default, i.e. 1.0)")
     val temperature: Double? = 1.0,
 
-    @TomlComments("Enable aggressive gradient text handling (default: ${TranslationPrompts.handleGradientAggressively})")
-    @SerialName("handle_gradient")
+    @TomlComments("Enable aggressive gradient text handling (default: ${TranslationPrompts.handleGradientAggressively})") @SerialName(
+        "handle_gradient"
+    )
     val handleGradientAggressively: Boolean = TranslationPrompts.handleGradientAggressively,
 
-    @TomlComments("Enable http logging for debug (default: false)")
-    @SerialName("http_logging")
+    @TomlComments("Enable http logging for debug (default: false)") @SerialName("http_logging")
     val enableHttpLogging: Boolean = false,
 
-    @TomlComments("Enable LLM thinking output (default: false)")
-    @SerialName("thinking_output")
+    @TomlComments("Enable LLM thinking output (default: false)") @SerialName("thinking_output")
     val enableThinkingOutput: Boolean = false,
 
     @TomlComments("Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective; default: 1)")
     val concurrency: Int = 1,
 
-    @TomlComments("Translate different kinds of extraction concurrently. (WARN: parallelism will cause terms to be ineffective; default: false)")
-    @SerialName("concurrent_by_kind")
+    @TomlComments("Translate different kinds of extraction concurrently. (WARN: parallelism will cause terms to be ineffective; default: false)") @SerialName(
+        "concurrent_by_kind"
+    )
     val concurrentByKind: Boolean = false,
 ) {
     companion object {
         val Default = AIConfig()
+    }
+}
+
+@Serializable
+@SerialName("patch")
+data class PatchConfig(
+    @TomlComments("Name of the created patch (default follow `Project name`)")
+    val name: String? = null,
+    @TomlComments("Kind of the created patch; `immediate` will evaluate the replacement groups immediately, `deferred` will evaluate that when apply the patch (default: immediate)")
+    val kind: PathKind = Immediate,
+) {
+    companion object {
+        val Default = PatchConfig()
     }
 }
