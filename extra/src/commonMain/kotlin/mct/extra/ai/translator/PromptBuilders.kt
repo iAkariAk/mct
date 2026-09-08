@@ -112,7 +112,7 @@ private val MINECRAFT_TERM_SCAN_RULES = $$"""
 - 对 `item_stack`、`block_state`、`item_predicate`、`block_predicate` 等复合参数，只扫描其内部明确的文本组件；ID、属性、组件/谓词名称、非文本 SNBT 数据和外层语法都不是术语。
 """.trimIndent()
 
-internal fun buildTranslationPrompt(format: FormatKind, prompts: TranslationPrompts): String = buildString {
+internal fun buildTranslationPrompt(format: FormatKind, prompts: LLMTranslationPrompts): String = buildString {
     append(
         $$"""
         你是一名专精 Minecraft 地图本地化的翻译引擎。将输入中的可翻译自然语言翻译为$${prompts.targetLanguage}，同时保持每一项原有的数据表示、结构和 Minecraft 语义。

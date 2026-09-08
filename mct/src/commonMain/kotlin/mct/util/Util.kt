@@ -146,6 +146,9 @@ inline fun <reified P : Any, reified C1 : P, reified C2 : P, reified C3 : P> Ite
     return Triple(first, second, third)
 }
 
+inline fun Boolean.ifTrue(block: () -> Unit) = also { if (this) block() }
+inline fun Boolean.ifFalse(block: () -> Unit) = also { if (!this) block() }
+
 
 @DslMarker
 annotation class BuilderMaker

@@ -40,7 +40,7 @@ class TranslatorTest : FreeSpec({
                 token = token!!,
                 model = model!!,
             )
-            Translator(call)
+            LLMTranslator(call)
         }
 
 
@@ -122,7 +122,7 @@ class TranslatorTest : FreeSpec({
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = Translator(
+                val translator = LLMTranslator(
                     call = mockCall,
                     requestTranslation = mockChat,
                     defaultTerms = emptyMap(),
@@ -148,7 +148,7 @@ class TranslatorTest : FreeSpec({
 
                 val existingTerms = mapOf("Kaguya" to "辉夜姬")
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = Translator(
+                val translator = LLMTranslator(
                     call = mockCall,
                     requestTranslation = mockChat,
                     defaultTerms = existingTerms,
@@ -173,7 +173,7 @@ class TranslatorTest : FreeSpec({
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = Translator(
+                val translator = LLMTranslator(
                     call = mockCall,
                     requestTranslation = mockChat,
                     defaultTerms = emptyMap(),
@@ -196,7 +196,7 @@ class TranslatorTest : FreeSpec({
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
-                val translator = Translator(
+                val translator = LLMTranslator(
                     call = mockCall,
                     requestTranslation = mockChat,
                     defaultTerms = emptyMap(),
@@ -213,7 +213,7 @@ class TranslatorTest : FreeSpec({
                 var callIndex = 0
                 val callChunkSizes = mutableListOf<Int>()
 
-                val mockChat: RequestTranslation =
+                val mockChat: RequestLLMTranslation =
                     { expectedSize, _, _, _ ->
                         val idx = callIndex++
                         callChunkSizes += expectedSize
@@ -230,7 +230,7 @@ class TranslatorTest : FreeSpec({
 
                 val sources = (0 until 10).flatMap { Constants.TEXT1.lines() }
 
-                val translator = Translator(
+                val translator = LLMTranslator(
                     call = mockCall,
                     requestTranslation = mockChat,
                     defaultTerms = emptyMap(),
@@ -250,7 +250,7 @@ class TranslatorTest : FreeSpec({
             "cancellation salvage" - {
                 "sequential failure invokes cancellation once and propagates the original failure" {
                     val cancellationCalls = AtomicInt(0)
-                    val translator = Translator(
+                    val translator = LLMTranslator(
                         call = mockCall,
                         requestTranslation = { _, _, _, _ -> throw ExpectedTranslationFailure() },
                         defaultTerms = emptyMap(),
@@ -286,7 +286,7 @@ class TranslatorTest : FreeSpec({
                     )
 
                     context(testEnv) {
-                        val translator = Translator(
+                        val translator = LLMTranslator(
                             call = testChatCompletionCall(testEnv),
                             requestTranslation = { expectedSize, message, format, _ ->
                                 when (format) {
@@ -347,7 +347,7 @@ class TranslatorTest : FreeSpec({
  * Creates a mock chatCompletion function that returns a pre-configured response.
  * The mock ignores the input message and returns parsed mock data for any expected line count.
  */
-fun mockChatCompletion(content: String): RequestTranslation =
+fun mockChatCompletion(content: String): RequestLLMTranslation =
     { expectedSize, _, _, validate -> parseLLMResponse(content, expectedSize).also { validate(it).shouldBeTrue() } }
 
 private fun extractionGroup(vararg contents: Pair<FormatKind, String>): List<ExtractionGroup> = listOf(

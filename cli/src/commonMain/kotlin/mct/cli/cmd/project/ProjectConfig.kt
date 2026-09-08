@@ -3,8 +3,8 @@ package mct.cli.cmd.project
 import com.akuleshov7.ktoml.annotations.TomlComments
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.extra.ai.translator.MapInfo
-import mct.extra.ai.translator.TranslationPrompts
+import mct.extra.ai.ChatCompletionCall
+import mct.extra.ai.translator.*
 import mct.model.patch.PathKind
 
 @Serializable
@@ -41,6 +41,9 @@ data class ProjectConfig(
 
     @TomlComments("AI translation configuration")
     val ai: AIConfig = AIConfig.Default,
+
+    @TomlComments("Api translation configuration")
+    val translation: TranslationConfig = TranslationConfig.AI,
 
     @TomlComments("MCT Patch configuration")
     val patch: PatchConfig = PatchConfig.Default,
@@ -80,6 +83,66 @@ data class PatternsConfig(
 }
 
 @Serializable
+sealed class TranslationConfig {
+    @Serializable
+    @SerialName("ai")
+    data object AI : TranslationConfig() {
+        fun createTranslator(call: ChatCompletionCall, config: ProjectConfig, existingTerms: TermTable): LLMTranslator {
+            val ai = config.ai
+            return LLMTranslator(
+                call = call,
+                customizedPrompts = LLMTranslationPrompts(
+                    literatureStyle = ai.literatureStyle,
+                    targetLanguage = ai.targetLanguage,
+                    handleGradientAggressively = ai.handleGradientAggressively,
+                    mapInfo = config.mapInfo,
+                    extraPrompts = ai.extraPrompts,
+                ), defaultTerms = existingTerms, tokenThreshold = ai.tokenThreshold, concurrency = ai.concurrency
+            )
+        }
+
+    }
+
+    @Serializable
+    @SerialName("api")
+    sealed class Api : TranslationConfig() {
+        @SerialName("max_retry")
+        abstract val maxRetry: Int
+
+        @TomlComments("Source language code, auto when empty")
+        abstract val from: String?
+
+        @TomlComments("Target language code")
+        abstract val to: String
+
+        abstract fun display(): String
+
+        override fun toString(): String = "${display()}{maxRetry=$maxRetry, from=$from, to=$to}"
+
+        @Serializable
+        @SerialName("MTranServer")
+        data class MTranServer(
+            @SerialName("api_url")
+            val apiUrl: String,
+            val token: String? = null,
+            override val from: String? = null,
+            override val to: String,
+            override val maxRetry: Int = Translator.MAX_RETRY_COUNT
+        ) : Api() {
+            override fun createApi(): TranslationApi =
+                TranslationApis.MTranServerTranslation(apiUrl, token, maxRetry, from, to)
+
+            override fun display(): String = "MTranServer($apiUrl)"
+
+        }
+
+        abstract fun createApi(): TranslationApi
+
+        fun createTranslator(): Translator = ApiTranslator(createApi())
+    }
+}
+
+@Serializable
 @SerialName("ai")
 data class AIConfig(
     @SerialName("api_url")
@@ -102,25 +165,25 @@ data class AIConfig(
 
     @SerialName("literature_style")
     @TomlComments("Custom literature-style prompt for translation")
-    val literatureStyle: String = TranslationPrompts.literatureStyle,
+    val literatureStyle: String = LLMTranslationPrompts.literatureStyle,
 
-    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${TranslationPrompts.targetLanguage})") @SerialName(
+    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${LLMTranslationPrompts.targetLanguage})") @SerialName(
         "target_language"
     )
-    val targetLanguage: String = TranslationPrompts.targetLanguage,
+    val targetLanguage: String = LLMTranslationPrompts.targetLanguage,
 
     @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY") @SerialName(
         "extra_prompts"
     )
-    val extraPrompts: String? = TranslationPrompts.extraPrompts,
+    val extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
 
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default, i.e. 1.0)")
     val temperature: Double? = 1.0,
 
-    @TomlComments("Enable aggressive gradient text handling (default: ${TranslationPrompts.handleGradientAggressively})") @SerialName(
+    @TomlComments("Enable aggressive gradient text handling (default: ${LLMTranslationPrompts.handleGradientAggressively})") @SerialName(
         "handle_gradient"
     )
-    val handleGradientAggressively: Boolean = TranslationPrompts.handleGradientAggressively,
+    val handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
 
     @TomlComments("Enable http logging for debug (default: false)") @SerialName("http_logging")
     val enableHttpLogging: Boolean = false,

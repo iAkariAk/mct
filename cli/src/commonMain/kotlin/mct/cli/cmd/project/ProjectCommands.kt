@@ -33,7 +33,10 @@ import mct.dp.extractFromDatapack
 import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
-import mct.extra.ai.translator.*
+import mct.extra.ai.translator.TermExtractionPrompts
+import mct.extra.ai.translator.TermExtractor
+import mct.extra.ai.translator.TermTable
+import mct.extra.ai.translator.translate
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
@@ -406,20 +409,25 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         } else emptyMap()
         terminal.println(cyan("Loaded ${existingTerms.size} existing terms"))
 
-        val translator = Translator(
-            call = createCall(), customizedPrompts = TranslationPrompts(
-                literatureStyle = ai.literatureStyle,
-                targetLanguage = ai.targetLanguage,
-                handleGradientAggressively = ai.handleGradientAggressively,
-                mapInfo = projectConfig.mapInfo,
-                extraPrompts = ai.extraPrompts,
-            ), defaultTerms = existingTerms, tokenThreshold = ai.tokenThreshold, concurrency = ai.concurrency
-        )
+        val translator = when (val translation = projectConfig.translation) {
+            AI -> {
+                terminal.println(cyan("Starting translation using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
+                TranslationConfig.AI.createTranslator(createCall(), projectConfig, existingTerms)
+            }
+
+            is Api -> {
+                printlnBlue("Starting translation using $translation for translation")
+                translation.createTranslator()
+            }
+        }
 
         val output = registerLLMOutput()
 
-        terminal.println(cyan("Starting translation using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
-        val mapping = translator.translate(extractionGroups, existingMapping, ai.concurrentByKind) { terms, salvaged ->
+        val mapping = translator.translate(
+            extractionGroups,
+            existingMapping,
+            ai.concurrentByKind
+        ) { terms, salvaged ->
             mappingFile.writeJson(existingMapping + salvaged, projectConfig.prettyJson)
             printlnGreen("Mapping saved to $mappingFile")
 

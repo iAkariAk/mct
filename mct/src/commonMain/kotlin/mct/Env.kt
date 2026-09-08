@@ -42,3 +42,5 @@ val fs get() = holder.fs
 context(holder: LoggerHolder)
 val logger get() = holder.logger
 
+context(holder: NotifierHolder)
+val notifier get() = holder.notifier

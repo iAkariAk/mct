@@ -11,8 +11,8 @@ import mct.util.IO
 typealias OnTermExtractCancel = (TermTable) -> Unit
 
 data class TermExtractionPrompts(
-    val targetLanguage: String = TranslationPrompts.targetLanguage,
-    val literatureStyle: String = TranslationPrompts.literatureStyle,
+    val targetLanguage: String = LLMTranslationPrompts.targetLanguage,
+    val literatureStyle: String = LLMTranslationPrompts.literatureStyle,
     val mapInfo: MapInfo = MapInfo.None,
     val extraPrompts: String? = null
 ) {

@@ -204,7 +204,7 @@ suspend fun runExtraction(
 /**
  * Run AI translation in the background.
  */
-context(env: Env, _: Raise<ChatCompletionCallError>)
+context(env: Env, _: Raise<TranslationError>)
 suspend fun runTranslation(
     clientManager: ClientManager,
     input: String,
@@ -216,15 +216,15 @@ suspend fun runTranslation(
     token: String,
     model: String,
     termPath: String?,
-    literatureStyle: String = TranslationPrompts.literatureStyle,
-    targetLanguage: String = TranslationPrompts.targetLanguage,
-    handleGradientAggressively: Boolean = TranslationPrompts.handleGradientAggressively,
-    mapInfo: MapInfo = TranslationPrompts.mapInfo,
-    extraPrompts: String? = TranslationPrompts.extraPrompts,
+    literatureStyle: String = LLMTranslationPrompts.literatureStyle,
+    targetLanguage: String = LLMTranslationPrompts.targetLanguage,
+    handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
+    mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
+    extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
     temperature: Double? = null,
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
-    onCancel: OnTranslateCancel = { _, _ -> },
+    onCancel: OnLLMTranslationCancel = { _, _ -> },
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
@@ -256,10 +256,10 @@ suspend fun runTranslation(
         return
     }
 
-    val translator = Translator(
+    val translator = LLMTranslator(
         call = call,
         defaultTerms = existingTerms,
-        customizedPrompts = TranslationPrompts(
+        customizedPrompts = LLMTranslationPrompts(
             literatureStyle = literatureStyle,
             targetLanguage = targetLanguage,
             handleGradientAggressively = handleGradientAggressively,
@@ -270,7 +270,7 @@ suspend fun runTranslation(
         concurrency = concurrency,
     )
 
-    val wrappedOnCancel: OnTranslateCancel = { terms, salvaged ->
+    val wrappedOnCancel: OnLLMTranslationCancel = { terms, salvaged ->
         runCatching {
             val salvaged = caches + salvaged
             mappingOutput.toPath().writeJson(salvaged, pretty = GuiSettings.prettyOutput)
@@ -392,10 +392,10 @@ suspend fun runTermExtraction(
     input: String,
     output: String,
     termPath: String?,
-    targetLanguage: String = TranslationPrompts.targetLanguage,
-    literatureStyle: String = TranslationPrompts.literatureStyle,
-    mapInfo: MapInfo = TranslationPrompts.mapInfo,
-    extraPrompts: String? = TranslationPrompts.extraPrompts,
+    targetLanguage: String = LLMTranslationPrompts.targetLanguage,
+    literatureStyle: String = LLMTranslationPrompts.literatureStyle,
+    mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
+    extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
     onCancel: OnTermExtractCancel = {},
 ) {
     env.logger.info { "正在加载提取结果: $input" }

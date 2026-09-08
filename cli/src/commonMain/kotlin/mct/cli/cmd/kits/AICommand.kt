@@ -57,12 +57,12 @@ open class AICommand(
         "--target-language",
         envvar = "TARGET_LANGUAGE",
         help = "Target language for translation (e.g. 简体中文, English, 日本語)"
-    ).default(TranslationPrompts.targetLanguage)
+    ).default(LLMTranslationPrompts.targetLanguage)
 
     val literatureStyle by option(
         "--literature-style", help = "Custom literature style prompt for translation"
     ).default(
-        TranslationPrompts.literatureStyle
+        LLMTranslationPrompts.literatureStyle
     )
 
     val mapInfoFile by option(
@@ -168,9 +168,9 @@ class AITranslate : AICommand(
 
         logger.info { "Loaded ${extractionGroups.size} groups, ${terms.size} existing terms" }
 
-        val translator = Translator.Companion(
+        val translator = LLMTranslator.Companion(
             call = creatCall(),
-            customizedPrompts = TranslationPrompts(
+            customizedPrompts = LLMTranslationPrompts(
                 literatureStyle = literatureStyle,
                 targetLanguage = targetLanguage,
                 handleGradientAggressively = handleGradient,

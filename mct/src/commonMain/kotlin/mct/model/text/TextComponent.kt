@@ -79,6 +79,57 @@ fun TextComponent<*>.flatten() = when (this) {
     is SingleTextComponent<*> -> listOf(this)
 }
 
+
+fun TextComponent<*>.flattenText() = mutableListOf<String>().also(::flattenTextTo)
+private fun TextComponent<*>.flattenTextTo(result: MutableList<String>) {
+    when (this) {
+        is ManyTextComponent -> {
+            components.forEach { component ->
+                component.flattenTextTo(result)
+            }
+        }
+
+        is SingleTextComponent<*> -> {
+            when (this) {
+                is TextComponent.Plain -> result.add(text)
+                is TextComponent.Translatable -> fallback?.let { result.add(it) }
+                else -> Unit
+            }
+            extra?.flattenTextTo(result)
+        }
+    }
+}
+
+fun TextComponent<*>.transformText(transform: (text: String) -> String): TextComponent<*> = when (this) {
+    is ManyTextComponent -> {
+        components.map { component -> component.transformText(transform) }.let(::ManyTextComponent)
+    }
+
+    is SingleTextComponent<*> -> {
+        when (this) {
+            is TextComponent.Plain -> {
+                copy().apply {
+                    text = transform(text)
+                    extra = extra?.transformText(transform)
+                }
+            }
+
+            is TextComponent.Translatable -> {
+                copy().apply {
+                    fallback = fallback?.let(transform)
+                    extra = extra?.transformText(transform)
+                }
+            }
+
+            else -> {
+                if (extra != null) copy().apply {
+                    extra = extra?.transformText(transform)
+                } else this
+            }
+        }
+    }
+}
+
 inline fun IRElement.decodeToCompound(): TextComponent<*> = TextComponent.fromIR(this)
 
 sealed class TextComponent<out IR : IRElement> {
