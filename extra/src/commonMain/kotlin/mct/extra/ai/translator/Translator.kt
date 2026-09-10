@@ -6,11 +6,14 @@ import kotlinx.coroutines.internal.SynchronizedObject
 import kotlinx.coroutines.internal.synchronized
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import mct.*
+import mct.EnvHolder
+import mct.MCTError
 import mct.kit.TranslationMapping
+import mct.model.patch.Extraction
 import mct.model.patch.ExtractionGroup
 import mct.model.patch.FormatKind
 import mct.model.patch.contentsWithFormat
+import mct.notify
 import mct.util.IO
 
 sealed interface TranslationError : MCTError
@@ -21,10 +24,11 @@ sealed interface TranslationResult {
     data class Translated(val content: String) : TranslationResult
 }
 
-interface Translator {
+interface Translator : EnvHolder, AutoCloseable {
     companion object {
         const val MAX_RETRY_COUNT = 20
     }
+
     val terms: MutableMap<String, String>
 
     context(_: Raise<TranslationError>)
@@ -37,7 +41,7 @@ interface Translator {
 
 
 @OptIn(InternalCoroutinesApi::class)
-context(_: Raise<TranslationError>, _: EnvHolder)
+context(_: Raise<TranslationError>)
 suspend fun Translator.translate(
     groups: List<ExtractionGroup>,
     caches: TranslationMapping = emptyMap(),
@@ -49,7 +53,7 @@ suspend fun Translator.translate(
         return emptyMap()
     }
     val extractions = mutableMapOf<FormatKind, MutableList<String>>()
-    for ((key, second) in groups.flatMap { it.extractions.flatMap { it.contentsWithFormat() } }) {
+    for ((key, second) in groups.flatMap { it.extractions.flatMap(Extraction::contentsWithFormat) }) {
         val list = extractions.getOrPut(key) { ArrayList() }
         list.add(second)
     } // group by kind and map its value

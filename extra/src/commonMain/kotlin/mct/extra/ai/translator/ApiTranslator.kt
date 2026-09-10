@@ -11,11 +11,15 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import io.ktor.utils.io.*
 import kotlinx.schema.json.serializers.toJsonElements
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
+import mct.Env
+import mct.LoggerHolder
 import mct.command.MCCommandJson
+import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.text.*
 import mct.serializer.Snbt
@@ -36,25 +40,26 @@ sealed interface ApiTranslationError : TranslationError {
 
 sealed class TranslationApi(protected val maxRetry: Int, val from: String?, val to: String) : AutoCloseable {
     abstract class SingleTranslation(maxRetry: Int, from: String?, to: String) : TranslationApi(maxRetry, from, to) {
-        context(_: Raise<ApiTranslationError>)
+        context(_: Raise<ApiTranslationError>, _: LoggerHolder)
         abstract suspend fun translateWithoutRetry(text: String): String
 
-        context(_: Raise<ApiTranslationError>)
+        context(_: Raise<ApiTranslationError>, _: LoggerHolder)
         suspend fun translate(text: String): String = retryWhenExceptionThrown { translateWithoutRetry(text) }
 
     }
 
-    abstract class BatchTranslation(maxRetry: Int, from: String?, to: String) : TranslationApi(maxRetry, from, to) {
-        context(_: Raise<ApiTranslationError>)
+    abstract class BatchTranslation(maxRetry: Int, sourceLanguage: String?, targetLanguage: String) :
+        TranslationApi(maxRetry, sourceLanguage, targetLanguage) {
+        context(_: Raise<ApiTranslationError>, _: LoggerHolder)
         abstract suspend fun translateWithoutRetry(texts: List<String>): List<String>
 
-        context(_: Raise<ApiTranslationError>)
+        context(_: Raise<ApiTranslationError>, _: LoggerHolder)
         suspend fun translate(texts: List<String>): List<String> =
             retryWhenExceptionThrown { translateWithoutRetry(texts) }
     }
 
-    context(_: Raise<ApiTranslationError>)
-    protected inline fun <R> retryWhenExceptionThrown(
+    context(_: Raise<ApiTranslationError>, _: LoggerHolder)
+    internal inline fun <R> retryWhenExceptionThrown(
         action: () -> R,
     ): R {
         val exceptions = mutableListOf<Exception>()
@@ -62,6 +67,10 @@ sealed class TranslationApi(protected val maxRetry: Int, val from: String?, val 
             try {
                 return action()
             } catch (e: Exception) {
+                if (e is CancellationException) {
+                    throw e
+                }
+                logger.error { "Retry because ${e.message}" }
                 exceptions.add(e)
             }
         }
@@ -75,9 +84,9 @@ object TranslationApis {
         val apiUrl: String,
         private val token: String? = null,
         maxRetry: Int = Translator.MAX_RETRY_COUNT,
-        from: String?,
-        to: String
-    ) : TranslationApi.BatchTranslation(maxRetry, from, to) {
+        sourceLanguage: String?,
+        targetLanguage: String
+    ) : TranslationApi.BatchTranslation(maxRetry, sourceLanguage, targetLanguage) {
         private val client = HttpClient {
             defaultRequest {
                 token?.let {
@@ -97,7 +106,7 @@ object TranslationApis {
 
         override fun close() = client.close()
 
-        context(_: Raise<ApiTranslationError>)
+        context(_: Raise<ApiTranslationError>, _: LoggerHolder)
         override suspend fun translateWithoutRetry(texts: List<String>): List<String> {
             val response = client.post("$apiUrl/translate/batch") {
                 contentType(ContentType.Application.Json)
@@ -114,13 +123,13 @@ object TranslationApis {
     }
 }
 
-context(_: Raise<ApiTranslationError>)
+context(_: Raise<ApiTranslationError>, _: LoggerHolder)
 suspend fun TranslationApi.translate(texts: List<String>): List<String> = when (this) {
     is TranslationApi.BatchTranslation -> translate(texts)
     is TranslationApi.SingleTranslation -> texts.parMap { translate(it) }
 }
 
-class ApiTranslator(private val api: TranslationApi) : Translator {
+class ApiTranslator(private val api: TranslationApi, override val env: Env) : Translator {
     override val terms = mutableMapOf<String, String>() // unused
 
     context(_: Raise<TranslationError>)
@@ -169,7 +178,10 @@ class ApiTranslator(private val api: TranslationApi) : Translator {
                             texts[cursor++]
                         }
                         val encodedComponent = when (format) {
-                            JsonStr, JsonObj -> MCCommandJson.encodeToString(translatedComponent.toIR().toJsonElement())
+                            JsonStr, JsonObj -> MCCommandJson.encodeToString(
+                                translatedComponent.toIR().toJsonElement()
+                            )
+
                             SnbtStr, Nbt -> Snbt.encodeToString<NbtTag>(translatedComponent.toIR().toNbtTag())
                             PlainStr -> unreachable
                         }
@@ -182,6 +194,8 @@ class ApiTranslator(private val api: TranslationApi) : Translator {
         }
         return translated
     }
+
+    override fun close() = api.close()
 }
 
 internal fun List<String>.trimComponents(format: FormatKind): List<ComponentTrim> =

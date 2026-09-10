@@ -1,8 +1,11 @@
 package mct.cli.cmd.project
 
 import com.akuleshov7.ktoml.annotations.TomlComments
+import com.akuleshov7.ktoml.annotations.TomlInlineTable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import mct.EnvHolder
+import mct.env
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.*
 import mct.model.patch.PathKind
@@ -43,7 +46,7 @@ data class ProjectConfig(
     val ai: AIConfig = AIConfig.Default,
 
     @TomlComments("Api translation configuration")
-    val translation: TranslationConfig = TranslationConfig.AI,
+    val translation: TranslationConfig = TranslationConfig.Default,
 
     @TomlComments("MCT Patch configuration")
     val patch: PatchConfig = PatchConfig.Default,
@@ -83,12 +86,13 @@ data class PatternsConfig(
 }
 
 @Serializable
-sealed class TranslationConfig {
+sealed class TranslationEngine {
     @Serializable
     @SerialName("ai")
-    data object AI : TranslationConfig() {
+    data object AI : TranslationEngine() {
         fun createTranslator(call: ChatCompletionCall, config: ProjectConfig, existingTerms: TermTable): LLMTranslator {
             val ai = config.ai
+            val translation = config.translation
             return LLMTranslator(
                 call = call,
                 customizedPrompts = LLMTranslationPrompts(
@@ -97,40 +101,49 @@ sealed class TranslationConfig {
                     handleGradientAggressively = ai.handleGradientAggressively,
                     mapInfo = config.mapInfo,
                     extraPrompts = ai.extraPrompts,
-                ), defaultTerms = existingTerms, tokenThreshold = ai.tokenThreshold, concurrency = ai.concurrency
+                ),
+                defaultTerms = existingTerms,
+                tokenThreshold = ai.tokenThreshold,
+                concurrency = translation.concurrency
             )
         }
-
     }
 
     @Serializable
     @SerialName("api")
-    sealed class Api : TranslationConfig() {
-        @SerialName("max_retry")
-        abstract val maxRetry: Int
+    sealed class Api : TranslationEngine() {
+        @Serializable
+        data class ApiConfig(
+            @SerialName("max_retry")
+            val maxRetry: Int = Translator.MAX_RETRY_COUNT,
+            @TomlComments("Source language code, auto when empty")
+            val source: String? = null,
+            @TomlComments("Target language code")
+            val target: String = "zh_cn",
+        ) {
+            companion object {
+                val Default = ApiConfig()
+            }
+        }
 
-        @TomlComments("Source language code, auto when empty")
-        abstract val from: String?
-
-        @TomlComments("Target language code")
-        abstract val to: String
+        abstract val config: ApiConfig
 
         abstract fun display(): String
 
-        override fun toString(): String = "${display()}{maxRetry=$maxRetry, from=$from, to=$to}"
+        override fun toString(): String =
+            "${display()}{maxRetry=${config.maxRetry}, from=${config.source}, to=${config.target}}"
 
         @Serializable
         @SerialName("MTranServer")
         data class MTranServer(
             @SerialName("api_url")
-            val apiUrl: String,
+            val apiUrl: String = "http://127.0.0.1:8989/",
             val token: String? = null,
-            override val from: String? = null,
-            override val to: String,
-            override val maxRetry: Int = Translator.MAX_RETRY_COUNT
+            @TomlInlineTable
+            override val config: ApiConfig = ApiConfig.Default,
         ) : Api() {
             override fun createApi(): TranslationApi =
-                TranslationApis.MTranServerTranslation(apiUrl, token, maxRetry, from, to)
+                TranslationApis.MTranServerTranslation(apiUrl, token, config.maxRetry, config.source, config.target)
 
             override fun display(): String = "MTranServer($apiUrl)"
 
@@ -138,7 +151,26 @@ sealed class TranslationConfig {
 
         abstract fun createApi(): TranslationApi
 
-        fun createTranslator(): Translator = ApiTranslator(createApi())
+        context(_: EnvHolder)
+        fun createTranslator(): Translator = ApiTranslator(createApi(), env)
+    }
+}
+
+@Serializable
+@SerialName("translation")
+data class TranslationConfig(
+    @TomlComments("The engine used to translate text")
+    val engine: TranslationEngine = TranslationEngine.AI,
+
+    @TomlComments("Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective when using AI engine; default: 1)")
+    val concurrency: Int = 1,
+
+    @TomlComments("Translate different kinds of extraction concurrently. (WARN: parallelism will cause terms to be ineffective when using AI engine; default: false)")
+    @SerialName("concurrent_by_kind")
+    val concurrentByKind: Boolean = false,
+) {
+    companion object {
+        val Default = TranslationConfig()
     }
 }
 
@@ -167,12 +199,14 @@ data class AIConfig(
     @TomlComments("Custom literature-style prompt for translation")
     val literatureStyle: String = LLMTranslationPrompts.literatureStyle,
 
-    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${LLMTranslationPrompts.targetLanguage})") @SerialName(
+    @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${LLMTranslationPrompts.targetLanguage})")
+    @SerialName(
         "target_language"
     )
     val targetLanguage: String = LLMTranslationPrompts.targetLanguage,
 
-    @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY") @SerialName(
+    @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY")
+    @SerialName(
         "extra_prompts"
     )
     val extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
@@ -180,24 +214,19 @@ data class AIConfig(
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default, i.e. 1.0)")
     val temperature: Double? = 1.0,
 
-    @TomlComments("Enable aggressive gradient text handling (default: ${LLMTranslationPrompts.handleGradientAggressively})") @SerialName(
+    @TomlComments("Enable aggressive gradient text handling (default: ${LLMTranslationPrompts.handleGradientAggressively})")
+    @SerialName(
         "handle_gradient"
     )
     val handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
 
-    @TomlComments("Enable http logging for debug (default: false)") @SerialName("http_logging")
+    @TomlComments("Enable http logging for debug (default: false)")
+    @SerialName("http_logging")
     val enableHttpLogging: Boolean = false,
 
-    @TomlComments("Enable LLM thinking output (default: false)") @SerialName("thinking_output")
+    @TomlComments("Enable LLM thinking output (default: false)")
+    @SerialName("thinking_output")
     val enableThinkingOutput: Boolean = false,
-
-    @TomlComments("Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective; default: 1)")
-    val concurrency: Int = 1,
-
-    @TomlComments("Translate different kinds of extraction concurrently. (WARN: parallelism will cause terms to be ineffective; default: false)") @SerialName(
-        "concurrent_by_kind"
-    )
-    val concurrentByKind: Boolean = false,
 ) {
     companion object {
         val Default = AIConfig()

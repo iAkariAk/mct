@@ -36,6 +36,9 @@ data class Env(
 }
 
 
+context(holder: EnvHolder)
+val env get() = holder.env
+
 context(holder: FSHolder)
 val fs get() = holder.fs
 

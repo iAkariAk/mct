@@ -75,7 +75,7 @@ class LLMTranslator internal constructor(
     private val customizedPrompts: LLMTranslationPrompts = LLMTranslationPrompts.Default,
     private val tokenThreshold: Int = TOKEN_COUNT_THRESHOLD,
     val concurrency: Int = 1,
-) : Translator, EnvHolder {
+) : Translator {
     companion object {
         operator fun invoke(
             call: ChatCompletionCall,
@@ -227,6 +227,7 @@ class LLMTranslator internal constructor(
     }
 
     override fun toString() = "Translator($call, $customizedPrompts)"
+    override fun close() = call.close()
 }
 
 

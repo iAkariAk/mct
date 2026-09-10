@@ -341,12 +341,14 @@ private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
                 literatureStyle = ai.literatureStyle,
                 mapInfo = projectConfig.mapInfo,
                 extraPrompts = ai.extraPrompts,
-            ), tokenThreshold = ai.tokenThreshold, concurrency = ai.concurrency
+            ),
+            tokenThreshold = ai.tokenThreshold,
+            concurrency = projectConfig.translation.concurrency
         )
 
         val output = registerLLMOutput()
 
-        terminal.println(cyan("Starting extraction using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
+        terminal.println(cyan("Starting extraction using ${bold(ai.model)} model and ${bold(projectConfig.translation.concurrency.toString())} concurrency..."))
         val terms = extractor.extract(missingPool) { salvaged ->
             termsFile.writeJson(existingTerms + salvaged, projectConfig.prettyJson)
 
@@ -409,15 +411,16 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         } else emptyMap()
         terminal.println(cyan("Loaded ${existingTerms.size} existing terms"))
 
-        val translator = when (val translation = projectConfig.translation) {
+        val translation = projectConfig.translation
+        val translator = when (val engine = translation.engine) {
             AI -> {
-                terminal.println(cyan("Starting translation using ${bold(ai.model)} model and ${bold(ai.concurrency.toString())} concurrency..."))
-                TranslationConfig.AI.createTranslator(createCall(), projectConfig, existingTerms)
+                terminal.println(cyan("Starting translation using ${bold(ai.model)} model and ${bold(translation.concurrency.toString())} concurrency..."))
+                TranslationEngine.AI.createTranslator(createCall(), projectConfig, existingTerms)
             }
 
             is Api -> {
                 printlnBlue("Starting translation using $translation for translation")
-                translation.createTranslator()
+                engine.createTranslator()
             }
         }
 
@@ -426,7 +429,7 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
         val mapping = translator.translate(
             extractionGroups,
             existingMapping,
-            ai.concurrentByKind
+            translation.concurrentByKind
         ) { terms, salvaged ->
             mappingFile.writeJson(existingMapping + salvaged, projectConfig.prettyJson)
             printlnGreen("Mapping saved to $mappingFile")
@@ -441,6 +444,8 @@ private class Translate : ProjectCommand("translate", "Translate extractions via
                 } translated items."
             )
         }
+
+        translator.close()
 
         val totalMapping = existingMapping + mapping
         printlnGreen("Translated " + bold("${mapping.size}") + " new items (${totalMapping.size} total)")

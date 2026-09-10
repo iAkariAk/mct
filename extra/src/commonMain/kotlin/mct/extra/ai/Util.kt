@@ -137,3 +137,5 @@ internal fun unescapeEspecialUnicode(str: String): String = REGEX_UNESCAPE_ESPEC
     val codePoint = codePointHex.hexToInt(HEX)
     codePoint.codePointToString()
 }
+
+internal class RetryException(reason: String) : Exception(reason)

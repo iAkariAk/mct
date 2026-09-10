@@ -81,7 +81,7 @@ fun createOpenAIClient(apiUrl: String?, token: String, logLevel: LogLevel = LogL
     )
 }
 
-interface ChatCompletionCall : EnvHolder {
+interface ChatCompletionCall : EnvHolder, AutoCloseable {
     val client: OpenAI
     val model: String
     override val env: Env
@@ -93,6 +93,8 @@ interface ChatCompletionCall : EnvHolder {
         parseLLM: suspend (String) -> T,
         validate: (T) -> Boolean = { true },
     ): T
+
+    override fun close() = client.close()
 }
 
 context(_: Raise<ChatCompletionCallError>)
