@@ -63,6 +63,7 @@ fun BackfillPanel(
         SectionTitle("回填模式", Icons.Outlined.Tune)
 
         FlowRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {

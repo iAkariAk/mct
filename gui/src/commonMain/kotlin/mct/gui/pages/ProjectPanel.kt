@@ -219,7 +219,6 @@ fun ProjectPanel(
                 else -> 1
             }
             val spacing = 12.dp
-            val cardWidth = (maxWidth - spacing * (columns - 1)) / columns
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 maxItemsInEachRow = columns,
@@ -230,7 +229,8 @@ fun ProjectPanel(
                     WorkflowStepCard(
                         step = step,
                         isRunning = isRunning,
-                        modifier = Modifier.width(cardWidth),
+                        // FlowRow 按 weight 均分每行宽度，不要再用 maxWidth 手工算卡片宽度。
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
