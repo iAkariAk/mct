@@ -83,8 +83,8 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
 
 fun String.inferFormatKind(shouldTextComponent: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind =
     when {
-        if (shouldTextComponent) isTextComponentSnbt() else isSnbt() -> FormatKind.SnbtStr
         if (shouldTextComponent) isTextComponentJson(json) else isJson(json) -> FormatKind.JsonStr
+        if (shouldTextComponent) isTextComponentSnbt() else isSnbt() -> FormatKind.SnbtStr
         else -> FormatKind.PlainStr
     }
 

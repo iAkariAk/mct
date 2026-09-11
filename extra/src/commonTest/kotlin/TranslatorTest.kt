@@ -108,6 +108,13 @@ class TranslatorTest : FreeSpec({
             }
         }
 
+        "should destrip with correct type" {
+            val source = "{\"color\":\"green\",\"text\":\"[Enabled]\"}"
+            val strip = source.strip(source.inferFormatKind())
+            val result = strip.destrip("[已启用]") as TranslationResult.Translated
+            result.content shouldBe "{\"color\":\"green\",\"text\":\"[已启用]\"}"
+        }
+
 
         "mock" - {
             val mockCall = testChatCompletionCall(contextOf<Env>())

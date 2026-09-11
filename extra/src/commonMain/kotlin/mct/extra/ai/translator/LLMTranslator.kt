@@ -314,31 +314,33 @@ internal fun List<String>.strips(format: FormatKind): Pair<List<ComponentStrip.U
 internal fun List<IndexedValue<ComponentStrip>>.destrip(response: List<String?>): List<IndexedValue<TranslationResult>> =
     zip(response).map { (iv, s) ->
         val (index, cs) = iv
-        val r = s?.let {
-            when (cs) {
-                is ComponentStrip.Simplified -> {
-                    val str = when (cs.sourceFormat) {
-                        FormatKind.PlainStr -> s
-                        else -> {
-                            val ir = cs.source.replaceText(s).encodeToIR().let { e ->
-                                if (cs.isSingleList) IRList(e) else e
-                            }
-                            when (cs.sourceFormat) {
-                                JsonStr, JsonObj -> MCTJson.encodeToString(ir.toJsonElement())
-                                SnbtStr, Nbt -> ir.toNbtTag().toSnbt(false)
-                            }
-                        }
-                    }
-                    TranslationResult.Translated(str)
-                }
-
-                is ComponentStrip.CannotStrip -> TranslationResult.Translated(s)
-                is ComponentStrip.NoComponent -> TranslationResult.Translated(s)
-                is ComponentStrip.Untranslatable -> TranslationResult.Untranslatable
-            }
-        } ?: TranslationResult.Untranslated
-        IndexedValue(index, r)
+        IndexedValue(index, cs.destrip(s))
     }
+
+
+internal fun ComponentStrip.destrip(response: String?) = response?.let {
+    when (this) {
+        is ComponentStrip.Simplified -> {
+            val str = when (sourceFormat) {
+                FormatKind.PlainStr -> response
+                else -> {
+                    val ir = source.replaceText(response).encodeToIR().let { e ->
+                        if (isSingleList) IRList(e) else e
+                    }
+                    when (sourceFormat) {
+                        JsonStr, JsonObj -> MCTJson.encodeToString(ir.toJsonElement())
+                        SnbtStr, Nbt -> ir.toNbtTag().toSnbt(false)
+                    }
+                }
+            }
+            TranslationResult.Translated(str)
+        }
+
+        is ComponentStrip.CannotStrip -> TranslationResult.Translated(response)
+        is ComponentStrip.NoComponent -> TranslationResult.Translated(response)
+        is ComponentStrip.Untranslatable -> TranslationResult.Untranslatable
+    }
+} ?: TranslationResult.Untranslated
 
 private val LINE_PREFIX = Regex2("""^\[(\d+)]\s*""")
 private val REGEX_LLM_OUTPUT =

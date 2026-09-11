@@ -46,7 +46,7 @@ class MCJStructurePatternTest : FreeSpec({
                 val (name, lore) = content.contents
                 name.pointer.encodeToString() shouldBe ">#display>#Name"
                 name.content.shouldBeInstanceOf<ExtractionContent.Text>()
-                name.format shouldBe SnbtStr // despite 100% JSON syntax, it's in a Snbt Compound
+                name.format shouldBe JsonStr
                 name.content.content shouldBe "{\"text\":\"Wayfinder\",\"color\":\"light_purple\",\"italic\":false}"
                 lore.pointer.encodeToString() shouldBe ">#display>#Lore"
                 lore.content.shouldBeInstanceOf<ExtractionContent.Text>()
