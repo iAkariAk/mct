@@ -8,18 +8,17 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import mct.*
-import mct.command.BuiltinCommandDataPatterns
-import mct.command.BuiltinCommandPatterns
-import mct.command.CommandExtractPattern
-import mct.command.CommandRegexPattern
+import mct.cext.backfillCext
+import mct.cext.extractByCext
 import mct.dp.backfillDatapack
-import mct.dp.compile
 import mct.dp.extractFromDatapack
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
+import mct.gui.model.PatternState
+import mct.gui.model.TranslationEngineKind
 import mct.gui.util.setting
 import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
@@ -84,106 +83,30 @@ suspend fun runExtraction(
     output: String,
     mode: String,
     disableFilter: Boolean,
-    regionPatternPath: String = "",
-    commandPatternPath: String = "",
-    commandDataPatternPath: String = "",
-    mcjPatternPath: String = "",
-    commandRegexPatternPath: String = "",
+    patterns: PatternState,
 ) {
     withContext(Dispatchers.IO) {
         env.logger.info { "正在打开: $input" }
         val inputPath = input.toPath()
 
+        if (mode == "cext" && patterns.cextPatternPath.isBlank()) {
+            env.logger.error { "Cext 提取需要选择 Cext 规则 JSON" }
+            return@withContext
+        }
+
         @Suppress("UNCHECKED_CAST")
         val result = either {
             val workspace = MCTWorkspace(inputPath, env)
-            val commandRegexPatterns: List<CommandRegexPattern> = commandRegexPatternPath.takeIf { it.isNotBlank() }
-                ?.let { p ->
-                    env.fs.read(p.toPath()) { readUtf8() }
-                        .let { MCTJson.decodeFromString<List<CommandRegexPattern>>(it) }
-                } ?: emptyList()
+            val pattern = composePattern(
+                patterns,
+                includeRegion = mode != "datapack",
+                includeMcjson = mode != "region",
+                disableBuiltinFilter = disableFilter,
+            )
             when (mode) {
-                "region" -> {
-                    val patterns = if (disableFilter) null
-                    else {
-                        val userPatterns = regionPatternPath.takeIf { it.isNotBlank() }
-                            ?.let { p ->
-                                env.fs.read(p.toPath()) { readUtf8() }
-                                    .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
-                            }
-                        if (userPatterns != null) BuiltinNbtPatterns.toList() + userPatterns
-                        else BuiltinNbtPatterns.toList()
-                    }
-
-                    val commandPatterns = commandPatternPath.takeIf { it.isNotBlank() }
-                        ?.let { p ->
-                            env.fs.read(p.toPath()) { readUtf8() }
-                                .let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
-                                .compile()
-                        } ?: BuiltinCommandPatterns
-
-                    val commandDataPatterns: List<DataPointerPattern>? =
-                        if (disableFilter) null
-                        else {
-                            val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
-                                ?.let { p ->
-                                    env.fs.read(p.toPath()) { readUtf8() }
-                                        .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
-                                }
-                            if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
-                            else BuiltinCommandDataPatterns
-                        }
-
-                    workspace.extractFromRegion(
-                        MCTPattern(
-                            nbt = patterns,
-                            command = commandPatterns,
-                            commandData = commandDataPatterns,
-                            commandRegex = commandRegexPatterns
-                        )
-                    ).toList() as List<ExtractionGroup>
-                }
-
-                "datapack" -> {
-                    val commandPatterns = commandPatternPath.takeIf { it.isNotBlank() }
-                        ?.let { p ->
-                            env.fs.read(p.toPath()) { readUtf8() }
-                                .let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
-                                .compile()
-                        } ?: BuiltinCommandPatterns
-
-                    val commandDataPatterns: List<DataPointerPattern>? = if (disableFilter) null
-                    else {
-                        val userPatterns = commandDataPatternPath.takeIf { it.isNotBlank() }
-                            ?.let { p ->
-                                env.fs.read(p.toPath()) { readUtf8() }
-                                    .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
-                            }
-                        if (userPatterns != null) BuiltinCommandDataPatterns + userPatterns
-                        else BuiltinCommandDataPatterns
-                    }
-
-                    val mcjPatterns: List<DataPointerPattern>? =
-                        if (disableFilter) null
-                        else {
-                            val userPatterns = mcjPatternPath.takeIf { it.isNotBlank() }
-                                ?.let { p ->
-                                    env.fs.read(p.toPath()) { readUtf8() }
-                                        .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
-                                }
-                            if (userPatterns != null) MCJBuiltinPatterns + userPatterns
-                            else MCJBuiltinPatterns
-                        }
-                    workspace.extractFromDatapack(
-                        MCTPattern(
-                            command = commandPatterns,
-                            commandData = commandDataPatterns,
-                            mcjson = mcjPatterns,
-                            commandRegex = commandRegexPatterns
-                        )
-                    ).toList() as List<ExtractionGroup>
-                }
-
+                "region" -> workspace.extractFromRegion(pattern).toList() as List<ExtractionGroup>
+                "datapack" -> workspace.extractFromDatapack(pattern).toList() as List<ExtractionGroup>
+                "cext" -> workspace.extractByCext(pattern).toList() as List<ExtractionGroup>
                 else -> error("未知模式: $mode")
             }
         }
@@ -225,6 +148,12 @@ suspend fun runTranslation(
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
     onCancel: OnLLMTranslationCancel = { _, _ -> },
+    engine: TranslationEngineKind = TranslationEngineKind.Ai,
+    apiTranslateUrl: String = "",
+    apiTranslateToken: String = "",
+    apiSourceLanguage: String = "",
+    apiTargetLanguage: String = "zh_cn",
+    apiMaxRetry: Int = Translator.MAX_RETRY_COUNT,
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
@@ -250,33 +179,51 @@ suspend fun runTranslation(
         Triple(groups, terms, caches)
     }
 
-    val call = clientManager.chatCompletionCall
-    if (call == null) {
-        onFailure?.invoke(ChatCompletionCallError.UnvalidatedApi("没有 API 连接，请先在设置中配置"))
-        return
-    }
+    env.logger.info { "使用「${engine.label}」开始翻译" }
 
-    val translator = LLMTranslator(
-        call = call,
-        defaultTerms = existingTerms,
-        customizedPrompts = LLMTranslationPrompts(
-            literatureStyle = literatureStyle,
-            targetLanguage = targetLanguage,
-            handleGradientAggressively = handleGradientAggressively,
-            mapInfo = mapInfo,
-            extraPrompts = extraPrompts,
-        ),
-        tokenThreshold = GuiSettings.tokenThreshold,
-        concurrency = concurrency,
-    )
+    val translator: Translator = when (engine) {
+        TranslationEngineKind.Ai -> {
+            val call = clientManager.chatCompletionCall
+            if (call == null) {
+                onFailure?.invoke(ChatCompletionCallError.UnvalidatedApi("没有 API 连接，请先在设置中配置"))
+                return
+            }
+            LLMTranslator(
+                call = call,
+                defaultTerms = existingTerms,
+                customizedPrompts = LLMTranslationPrompts(
+                    literatureStyle = literatureStyle,
+                    targetLanguage = targetLanguage,
+                    handleGradientAggressively = handleGradientAggressively,
+                    mapInfo = mapInfo,
+                    extraPrompts = extraPrompts,
+                ),
+                tokenThreshold = GuiSettings.tokenThreshold,
+                concurrency = concurrency,
+            )
+        }
+
+        TranslationEngineKind.Api -> ApiTranslator(
+            TranslationApis.MTranServerTranslation(
+                apiUrl = apiTranslateUrl,
+                token = apiTranslateToken.ifBlank { null },
+                maxRetry = apiMaxRetry,
+                sourceLanguage = apiSourceLanguage.ifBlank { null },
+                targetLanguage = apiTargetLanguage,
+            ),
+            env,
+        )
+    }
 
     val wrappedOnCancel: OnLLMTranslationCancel = { terms, salvaged ->
         runCatching {
             val salvaged = caches + salvaged
             mappingOutput.toPath().writeJson(salvaged, pretty = GuiSettings.prettyOutput)
-            termOutput.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
             env.logger.info { "已保存 ${salvaged.size} 条部分映射到 $mappingOutput" }
-            env.logger.info { "已保存 ${terms.size} 条术语到 $termOutput" }
+            if (engine == TranslationEngineKind.Ai) {
+                termOutput.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
+                env.logger.info { "已保存 ${terms.size} 条术语到 $termOutput" }
+            }
         }
         onCancel(terms, salvaged)
     }
@@ -293,12 +240,14 @@ suspend fun runTranslation(
 
             output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
             mappingOutput.toPath().writeJson(mapping, pretty = GuiSettings.prettyOutput)
-            termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
 
-            env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
             env.logger.info { "替换文件已写入: $output" }
             env.logger.info { "映射文件已写入: $mappingOutput" }
-            env.logger.info { "术语表已写入: $termOutput" }
+            if (engine == TranslationEngineKind.Ai) {
+                termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
+                env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
+                env.logger.info { "术语表已写入: $termOutput" }
+            }
             env.logger.info { "完成。" }
             apiSetting.save(
                 ApiSettings(
@@ -316,6 +265,8 @@ suspend fun runTranslation(
             throw e
         } catch (e: Exception) {
             env.logger.error { e.stackTraceToString() }
+        } finally {
+            runCatching { translator.close() }
         }
     }
 }
@@ -365,6 +316,17 @@ suspend fun runBackfill(
                         try {
                             workspace.backfillDatapack(groups)
                             env.logger.info { "Datapack 回填完成。" }
+                        } catch (e: Exception) {
+                            env.logger.error { e.message ?: "未知错误" }
+                        }
+                    }
+
+                    "cext" -> {
+                        val groups = all.filterIsInstance<CextReplacementGroup>()
+                        env.logger.info { "正在回填 ${groups.size} 个 Cext 替换分组..." }
+                        try {
+                            workspace.backfillCext(groups)
+                            env.logger.info { "Cext 回填完成。" }
                         } catch (e: Exception) {
                             env.logger.error { e.message ?: "未知错误" }
                         }

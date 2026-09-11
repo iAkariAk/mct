@@ -21,6 +21,7 @@ import mct.MCTPattern
 import mct.command.*
 import mct.dp.compile
 import mct.gui.model.GuiSettings
+import mct.gui.model.MtlxSource
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
@@ -78,14 +79,24 @@ suspend fun unflattenTextPool(
 
 context(env: Env)
 suspend fun generateMtlxTemplate(
-    poolPath: String,
+    input: String,
     output: String,
+    source: MtlxSource,
 ) = withContext(Dispatchers.IO) {
-    val pool = env.fs.read(poolPath.toPath()) { readUtf8() }
-        .let { MCTJson.decodeFromString<TranslationPool>(it) }
-    val template = pool.generateMTLXTemplate()
+    val raw = env.fs.read(input.toPath()) { readUtf8() }
+    val (template, count) = when (source) {
+        MtlxSource.Pool -> {
+            val pool = MCTJson.decodeFromString<TranslationPool>(raw)
+            pool.generateMTLXTemplate() to pool.size
+        }
+
+        MtlxSource.Mapping -> {
+            val mapping = MCTJson.decodeFromString<TranslationMapping>(raw)
+            mapping.generateMTLXTemplate() to mapping.size
+        }
+    }
     output.toPath().writeText(template.render())
-    env.logger.info { "已从 ${pool.size} 条文本生成 MTLX 模板: $output" }
+    env.logger.info { "已从 $count 条${source.label}生成 MTLX 模板: $output" }
 }
 
 context(env: Env)

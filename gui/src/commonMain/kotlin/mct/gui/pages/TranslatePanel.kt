@@ -22,6 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import mct.gui.components.*
 import mct.gui.model.TranslateState
+import mct.gui.model.TranslationEngineKind
 import mct.gui.util.ensureJsonExt
 
 @Composable
@@ -37,6 +38,7 @@ fun TranslatePanel(
     onOptimizePrompt: suspend (String) -> String? = { _ -> null },
 ) {
     var showToken by remember { mutableStateOf(false) }
+    var showApiToken by remember { mutableStateOf(false) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
     var optimizeJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
@@ -63,6 +65,12 @@ fun TranslatePanel(
     val cachesPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(cachesPath = it.absolutePath())) } }
+
+    val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() && state.termOutput.isNotBlank() &&
+            when (state.engine) {
+                TranslationEngineKind.Ai -> state.model.isNotBlank() && state.apiToken.isNotBlank()
+                TranslationEngineKind.Api -> state.apiTranslateUrl.isNotBlank() && state.apiTargetLanguage.isNotBlank()
+            }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -97,65 +105,127 @@ fun TranslatePanel(
             color = MaterialTheme.colorScheme.outlineVariant
         )
 
-        SectionTitle("AI API 配置", Icons.Outlined.Settings)
-        Text(
-            "支持 OpenAI 及所有兼容接口（如 APIHub、OneAPI、LobeHub 等）",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        SectionTitle("翻译引擎", Icons.Outlined.Tune)
+        EnumSegmentedButtons(
+            entries = TranslationEngineKind.entries,
+            selected = state.engine,
+            label = { it.label },
+            onSelected = { onStateChange(state.copy(engine = it)) },
         )
 
-        ConfigTextField(
-            value = state.apiUrl,
-            onValueChange = { onStateChange(state.copy(apiUrl = it)) },
-            label = { Text("API 地址") },
-            placeholder = { Text("留空使用 OpenAI 官方；或填入 https://api.openai.com/v1/") }
-        )
+        when (state.engine) {
+            TranslationEngineKind.Ai -> {
+                SectionTitle("AI API 配置", Icons.Outlined.Settings)
+                Text(
+                    "支持 OpenAI 及所有兼容接口（如 APIHub、OneAPI、LobeHub 等）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-        Box {
-            ConfigTextField(
-                value = state.model,
-                onValueChange = { onStateChange(state.copy(model = it)) },
-                label = { Text("模型名称") },
-                readOnly = true,
-                placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-v4-pro...") },
-                trailingIcon = if (state.availableModels.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { modelMenuExpanded = true }) {
-                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "选择模型")
+                ConfigTextField(
+                    value = state.apiUrl,
+                    onValueChange = { onStateChange(state.copy(apiUrl = it)) },
+                    label = { Text("API 地址") },
+                    placeholder = { Text("留空使用 OpenAI 官方；或填入 https://api.openai.com/v1/") }
+                )
+
+                Box {
+                    ConfigTextField(
+                        value = state.model,
+                        onValueChange = { onStateChange(state.copy(model = it)) },
+                        label = { Text("模型名称") },
+                        readOnly = true,
+                        placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-v4-pro...") },
+                        trailingIcon = if (state.availableModels.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { modelMenuExpanded = true }) {
+                                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = "选择模型")
+                                }
+                            }
+                        } else null,
+                    )
+                    if (state.availableModels.isNotEmpty()) {
+                        DropdownMenu(
+                            expanded = modelMenuExpanded,
+                            onDismissRequest = { modelMenuExpanded = false }
+                        ) {
+                            state.availableModels.forEach { m ->
+                                DropdownMenuItem(
+                                    text = { Text(m) },
+                                    onClick = {
+                                        onStateChange(state.copy(model = m))
+                                        modelMenuExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
-                } else null,
-            )
-            if (state.availableModels.isNotEmpty()) {
-                DropdownMenu(
-                    expanded = modelMenuExpanded,
-                    onDismissRequest = { modelMenuExpanded = false }
-                ) {
-                    state.availableModels.forEach { m ->
-                        DropdownMenuItem(
-                            text = { Text(m) },
-                            onClick = {
-                                onStateChange(state.copy(model = m))
-                                modelMenuExpanded = false
-                            }
-                        )
-                    }
                 }
+
+                ConfigTextField(
+                    value = state.apiToken,
+                    onValueChange = { onStateChange(state.copy(apiToken = it)) },
+                    label = { Text("API 密钥") },
+                    placeholder = { Text("sk-...") },
+                    visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        TextButton(onClick = { showToken = !showToken }) {
+                            Text(if (showToken) "隐藏" else "显示")
+                        }
+                    }
+                )
+            }
+
+            TranslationEngineKind.Api -> {
+                SectionTitle("API 翻译服务", Icons.Outlined.Cloud)
+                Text(
+                    "调用兼容 MTranServer 的离线翻译接口，不消耗 AI 额度。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                ConfigTextField(
+                    value = state.apiTranslateUrl,
+                    onValueChange = { onStateChange(state.copy(apiTranslateUrl = it)) },
+                    label = { Text("API 服务地址") },
+                    placeholder = { Text("例如 http://127.0.0.1:8989/") }
+                )
+
+                ConfigTextField(
+                    value = state.apiTranslateToken,
+                    onValueChange = { onStateChange(state.copy(apiTranslateToken = it)) },
+                    label = { Text("访问令牌（可选）") },
+                    placeholder = { Text("留空则不附带 Authorization") },
+                    visualTransformation = if (showApiToken) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        TextButton(onClick = { showApiToken = !showApiToken }) {
+                            Text(if (showApiToken) "隐藏" else "显示")
+                        }
+                    }
+                )
+
+                ConfigTextField(
+                    value = state.apiSourceLanguage,
+                    onValueChange = { onStateChange(state.copy(apiSourceLanguage = it)) },
+                    label = { Text("源语言代码") },
+                    placeholder = { Text("留空自动检测，例如 en_us") }
+                )
+
+                ConfigTextField(
+                    value = state.apiTargetLanguage,
+                    onValueChange = { onStateChange(state.copy(apiTargetLanguage = it)) },
+                    label = { Text("目标语言代码") },
+                    placeholder = { Text("zh_cn") }
+                )
+
+                ConfigTextField(
+                    value = state.apiMaxRetry,
+                    onValueChange = { onStateChange(state.copy(apiMaxRetry = it)) },
+                    label = { Text("最大重试次数") },
+                    placeholder = { Text("20") }
+                )
             }
         }
-
-        ConfigTextField(
-            value = state.apiToken,
-            onValueChange = { onStateChange(state.copy(apiToken = it)) },
-            label = { Text("API 密钥") },
-            placeholder = { Text("sk-...") },
-            visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                TextButton(onClick = { showToken = !showToken }) {
-                    Text(if (showToken) "隐藏" else "显示")
-                }
-            }
-        )
 
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 4.dp),
@@ -179,55 +249,57 @@ fun TranslatePanel(
             cachesPicker.launch()
         }
 
-        LiteratureStyleField(
-            value = state.literatureStyle,
-            onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
-            optimizing = state.isOptimizing,
-            onOptimizeClick = {
-                if (optimizeJob != null) return@LiteratureStyleField
-                optimizeJob = scope.launch {
-                    onStateChange(state.copy(isOptimizing = true))
-                    try {
-                        val improved = onOptimizePrompt(state.literatureStyle)
-                        if (improved != null) {
-                            onStateChange(state.copy(literatureStyle = improved, isOptimizing = false))
-                        } else {
+        if (state.engine == TranslationEngineKind.Ai) {
+            LiteratureStyleField(
+                value = state.literatureStyle,
+                onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
+                optimizing = state.isOptimizing,
+                onOptimizeClick = {
+                    if (optimizeJob != null) return@LiteratureStyleField
+                    optimizeJob = scope.launch {
+                        onStateChange(state.copy(isOptimizing = true))
+                        try {
+                            val improved = onOptimizePrompt(state.literatureStyle)
+                            if (improved != null) {
+                                onStateChange(state.copy(literatureStyle = improved, isOptimizing = false))
+                            } else {
+                                onStateChange(state.copy(isOptimizing = false))
+                            }
+                        } catch (_: Exception) {
                             onStateChange(state.copy(isOptimizing = false))
+                        } finally {
+                            optimizeJob = null
                         }
-                    } catch (_: Exception) {
-                        onStateChange(state.copy(isOptimizing = false))
-                    } finally {
-                        optimizeJob = null
                     }
-                }
-            },
-        )
+                },
+            )
 
-        MapInfoFields(
-            value = state.mapInfo,
-            onValueChange = { onStateChange(state.copy(mapInfo = it)) },
-        )
+            MapInfoFields(
+                value = state.mapInfo,
+                onValueChange = { onStateChange(state.copy(mapInfo = it)) },
+            )
 
-        ExtraPromptsField(
-            value = state.extraPrompts,
-            onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
-        )
+            ExtraPromptsField(
+                value = state.extraPrompts,
+                onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
+            )
 
-        Spacer(Modifier.height(12.dp))
-        TextSwitch(
-            modifier = Modifier.fillMaxWidth(),
-            checked = state.handleGradientAggressively,
-            onCheckedChange = { onStateChange(state.copy(handleGradientAggressively = it)) },
-            text = "启用激进的渐变色文本处理",
-        )
+            Spacer(Modifier.height(12.dp))
+            TextSwitch(
+                modifier = Modifier.fillMaxWidth(),
+                checked = state.handleGradientAggressively,
+                onCheckedChange = { onStateChange(state.copy(handleGradientAggressively = it)) },
+                text = "启用激进的渐变色文本处理",
+            )
 
-        Spacer(Modifier.height(12.dp))
-        ConfigTextField(
-            value = state.targetLanguage,
-            onValueChange = { onStateChange(state.copy(targetLanguage = it)) },
-            label = { Text("目标语言") },
-            placeholder = { Text("简体中文") }
-        )
+            Spacer(Modifier.height(12.dp))
+            ConfigTextField(
+                value = state.targetLanguage,
+                onValueChange = { onStateChange(state.copy(targetLanguage = it)) },
+                label = { Text("目标语言") },
+                placeholder = { Text("简体中文") }
+            )
+        }
 
         AnimatedVisibility(
             visible = isRunning || translationProgress > 0f,
@@ -275,30 +347,30 @@ fun TranslatePanel(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onSaveSettings,
-                enabled = state.model.isNotBlank() && state.apiToken.isNotBlank(),
-                modifier = Modifier.weight(0.35f).height(44.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            ) {
-                Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("保存 API 设置")
+            if (state.engine == TranslationEngineKind.Ai) {
+                Button(
+                    onClick = onSaveSettings,
+                    enabled = state.model.isNotBlank() && state.apiToken.isNotBlank(),
+                    modifier = Modifier.weight(0.35f).height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("保存 API 设置")
+                }
             }
-            Box(modifier = Modifier.weight(0.65f)) {
+            Box(modifier = Modifier.weight(if (state.engine == TranslationEngineKind.Ai) 0.65f else 1f)) {
                 ActionButton(
-                    "开始 AI 翻译",
+                    "开始翻译",
                     isRunning,
                     onRun,
-                    enabled = state.input.isNotBlank() && state.output.isNotBlank()
-                            && state.termOutput.isNotBlank() && state.model.isNotBlank() && state.apiToken.isNotBlank(),
+                    enabled = readyToRun,
                     onCancel = onCancel,
                 )
             }
         }
     }
 }
-

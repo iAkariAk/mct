@@ -59,6 +59,10 @@ suspend fun buildProject(projectDirectory: String) =
     runProjectCommand(projectDirectory, "build")
 
 context(env: Env)
+suspend fun assembleProjectPatch(projectDirectory: String) =
+    runProjectCommand(projectDirectory, "patch")
+
+context(env: Env)
 private suspend fun runProjectCommand(projectDirectory: String, command: String) {
     require(projectDirectory.isNotBlank()) { "请选择项目目录" }
     val root = File(projectDirectory).absoluteFile

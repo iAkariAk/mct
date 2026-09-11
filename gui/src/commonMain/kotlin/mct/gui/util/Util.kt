@@ -8,5 +8,7 @@ fun Long.renderWithUnit(): String = when {
     else -> "%.2fM".format(this / 1_000_000.0)
 }
 
-fun ensureJsonExt(path: String): String =
-    if (path.endsWith(".json", ignoreCase = true)) path else "$path.json"
+fun ensureExtension(path: String, extension: String): String =
+    if (path.endsWith(".$extension", ignoreCase = true)) path else "$path.$extension"
+
+fun ensureJsonExt(path: String): String = ensureExtension(path, "json")

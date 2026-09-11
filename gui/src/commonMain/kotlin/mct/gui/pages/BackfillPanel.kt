@@ -62,15 +62,13 @@ fun BackfillPanel(
 
         SectionTitle("回填模式", Icons.Outlined.Tune)
 
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            ModeRadio(
-                RunMode.Region.label,
-                state.mode == RunMode.Region
-            ) { onStateChange(state.copy(mode = RunMode.Region)) }
-            ModeRadio(
-                RunMode.Datapack.label,
-                state.mode == RunMode.Datapack
-            ) { onStateChange(state.copy(mode = RunMode.Datapack)) }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            RunMode.entries.forEach { mode ->
+                ModeRadio(mode.label, state.mode == mode) { onStateChange(state.copy(mode = mode)) }
+            }
         }
 
         Card(

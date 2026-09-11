@@ -20,6 +20,7 @@ import androidx.compose.ui.window.rememberWindowState
 import arrow.core.raise.either
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import mct.extra.ai.translator.Translator
 import mct.gui.components.DraggableSplitPane
 import mct.gui.components.LogConsole
 import mct.gui.components.NavigationRailPanel
@@ -161,11 +162,7 @@ fun App(modifier: Modifier = Modifier) {
                                                     vm.extractState.output,
                                                     vm.extractState.mode.key,
                                                     vm.extractState.disableFilter,
-                                                    vm.extractState.regionPatternPath,
-                                                    vm.extractState.commandPatternPath,
-                                                    vm.extractState.commandDataPatternPath,
-                                                    vm.extractState.mcjPatternPath,
-                                                    vm.extractState.commandRegexPatternPath,
+                                                    vm.extractState.patterns,
                                                 )
                                             }
                                         }
@@ -202,6 +199,13 @@ fun App(modifier: Modifier = Modifier) {
                                                         mapInfo = vm.translateState.mapInfo,
                                                         extraPrompts = vm.translateState.extraPrompts.ifBlank { null },
                                                         temperature = GuiSettings.temperature,
+                                                        engine = vm.translateState.engine,
+                                                        apiTranslateUrl = vm.translateState.apiTranslateUrl,
+                                                        apiTranslateToken = vm.translateState.apiTranslateToken,
+                                                        apiSourceLanguage = vm.translateState.apiSourceLanguage,
+                                                        apiTargetLanguage = vm.translateState.apiTargetLanguage,
+                                                        apiMaxRetry = vm.translateState.apiMaxRetry.toIntOrNull()
+                                                            ?: Translator.MAX_RETRY_COUNT,
                                                         onFailure = {
                                                             vm.scope.launch {
                                                                 vm.snackbarHostState.showSnackbar(it.message)
@@ -274,6 +278,41 @@ fun App(modifier: Modifier = Modifier) {
                                         }
                                     })
 
+                                Tab.Patch -> PatchPanel(
+                                    state = vm.patchState,
+                                    onStateChange = { vm.patchState = it },
+                                    isRunning = vm.isRunning,
+                                    onCreate = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                            val state = vm.patchState.create
+                                            with(vm.env) {
+                                                createPatchFile(
+                                                    input = state.input,
+                                                    mappingPath = state.mapping,
+                                                    output = state.output,
+                                                    kind = state.kind,
+                                                    format = state.format,
+                                                    validation = state.validation,
+                                                    patterns = state.patterns,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onApply = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                            val state = vm.patchState.apply
+                                            with(vm.env) {
+                                                applyPatchFile(
+                                                    input = state.input,
+                                                    patchPath = state.patch,
+                                                    format = state.format,
+                                                    strategy = state.strategy,
+                                                )
+                                            }
+                                        }
+                                    },
+                                )
+
                                 Tab.Project -> ProjectPanel(
                                     state = vm.projectState,
                                     onStateChange = { vm.projectState = it },
@@ -305,6 +344,11 @@ fun App(modifier: Modifier = Modifier) {
                                     onBuild = {
                                         vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
                                             with(vm.env) { buildProject(vm.projectState.directory) }
+                                        }
+                                    },
+                                    onPatch = {
+                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                            with(vm.env) { assembleProjectPatch(vm.projectState.directory) }
                                         }
                                     },
                                 )
@@ -339,7 +383,7 @@ fun App(modifier: Modifier = Modifier) {
                                                         state.poolInput, state.mappingInput, state.poolOutput
                                                     )
                                                     ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
-                                                        state.poolInput, state.poolOutput
+                                                        state.poolInput, state.poolOutput, state.mtlxSource
                                                     )
                                                     ToolboxOperation.TranslateMtlx -> translateByMtlx(
                                                         state.mtlxInput, state.poolInput, state.poolOutput

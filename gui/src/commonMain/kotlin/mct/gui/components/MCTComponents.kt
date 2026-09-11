@@ -25,6 +25,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.vinceglb.filekit.PlatformFile
+import io.github.vinceglb.filekit.absolutePath
+import io.github.vinceglb.filekit.dialogs.FileKitMode
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import mct.extra.ai.translator.MapInfo
 
 private enum class ActionButtonVisualState {
@@ -110,6 +115,47 @@ fun ModeRadio(label: String, selected: Boolean, onClick: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+/**
+ * 规则文件选择行。
+ *
+ * 规则文件为可选输入：留空时由提取/补丁流程回退到内置规则。
+ */
+@Composable
+fun PatternFileRow(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "留空则使用内置规则...",
+) {
+    val picker = rememberFilePickerLauncher(
+        type = FileKitType.File(), mode = FileKitMode.Single,
+    ) { file: PlatformFile? ->
+        file?.let { onValueChange(it.absolutePath()) }
+    }
+    PathRow(label, placeholder, value, onValueChange) { picker.launch() }
+}
+
+/** 等宽的枚举分段选择器，用于互斥模式切换。 */
+@Composable
+fun <T> EnumSegmentedButtons(
+    entries: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+        entries.forEachIndexed { index, entry ->
+            SegmentedButton(
+                selected = selected == entry,
+                onClick = { onSelected(entry) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
+                label = { Text(label(entry)) },
+            )
+        }
     }
 }
 

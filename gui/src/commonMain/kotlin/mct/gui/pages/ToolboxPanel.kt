@@ -22,10 +22,7 @@ import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import mct.gui.components.ConfigTextField
-import mct.gui.components.PathRow
-import mct.gui.components.SectionTitle
-import mct.gui.components.TextSwitch
+import mct.gui.components.*
 import mct.gui.model.*
 
 private data class ToolboxAction(
@@ -392,7 +389,13 @@ private fun ToolboxOperationDialog(
                     ToolboxOperation.FlattenPool -> PoolFields(state, onStateChange, showMapping = false)
                     ToolboxOperation.UnflattenPool -> PoolFields(state, onStateChange, showMapping = true)
                     ToolboxOperation.GenerateMtlx -> {
-                        PathField("文本池 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
+                        PathField("输入 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
+                        EnumSegmentedButtons(
+                            entries = MtlxSource.entries,
+                            selected = state.mtlxSource,
+                            label = { it.label },
+                            onSelected = { onStateChange(state.copy(mtlxSource = it)) },
+                        )
                         PathField("MTLX 输出文件", state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
                     }
                     ToolboxOperation.TranslateMtlx -> {
@@ -499,26 +502,6 @@ private fun ToolboxOperationDialog(
 }
 
 @Composable
-private fun <T> EnumSegmentedButtons(
-    entries: List<T>,
-    selected: T,
-    label: (T) -> String,
-    onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        entries.forEachIndexed { index, entry ->
-            SegmentedButton(
-                selected = selected == entry,
-                onClick = { onSelected(entry) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
-                label = { Text(label(entry)) },
-            )
-        }
-    }
-}
-
-@Composable
 private fun PoolFields(
     state: ToolboxState,
     onStateChange: (ToolboxState) -> Unit,
@@ -531,7 +514,7 @@ private fun PoolFields(
     }
     if (!showMapping) {
         EnumSegmentedButtons(
-            entries = RunMode.entries,
+            entries = RunMode.entries.filterNot { it == RunMode.Cext },
             selected = state.poolKind,
             label = { it.label },
             onSelected = { onStateChange(state.copy(poolKind = it)) },

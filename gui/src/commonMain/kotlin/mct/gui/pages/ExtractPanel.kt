@@ -14,13 +14,11 @@ import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
-import io.github.vinceglb.filekit.dialogs.FileKitMode
-import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
-import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import mct.gui.components.*
 import mct.gui.model.ExtractState
+import mct.gui.model.PatternState
 import mct.gui.model.RunMode
 import mct.gui.util.ensureJsonExt
 
@@ -38,21 +36,11 @@ fun ExtractPanel(
     val fileSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
         file?.let { onStateChange(state.copy(output = ensureJsonExt(it.absolutePath()))) }
     }
-    val patternPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(regionPatternPath = it.absolutePath())) } }
-    val commandPatternPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(commandPatternPath = it.absolutePath())) } }
-    val commandDataPatternPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(commandDataPatternPath = it.absolutePath())) } }
-    val mcjPatternPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(mcjPatternPath = it.absolutePath())) } }
-    val commandRegexPatternPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(commandRegexPatternPath = it.absolutePath())) } }
+
+    val patterns = state.patterns
+    val updatePatterns: ((PatternState) -> PatternState) -> Unit = { transform ->
+        onStateChange(state.copy(patterns = transform(patterns)))
+    }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -75,15 +63,13 @@ fun ExtractPanel(
 
         SectionTitle("提取选项", Icons.Outlined.Tune)
 
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            ModeRadio(
-                RunMode.Region.label,
-                state.mode == RunMode.Region
-            ) { onStateChange(state.copy(mode = RunMode.Region)) }
-            ModeRadio(
-                RunMode.Datapack.label,
-                state.mode == RunMode.Datapack
-            ) { onStateChange(state.copy(mode = RunMode.Datapack)) }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            RunMode.entries.forEach { mode ->
+                ModeRadio(mode.label, state.mode == mode) { onStateChange(state.copy(mode = mode)) }
+            }
         }
 
         TextSwitch(
@@ -113,33 +99,43 @@ fun ExtractPanel(
             label = "mode-filters"
         ) { mode ->
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (mode == RunMode.Region) {
-                    PathRow(
+                when (mode) {
+                    RunMode.Region -> PatternFileRow(
                         "Region 过滤规则 JSON",
-                        "留空则使用内置规则...",
-                        state.regionPatternPath, { onStateChange(state.copy(regionPatternPath = it)) }
-                    ) { patternPicker.launch() }
-                } else {
-                    PathRow(
-                        "MCFunction 过滤规则 JSON",
-                        "留空则使用内置规则...",
-                        state.commandPatternPath, { onStateChange(state.copy(commandPatternPath = it)) }
-                    ) { commandPatternPicker.launch() }
-                    PathRow(
-                        "Command Data 过滤规则 JSON",
-                        "留空则使用内置规则...",
-                        state.commandDataPatternPath, { onStateChange(state.copy(commandDataPatternPath = it)) }
-                    ) { commandDataPatternPicker.launch() }
-                    PathRow(
-                        "MCJson 过滤规则 JSON",
-                        "留空则使用内置规则...",
-                        state.mcjPatternPath, { onStateChange(state.copy(mcjPatternPath = it)) }
-                    ) { mcjPatternPicker.launch() }
-                    PathRow(
-                        "Command 正则提取规则 JSON",
-                        "留空则不使用...",
-                        state.commandRegexPatternPath, { onStateChange(state.copy(commandRegexPatternPath = it)) }
-                    ) { commandRegexPatternPicker.launch() }
+                        patterns.regionPatternPath,
+                        { path -> updatePatterns { it.copy(regionPatternPath = path) } },
+                    )
+
+                    RunMode.Datapack -> {
+                        PatternFileRow(
+                            "MCFunction 过滤规则 JSON",
+                            patterns.commandPatternPath,
+                            { path -> updatePatterns { it.copy(commandPatternPath = path) } },
+                        )
+                        PatternFileRow(
+                            "Command Data 过滤规则 JSON",
+                            patterns.commandDataPatternPath,
+                            { path -> updatePatterns { it.copy(commandDataPatternPath = path) } },
+                        )
+                        PatternFileRow(
+                            "MCJson 过滤规则 JSON",
+                            patterns.mcjPatternPath,
+                            { path -> updatePatterns { it.copy(mcjPatternPath = path) } },
+                        )
+                        PatternFileRow(
+                            "Command 正则提取规则 JSON",
+                            patterns.commandRegexPatternPath,
+                            { path -> updatePatterns { it.copy(commandRegexPatternPath = path) } },
+                            placeholder = "留空则不使用...",
+                        )
+                    }
+
+                    RunMode.Cext -> PatternFileRow(
+                        "Cext 规则 JSON",
+                        patterns.cextPatternPath,
+                        { path -> updatePatterns { it.copy(cextPatternPath = path) } },
+                        placeholder = "必填，规则需包含 select 与 kind",
+                    )
                 }
             }
         }
@@ -149,4 +145,3 @@ fun ExtractPanel(
         ActionButton("开始提取", isRunning, onRun, enabled = state.input.isNotBlank() && state.output.isNotBlank())
     }
 }
-

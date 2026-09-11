@@ -34,6 +34,7 @@ fun ProjectPanel(
     onTerms: () -> Unit,
     onTranslate: () -> Unit,
     onBuild: () -> Unit,
+    onPatch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val projectDirectoryPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
@@ -201,6 +202,13 @@ fun ProjectPanel(
                 Icons.Outlined.Build,
                 hasProjectDirectory,
                 onBuild
+            ),
+            ProjectStep(
+                6,
+                "补丁",
+                Icons.Outlined.Difference,
+                hasProjectDirectory,
+                onPatch
             ),
         )
 
