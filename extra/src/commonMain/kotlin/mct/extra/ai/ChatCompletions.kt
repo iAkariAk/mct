@@ -52,7 +52,6 @@ fun createOpenAIClient(apiUrl: String?, token: String, logLevel: LogLevel = LogL
     val host = apiUrl?.let {
         val url = StringBuilder(apiUrl)
         if (!url.endsWith("/")) url.append("/")
-        if (!url.endsWith("v1/")) url.append("v1/")
         OpenAIHost(url.toString())
     } ?: OpenAIHost.OpenAI
     return OpenAI(

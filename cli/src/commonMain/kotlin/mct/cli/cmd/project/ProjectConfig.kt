@@ -178,13 +178,13 @@ data class TranslationConfig(
 @SerialName("ai")
 data class AIConfig(
     @SerialName("api_url")
-    @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/ or https://api.deepseek.com/)")
-    val apiUrl: String = "https://api.openai.com/",
+    @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/v1/ or https://api.deepseek.com/v1/)")
+    val apiUrl: String = "https://api.openai.com/v1/",
 
     @TomlComments("API access token")
     val token: String = "Token / API Key",
 
-    @TomlComments("Model name (e.g. gpt-4o, deepseek-v4-pro, gemini-2.0-flash)")
+    @TomlComments("Model name (e.g. gpt-5-luna, deepseek-flash)")
     val model: String = "gpt-4o",
 
     @SerialName("use_stream_api")
