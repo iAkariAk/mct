@@ -94,22 +94,22 @@ fun App(modifier: Modifier = Modifier) {
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
 
     // 1. Load persisted settings on startup
-    LaunchedEffect(Unit) { vm.loadSettings() }
+    LaunchedEffect(Unit) { vm.settings.load() }
 
     // 2. Probe API when URL or token changes
-    LaunchedEffect(vm.translateState.apiUrl, vm.translateState.apiToken) {
+    LaunchedEffect(vm.translation.state.apiUrl, vm.translation.state.apiToken) {
         // Avoid opening a client and listing models for every keystroke.
         delay(500)
-        vm.setupApiClient()
+        vm.translation.setupApiClient()
     }
 
     // 3. Re-create ChatCompletionCall when model / options change
-    LaunchedEffect(vm.translateState.model, GuiSettings.useStreamApi, GuiSettings.temperature) {
-        vm.setupChatCompletion()
+    LaunchedEffect(vm.translation.state.model, GuiSettings.useStreamApi, GuiSettings.temperature) {
+        vm.translation.setupChatCompletion()
     }
 
     // 4. Debounced auto-save: 停止编辑 3 秒后写入设置
-    LaunchedEffect(Unit) { vm.autoSaveSettings() }
+    LaunchedEffect(Unit) { vm.settings.autoSave() }
 
     Box(modifier = modifier.fillMaxSize().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -118,8 +118,8 @@ fun App(modifier: Modifier = Modifier) {
                 onTabSelected = { tab ->
                     if (tab != vm.selectedTab) vm.selectedTab = tab
                 },
-                totalTokenConsume = vm.totalTokenConsume,
-                lastTokenConsume = vm.lastTokenConsume,
+                totalTokenConsume = vm.translation.totalTokenConsume,
+                lastTokenConsume = vm.translation.lastTokenConsume,
                 uriHandler = uriHandler,
             )
 
@@ -152,12 +152,9 @@ fun App(modifier: Modifier = Modifier) {
                                 Tab.Extract -> ExtractPanel(
                                     state = vm.extractState,
                                     onStateChange = { vm.extractState = it },
-                                    isRunning = vm.isRunning,
+                                    isRunning = vm.operations.isRunning,
                                     onRun = {
-                                        vm.launchOp(prelude = {
-                                            vm.isRunning = true
-                                            vm.clearLogs()
-                                        }) {
+                                        vm.operations.launch {
                                             with(vm.env) {
                                                 runExtraction(
                                                     vm.extractState.input,
@@ -170,42 +167,38 @@ fun App(modifier: Modifier = Modifier) {
                                     })
 
                                 Tab.Translate -> TranslatePanel(
-                                    state = vm.translateState,
-                                    onStateChange = { vm.translateState = it },
-                                    translationProgress = vm.translateProgress,
-                                    translationStatus = vm.translateStatus,
-                                    isRunning = vm.isRunning,
+                                    state = vm.translation.state,
+                                    onStateChange = { vm.translation.state = it },
+                                    translationProgress = vm.translation.progress,
+                                    translationStatus = vm.translation.status,
+                                    isRunning = vm.operations.isRunning,
                                     onRun = {
-                                        vm.launchOp(prelude = {
-                                            vm.isRunning = true
-                                            vm.clearLogs()
-                                            vm.translateProgress = 0f
-                                            vm.translateStatus = ""
-                                        }) {
+                                        vm.translation.resetProgress()
+                                        vm.operations.launch {
                                             with(vm.env) {
                                                 either {
                                                     runTranslation(
-                                                        input = vm.translateState.input,
-                                                        output = vm.translateState.output,
-                                                        mappingOutput = vm.translateState.mappingOutput,
-                                                        termOutput = vm.translateState.termOutput,
-                                                        termPath = vm.translateState.existingTermPath.ifBlank { null },
-                                                        cachesPath = vm.translateState.cachesPath.ifBlank { null },
-                                                        literatureStyle = vm.translateState.literatureStyle,
-                                                        targetLanguage = vm.translateState.targetLanguage,
-                                                        handleGradientAggressively = vm.translateState.handleGradientAggressively,
-                                                        mapInfo = vm.translateState.mapInfo,
-                                                        extraPrompts = vm.translateState.extraPrompts.ifBlank { null },
-                                                        engine = vm.translateState.engine,
-                                                        api = vm.translateState.api,
+                                                        input = vm.translation.state.input,
+                                                        output = vm.translation.state.output,
+                                                        mappingOutput = vm.translation.state.mappingOutput,
+                                                        termOutput = vm.translation.state.termOutput,
+                                                        termPath = vm.translation.state.existingTermPath.ifBlank { null },
+                                                        cachesPath = vm.translation.state.cachesPath.ifBlank { null },
+                                                        literatureStyle = vm.translation.state.literatureStyle,
+                                                        targetLanguage = vm.translation.state.targetLanguage,
+                                                        handleGradientAggressively = vm.translation.state.handleGradientAggressively,
+                                                        mapInfo = vm.translation.state.mapInfo,
+                                                        extraPrompts = vm.translation.state.extraPrompts.ifBlank { null },
+                                                        engine = vm.translation.state.engine,
+                                                        api = vm.translation.state.api,
                                                         onFailure = {
                                                             vm.scope.launch {
                                                                 vm.snackbarHostState.showSnackbar(it.message)
                                                             }
                                                         },
-                                                        clientManager = vm.clientManager,
+                                                        clientManager = vm.translation.clientManager,
                                                         onCancel = { _, salvaged ->
-                                                            vm.addLog(
+                                                            vm.logs.add(
                                                                 LogEntry(
                                                                     null,
                                                                     "翻译被取消，已保存 ${salvaged.size} 条已翻译文本"
@@ -217,20 +210,20 @@ fun App(modifier: Modifier = Modifier) {
                                             }.onLeft { vm.scope.launch { vm.snackbarHostState.showSnackbar(it.message) } }
                                         }
                                     },
-                                    onCancel = { vm.cancelJob() },
+                                    onCancel = { vm.operations.cancel() },
                                     onOptimizePrompt = { current ->
-                                        vm.optimizePrompt(current)
+                                        vm.translation.optimizePrompt(current)
                                     })
 
                                 Tab.TermExtract -> TermExtractPanel(
                                     state = vm.termExtractState,
                                     onStateChange = { vm.termExtractState = it },
-                                    isRunning = vm.isRunning,
+                                    isRunning = vm.operations.isRunning,
                                     onRun = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             with(vm.env) {
                                                 runTermExtraction(
-                                                    clientManager = vm.clientManager,
+                                                    clientManager = vm.translation.clientManager,
                                                     input = vm.termExtractState.input,
                                                     output = vm.termExtractState.output,
                                                     termPath = vm.termExtractState.existingTermPath.takeIf { it.isNotBlank() },
@@ -242,14 +235,14 @@ fun App(modifier: Modifier = Modifier) {
                                             }
                                         }
                                     },
-                                    onCancel = { vm.cancelJob() })
+                                    onCancel = { vm.operations.cancel() })
 
                                 Tab.Backfill -> BackfillPanel(
                                     state = vm.backfillState,
                                     onStateChange = { vm.backfillState = it },
-                                    isRunning = vm.isRunning,
+                                    isRunning = vm.operations.isRunning,
                                     onRun = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             runBackfill(
                                                 vm.env,
                                                 vm.backfillState.input,
@@ -262,9 +255,9 @@ fun App(modifier: Modifier = Modifier) {
                                 Tab.Patch -> PatchPanel(
                                     state = vm.patchState,
                                     onStateChange = { vm.patchState = it },
-                                    isRunning = vm.isRunning,
+                                    isRunning = vm.operations.isRunning,
                                     onCreate = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             val state = vm.patchState.create
                                             with(vm.env) {
                                                 createPatchFile(
@@ -280,7 +273,7 @@ fun App(modifier: Modifier = Modifier) {
                                         }
                                     },
                                     onApply = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             val state = vm.patchState.apply
                                             with(vm.env) {
                                                 applyPatchFile(
@@ -297,9 +290,9 @@ fun App(modifier: Modifier = Modifier) {
                                 Tab.Project -> ProjectPanel(
                                     state = vm.projectState,
                                     onStateChange = { vm.projectState = it },
-                                    isRunning = vm.isRunning,
+                                    isRunning = vm.operations.isRunning,
                                     onInit = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             val state = vm.projectState
                                             val projectRoot = with(vm.env) {
                                                 initialiseProject(state.directory, state.name, state.source)
@@ -308,27 +301,27 @@ fun App(modifier: Modifier = Modifier) {
                                         }
                                     },
                                     onUpdate = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             with(vm.env) { updateProject(vm.projectState.directory) }
                                         }
                                     },
                                     onTerms = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             with(vm.env) { extractProjectTerms(vm.projectState.directory) }
                                         }
                                     },
                                     onTranslate = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             with(vm.env) { translateProject(vm.projectState.directory) }
                                         }
                                     },
                                     onBuild = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             with(vm.env) { buildProject(vm.projectState.directory) }
                                         }
                                     },
                                     onPatch = {
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             with(vm.env) { assembleProjectPatch(vm.projectState.directory) }
                                         }
                                     },
@@ -337,9 +330,9 @@ fun App(modifier: Modifier = Modifier) {
                                 Tab.Toolbox -> ToolboxPanel(
                                     state = vm.toolboxState,
                                     onStateChange = { vm.toolboxState = it },
-                                    isRunning = vm.isRunning,
+                                    isRunning = vm.operations.isRunning,
                                     onRunOperation = { operation ->
-                                        vm.launchOp(prelude = { vm.isRunning = true; vm.clearLogs() }) {
+                                        vm.operations.launch {
                                             val state = vm.toolboxState
                                             with(vm.env) {
                                                 when (operation) {
@@ -411,27 +404,24 @@ fun App(modifier: Modifier = Modifier) {
                 }
             }, bottom = {
                 LogConsole(
-                    logLines = vm.logLines,
-                    logLevelFilter = vm.logLevelFilter,
-                    onLogLevelFilterChange = { vm.logLevelFilter = it },
-                    onShowReasoning = { vm.showReasoning = true },
+                    logLines = vm.logs.lines,
+                    logLevelFilter = vm.logs.levelFilter,
+                    onLogLevelFilterChange = { vm.logs.levelFilter = it },
+                    onShowReasoning = { vm.reasoning.visible = true },
                 )
             })
         }
 
         SnackbarHost(hostState = vm.snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
-        if (vm.showReasoning) {
+        if (vm.reasoning.visible) {
             val activeReasoningIds by remember {
-                derivedStateOf { vm.reasoningActive.filterValues { it }.keys.toSet() }
+                derivedStateOf { vm.reasoning.active.filterValues { it }.keys.toSet() }
             }
             ReasoningSheet(
-                reasoningContents = vm.reasoningContents,
+                reasoningContents = vm.reasoning.contents,
                 activeReasoningIds = activeReasoningIds,
-                onClear = {
-                    vm.reasoningContents.clear()
-                    vm.reasoningActive.clear()
-                },
-                onDismiss = { vm.showReasoning = false }
+                onClear = { vm.reasoning.clear() },
+                onDismiss = { vm.reasoning.visible = false }
             )
         }
     }
