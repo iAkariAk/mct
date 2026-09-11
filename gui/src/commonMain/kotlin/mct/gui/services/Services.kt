@@ -43,6 +43,8 @@ data class ApiSettings(
     val temperature: Double? = null,
     val concurrency: Int = 1,
     val concurrentByKind: Boolean = false,
+    val engine: TranslationEngine = TranslationEngine.Ai,
+    val api: ApiTranslateState = ApiTranslateState(),
 )
 
 val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
@@ -126,25 +128,17 @@ suspend fun runTranslation(
     output: String,
     mappingOutput: String,
     termOutput: String,
-    apiUrl: String?,
-    token: String,
-    model: String,
     termPath: String?,
     literatureStyle: String = LLMTranslationPrompts.literatureStyle,
     targetLanguage: String = LLMTranslationPrompts.targetLanguage,
     handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
     mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
     extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
-    temperature: Double? = null,
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
     onCancel: OnLLMTranslationCancel = { _, _ -> },
-    engine: TranslationEngineKind = TranslationEngineKind.Ai,
-    apiTranslateUrl: String = "",
-    apiTranslateToken: String = "",
-    apiSourceLanguage: String = "",
-    apiTargetLanguage: String = "zh_cn",
-    apiMaxRetry: Int = Translator.MAX_RETRY_COUNT,
+    engine: TranslationEngine = TranslationEngine.Ai,
+    api: ApiTranslateState = ApiTranslateState(),
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
@@ -170,10 +164,18 @@ suspend fun runTranslation(
         Triple(groups, terms, caches)
     }
 
+    when (engine) {
+        TranslationEngine.Ai -> Unit
+        TranslationEngine.Api -> if (api.url.isBlank() || api.targetLanguage.isBlank()) {
+            env.logger.error { "API 翻译需要填写服务地址与目标语言代码" }
+            return
+        }
+    }
+
     env.logger.info { "使用「${engine.label}」开始翻译" }
 
     val translator: Translator = when (engine) {
-        TranslationEngineKind.Ai -> {
+        TranslationEngine.Ai -> {
             val call = clientManager.chatCompletionCall
             if (call == null) {
                 onFailure?.invoke(ChatCompletionCallError.UnvalidatedApi("没有 API 连接，请先在设置中配置"))
@@ -194,16 +196,18 @@ suspend fun runTranslation(
             )
         }
 
-        TranslationEngineKind.Api -> ApiTranslator(
-            TranslationApis.MTranServerTranslation(
-                apiUrl = apiTranslateUrl,
-                token = apiTranslateToken.ifBlank { null },
-                maxRetry = apiMaxRetry,
-                sourceLanguage = apiSourceLanguage.ifBlank { null },
-                targetLanguage = apiTargetLanguage,
-            ),
-            env,
-        )
+        TranslationEngine.Api -> when (api.kind) {
+            TranslationApiKind.MTranServer -> ApiTranslator(
+                TranslationApis.MTranServerTranslation(
+                    apiUrl = api.url,
+                    token = api.token.ifBlank { null },
+                    maxRetry = api.maxRetry.toIntOrNull()?.coerceAtLeast(1) ?: Translator.MAX_RETRY_COUNT,
+                    sourceLanguage = api.sourceLanguage.ifBlank { null },
+                    targetLanguage = api.targetLanguage,
+                ),
+                env,
+            )
+        }
     }
 
     val wrappedOnCancel: OnLLMTranslationCancel = { terms, salvaged ->
@@ -211,7 +215,7 @@ suspend fun runTranslation(
             val salvaged = caches + salvaged
             mappingOutput.toPath().writeJson(salvaged, pretty = GuiSettings.prettyOutput)
             env.logger.info { "已保存 ${salvaged.size} 条部分映射到 $mappingOutput" }
-            if (engine == TranslationEngineKind.Ai) {
+            if (engine == TranslationEngine.Ai) {
                 termOutput.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
                 env.logger.info { "已保存 ${terms.size} 条术语到 $termOutput" }
             }
@@ -234,24 +238,12 @@ suspend fun runTranslation(
 
             env.logger.info { "替换文件已写入: $output" }
             env.logger.info { "映射文件已写入: $mappingOutput" }
-            if (engine == TranslationEngineKind.Ai) {
+            if (engine == TranslationEngine.Ai) {
                 termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
                 env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
                 env.logger.info { "术语表已写入: $termOutput" }
             }
             env.logger.info { "完成。" }
-            apiSetting.save(
-                ApiSettings(
-                    apiUrl = apiUrl ?: "",
-                    model = model,
-                    apiToken = token,
-                    useStreamApi = GuiSettings.useStreamApi,
-                    tokenThreshold = GuiSettings.tokenThreshold,
-                    temperature = temperature,
-                    concurrency = concurrency,
-                    concurrentByKind = GuiSettings.concurrentByKind,
-                )
-            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

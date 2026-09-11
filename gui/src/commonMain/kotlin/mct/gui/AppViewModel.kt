@@ -7,6 +7,9 @@ import com.aallam.openai.client.OpenAI
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import mct.Env
 import mct.LoggerLevel
 import mct.Notifier
@@ -21,12 +24,16 @@ import mct.on
 import okio.FileSystem
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration.Companion.seconds
 
 private const val LOG_BATCH_WINDOW_MILLIS = 40L
 private const val REASONING_BATCH_WINDOW_MILLIS = 32L
 private const val MAX_LOG_ENTRIES = 5_000
 private const val MAX_PENDING_LOG_ENTRIES = 4_096
 private const val MAX_BATCH_SIZE = 512
+
+/** 设置自动保存的防抖窗口：停止编辑该时长后写入。 */
+private val AUTO_SAVE_DEBOUNCE = 3.seconds
 
 private data class QueuedLog(
     val generation: Long,
@@ -104,6 +111,9 @@ class AppViewModel(
 
     // ── Snackbar ────────────────────────────────────────────────
     val snackbarHostState = SnackbarHostState()
+
+    /** Last snapshot successfully written to disk; guards no-op auto-saves. */
+    private var lastSavedSettings: ApiSettings? = null
 
     // ── Infrastructure ──────────────────────────────────────────
 
@@ -248,6 +258,43 @@ class AppViewModel(
 
     // ── API Settings ────────────────────────────────────────────
 
+    /**
+     * Snapshot of every persisted field, readable from a `snapshotFlow`.
+     *
+     * The same value drives debounced auto-saving, so adding a settings field only
+     * requires extending this method (plus [ApiSettings]).
+     */
+    fun persistedSettings() = ApiSettings(
+        apiUrl = translateState.apiUrl,
+        model = translateState.model,
+        apiToken = translateState.apiToken,
+        useStreamApi = GuiSettings.useStreamApi,
+        tokenThreshold = GuiSettings.tokenThreshold,
+        temperature = GuiSettings.temperature,
+        concurrency = GuiSettings.concurrency,
+        concurrentByKind = GuiSettings.concurrentByKind,
+        engine = translateState.engine,
+        api = translateState.api,
+    )
+
+    /**
+     * 自动保存：[persistedSettings] 停止变化 [AUTO_SAVE_DEBOUNCE] 后写入磁盘。
+     *
+     * 由 UI 层在组合中启动；跳过首个快照以避免启动时无谓写盘。
+     */
+    @OptIn(FlowPreview::class)
+    suspend fun autoSaveSettings() {
+        snapshotFlow { persistedSettings() }
+            .drop(1)
+            .distinctUntilChanged()
+            .debounce(AUTO_SAVE_DEBOUNCE)
+            .collect { settings ->
+                if (!saveSettings(settings)) {
+                    addLog(LogEntry(LoggerLevel.Warning, "自动保存设置失败: ${apiSetting.path}"))
+                }
+            }
+    }
+
     /** Read persisted settings into UI state. */
     suspend fun loadSettings() = withContext(Dispatchers.IO) {
         val saved = apiSetting.load()
@@ -257,6 +304,8 @@ class AppViewModel(
                 apiUrl = saved.apiUrl,
                 model = saved.model,
                 apiToken = saved.apiToken,
+                engine = saved.engine,
+                api = saved.api,
             )
             GuiSettings.temperature = saved.temperature
             GuiSettings.useStreamApi = saved.useStreamApi
@@ -265,26 +314,18 @@ class AppViewModel(
             GuiSettings.concurrentByKind = saved.concurrentByKind
             GuiSettings.seedColorArgb = theme.seedColorArgb
             if (theme.seedColorArgb != 0) GuiSettings.isDynamicThemeEnabled = true
+            lastSavedSettings = persistedSettings()
             if (saved.apiUrl.isNotBlank() || saved.apiToken.isNotBlank())
                 addLog(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
         }
     }
 
-    /** Persist current settings. */
-    suspend fun saveSettings(): Boolean {
-        val settings = withContext(Dispatchers.Main) {
-            ApiSettings(
-                apiUrl = translateState.apiUrl,
-                model = translateState.model,
-                apiToken = translateState.apiToken,
-                useStreamApi = GuiSettings.useStreamApi,
-                tokenThreshold = GuiSettings.tokenThreshold,
-                temperature = GuiSettings.temperature,
-                concurrency = GuiSettings.concurrency,
-                concurrentByKind = GuiSettings.concurrentByKind,
-            )
-        }
-        return withContext(Dispatchers.IO) { apiSetting.save(settings) }
+    /** Persist [settings] unless it is identical to the last written snapshot. */
+    suspend fun saveSettings(settings: ApiSettings): Boolean {
+        if (settings == lastSavedSettings) return true
+        val saved = withContext(Dispatchers.IO) { apiSetting.save(settings) }
+        if (saved) lastSavedSettings = settings
+        return saved
     }
 
     /** Probe the configured API URL / token and fetch available models. */

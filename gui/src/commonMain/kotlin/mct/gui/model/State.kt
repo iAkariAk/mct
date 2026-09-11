@@ -1,5 +1,7 @@
 package mct.gui.model
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import mct.MCTPattern
 import mct.extra.ai.translator.LLMTranslationPrompts
 import mct.extra.ai.translator.MapInfo
@@ -47,10 +49,33 @@ enum class SchemaKind(val key: String, val label: String) {
     CommandRegex("command_regex", "Command Regex Pattern"),
 }
 
-enum class TranslationEngineKind(val label: String) {
+/** 翻译引擎；选择 [Api] 时具体走哪套接口由 [ApiTranslateState.kind] 决定。 */
+@Serializable
+enum class TranslationEngine(val label: String) {
+    @SerialName("ai")
     Ai("AI 翻译"),
-    Api("API 翻译 (MTranServer)"),
+
+    @SerialName("api")
+    Api("API 翻译"),
 }
+
+/** [TranslationEngine.Api] 的具体实现。 */
+@Serializable
+enum class TranslationApiKind(val label: String) {
+    @SerialName("mtran_server")
+    MTranServer("MTranServer"),
+}
+
+/** API 翻译引擎的配置。 */
+@Serializable
+data class ApiTranslateState(
+    val kind: TranslationApiKind = TranslationApiKind.MTranServer,
+    val url: String = "http://127.0.0.1:8989/",
+    val token: String = "",
+    val sourceLanguage: String = "",
+    val targetLanguage: String = "zh_cn",
+    val maxRetry: String = Translator.MAX_RETRY_COUNT.toString(),
+)
 
 enum class MtlxSource(val label: String) {
     Pool("文本池"),
@@ -169,12 +194,8 @@ data class TranslateState(
     val handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
     val mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
     val extraPrompts: String = LLMTranslationPrompts.extraPrompts.orEmpty(),
-    val engine: TranslationEngineKind = TranslationEngineKind.Ai,
-    val apiTranslateUrl: String = "http://127.0.0.1:8989/",
-    val apiTranslateToken: String = "",
-    val apiSourceLanguage: String = "",
-    val apiTargetLanguage: String = "zh_cn",
-    val apiMaxRetry: String = Translator.MAX_RETRY_COUNT.toString(),
+    val engine: TranslationEngine = TranslationEngine.Ai,
+    val api: ApiTranslateState = ApiTranslateState(),
 )
 
 data class BackfillState(

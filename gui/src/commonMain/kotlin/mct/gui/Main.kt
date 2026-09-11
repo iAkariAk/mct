@@ -20,7 +20,6 @@ import androidx.compose.ui.window.rememberWindowState
 import arrow.core.raise.either
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import mct.extra.ai.translator.Translator
 import mct.gui.components.DraggableSplitPane
 import mct.gui.components.LogConsole
 import mct.gui.components.NavigationRailPanel
@@ -109,6 +108,9 @@ fun App(modifier: Modifier = Modifier) {
         vm.setupChatCompletion()
     }
 
+    // 4. Debounced auto-save: 停止编辑 3 秒后写入设置
+    LaunchedEffect(Unit) { vm.autoSaveSettings() }
+
     Box(modifier = modifier.fillMaxSize().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxSize()) {
             NavigationRailPanel(
@@ -187,9 +189,6 @@ fun App(modifier: Modifier = Modifier) {
                                                         output = vm.translateState.output,
                                                         mappingOutput = vm.translateState.mappingOutput,
                                                         termOutput = vm.translateState.termOutput,
-                                                        apiUrl = vm.translateState.apiUrl.ifBlank { null },
-                                                        token = vm.translateState.apiToken,
-                                                        model = vm.translateState.model,
                                                         termPath = vm.translateState.existingTermPath.ifBlank { null },
                                                         cachesPath = vm.translateState.cachesPath.ifBlank { null },
                                                         literatureStyle = vm.translateState.literatureStyle,
@@ -197,14 +196,8 @@ fun App(modifier: Modifier = Modifier) {
                                                         handleGradientAggressively = vm.translateState.handleGradientAggressively,
                                                         mapInfo = vm.translateState.mapInfo,
                                                         extraPrompts = vm.translateState.extraPrompts.ifBlank { null },
-                                                        temperature = GuiSettings.temperature,
                                                         engine = vm.translateState.engine,
-                                                        apiTranslateUrl = vm.translateState.apiTranslateUrl,
-                                                        apiTranslateToken = vm.translateState.apiTranslateToken,
-                                                        apiSourceLanguage = vm.translateState.apiSourceLanguage,
-                                                        apiTargetLanguage = vm.translateState.apiTargetLanguage,
-                                                        apiMaxRetry = vm.translateState.apiMaxRetry.toIntOrNull()
-                                                            ?: Translator.MAX_RETRY_COUNT,
+                                                        api = vm.translateState.api,
                                                         onFailure = {
                                                             vm.scope.launch {
                                                                 vm.snackbarHostState.showSnackbar(it.message)
@@ -225,17 +218,6 @@ fun App(modifier: Modifier = Modifier) {
                                         }
                                     },
                                     onCancel = { vm.cancelJob() },
-                                    onSaveSettings = {
-                                        vm.scope.launch {
-                                            val ok = vm.saveSettings()
-                                            vm.addLog(
-                                                LogEntry(
-                                                    null, if (ok) "API 设置已保存到 ${apiSetting.path}"
-                                                    else "保存 API 设置失败"
-                                                )
-                                            )
-                                        }
-                                    },
                                     onOptimizePrompt = { current ->
                                         vm.optimizePrompt(current)
                                     })

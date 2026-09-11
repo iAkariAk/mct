@@ -21,8 +21,10 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import mct.gui.components.*
+import mct.gui.model.ApiTranslateState
 import mct.gui.model.TranslateState
-import mct.gui.model.TranslationEngineKind
+import mct.gui.model.TranslationApiKind
+import mct.gui.model.TranslationEngine
 import mct.gui.util.ensureJsonExt
 
 @Composable
@@ -34,7 +36,6 @@ fun TranslatePanel(
     isRunning: Boolean,
     onRun: () -> Unit,
     onCancel: () -> Unit = {},
-    onSaveSettings: () -> Unit,
     onOptimizePrompt: suspend (String) -> String? = { _ -> null },
 ) {
     var showToken by remember { mutableStateOf(false) }
@@ -43,6 +44,10 @@ fun TranslatePanel(
     var optimizeJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val motionScheme = MaterialTheme.motionScheme
+    val api = state.api
+    val updateApi: ((ApiTranslateState) -> ApiTranslateState) -> Unit = { transform ->
+        onStateChange(state.copy(api = transform(api)))
+    }
     val animatedProgress = animateFloatAsState(
         targetValue = translationProgress.coerceIn(0f, 1f),
         animationSpec = motionScheme.defaultEffectsSpec(),
@@ -68,8 +73,8 @@ fun TranslatePanel(
 
     val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() && state.termOutput.isNotBlank() &&
             when (state.engine) {
-                TranslationEngineKind.Ai -> state.model.isNotBlank() && state.apiToken.isNotBlank()
-                TranslationEngineKind.Api -> state.apiTranslateUrl.isNotBlank() && state.apiTargetLanguage.isNotBlank()
+                TranslationEngine.Ai -> state.model.isNotBlank() && state.apiToken.isNotBlank()
+                TranslationEngine.Api -> api.url.isNotBlank() && api.targetLanguage.isNotBlank()
             }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -107,14 +112,14 @@ fun TranslatePanel(
 
         SectionTitle("翻译引擎", Icons.Outlined.Tune)
         EnumSegmentedButtons(
-            entries = TranslationEngineKind.entries,
+            entries = TranslationEngine.entries,
             selected = state.engine,
             label = { it.label },
             onSelected = { onStateChange(state.copy(engine = it)) },
         )
 
         when (state.engine) {
-            TranslationEngineKind.Ai -> {
+            TranslationEngine.Ai -> {
                 SectionTitle("AI API 配置", Icons.Outlined.Settings)
                 Text(
                     "支持 OpenAI 及所有兼容接口（如 APIHub、OneAPI、LobeHub 等）",
@@ -176,54 +181,74 @@ fun TranslatePanel(
                 )
             }
 
-            TranslationEngineKind.Api -> {
+            TranslationEngine.Api -> {
                 SectionTitle("API 翻译服务", Icons.Outlined.Cloud)
                 Text(
-                    "调用兼容 MTranServer 的离线翻译接口，不消耗 AI 额度。",
+                    "调用本地或自建的翻译接口，不消耗 AI 额度。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                ConfigTextField(
-                    value = state.apiTranslateUrl,
-                    onValueChange = { onStateChange(state.copy(apiTranslateUrl = it)) },
-                    label = { Text("API 服务地址") },
-                    placeholder = { Text("例如 http://127.0.0.1:8989/") }
+                Text(
+                    "接口类型",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                EnumSegmentedButtons(
+                    entries = TranslationApiKind.entries,
+                    selected = api.kind,
+                    label = { it.label },
+                    onSelected = { kind -> updateApi { it.copy(kind = kind) } },
                 )
 
-                ConfigTextField(
-                    value = state.apiTranslateToken,
-                    onValueChange = { onStateChange(state.copy(apiTranslateToken = it)) },
-                    label = { Text("访问令牌（可选）") },
-                    placeholder = { Text("留空则不附带 Authorization") },
-                    visualTransformation = if (showApiToken) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        TextButton(onClick = { showApiToken = !showApiToken }) {
-                            Text(if (showApiToken) "隐藏" else "显示")
-                        }
+                when (api.kind) {
+                    TranslationApiKind.MTranServer -> {
+                        ConfigTextField(
+                            value = api.url,
+                            onValueChange = { url -> updateApi { it.copy(url = url) } },
+                            label = { Text("API 服务地址") },
+                            placeholder = { Text("例如 http://127.0.0.1:8989/") }
+                        )
+
+                        ConfigTextField(
+                            value = api.token,
+                            onValueChange = { token -> updateApi { it.copy(token = token) } },
+                            label = { Text("访问令牌（可选）") },
+                            placeholder = { Text("留空则不附带 Authorization") },
+                            visualTransformation = if (showApiToken) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            trailingIcon = {
+                                TextButton(onClick = { showApiToken = !showApiToken }) {
+                                    Text(if (showApiToken) "隐藏" else "显示")
+                                }
+                            }
+                        )
+
+                        ConfigTextField(
+                            value = api.sourceLanguage,
+                            onValueChange = { source -> updateApi { it.copy(sourceLanguage = source) } },
+                            label = { Text("源语言代码") },
+                            placeholder = { Text("留空自动检测，例如 en_us") }
+                        )
+
+                        ConfigTextField(
+                            value = api.targetLanguage,
+                            onValueChange = { target -> updateApi { it.copy(targetLanguage = target) } },
+                            label = { Text("目标语言代码") },
+                            placeholder = { Text("zh_cn") }
+                        )
+
+                        ConfigTextField(
+                            value = api.maxRetry,
+                            onValueChange = { retry -> updateApi { it.copy(maxRetry = retry) } },
+                            label = { Text("最大重试次数") },
+                            placeholder = { Text("20") }
+                        )
                     }
-                )
-
-                ConfigTextField(
-                    value = state.apiSourceLanguage,
-                    onValueChange = { onStateChange(state.copy(apiSourceLanguage = it)) },
-                    label = { Text("源语言代码") },
-                    placeholder = { Text("留空自动检测，例如 en_us") }
-                )
-
-                ConfigTextField(
-                    value = state.apiTargetLanguage,
-                    onValueChange = { onStateChange(state.copy(apiTargetLanguage = it)) },
-                    label = { Text("目标语言代码") },
-                    placeholder = { Text("zh_cn") }
-                )
-
-                ConfigTextField(
-                    value = state.apiMaxRetry,
-                    onValueChange = { onStateChange(state.copy(apiMaxRetry = it)) },
-                    label = { Text("最大重试次数") },
-                    placeholder = { Text("20") }
-                )
+                }
             }
         }
 
@@ -249,7 +274,7 @@ fun TranslatePanel(
             cachesPicker.launch()
         }
 
-        if (state.engine == TranslationEngineKind.Ai) {
+        if (state.engine == TranslationEngine.Ai) {
             LiteratureStyleField(
                 value = state.literatureStyle,
                 onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
@@ -346,31 +371,12 @@ fun TranslatePanel(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (state.engine == TranslationEngineKind.Ai) {
-                Button(
-                    onClick = onSaveSettings,
-                    enabled = state.model.isNotBlank() && state.apiToken.isNotBlank(),
-                    modifier = Modifier.weight(0.35f).height(44.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("保存 API 设置")
-                }
-            }
-            Box(modifier = Modifier.weight(if (state.engine == TranslationEngineKind.Ai) 0.65f else 1f)) {
-                ActionButton(
-                    "开始翻译",
-                    isRunning,
-                    onRun,
-                    enabled = readyToRun,
-                    onCancel = onCancel,
-                )
-            }
-        }
+        ActionButton(
+            "开始翻译",
+            isRunning,
+            onRun,
+            enabled = readyToRun,
+            onCancel = onCancel,
+        )
     }
 }
