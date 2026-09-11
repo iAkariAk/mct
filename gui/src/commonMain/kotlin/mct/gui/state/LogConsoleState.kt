@@ -33,15 +33,32 @@ private data class QueuedLog(
 /**
  * Observable log console fed by a bounded queue.
  *
- * [add] may be called from any thread: entries are queued and only applied to [lines]
- * by [collect], which coalesces bursts into a single observable update and drops
+ * [add] may be called from any thread: entries are queued and only applied to the
+ * visible state by [collect], which coalesces bursts into a single update and drops
  * entries that a [clear] superseded.
+ *
+ * [visible] is maintained incrementally rather than re-filtered from [lines] on every
+ * batch. Appends are the common case, and re-filtering would hand the log list a fresh
+ * instance each batch, forcing the lazy list downstream to re-diff every key.
+ * Only a [levelFilter] change rebuilds it.
  */
 class LogConsoleState {
+    /** Every entry received, including those hidden by [levelFilter]. */
     val lines = mutableStateListOf(LogEntry(null, "就绪。"))
 
-    /** Levels shown in the console. */
-    var levelFilter by mutableStateOf(DEFAULT_LEVELS)
+    /** Entries matching [levelFilter], in arrival order. */
+    val visible = mutableStateListOf<LogEntry>()
+
+    private var filteredBy by mutableStateOf(DEFAULT_LEVELS)
+
+    /** Levels shown in the console. Changing it rebuilds [visible]. */
+    var levelFilter: Set<LoggerLevel>
+        get() = filteredBy
+        set(value) {
+            if (filteredBy == value) return
+            filteredBy = value
+            rebuildVisible()
+        }
 
     private val queue = Channel<QueuedLog>(
         capacity = MAX_PENDING_ENTRIES,
@@ -49,6 +66,10 @@ class LogConsoleState {
     )
     private val generation = AtomicLong(0)
     private val nextSequence = AtomicLong(1)
+
+    init {
+        rebuildVisible()
+    }
 
     /** Queue [entry], assigning it a stable sequence number when it has none. */
     fun add(entry: LogEntry) {
@@ -60,13 +81,14 @@ class LogConsoleState {
         queue.trySend(QueuedLog(generation.get(), sequenced))
     }
 
-    /** Drop visible and not-yet-rendered entries, e.g. before a new operation. */
+    /** Drop visible and queued entries, e.g. before a new operation. */
     fun clear() {
         generation.incrementAndGet()
         while (queue.tryReceive().isSuccess) {
             // Drain entries left over by the previous operation.
         }
         lines.clear()
+        visible.clear()
     }
 
     /** Drain the queue into [lines] until the enclosing coroutine is cancelled. */
@@ -87,11 +109,25 @@ class LogConsoleState {
             batch.clear()
             if (entries.isEmpty()) continue
 
-            val overflow = (lines.size + entries.size - MAX_ENTRIES).coerceAtLeast(0)
-            if (overflow > 0) {
-                lines.subList(0, minOf(overflow, lines.size)).clear()
-            }
-            lines.addAll(entries)
+            lines.appendTrimming(entries, MAX_ENTRIES)
+            visible.appendTrimming(entries.filter(::shows), MAX_ENTRIES)
         }
     }
+
+    private fun rebuildVisible() {
+        visible.clear()
+        visible.addAll(lines.filter(::shows))
+    }
+
+    private fun shows(entry: LogEntry) = entry.level == null || entry.level in filteredBy
+}
+
+/** Append [entries], dropping the oldest when the cap is exceeded. */
+private fun MutableList<LogEntry>.appendTrimming(entries: List<LogEntry>, cap: Int) {
+    if (entries.isEmpty()) return
+    val overflow = (size + entries.size - cap).coerceAtLeast(0)
+    if (overflow > 0) {
+        subList(0, minOf(overflow, size)).clear()
+    }
+    addAll(entries)
 }

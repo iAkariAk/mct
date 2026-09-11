@@ -31,8 +31,8 @@ import mct.gui.util.ensureJsonExt
 fun TranslatePanel(
     state: TranslateState,
     onStateChange: (TranslateState) -> Unit,
-    translationProgress: Float,
-    translationStatus: String,
+    translationProgress: () -> Float,
+    translationStatus: () -> String,
     isRunning: Boolean,
     onRun: () -> Unit,
     onCancel: () -> Unit = {},
@@ -48,11 +48,6 @@ fun TranslatePanel(
     val updateApi: ((ApiTranslateState) -> ApiTranslateState) -> Unit = { transform ->
         onStateChange(state.copy(api = transform(api)))
     }
-    val animatedProgress = animateFloatAsState(
-        targetValue = translationProgress.coerceIn(0f, 1f),
-        animationSpec = motionScheme.defaultEffectsSpec(),
-        label = "translation-progress",
-    )
 
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
@@ -111,7 +106,7 @@ fun TranslatePanel(
         )
 
         SectionTitle("翻译引擎", Icons.Outlined.Tune)
-        EnumSegmentedButtons(
+        EnumButtonGroup(
             entries = TranslationEngine.entries,
             selected = state.engine,
             label = { it.label },
@@ -194,7 +189,7 @@ fun TranslatePanel(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                EnumSegmentedButtons(
+                EnumButtonGroup(
                     entries = TranslationApiKind.entries,
                     selected = api.kind,
                     label = { it.label },
@@ -326,50 +321,11 @@ fun TranslatePanel(
             )
         }
 
-        AnimatedVisibility(
-            visible = isRunning || translationProgress > 0f,
-            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
-                expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
-            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
-                shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            "翻译进度",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            "${(translationProgress * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    WaveProgressIndicator(
-                        progress = { animatedProgress.value },
-                        animated = isRunning,
-                        modifier = Modifier.fillMaxWidth().height(8.dp),
-                    )
-                    if (translationStatus.isNotBlank()) {
-                        Text(
-                            translationStatus,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
+        TranslationProgressCard(
+            isRunning = isRunning,
+            progress = translationProgress,
+            status = translationStatus,
+        )
 
         ActionButton(
             "开始翻译",
@@ -378,5 +334,77 @@ fun TranslatePanel(
             enabled = readyToRun,
             onCancel = onCancel,
         )
+    }
+}
+
+/**
+ * Progress readout for a running translation.
+ *
+ * Progress ticks arrive many times per second, so [progress] / [status] are read here
+ * rather than passed as values: a value parameter would re-execute the whole panel on
+ * every tick, while a read in this scope invalidates only this card.
+ */
+@Composable
+private fun TranslationProgressCard(
+    isRunning: Boolean,
+    progress: () -> Float,
+    status: () -> String,
+    modifier: Modifier = Modifier,
+) {
+    val motionScheme = MaterialTheme.motionScheme
+    // Material recommends its own spec for animating a wavy indicator's progress: it keeps the
+    // wave continuous instead of letting it snap between ticks.
+    val animatedProgress = animateFloatAsState(
+        targetValue = progress().coerceIn(0f, 1f),
+        animationSpec = WavyProgressIndicatorDefaults.ProgressAnimationSpec,
+        label = "translation-progress",
+    )
+
+    AnimatedVisibility(
+        visible = isRunning || progress() > 0f,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+            expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
+        exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+            shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "翻译进度",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "${(progress() * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                // M3 Expressive wavy progress indicator. It supplies its own container height,
+                // track, gap and stop indicator, and exposes progress to accessibility services.
+                LinearWavyProgressIndicator(
+                    progress = { animatedProgress.value },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val statusText = status()
+                if (statusText.isNotBlank()) {
+                    Text(
+                        statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }

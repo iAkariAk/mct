@@ -19,10 +19,12 @@ private inline fun <reified T> readPatternJson(env: Env, path: String): T? =
         ?.let { MCTJson.decodeFromString<T>(it) }
 
 /**
- * 把界面上配置的每一类规则组装为 [MCTPattern]，是所有提取/补丁入口的唯一构造点。
+ * Assemble every configured rule category into an [MCTPattern]; the single construction
+ * point for all extraction and patch entry points.
  *
- * 语义与 CLI 的 `--pattern-*` / `--disable-builtin-*` / `--disable-filter-*` 对齐：
- * 过滤关闭 → 该类规则为 `null`（提取全部）；仅自定义 → 不合并内置规则。
+ * Semantics match the CLI's `--pattern-*` / `--disable-builtin-*` / `--disable-filter-*`:
+ * filter off yields `null` for that category (extract everything), and custom-only means the
+ * built-in rules are not merged in.
  */
 context(env: Env)
 fun composePattern(patterns: MCTPatternState): MCTPattern {

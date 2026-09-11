@@ -20,8 +20,8 @@ import mct.gui.util.renderWithUnit
 fun NavigationRailPanel(
     selectedTab: Tab,
     onTabSelected: (Tab) -> Unit,
-    totalTokenConsume: Long,
-    lastTokenConsume: Int,
+    totalTokenConsume: () -> Long,
+    lastTokenConsume: () -> Int,
     uriHandler: UriHandler,
     modifier: Modifier = Modifier,
 ) {
@@ -79,14 +79,16 @@ fun NavigationRailPanel(
             icon = { Icon(Icons.Outlined.Handyman, contentDescription = null) },
             label = { Text(Tab.Toolbox.label, style = MaterialTheme.typography.labelSmall) })
         Spacer(Modifier.weight(1f))
-        if (totalTokenConsume > 0) {
-            TokenDisplay(totalTokenConsume = totalTokenConsume, lastTokenConsume = lastTokenConsume)
-        }
+        // Read the counters here rather than in the caller: they tick per completed
+        // request, and reading them above would recompose the whole app shell.
+        TokenDisplay(totalTokenConsume = totalTokenConsume, lastTokenConsume = lastTokenConsume)
     }
 }
 
 @Composable
-private fun TokenDisplay(totalTokenConsume: Long, lastTokenConsume: Int) {
+private fun TokenDisplay(totalTokenConsume: () -> Long, lastTokenConsume: () -> Int) {
+    val total = totalTokenConsume()
+    if (total <= 0L) return
     Column(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -97,13 +99,14 @@ private fun TokenDisplay(totalTokenConsume: Long, lastTokenConsume: Int) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            totalTokenConsume.renderWithUnit(),
+            total.renderWithUnit(),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
         )
-        if (lastTokenConsume > 0) {
+        val last = lastTokenConsume()
+        if (last > 0) {
             Text(
-                "+${lastTokenConsume.renderWithUnit()}",
+                "+${last.renderWithUnit()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = .6f),
             )

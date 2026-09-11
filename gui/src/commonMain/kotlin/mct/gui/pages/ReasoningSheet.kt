@@ -263,7 +263,7 @@ private fun ReasoningCard(
                     enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
                     exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    LoadingIndicator(modifier = Modifier.size(20.dp))
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

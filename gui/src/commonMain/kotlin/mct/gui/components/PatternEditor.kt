@@ -1,8 +1,6 @@
 package mct.gui.components
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
@@ -22,15 +20,13 @@ import mct.gui.model.MCTPatternEntry
 import mct.gui.model.MCTPatternSlot
 import mct.gui.model.MCTPatternState
 
-/** 展开规则列表的动画时长；列表较高，收尾放慢一些。 */
-private const val ENTER_EXPAND_MILLIS = 480
-private const val ENTER_FADE_MILLIS = 220
-
 /**
- * 统一的 `MCTPattern` 规则编辑器。
+ * The single editor for `MCTPattern` rules.
  *
- * [slots] 决定当前场景展示哪些规则类别；每一类都可单独配置规则文件、是否合并内置规则、
- * 是否启用规则过滤。参数较多，因此整体默认折叠，折叠时给出摘要。
+ * [slots] selects which rule categories this context shows. Each category is configured
+ * independently: a rule file, whether to merge the built-in rules, and whether its filter
+ * is enabled. That is a lot of configuration, so the editor starts collapsed and shows a
+ * summary while collapsed.
  */
 @Composable
 fun MCTPatternEditor(
@@ -44,11 +40,22 @@ fun MCTPatternEditor(
     var expanded by remember { mutableStateOf(initiallyExpanded) }
     val motionScheme = MaterialTheme.motionScheme
 
-    val customized = slots.count { patterns[it].path.isNotBlank() }
-    val unfiltered = slots.count { it.filterToggle && !patterns[it].filtering }
-    val summary = buildString {
-        append(if (customized == 0) "全部使用内置规则" else "已自定义 $customized 类规则")
-        if (unfiltered > 0) append(" · 已关闭 $unfiltered 类过滤")
+    // The summary depends only on rule content, so editing a rule while collapsed neither
+    // recomputes it nor recomposes this header.
+    val summary = remember(slots, patterns) {
+        val customized = slots.count { patterns[it].path.isNotBlank() }
+        val unfiltered = slots.count { it.filterToggle && !patterns[it].filtering }
+        buildString {
+            append(if (customized == 0) "全部使用内置规则" else "已自定义 $customized 类规则")
+            if (unfiltered > 0) append(" · 已关闭 $unfiltered 类过滤")
+        }
+    }
+
+    // Stable callback identity: otherwise each category's callback is rebuilt whenever
+    // `patterns` changes, recomposing every card at once.
+    val currentPatterns by rememberUpdatedState(patterns)
+    val updateSlot: (MCTPatternSlot, MCTPatternEntry) -> Unit = remember(onPatternsChange) {
+        { slot, entry -> onPatternsChange(currentPatterns.with(slot, entry)) }
     }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -94,14 +101,9 @@ fun MCTPatternEditor(
 
         AnimatedVisibility(
             visible = expanded,
-            // 展开的是一整块规则列表，用偏慢的减速动画收尾，避免高度变化过急。
-            enter = fadeIn(animationSpec = tween(durationMillis = ENTER_FADE_MILLIS)) +
-                expandVertically(
-                    animationSpec = tween(
-                        durationMillis = ENTER_EXPAND_MILLIS,
-                        easing = FastOutSlowInEasing,
-                    )
-                ),
+            // A whole rule list expands here; the slow motion-scheme specs keep it from snapping.
+            enter = fadeIn(animationSpec = motionScheme.slowEffectsSpec()) +
+                expandVertically(animationSpec = motionScheme.slowSpatialSpec()),
             exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
                 shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
         ) {
@@ -110,7 +112,9 @@ fun MCTPatternEditor(
                     MCTPatternSlotCard(
                         slot = slot,
                         entry = patterns[slot],
-                        onEntryChange = { onPatternsChange(patterns.with(slot, it)) },
+                        onEntryChange = remember(slot, updateSlot) {
+                            { entry -> updateSlot(slot, entry) }
+                        },
                     )
                 }
             }
@@ -183,7 +187,7 @@ private fun MCTPatternSlotCard(
     }
 }
 
-/** 规则文件选择行；留空表示该类别回退到内置规则。 */
+/** Rule-file picker row; blank means this category falls back to the built-in rules. */
 @Composable
 private fun PatternFileRow(
     label: String,
@@ -199,7 +203,7 @@ private fun PatternFileRow(
     PathRow(label, placeholder, value, onValueChange) { picker.launch() }
 }
 
-/** 小号状态标签，用于提示该类规则已被自定义。 */
+/** Small status pill marking a category as customized. */
 @Composable
 private fun StatusPill(text: String) {
     Surface(

@@ -45,7 +45,7 @@ fun TermExtractPanel(
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(existingTermPath = it.absolutePath())) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // ── 头部说明 ────────────────────────────────────────────
+        // ── Header ───────────────────────────────────────────────
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
@@ -70,7 +70,7 @@ fun TermExtractPanel(
             }
         }
 
-        // ── 输入 / 输出 ──────────────────────────────────────────
+        // ── Input / output ───────────────────────────────────────
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
         PathRow(
@@ -93,7 +93,7 @@ fun TermExtractPanel(
             color = MaterialTheme.colorScheme.outlineVariant,
         )
 
-        // ── 提取选项 ────────────────────────────────────────────
+        // ── Extraction options ───────────────────────────────────
         SectionTitle("提取选项", Icons.AutoMirrored.Outlined.TextSnippet)
 
         Surface(
@@ -103,7 +103,7 @@ fun TermExtractPanel(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // 目标语言
+                // Target language
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -155,7 +155,7 @@ fun TermExtractPanel(
                     onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
                 )
 
-                // 已有术语表
+                // Existing term table
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -184,7 +184,7 @@ fun TermExtractPanel(
 
         Spacer(Modifier.height(4.dp))
 
-        // ── 操作按钮 ────────────────────────────────────────────
+        // ── Actions ──────────────────────────────────────────────
         ActionButton(
             label = "开始术语提取",
             running = isRunning,

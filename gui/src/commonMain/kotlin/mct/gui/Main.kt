@@ -81,7 +81,7 @@ fun main() {
     }
 }
 
-// ── 主框架 ────────────────────────────────────────────────────
+// ── Application shell ─────────────────────────────────────────
 
 @Composable
 fun App(modifier: Modifier = Modifier) {
@@ -90,40 +90,61 @@ fun App(modifier: Modifier = Modifier) {
     val vm = remember { AppViewModel(clientManager) }
     val tabScrollStates = remember { Tab.entries.associateWith { ScrollState(initial = 0) } }
     val pageTravelPx = with(LocalDensity.current) { 24.dp.roundToPx() }
+    val rootModifier = remember { Modifier.fillMaxSize().padding(16.dp) }
+
+    // Panel state setters. These must have a stable identity: they are handed to every panel
+    // and, transitively, captured by each field's callback. A fresh instance per recomposition
+    // would defeat lambda memoisation, so one keystroke would re-execute every field in the
+    // panel instead of just the edited one.
+    val setExtractState: (ExtractState) -> Unit = remember(vm) { { vm.extractState = it } }
+    val setTranslateState: (TranslateState) -> Unit = remember(vm) { { vm.translation.state = it } }
+    val setTermExtractState: (TermExtractState) -> Unit = remember(vm) { { vm.termExtractState = it } }
+    val setBackfillState: (BackfillState) -> Unit = remember(vm) { { vm.backfillState = it } }
+    val setPatchState: (PatchState) -> Unit = remember(vm) { { vm.patchState = it } }
+    val setProjectState: (ProjectWorkflowState) -> Unit = remember(vm) { { vm.projectState = it } }
+    val setToolboxState: (ToolboxState) -> Unit = remember(vm) { { vm.toolboxState = it } }
 
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
 
     // 1. Load persisted settings on startup
     LaunchedEffect(Unit) { vm.settings.load() }
 
+    // Reading a field of `state` would subscribe this whole composable to the entire
+    // TranslateState, so every keystroke in any translate field would recompose the app
+    // shell. Derived values keep the subscription narrow.
+    val apiUrl by remember { derivedStateOf { vm.translation.state.apiUrl } }
+    val apiToken by remember { derivedStateOf { vm.translation.state.apiToken } }
+    val model by remember { derivedStateOf { vm.translation.state.model } }
+
     // 2. Probe API when URL or token changes
-    LaunchedEffect(vm.translation.state.apiUrl, vm.translation.state.apiToken) {
+    LaunchedEffect(apiUrl, apiToken) {
         // Avoid opening a client and listing models for every keystroke.
         delay(500)
         vm.translation.setupApiClient()
     }
 
     // 3. Re-create ChatCompletionCall when model / options change
-    LaunchedEffect(vm.translation.state.model, GuiSettings.useStreamApi, GuiSettings.temperature) {
+    LaunchedEffect(model, GuiSettings.useStreamApi, GuiSettings.temperature) {
         vm.translation.setupChatCompletion()
     }
 
-    // 4. Debounced auto-save: 停止编辑 3 秒后写入设置
+    // 4. Debounced auto-save: write settings 3 seconds after editing stops
     LaunchedEffect(Unit) { vm.settings.autoSave() }
 
-    Box(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    Box(modifier = modifier.then(rootModifier)) {
         Row(modifier = Modifier.fillMaxSize()) {
+            val paneModifier = remember { Modifier.weight(1f) }
             NavigationRailPanel(
                 selectedTab = vm.selectedTab,
                 onTabSelected = { tab ->
                     if (tab != vm.selectedTab) vm.selectedTab = tab
                 },
-                totalTokenConsume = vm.translation.totalTokenConsume,
-                lastTokenConsume = vm.translation.lastTokenConsume,
+                totalTokenConsume = { vm.translation.totalTokenConsume },
+                lastTokenConsume = { vm.translation.lastTokenConsume },
                 uriHandler = uriHandler,
             )
 
-            DraggableSplitPane(modifier = Modifier.weight(1f), top = {
+            DraggableSplitPane(modifier = paneModifier, top = {
                 val motionScheme = MaterialTheme.motionScheme
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -151,7 +172,7 @@ fun App(modifier: Modifier = Modifier) {
                             when (tab) {
                                 Tab.Extract -> ExtractPanel(
                                     state = vm.extractState,
-                                    onStateChange = { vm.extractState = it },
+                                    onStateChange = setExtractState,
                                     isRunning = vm.operations.isRunning,
                                     onRun = {
                                         vm.operations.launch {
@@ -168,9 +189,9 @@ fun App(modifier: Modifier = Modifier) {
 
                                 Tab.Translate -> TranslatePanel(
                                     state = vm.translation.state,
-                                    onStateChange = { vm.translation.state = it },
-                                    translationProgress = vm.translation.progress,
-                                    translationStatus = vm.translation.status,
+                                    onStateChange = setTranslateState,
+                                    translationProgress = { vm.translation.progress },
+                                    translationStatus = { vm.translation.status },
                                     isRunning = vm.operations.isRunning,
                                     onRun = {
                                         vm.translation.resetProgress()
@@ -217,7 +238,7 @@ fun App(modifier: Modifier = Modifier) {
 
                                 Tab.TermExtract -> TermExtractPanel(
                                     state = vm.termExtractState,
-                                    onStateChange = { vm.termExtractState = it },
+                                    onStateChange = setTermExtractState,
                                     isRunning = vm.operations.isRunning,
                                     onRun = {
                                         vm.operations.launch {
@@ -239,7 +260,7 @@ fun App(modifier: Modifier = Modifier) {
 
                                 Tab.Backfill -> BackfillPanel(
                                     state = vm.backfillState,
-                                    onStateChange = { vm.backfillState = it },
+                                    onStateChange = setBackfillState,
                                     isRunning = vm.operations.isRunning,
                                     onRun = {
                                         vm.operations.launch {
@@ -254,7 +275,7 @@ fun App(modifier: Modifier = Modifier) {
 
                                 Tab.Patch -> PatchPanel(
                                     state = vm.patchState,
-                                    onStateChange = { vm.patchState = it },
+                                    onStateChange = setPatchState,
                                     isRunning = vm.operations.isRunning,
                                     onCreate = {
                                         vm.operations.launch {
@@ -289,7 +310,7 @@ fun App(modifier: Modifier = Modifier) {
 
                                 Tab.Project -> ProjectPanel(
                                     state = vm.projectState,
-                                    onStateChange = { vm.projectState = it },
+                                    onStateChange = setProjectState,
                                     isRunning = vm.operations.isRunning,
                                     onInit = {
                                         vm.operations.launch {
@@ -329,7 +350,7 @@ fun App(modifier: Modifier = Modifier) {
 
                                 Tab.Toolbox -> ToolboxPanel(
                                     state = vm.toolboxState,
-                                    onStateChange = { vm.toolboxState = it },
+                                    onStateChange = setToolboxState,
                                     isRunning = vm.operations.isRunning,
                                     onRunOperation = { operation ->
                                         vm.operations.launch {
@@ -404,7 +425,7 @@ fun App(modifier: Modifier = Modifier) {
                 }
             }, bottom = {
                 LogConsole(
-                    logLines = vm.logs.lines,
+                    visibleLogLines = vm.logs.visible,
                     logLevelFilter = vm.logs.levelFilter,
                     onLogLevelFilterChange = { vm.logs.levelFilter = it },
                     onShowReasoning = { vm.reasoning.visible = true },

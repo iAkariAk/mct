@@ -12,6 +12,9 @@ import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,6 +34,56 @@ private data class ToolboxAction(
     val icon: ImageVector,
     val operation: ToolboxOperation,
 )
+
+private data class ToolboxSectionSpec(
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+    val tools: List<ToolboxAction>,
+)
+
+/**
+ * The toolbox's three sections. Hoisted to file level: building these lists in composition
+ * would hand [ToolboxSection] a new `List` instance on every recomposition, so it and the
+ * card subtree could never skip.
+ */
+private val ToolboxSections = listOf(
+    ToolboxSectionSpec(
+        title = "文本与翻译",
+        description = "整理文本池、映射和 MTLX，让翻译前后的数据转换保持可重复。",
+        icon = Icons.Outlined.Translate,
+        tools = listOf(
+            ToolboxAction("生成文本池", "把提取结果整理为唯一文本池。", Icons.Outlined.AccountTree, ToolboxOperation.FlattenPool),
+            ToolboxAction("应用文本映射", "把 mapping 还原为回填替换组。", Icons.AutoMirrored.Outlined.MergeType, ToolboxOperation.UnflattenPool),
+            ToolboxAction("生成 MTLX", "从文本池生成结构化翻译模板。", Icons.Outlined.Description, ToolboxOperation.GenerateMtlx),
+            ToolboxAction("翻译 MTLX", "执行 MTLX 映射并保留原有结构。", Icons.Outlined.Translate, ToolboxOperation.TranslateMtlx),
+            ToolboxAction("批量替换", "为所有提取文本生成固定替换。", Icons.Outlined.FindReplace, ToolboxOperation.ReplaceAll),
+        ),
+    ),
+    ToolboxSectionSpec(
+        title = "规则与数据检查",
+        description = "集中测试匹配规则、导出 schema，并检查存档中的原始 NBT 数据。",
+        icon = Icons.AutoMirrored.Outlined.Rule,
+        tools = listOf(
+            ToolboxAction("DataPointer 测试", "验证内置或自定义指针过滤规则。", Icons.Outlined.GpsFixed, ToolboxOperation.PointerTest),
+            ToolboxAction("Command Pattern 测试", "用样例输入验证命令提取模式。", Icons.Outlined.Terminal, ToolboxOperation.CommandTest),
+            ToolboxAction("导出 Schema", "导出规则配置使用的 JSON Schema。", Icons.Outlined.Schema, ToolboxOperation.ExportSchema),
+            ToolboxAction("导出 Region SNBT", "把 Region NBT 导出为可读 SNBT。", Icons.Outlined.DataObject, ToolboxOperation.ExportSnbt),
+        ),
+    ),
+    ToolboxSectionSpec(
+        title = "官方语言资源",
+        description = "下载 Minecraft 官方语言文件，或把两种语言合并为术语表。",
+        icon = Icons.Outlined.Language,
+        tools = listOf(
+            ToolboxAction("下载官方语言", "获取指定版本的官方语言资源。", Icons.Outlined.Download, ToolboxOperation.DownloadOfficialLanguage),
+            ToolboxAction("合并官方语言", "由源语言和目标语言生成术语表。", Icons.AutoMirrored.Outlined.CompareArrows, ToolboxOperation.CombineOfficialLanguage),
+        ),
+    ),
+)
+
+/** Text pools only apply to Region / Datapack. */
+private val PoolModes = RunMode.entries.filterNot { it == RunMode.Cext }
 
 @Composable
 private fun ToolboxHero(modifier: Modifier = Modifier) {
@@ -97,7 +150,7 @@ private fun ToolboxSection(
                     ToolboxActionCard(
                         action = action,
                         onClick = { onClick(action.operation) },
-                        // FlowRow 按 weight 均分每行宽度，不要再用 maxWidth 手工算卡片宽度。
+                        // FlowRow divides each row by weight; never compute card widths from maxWidth.
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -157,102 +210,18 @@ fun ToolboxPanel(
     onRunOperation: (ToolboxOperation) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val openOperation: (ToolboxOperation) -> Unit = { operation ->
-        onStateChange(state.copy(activeOperation = operation))
+    // Every keystroke in the dialog changes `state`, so the callback reads the latest value
+    // instead of capturing it; a captured state would change the callback's identity and
+    // recompose the whole card grid behind the dialog.
+    val currentState by rememberUpdatedState(state)
+    val openOperation: (ToolboxOperation) -> Unit = remember(onStateChange) {
+        { operation -> onStateChange(currentState.copy(activeOperation = operation)) }
     }
 
     Column(modifier = modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        ToolboxHero()
-        ToolboxSection(
-            title = "文本与翻译",
-            description = "整理文本池、映射和 MTLX，让翻译前后的数据转换保持可重复。",
-            icon = Icons.Outlined.Translate,
-            onClick = openOperation,
-            tools = listOf(
-                ToolboxAction(
-                    "生成文本池",
-                    "把提取结果整理为唯一文本池。",
-                    Icons.Outlined.AccountTree,
-                    ToolboxOperation.FlattenPool
-                ),
-                ToolboxAction(
-                    "应用文本映射",
-                    "把 mapping 还原为回填替换组。",
-                    Icons.AutoMirrored.Outlined.MergeType,
-                    ToolboxOperation.UnflattenPool
-                ),
-                ToolboxAction(
-                    "生成 MTLX",
-                    "从文本池生成结构化翻译模板。",
-                    Icons.Outlined.Description,
-                    ToolboxOperation.GenerateMtlx
-                ),
-                ToolboxAction(
-                    "翻译 MTLX",
-                    "执行 MTLX 映射并保留原有结构。",
-                    Icons.Outlined.Translate,
-                    ToolboxOperation.TranslateMtlx
-                ),
-                ToolboxAction(
-                    "批量替换",
-                    "为所有提取文本生成固定替换。",
-                    Icons.Outlined.FindReplace,
-                    ToolboxOperation.ReplaceAll
-                ),
-            ),
-        )
-        ToolboxSection(
-            title = "规则与数据检查",
-            description = "集中测试匹配规则、导出 schema，并检查存档中的原始 NBT 数据。",
-            icon = Icons.AutoMirrored.Outlined.Rule,
-            onClick = openOperation,
-            tools = listOf(
-                ToolboxAction(
-                    "DataPointer 测试",
-                    "验证内置或自定义指针过滤规则。",
-                    Icons.Outlined.GpsFixed,
-                    ToolboxOperation.PointerTest
-                ),
-                ToolboxAction(
-                    "Command Pattern 测试",
-                    "用样例输入验证命令提取模式。",
-                    Icons.Outlined.Terminal,
-                    ToolboxOperation.CommandTest
-                ),
-                ToolboxAction(
-                    "导出 Schema",
-                    "导出规则配置使用的 JSON Schema。",
-                    Icons.Outlined.Schema,
-                    ToolboxOperation.ExportSchema
-                ),
-                ToolboxAction(
-                    "导出 Region SNBT",
-                    "把 Region NBT 导出为可读 SNBT。",
-                    Icons.Outlined.DataObject,
-                    ToolboxOperation.ExportSnbt
-                ),
-            ),
-        )
-        ToolboxSection(
-            title = "官方语言资源",
-            description = "下载 Minecraft 官方语言文件，或把两种语言合并为术语表。",
-            icon = Icons.Outlined.Language,
-            onClick = openOperation,
-            tools = listOf(
-                ToolboxAction(
-                    "下载官方语言",
-                    "获取指定版本的官方语言资源。",
-                    Icons.Outlined.Download,
-                    ToolboxOperation.DownloadOfficialLanguage
-                ),
-                ToolboxAction(
-                    "合并官方语言",
-                    "由源语言和目标语言生成术语表。",
-                    Icons.AutoMirrored.Outlined.CompareArrows,
-                    ToolboxOperation.CombineOfficialLanguage
-                ),
-            ),
-        )
+        // The catalogue only needs [openOperation]; keeping it a separate composable lets it
+        // skip entirely while the dialog's state changes on every keystroke.
+        ToolboxCatalogue(onClick = openOperation)
     }
 
     state.activeOperation?.let { operation ->
@@ -267,6 +236,24 @@ fun ToolboxPanel(
     }
 }
 
+/**
+ * Static catalogue of every tool. Takes nothing but the open callback, so it is skippable.
+ */
+@Composable
+private fun ToolboxCatalogue(onClick: (ToolboxOperation) -> Unit) {
+    ToolboxHero()
+    ToolboxSections.forEach { section ->
+        ToolboxSection(
+            title = section.title,
+            description = section.description,
+            icon = section.icon,
+            tools = section.tools,
+            onClick = onClick,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ToolboxOperationDialog(
     operation: ToolboxOperation,
@@ -304,7 +291,7 @@ private fun ToolboxOperationDialog(
             ) {
                 when (operation) {
                     ToolboxOperation.PointerTest -> {
-                        EnumSegmentedButtons(
+                        EnumButtonGroup(
                             entries = PointerKind.entries,
                             selected = state.pointerKind,
                             label = { it.label },
@@ -390,7 +377,7 @@ private fun ToolboxOperationDialog(
                     ToolboxOperation.UnflattenPool -> PoolFields(state, onStateChange, showMapping = true)
                     ToolboxOperation.GenerateMtlx -> {
                         PathField("输入 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
-                        EnumSegmentedButtons(
+                        EnumButtonGroup(
                             entries = MtlxSource.entries,
                             selected = state.mtlxSource,
                             label = { it.label },
@@ -419,7 +406,7 @@ private fun ToolboxOperationDialog(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        EnumSegmentedButtons(
+                        EnumButtonGroup(
                             entries = SchemaKind.entries,
                             selected = state.schemaKind,
                             label = { it.label },
@@ -491,9 +478,8 @@ private fun ToolboxOperationDialog(
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
                 if (isRunning) {
-                    CircularProgressIndicator(
+                    LoadingIndicator(
                         modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(Modifier.width(8.dp))
@@ -521,8 +507,8 @@ private fun PoolFields(
         onStateChange(state.copy(poolOutput = it))
     }
     if (!showMapping) {
-        EnumSegmentedButtons(
-            entries = RunMode.entries.filterNot { it == RunMode.Cext },
+        EnumButtonGroup(
+            entries = PoolModes,
             selected = state.poolKind,
             label = { it.label },
             onSelected = { onStateChange(state.copy(poolKind = it)) },

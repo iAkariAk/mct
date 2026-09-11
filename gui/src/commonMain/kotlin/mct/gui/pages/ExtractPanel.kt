@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -34,40 +34,32 @@ fun ExtractPanel(
     }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
-
-        PathRow(
-            "Minecraft 存档目录",
-            "选择包含 level.dat 的文件夹...",
-            state.input,
-            { onStateChange(state.copy(input = it)) }) {
-            dirPicker.launch()
-        }
-        PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
-            fileSaver.launch(suggestedName = "extractions", defaultExtension = "json")
-        }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 4.dp),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-
-        SectionTitle("提取选项", Icons.Outlined.Tune)
-
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            RunMode.entries.forEach { mode ->
-                ModeRadio(mode.label, state.mode == mode) { onStateChange(state.copy(mode = mode)) }
+        PanelSection("输入 / 输出", Icons.Outlined.FolderOpen) {
+            PathRow(
+                "Minecraft 存档目录",
+                "选择包含 level.dat 的文件夹...",
+                state.input,
+                { onStateChange(state.copy(input = it)) }) {
+                dirPicker.launch()
+            }
+            PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
+                fileSaver.launch(suggestedName = "extractions", defaultExtension = "json")
             }
         }
 
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 4.dp),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
+        PanelSection("提取选项", Icons.Outlined.Tune) {
+            EnumButtonGroup(
+                entries = RunMode.entries,
+                selected = state.mode,
+                label = { it.label },
+                onSelected = { onStateChange(state.copy(mode = it)) },
+            )
+            Text(
+                state.mode.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         MCTPatternEditor(
             patterns = state.patterns,

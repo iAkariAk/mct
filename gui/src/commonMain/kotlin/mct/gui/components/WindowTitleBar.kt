@@ -114,7 +114,9 @@ fun FrameWindowScope.WindowTitleBar(
             modifier = Modifier.fillMaxWidth().height(2.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (rainbowAccent) {
+            // Gate the ambient animation on the window being visible: otherwise it keeps
+            // a 60fps transition alive while the app is minimized.
+            if (rainbowAccent && !windowState.isMinimized) {
                 RainbowTitleAccent(Modifier.fillMaxSize())
             } else {
                 HorizontalDivider(

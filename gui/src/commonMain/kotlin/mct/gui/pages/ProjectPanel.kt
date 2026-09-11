@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -168,49 +169,24 @@ fun ProjectPanel(
         }
 
         SectionTitle("执行步骤", Icons.Outlined.AccountTree)
-        val steps = listOf(
-            ProjectStep(
-                1, "Init",
-                Icons.Outlined.CreateNewFolder,
-                hasProjectDirectory && state.name.isNotBlank() && state.source.isNotBlank(),
-                onInit,
-            ),
-            ProjectStep(
-                2,
-                "Update",
-                Icons.Outlined.Update,
-                hasProjectDirectory,
-                onUpdate
-            ),
-            ProjectStep(
-                3,
-                "术语",
-                Icons.Outlined.Spellcheck,
-                hasProjectDirectory,
-                onTerms
-            ),
-            ProjectStep(
-                4,
-                "翻译",
-                Icons.Outlined.Translate,
-                hasProjectDirectory,
-                onTranslate
-            ),
-            ProjectStep(
-                5,
-                "Build",
-                Icons.Outlined.Build,
-                hasProjectDirectory,
-                onBuild
-            ),
-            ProjectStep(
-                6,
-                "补丁",
-                Icons.Outlined.Difference,
-                hasProjectDirectory,
-                onPatch
-            ),
-        )
+        // The step table is rebuilt only when availability or a callback changes. Building it
+        // inline would allocate a new List and six ProjectStep objects on every keystroke,
+        // recomposing all six step cards.
+        val steps = remember(
+            hasProjectDirectory,
+            state.name.isNotBlank(),
+            state.source.isNotBlank(),
+            onInit, onUpdate, onTerms, onTranslate, onBuild, onPatch,
+        ) {
+            listOf(
+                ProjectStep(1, "Init", Icons.Outlined.CreateNewFolder, hasProjectDirectory && state.name.isNotBlank() && state.source.isNotBlank(), onInit),
+                ProjectStep(2, "Update", Icons.Outlined.Update, hasProjectDirectory, onUpdate),
+                ProjectStep(3, "术语", Icons.Outlined.Spellcheck, hasProjectDirectory, onTerms),
+                ProjectStep(4, "翻译", Icons.Outlined.Translate, hasProjectDirectory, onTranslate),
+                ProjectStep(5, "Build", Icons.Outlined.Build, hasProjectDirectory, onBuild),
+                ProjectStep(6, "补丁", Icons.Outlined.Difference, hasProjectDirectory, onPatch),
+            )
+        }
 
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val columns = when {
@@ -229,7 +205,7 @@ fun ProjectPanel(
                     WorkflowStepCard(
                         step = step,
                         isRunning = isRunning,
-                        // FlowRow 按 weight 均分每行宽度，不要再用 maxWidth 手工算卡片宽度。
+                        // FlowRow divides each row by weight; never compute card widths from maxWidth.
                         modifier = Modifier.weight(1f),
                     )
                 }

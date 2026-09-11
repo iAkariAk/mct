@@ -17,15 +17,33 @@ private const val MAX_BATCH_SIZE = 512
 /**
  * Streaming reasoning output of in-flight requests, keyed by request id.
  *
- * [accept] may be called from any thread; [collect] applies queued updates in batches
- * so the sheet re-renders at most once per batch window.
+ * [accept] may be called from any thread; [collect] applies queued updates in batches.
+ *
+ * Accumulation happens in a [StringBuilder] per request and only reaches observable
+ * state in [contents] while the sheet is [visible]: streaming would otherwise copy the
+ * whole text and write snapshot state on every batch, and re-laying out the growing
+ * text is the expensive part. Opening the sheet publishes what accumulated meanwhile.
  */
 class ReasoningState {
+    /** Published text per request id; only maintained while [visible]. */
     val contents = mutableStateMapOf<Int, String>()
+
+    /** Whether each request is still streaming; only maintained while [visible]. */
     val active = mutableStateMapOf<Int, Boolean>()
 
-    /** Whether the reasoning sheet is open. */
-    var visible by mutableStateOf(false)
+    private val builders = LinkedHashMap<Int, StringBuilder>()
+    private val terminated = LinkedHashMap<Int, Boolean>()
+
+    private var opened by mutableStateOf(false)
+
+    /** Whether the reasoning sheet is open. Opening publishes accumulated text. */
+    var visible: Boolean
+        get() = opened
+        set(value) {
+            if (opened == value) return
+            opened = value
+            if (value) publishAll() else clearPublished()
+        }
 
     private val queue = Channel<AiSign.Reasoning>(capacity = Channel.UNLIMITED)
 
@@ -35,8 +53,9 @@ class ReasoningState {
 
     /** Forget all buffered reasoning, e.g. when the user clears the sheet. */
     fun clear() {
-        contents.clear()
-        active.clear()
+        builders.clear()
+        terminated.clear()
+        clearPublished()
     }
 
     /** Drain the queue into [contents] / [active] until cancelled. */
@@ -59,21 +78,34 @@ class ReasoningState {
      * deliver the whole text every time, so they replace.
      */
     private fun apply(batch: List<AiSign.Reasoning>) {
-        if (GuiSettings.useStreamApi) {
-            val chunksById = linkedMapOf<Int, StringBuilder>()
-            batch.forEach { update ->
-                chunksById.getOrPut(update.id, ::StringBuilder)
-                    .append(update.reasoningContent)
-                active[update.id] = !update.terminated
+        val touched = LinkedHashSet<Int>()
+        batch.forEach { update ->
+            val builder = builders.getOrPut(update.id, ::StringBuilder)
+            if (GuiSettings.useStreamApi) {
+                builder.append(update.reasoningContent)
+            } else {
+                builder.setLength(0)
+                builder.append(update.reasoningContent)
             }
-            chunksById.forEach { (id, chunks) ->
-                contents[id] = contents[id].orEmpty() + chunks
-            }
-        } else {
-            batch.forEach { update ->
-                contents[update.id] = update.reasoningContent
-                active[update.id] = !update.terminated
-            }
+            terminated[update.id] = update.terminated
+            touched += update.id
         }
+
+        if (!opened) return
+        touched.forEach(::publish)
+    }
+
+    private fun publish(id: Int) {
+        contents[id] = builders[id]?.toString().orEmpty()
+        active[id] = terminated[id] != true
+    }
+
+    private fun publishAll() {
+        builders.keys.forEach(::publish)
+    }
+
+    private fun clearPublished() {
+        contents.clear()
+        active.clear()
     }
 }

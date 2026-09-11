@@ -17,9 +17,9 @@ import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import mct.gui.components.ActionButton
-import mct.gui.components.ModeRadio
+import mct.gui.components.EnumButtonGroup
+import mct.gui.components.PanelSection
 import mct.gui.components.PathRow
-import mct.gui.components.SectionTitle
 import mct.gui.model.BackfillState
 import mct.gui.model.RunMode
 
@@ -38,46 +38,44 @@ fun BackfillPanel(
     ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(replacements = it.absolutePath())) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
-
-        PathRow(
-            "Minecraft 存档目录",
-            "选择包含 level.dat 的文件夹...",
-            state.input,
-            { onStateChange(state.copy(input = it)) }) {
-            dirPicker.launch()
-        }
-        PathRow(
-            "替换文件 JSON（来自步骤②）",
-            "选择 replacements.json...",
-            state.replacements,
-            { onStateChange(state.copy(replacements = it)) }) {
-            filePicker.launch()
-        }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 4.dp),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-
-        SectionTitle("回填模式", Icons.Outlined.Tune)
-
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            RunMode.entries.forEach { mode ->
-                ModeRadio(mode.label, state.mode == mode) { onStateChange(state.copy(mode = mode)) }
+        PanelSection("输入 / 输出", Icons.Outlined.FolderOpen) {
+            PathRow(
+                "Minecraft 存档目录",
+                "选择包含 level.dat 的文件夹...",
+                state.input,
+                { onStateChange(state.copy(input = it)) }) {
+                dirPicker.launch()
             }
+            PathRow(
+                "替换文件 JSON（来自步骤②）",
+                "选择 replacements.json...",
+                state.replacements,
+                { onStateChange(state.copy(replacements = it)) }) {
+                filePicker.launch()
+            }
+        }
+
+        PanelSection("回填模式", Icons.Outlined.Tune) {
+            EnumButtonGroup(
+                entries = RunMode.entries,
+                selected = state.mode,
+                label = { it.label },
+                onSelected = { onStateChange(state.copy(mode = it)) },
+            )
+            Text(
+                state.mode.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

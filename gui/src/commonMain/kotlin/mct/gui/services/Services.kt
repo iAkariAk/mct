@@ -56,7 +56,7 @@ data class ThemeSettings(
 
 val themeSetting = setting<ThemeSettings>("theme-settings", ::ThemeSettings)
 
-// ---- 统一日志器 ---------------------------------------------------------
+// ---- Shared logger ------------------------------------------------------
 
 /**
  * A [Logger] implementation for the GUI layer.
@@ -71,7 +71,7 @@ class GuiLogger(
     }
 }
 
-// ---- 后台任务 -----------------------------------------------------------
+// ---- Background tasks ---------------------------------------------------
 
 /**
  * Run extraction in the background.
@@ -322,7 +322,7 @@ suspend fun runBackfill(
     }
 }
 
-// ── 术语提取 ──────────────────────────────────────────────────
+// ── Term extraction ───────────────────────────────────────────
 
 /**
  * Run AI term extraction in the background.
@@ -414,7 +414,7 @@ suspend fun runTermExtraction(
     }
 }
 
-// ── 工具箱服务 ────────────────────────────────────────────────
+// ── Toolbox services ──────────────────────────────────────────
 
 /**
  * Test whether a DataPointer string matches the built-in (+ optional custom) filter patterns.

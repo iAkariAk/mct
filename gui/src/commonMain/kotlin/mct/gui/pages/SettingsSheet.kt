@@ -35,6 +35,7 @@ import mct.gui.model.GuiSettings
 import mct.gui.util.getWallpaperPath
 import mct.gui.util.rememberImageThemeState
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsSheet(
     visible: Boolean,
@@ -291,8 +292,8 @@ fun SettingsSheet(
                     // Source selection buttons (always visible, top)
                     Button(
                         onClick = { imagePicker.launch() },
+                        shapes = ButtonDefaults.shapes(),
                         modifier = Modifier.fillMaxWidth().height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -300,9 +301,8 @@ fun SettingsSheet(
                         enabled = !imageThemeState.isProcessing,
                     ) {
                         if (imageThemeState.isProcessing) {
-                            CircularProgressIndicator(
+                            LoadingIndicator(
                                 modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                             )
                         } else {
@@ -320,15 +320,12 @@ fun SettingsSheet(
                                 if (path != null) imageThemeState.loadFromPath(path)
                             }
                         },
+                        shapes = ButtonDefaults.shapes(),
                         modifier = Modifier.fillMaxWidth().height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
                         enabled = !imageThemeState.isProcessing,
                     ) {
                         if (imageThemeState.isProcessing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                            )
+                            LoadingIndicator(modifier = Modifier.size(18.dp))
                         } else {
                             Icon(Icons.Outlined.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -350,7 +347,7 @@ fun SettingsSheet(
                     GuiSettings.seedColor?.let { activeColor ->
                         Spacer(Modifier.height(12.dp))
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = MaterialTheme.shapes.large,
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
                             modifier = Modifier.fillMaxWidth(),
                         ) {

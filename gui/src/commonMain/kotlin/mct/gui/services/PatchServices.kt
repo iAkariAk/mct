@@ -20,9 +20,10 @@ import mct.util.io.writeJson
 import okio.Path.Companion.toPath
 
 /**
- * 用存档当前内容与翻译映射创建 MCT 补丁文件。
+ * Create an MCT patch file from a world's current contents and a translation mapping.
  *
- * 立即求值会在此刻生成全部替换组，延迟求值则把规则与映射写进补丁、在应用时再现。
+ * Immediate kind resolves every replacement group now; deferred kind stores the rules and
+ * mapping in the patch and replays them when it is applied.
  */
 context(env: Env)
 suspend fun createPatchFile(
@@ -55,7 +56,8 @@ suspend fun createPatchFile(
 }
 
 /**
- * 把补丁应用到存档，并按 [strategy] 决定校验不一致时的处理方式。
+ * Apply a patch to a world, using [strategy] to decide what happens on a validation
+ * mismatch.
  */
 context(env: Env)
 suspend fun applyPatchFile(

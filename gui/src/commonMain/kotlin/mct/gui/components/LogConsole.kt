@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -32,25 +33,19 @@ import mct.gui.model.LogEntry
  */
 @Composable
 fun LogConsole(
-    logLines: List<LogEntry>,
+    visibleLogLines: List<LogEntry>,
     logLevelFilter: Set<LoggerLevel>,
     onLogLevelFilterChange: (Set<LoggerLevel>) -> Unit,
     onShowReasoning: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val motionScheme = MaterialTheme.motionScheme
     var showLogSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val logListState = rememberLazyListState()
     var followLatest by remember { mutableStateOf(true) }
     var isAutoScrolling by remember { mutableStateOf(false) }
 
-    val filteredLogLines by remember(logLines, logLevelFilter) {
-        derivedStateOf {
-            logLines.filter { entry ->
-                entry.level == null || entry.level in logLevelFilter
-            }
-        }
-    }
 
     LaunchedEffect(logListState) {
         snapshotFlow { logListState.isScrollInProgress to logListState.canScrollForward }
@@ -63,12 +58,12 @@ fun LogConsole(
             }
     }
 
-    LaunchedEffect(filteredLogLines.size, followLatest) {
-        if (followLatest && filteredLogLines.isNotEmpty()) {
+    LaunchedEffect(visibleLogLines.size, followLatest) {
+        if (followLatest && visibleLogLines.isNotEmpty()) {
             isAutoScrolling = true
             try {
                 // Streaming logs arrive in batches; snapping avoids a queue of cancelled animations.
-                logListState.scrollToItem(filteredLogLines.lastIndex)
+                logListState.scrollToItem(visibleLogLines.lastIndex)
             } finally {
                 isAutoScrolling = false
             }
@@ -126,12 +121,12 @@ fun LogConsole(
             tonalElevation = 2.dp
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (filteredLogLines.isEmpty()) {
+                if (visibleLogLines.isEmpty()) {
                     Text(
                         text = "暂无日志",
                         modifier = Modifier.fillMaxSize()
                             .padding(horizontal = 10.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        style = LogTextStyle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
                 } else {
@@ -142,34 +137,29 @@ fun LogConsole(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         items(
-                            items = filteredLogLines,
+                            items = visibleLogLines,
                             key = { entry -> entry.sequence },
                             contentType = { entry -> entry.level ?: "plain" },
                         ) { entry ->
-                            SelectionContainer {
-                                Text(
-                                    text = coloredLogAnnotatedString(entry),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = FontFamily.Monospace
-                                    ),
-                                )
-                            }
+                            LogRow(entry)
                         }
                     }
                 }
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = filteredLogLines.isNotEmpty() && !followLatest,
+                    visible = visibleLogLines.isNotEmpty() && !followLatest,
                     modifier = Modifier.align(Alignment.TopEnd),
-                    enter = fadeIn() + scaleIn(),
-                    exit = fadeOut() + scaleOut(),
+                    // Match the motion scheme used by every other surface in the app.
+                    enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                        scaleIn(animationSpec = motionScheme.defaultSpatialSpec()),
+                    exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                        scaleOut(animationSpec = motionScheme.fastSpatialSpec()),
                 ) {
                     TextButton(
                         onClick = {
                             scope.launch {
                                 isAutoScrolling = true
                                 try {
-                                    logListState.animateScrollToItem(filteredLogLines.lastIndex)
+                                    logListState.animateScrollToItem(visibleLogLines.lastIndex)
                                     followLatest = true
                                 } finally {
                                     isAutoScrolling = false
@@ -184,6 +174,25 @@ fun LogConsole(
         }
     }
 }
+
+/**
+ * One console line. The annotated text is remembered per entry because a row is
+ * recomposed whenever anything above it in the list changes.
+ */
+@Composable
+private fun LogRow(entry: LogEntry) {
+    val text = remember(entry) { coloredLogAnnotatedString(entry) }
+    SelectionContainer {
+        Text(
+            text = text,
+            modifier = Modifier.fillMaxWidth(),
+            style = LogTextStyle,
+        )
+    }
+}
+
+private val LogTextStyle: TextStyle
+    @Composable get() = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
 
 @Composable
 private fun LogFilterMenu(

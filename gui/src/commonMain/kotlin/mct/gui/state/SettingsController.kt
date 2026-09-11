@@ -15,14 +15,15 @@ import mct.gui.services.apiSetting
 import mct.gui.services.themeSetting
 import kotlin.time.Duration.Companion.seconds
 
-/** 设置自动保存的防抖窗口：停止编辑该时长后写入。 */
+/** Debounce window for auto-saving settings: write this long after editing stops. */
 private val AUTO_SAVE_DEBOUNCE = 3.seconds
 
 /**
- * 把界面状态里的持久字段读写到 `~/.mct/`。
+ * Reads and writes the persisted UI fields under `~/.mct/`.
  *
- * 边界收在这里：磁盘 IO、与上次写盘内容的去重、以及编辑停止后的防抖，
- * 其它模块只通过 [snapshot] / [load] / [autoSave] 接触设置。
+ * This is where the boundary sits: disk IO, deduplication against the last written snapshot,
+ * and debouncing after editing stops. Other modules only touch settings through [snapshot],
+ * [load] and [autoSave].
  */
 class SettingsController(
     private val logs: LogConsoleState,
@@ -31,7 +32,7 @@ class SettingsController(
     /** Last snapshot successfully written to disk; guards no-op auto-saves. */
     private var lastSaved: ApiSettings? = null
 
-    /** 当前界面状态对应的待保存快照。 */
+    /** The snapshot of current UI state that would be persisted. */
     fun snapshot() = ApiSettings(
         apiUrl = translation.state.apiUrl,
         model = translation.state.model,
@@ -45,7 +46,7 @@ class SettingsController(
         api = translation.state.api,
     )
 
-    /** 读取磁盘设置并应用到界面状态。 */
+    /** Load settings from disk and apply them to UI state. */
     suspend fun load() = withContext(Dispatchers.IO) {
         val saved = apiSetting.load()
         val theme = themeSetting.load()
@@ -72,9 +73,9 @@ class SettingsController(
     }
 
     /**
-     * 自动保存：[snapshot] 停止变化 [AUTO_SAVE_DEBOUNCE] 后写盘。
+     * Auto-save: write to disk once [snapshot] has been stable for [AUTO_SAVE_DEBOUNCE].
      *
-     * 在组合中启动；跳过首个快照，避免启动时无谓写盘。
+     * Started from composition; the first snapshot is skipped so startup writes nothing.
      */
     @OptIn(FlowPreview::class)
     suspend fun autoSave() {
@@ -89,7 +90,7 @@ class SettingsController(
             }
     }
 
-    /** 写入 [settings]；与上次成功写盘的内容一致时跳过。 */
+    /** Write [settings], skipping when it equals the last successfully written snapshot. */
     private suspend fun save(settings: ApiSettings): Boolean {
         if (settings == lastSaved) return true
         val saved = withContext(Dispatchers.IO) { apiSetting.save(settings) }

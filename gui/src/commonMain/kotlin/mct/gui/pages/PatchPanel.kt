@@ -1,6 +1,9 @@
 package mct.gui.pages
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FolderOpen
@@ -24,7 +27,8 @@ import mct.gui.model.*
 import mct.gui.util.ensureExtension
 
 /**
- * 补丁工作台：把翻译映射固化成可分发、可校验的补丁，或把补丁应用到目标存档。
+ * Patch workspace: freeze a translation mapping into a distributable, verifiable patch file,
+ * or apply such a patch to a target world.
  */
 @Composable
 fun PatchPanel(
@@ -63,7 +67,7 @@ fun PatchPanel(
     }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        EnumSegmentedButtons(
+        EnumButtonGroup(
             entries = PatchSection.entries,
             selected = state.section,
             label = { it.label },
@@ -72,14 +76,11 @@ fun PatchPanel(
 
         AnimatedContent(
             targetState = state.section,
+            // No SizeTransform: animating the container size re-measures both sections
+            // every frame, and the create section holds the full rule editor.
             transitionSpec = {
-                (fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) togetherWith
-                    fadeOut(animationSpec = motionScheme.fastEffectsSpec())).using(
-                    SizeTransform(
-                        clip = false,
-                        sizeAnimationSpec = { _, _ -> motionScheme.defaultSpatialSpec() },
-                    )
-                )
+                fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) togetherWith
+                    fadeOut(animationSpec = motionScheme.fastEffectsSpec())
             },
             label = "patch-section",
         ) { section ->
@@ -156,7 +157,7 @@ private fun PatchCreateSection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        EnumSegmentedButtons(
+        EnumButtonGroup(
             entries = PatchKind.entries,
             selected = state.kind,
             label = { it.label },
@@ -168,7 +169,7 @@ private fun PatchCreateSection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        EnumSegmentedButtons(
+        EnumButtonGroup(
             entries = PatchFormat.entries,
             selected = state.format,
             label = { it.label },
@@ -242,7 +243,7 @@ private fun PatchApplySection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        EnumSegmentedButtons(
+        EnumButtonGroup(
             entries = PatchFormat.entries,
             selected = state.format,
             label = { it.label },
@@ -254,7 +255,7 @@ private fun PatchApplySection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        EnumSegmentedButtons(
+        EnumButtonGroup(
             entries = PatchStrategy.entries,
             selected = state.strategy,
             label = { it.label },

@@ -1,5 +1,6 @@
 package mct.gui.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.MCTPattern
@@ -9,20 +10,46 @@ import mct.extra.ai.translator.Translator
 import mct.model.patch.PatchValidationFailureStrategy
 import mct.model.patch.PathKind
 
-enum class RunMode(val key: String, val label: String) {
-    Region("region", "Region (.mca 区域文件)"),
-    Datapack("datapack", "Datapack (数据包)"),
-    Cext("cext", "Cext (自定义提取)"),
+/**
+ * Where text is extracted from.
+ *
+ * [label] is kept short because it is rendered inside the equal-width mode selector; the
+ * longer [description] is shown as supporting text under that selector.
+ */
+enum class RunMode(val key: String, val label: String, val description: String) {
+    Region("region", "Region (.mca)", "读取区域文件，提取告示牌、方块实体等 NBT 文本。"),
+    Datapack("datapack", "Datapack", "读取数据包，提取 MCFunction 命令与 JSON 文本。"),
+    Cext("cext", "Cext", "按自定义规则文件中的路径正则提取文本。"),
     ;
 
-    /** 该提取模式真正会使用的规则类别，未列出的类别不会参与本次提取。 */
+    /**
+     * The rule categories this extraction mode actually uses; unlisted categories are not
+     * consulted.
+     *
+     * Returns a shared constant list: allocating a fresh list on every access would stop the
+     * rule editor receiving it from ever skipping recomposition.
+     */
     val patternSlots: List<MCTPatternSlot>
         get() = when (this) {
-            Region -> listOf(MCTPatternSlot.Nbt, MCTPatternSlot.Command, MCTPatternSlot.CommandData, MCTPatternSlot.CommandRegex)
-            Datapack -> listOf(MCTPatternSlot.McJson, MCTPatternSlot.Command, MCTPatternSlot.CommandData, MCTPatternSlot.CommandRegex)
+            Region -> RegionPatternSlots
+            Datapack -> DatapackPatternSlots
             Cext -> MCTPatternSlot.entries
         }
 }
+
+private val RegionPatternSlots = listOf(
+    MCTPatternSlot.Nbt,
+    MCTPatternSlot.Command,
+    MCTPatternSlot.CommandData,
+    MCTPatternSlot.CommandRegex,
+)
+
+private val DatapackPatternSlots = listOf(
+    MCTPatternSlot.McJson,
+    MCTPatternSlot.Command,
+    MCTPatternSlot.CommandData,
+    MCTPatternSlot.CommandRegex,
+)
 
 enum class PointerKind(val key: String, val label: String) {
     Region("region", "Region"),
@@ -49,7 +76,7 @@ enum class SchemaKind(val key: String, val label: String) {
     CommandRegex("command_regex", "Command Regex Pattern"),
 }
 
-/** 翻译引擎；选择 [Api] 时具体走哪套接口由 [ApiTranslateState.kind] 决定。 */
+/** Translation engine. For [Api], [ApiTranslateState.kind] selects the concrete service. */
 @Serializable
 enum class TranslationEngine(val label: String) {
     @SerialName("ai")
@@ -59,15 +86,16 @@ enum class TranslationEngine(val label: String) {
     Api("API 翻译"),
 }
 
-/** [TranslationEngine.Api] 的具体实现。 */
+/** Concrete service behind [TranslationEngine.Api]. */
 @Serializable
 enum class TranslationApiKind(val label: String) {
     @SerialName("mtran_server")
     MTranServer("MTranServer"),
 }
 
-/** API 翻译引擎的配置。 */
+/** Configuration for the API translation engine. */
 @Serializable
+@Immutable
 data class ApiTranslateState(
     val kind: TranslationApiKind = TranslationApiKind.MTranServer,
     val url: String = "http://127.0.0.1:8989/",
@@ -104,11 +132,13 @@ enum class PatchStrategy(val label: String, val value: PatchValidationFailureStr
 }
 
 /**
- * [MCTPattern] 中的一类规则。
+ * One category of rules inside [MCTPattern].
  *
- * [builtinToggle] / [filterToggle] 对应 CLI 规则开关的可用性：
- * - 内置规则开关仅在填写了自定义规则文件后有意义（关闭则只用自定义规则）；
- * - 过滤开关关闭时该类规则整体不参与过滤（等价于 CLI 的 `--disable-filter-*`）。
+ * [builtinToggle] / [filterToggle] mirror which switches the CLI supports:
+ * - The built-in switch only matters once a custom rule file is set (off = custom rules
+ *   only).
+ * - With the filter switch off the whole category stops filtering, like the CLI's
+ *   `--disable-filter-*` flags.
  */
 enum class MCTPatternSlot(
     val label: String,
@@ -125,7 +155,8 @@ enum class MCTPatternSlot(
     Cext("Cext 自定义规则", "按文件路径正则匹配的自定义提取规则"),
 }
 
-/** 单个规则类别的配置：自定义规则文件 + 内置规则/过滤开关。 */
+/** Configuration of one rule category: rule file plus the built-in and filter switches. */
+@Immutable
 data class MCTPatternEntry(
     val path: String = "",
     val useBuiltin: Boolean = true,
@@ -133,10 +164,12 @@ data class MCTPatternEntry(
 )
 
 /**
- * [MCTPattern] 的界面状态。
+ * UI state for [MCTPattern].
  *
- * 所有构造都收敛到 [mct.gui.services.composePattern]，界面只负责编辑这里的每一项。
+ * Every construction goes through [mct.gui.services.composePattern]; the UI only edits the
+ * entries held here.
  */
+@Immutable
 data class MCTPatternState(
     val entries: Map<MCTPatternSlot, MCTPatternEntry> = emptyMap(),
 ) {
@@ -146,6 +179,7 @@ data class MCTPatternState(
         copy(entries = entries + (slot to entry))
 }
 
+@Immutable
 data class ExtractState(
     val input: String = "",
     val output: String = "extractions.json",
@@ -153,6 +187,7 @@ data class ExtractState(
     val patterns: MCTPatternState = MCTPatternState(),
 )
 
+@Immutable
 data class PatchCreateState(
     val input: String = "",
     val mapping: String = "mappings.json",
@@ -163,6 +198,7 @@ data class PatchCreateState(
     val patterns: MCTPatternState = MCTPatternState(),
 )
 
+@Immutable
 data class PatchApplyState(
     val input: String = "",
     val patch: String = "",
@@ -170,12 +206,14 @@ data class PatchApplyState(
     val strategy: PatchStrategy = PatchStrategy.Warning,
 )
 
+@Immutable
 data class PatchState(
     val section: PatchSection = PatchSection.Create,
     val create: PatchCreateState = PatchCreateState(),
     val apply: PatchApplyState = PatchApplyState(),
 )
 
+@Immutable
 data class TranslateState(
     val input: String = "extractions.json",
     val output: String = "replacements.json",
@@ -198,12 +236,14 @@ data class TranslateState(
     val api: ApiTranslateState = ApiTranslateState(),
 )
 
+@Immutable
 data class BackfillState(
     val input: String = "",
     val replacements: String = "replacements.json",
     val mode: RunMode = RunMode.Region,
 )
 
+@Immutable
 data class TermExtractState(
     val input: String = "extractions.json",
     val output: String = "terms.json",
@@ -214,12 +254,14 @@ data class TermExtractState(
     val extraPrompts: String = LLMTranslationPrompts.extraPrompts.orEmpty(),
 )
 
+@Immutable
 data class ProjectWorkflowState(
     val directory: String = "",
     val name: String = "",
     val source: String = "",
 )
 
+@Immutable
 data class ToolboxState(
     val pointerKind: PointerKind = PointerKind.Region,
     val pointerPatternPath: String = "",

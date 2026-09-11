@@ -64,6 +64,7 @@ fun SectionTitle(text: String, icon: ImageVector? = null) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PathRow(
     label: String, placeholder: String,
@@ -91,7 +92,7 @@ fun PathRow(
             )
             FilledTonalButton(
                 onClick = onBrowse,
-                shape = RoundedCornerShape(10.dp),
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
@@ -101,39 +102,102 @@ fun PathRow(
     }
 }
 
+/**
+ * A titled group of related controls.
+ *
+ * Panels are assembled from these cards instead of loose dividers: the content sits on a tonal
+ * surface with the same icon/title header, keeping every section visually consistent.
+ */
 @Composable
-fun ModeRadio(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+fun PanelSection(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            SectionTitle(title, icon)
+            content()
+        }
     }
 }
 
-/** 等宽的枚举分段选择器，用于互斥模式切换。 */
+/**
+ * Equal-width single-select button group.
+ *
+ * Material 3 Expressive replaces segmented buttons with the *connected button group*, which
+ * applies shape morph when a button is pressed and when it becomes selected. Buttons are laid
+ * out with equal weight, so the group always fills its row without manual width arithmetic.
+ *
+ * Implemented on the public [ButtonGroup] API: each entry is a registered [customItem] whose
+ * content is a [ToggleButton] using the leading / middle / trailing connected shapes.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun <T> EnumSegmentedButtons(
+fun <T> EnumButtonGroup(
     entries: List<T>,
     selected: T,
     label: (T) -> String,
     onSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+    ButtonGroup(
+        // Items carry `weight`, so they normally share the row exactly. The indicator is kept
+        // wired because the group moves items into its menu when they genuinely cannot fit --
+        // without it those options would silently disappear.
+        overflowIndicator = { menuState -> ButtonGroupDefaults.OverflowIndicator(menuState = menuState) },
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    ) {
+        val scope = this
+        val single = entries.size == 1
         entries.forEachIndexed { index, entry ->
-            SegmentedButton(
-                selected = selected == entry,
-                onClick = { onSelected(entry) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
-                label = { Text(label(entry)) },
+            customItem(
+                buttonGroupContent = {
+                    val interactionSource = remember { MutableInteractionSource() }
+                    // A lone entry has no neighbours to connect to, so it keeps the regular
+                    // toggle-button shape instead of the asymmetric leading shape.
+                    val shapes = when {
+                        single -> ToggleButtonDefaults.shapesFor(ButtonDefaults.MinHeight)
+                        index == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        index == entries.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                    }
+                    ToggleButton(
+                        checked = selected == entry,
+                        onCheckedChange = { checked -> if (checked) onSelected(entry) },
+                        shapes = shapes,
+                        interactionSource = interactionSource,
+                        modifier = with(scope) {
+                            Modifier.animateWidth(interactionSource).weight(1f)
+                        },
+                    ) {
+                        Text(label(entry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                menuContent = { menuState ->
+                    DropdownMenuItem(
+                        text = { Text(label(entry)) },
+                        onClick = {
+                            onSelected(entry)
+                            menuState.dismiss()
+                        },
+                    )
+                },
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ActionButton(
     label: String,
@@ -202,24 +266,29 @@ fun ActionButton(
         label = "action-button-elevation",
     )
 
+    val shapes = ButtonDefaults.shapes()
+
     Button(
         onClick = {
             if (visualState == ActionButtonVisualState.Cancellable) onCancel?.invoke()
             else onClick()
         },
+        // Expressive button shapes: the container morphs to `pressedShape` while pressed.
+        shapes = shapes,
         enabled = buttonEnabled,
         modifier = modifier
             .fillMaxWidth()
             .height(44.dp)
             .hoverable(interactionSource, enabled = buttonEnabled)
             .graphicsLayer {
+                // This block re-runs on every frame of the hover animation, so nothing
+                // allocatable belongs here.
                 scaleX = scale.value
                 scaleY = scale.value
                 shadowElevation = with(density) { elevation.value.dp.toPx() }
-                shape = RoundedCornerShape(12.dp)
+                this.shape = shapes.shape
                 clip = true
             },
-        shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor,
@@ -250,9 +319,8 @@ fun ActionButton(
                     }
 
                     ActionButtonVisualState.Running -> {
-                        CircularProgressIndicator(
+                        LoadingIndicator(
                             modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Spacer(Modifier.width(8.dp))
@@ -299,6 +367,7 @@ fun TextSwitch(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LiteratureStyleField(
     value: String,
@@ -323,13 +392,12 @@ fun LiteratureStyleField(
                 FilledTonalButton(
                     onClick = onOptimizeClick,
                     enabled = !optimizing,
-                    shape = RoundedCornerShape(8.dp)
+                    shapes = ButtonDefaults.shapes(),
                 ) {
                     if (optimizing) {
-                        CircularProgressIndicator(
+                        LoadingIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     } else {
                         Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
