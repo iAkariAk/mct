@@ -3,13 +3,11 @@ package mct.gui.services
 import mct.Env
 import mct.MCTPattern
 import mct.cext.CextPattern
-import mct.command.BuiltinCommandDataPatterns
-import mct.command.BuiltinCommandPatterns
-import mct.command.CommandExtractPattern
-import mct.command.CommandRegexPattern
+import mct.command.*
 import mct.dp.compile
 import mct.dp.mcjson.BuiltinMCJsonPatterns
-import mct.gui.model.PatternState
+import mct.gui.model.MCTPatternSlot
+import mct.gui.model.MCTPatternState
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointerPattern
 import mct.serializer.MCTJson
@@ -21,42 +19,41 @@ private inline fun <reified T> readPatternJson(env: Env, path: String): T? =
         ?.let { MCTJson.decodeFromString<T>(it) }
 
 /**
- * 把界面中选择的规则文件与内置规则组合为 [MCTPattern]。
+ * 把界面上配置的每一类规则组装为 [MCTPattern]，是所有提取/补丁入口的唯一构造点。
  *
- * [includeRegion] / [includeMcjson] 标记本次操作真正参与的类别，未参与的类别置为 `null`，
- * 避免把无关规则带进提取流程；[disableBuiltinFilter] 为 true 时仅保留自定义规则。
+ * 语义与 CLI 的 `--pattern-*` / `--disable-builtin-*` / `--disable-filter-*` 对齐：
+ * 过滤关闭 → 该类规则为 `null`（提取全部）；仅自定义 → 不合并内置规则。
  */
 context(env: Env)
-fun composePattern(
-    patterns: PatternState,
-    includeRegion: Boolean = true,
-    includeMcjson: Boolean = true,
-    disableBuiltinFilter: Boolean = false,
-): MCTPattern {
-    val extraNbt = readPatternJson<List<DataPointerPattern>>(env, patterns.regionPatternPath)
-    val extraMcjson = readPatternJson<List<DataPointerPattern>>(env, patterns.mcjPatternPath)
-    val extraCommand = readPatternJson<List<CommandExtractPattern>>(env, patterns.commandPatternPath)
-    val extraCommandData = readPatternJson<List<DataPointerPattern>>(env, patterns.commandDataPatternPath)
-    val extraCommandRegex = readPatternJson<List<CommandRegexPattern>>(env, patterns.commandRegexPatternPath)
-    val cext = readPatternJson<CextPattern>(env, patterns.cextPatternPath)
+fun composePattern(patterns: MCTPatternState): MCTPattern {
+    fun MCTPatternSlot.pointers(): List<DataPointerPattern>? =
+        readPatternJson<List<DataPointerPattern>>(env, patterns[this].path)
+
+    fun MCTPatternSlot.resolve(builtin: List<DataPointerPattern>): List<DataPointerPattern>? {
+        val entry = patterns[this]
+        if (!entry.filtering) return null
+        val custom = pointers().orEmpty()
+        return if (entry.useBuiltin) builtin + custom else custom
+    }
+
+    val commandEntry = patterns[MCTPatternSlot.Command]
+    val command = readPatternJson<List<CommandExtractPattern>>(env, commandEntry.path)
+        ?.compile(commandEntry.useBuiltin)
+        ?: BuiltinCommandPatterns
+
+    val componentEntry = patterns[MCTPatternSlot.CommandComponent]
+    val commandComponent = readPatternJson<List<ComponentPattern>>(env, componentEntry.path)
+        ?.let { if (componentEntry.useBuiltin) BuiltinMinecraftComponentPatterns + it else it }
+        ?: BuiltinMinecraftComponentPatterns
 
     return MCTPattern(
-        nbt = when {
-            !includeRegion -> null
-            disableBuiltinFilter -> extraNbt
-            else -> BuiltinNbtPatterns + extraNbt.orEmpty()
-        },
-        mcjson = when {
-            !includeMcjson -> null
-            disableBuiltinFilter -> extraMcjson
-            else -> BuiltinMCJsonPatterns + extraMcjson.orEmpty()
-        },
-        command = extraCommand?.compile() ?: BuiltinCommandPatterns,
-        commandData = when {
-            disableBuiltinFilter -> extraCommandData
-            else -> BuiltinCommandDataPatterns + extraCommandData.orEmpty()
-        },
-        commandRegex = extraCommandRegex.orEmpty(),
-        cext = cext,
+        nbt = MCTPatternSlot.Nbt.resolve(BuiltinNbtPatterns),
+        mcjson = MCTPatternSlot.McJson.resolve(BuiltinMCJsonPatterns),
+        command = command,
+        commandData = MCTPatternSlot.CommandData.resolve(BuiltinCommandDataPatterns),
+        commandComponent = commandComponent,
+        commandRegex = readPatternJson<List<CommandRegexPattern>>(env, patterns[MCTPatternSlot.CommandRegex].path)
+            .orEmpty(),
+        cext = readPatternJson<CextPattern>(env, patterns[MCTPatternSlot.Cext].path),
     )
 }

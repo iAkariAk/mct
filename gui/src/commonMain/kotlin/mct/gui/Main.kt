@@ -161,7 +161,6 @@ fun App(modifier: Modifier = Modifier) {
                                                     vm.extractState.input,
                                                     vm.extractState.output,
                                                     vm.extractState.mode.key,
-                                                    vm.extractState.disableFilter,
                                                     vm.extractState.patterns,
                                                 )
                                             }
@@ -402,9 +401,7 @@ fun App(modifier: Modifier = Modifier) {
                                                     ToolboxOperation.CommandTest -> {
                                                         val matches = testCommandPatterns(
                                                             state.commandInput,
-                                                            state.commandPatternPath.takeIf { it.isNotBlank() },
-                                                            state.commandDataPatternPath.takeIf { it.isNotBlank() },
-                                                            state.commandNoBuiltin,
+                                                            state.commandPatterns,
                                                         )
                                                         vm.toolboxState = state.copy(
                                                             commandResult = matches.joinToString("\n") {

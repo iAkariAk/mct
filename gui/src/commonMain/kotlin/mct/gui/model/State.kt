@@ -1,5 +1,6 @@
 package mct.gui.model
 
+import mct.MCTPattern
 import mct.extra.ai.translator.LLMTranslationPrompts
 import mct.extra.ai.translator.MapInfo
 import mct.extra.ai.translator.Translator
@@ -10,6 +11,15 @@ enum class RunMode(val key: String, val label: String) {
     Region("region", "Region (.mca 区域文件)"),
     Datapack("datapack", "Datapack (数据包)"),
     Cext("cext", "Cext (自定义提取)"),
+    ;
+
+    /** 该提取模式真正会使用的规则类别，未列出的类别不会参与本次提取。 */
+    val patternSlots: List<MCTPatternSlot>
+        get() = when (this) {
+            Region -> listOf(MCTPatternSlot.Nbt, MCTPatternSlot.Command, MCTPatternSlot.CommandData, MCTPatternSlot.CommandRegex)
+            Datapack -> listOf(MCTPatternSlot.McJson, MCTPatternSlot.Command, MCTPatternSlot.CommandData, MCTPatternSlot.CommandRegex)
+            Cext -> MCTPatternSlot.entries
+        }
 }
 
 enum class PointerKind(val key: String, val label: String) {
@@ -68,22 +78,54 @@ enum class PatchStrategy(val label: String, val value: PatchValidationFailureStr
     Failure("校验失败则中止", PatchValidationFailureStrategy.Failure),
 }
 
-/** 提取与补丁共用的规则文件路径；留空表示使用内置规则。 */
-data class PatternState(
-    val regionPatternPath: String = "",
-    val commandPatternPath: String = "",
-    val commandDataPatternPath: String = "",
-    val mcjPatternPath: String = "",
-    val commandRegexPatternPath: String = "",
-    val cextPatternPath: String = "",
+/**
+ * [MCTPattern] 中的一类规则。
+ *
+ * [builtinToggle] / [filterToggle] 对应 CLI 规则开关的可用性：
+ * - 内置规则开关仅在填写了自定义规则文件后有意义（关闭则只用自定义规则）；
+ * - 过滤开关关闭时该类规则整体不参与过滤（等价于 CLI 的 `--disable-filter-*`）。
+ */
+enum class MCTPatternSlot(
+    val label: String,
+    val description: String,
+    val builtinToggle: Boolean = false,
+    val filterToggle: Boolean = false,
+) {
+    Nbt("Region NBT 规则", "告示牌、方块实体等 Region NBT 文本", builtinToggle = true, filterToggle = true),
+    McJson("MCJson 规则", "数据包内 JSON 文本", builtinToggle = true, filterToggle = true),
+    Command("MCFunction 命令规则", "命令文本提取规则，如 say、title", builtinToggle = true),
+    CommandData("Command Data 规则", "命令参数中的 SNBT / 文本组件数据", builtinToggle = true, filterToggle = true),
+    CommandComponent("Command Component 规则", "命令参数中带 component 的数据", builtinToggle = true),
+    CommandRegex("Command 正则规则", "补充的正则提取规则"),
+    Cext("Cext 自定义规则", "按文件路径正则匹配的自定义提取规则"),
+}
+
+/** 单个规则类别的配置：自定义规则文件 + 内置规则/过滤开关。 */
+data class MCTPatternEntry(
+    val path: String = "",
+    val useBuiltin: Boolean = true,
+    val filtering: Boolean = true,
 )
+
+/**
+ * [MCTPattern] 的界面状态。
+ *
+ * 所有构造都收敛到 [mct.gui.services.composePattern]，界面只负责编辑这里的每一项。
+ */
+data class MCTPatternState(
+    val entries: Map<MCTPatternSlot, MCTPatternEntry> = emptyMap(),
+) {
+    operator fun get(slot: MCTPatternSlot): MCTPatternEntry = entries[slot] ?: MCTPatternEntry()
+
+    fun with(slot: MCTPatternSlot, entry: MCTPatternEntry): MCTPatternState =
+        copy(entries = entries + (slot to entry))
+}
 
 data class ExtractState(
     val input: String = "",
     val output: String = "extractions.json",
     val mode: RunMode = RunMode.Region,
-    val disableFilter: Boolean = false,
-    val patterns: PatternState = PatternState(),
+    val patterns: MCTPatternState = MCTPatternState(),
 )
 
 data class PatchCreateState(
@@ -93,7 +135,7 @@ data class PatchCreateState(
     val kind: PatchKind = PatchKind.Immediate,
     val format: PatchFormat = PatchFormat.Json,
     val validation: Boolean = true,
-    val patterns: PatternState = PatternState(),
+    val patterns: MCTPatternState = MCTPatternState(),
 )
 
 data class PatchApplyState(
@@ -176,9 +218,7 @@ data class ToolboxState(
     val replacement: String = "\"MCT\"",
     val schemaKind: SchemaKind = SchemaKind.Command,
     val commandInput: String = "",
-    val commandPatternPath: String = "",
-    val commandDataPatternPath: String = "",
-    val commandNoBuiltin: Boolean = false,
+    val commandPatterns: MCTPatternState = MCTPatternState(),
     val commandResult: String = "",
     val officialSourceLanguage: String = "",
     val officialTargetLanguage: String = "",

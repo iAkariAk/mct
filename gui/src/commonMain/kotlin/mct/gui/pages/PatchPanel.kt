@@ -3,7 +3,6 @@ package mct.gui.pages
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Warning
@@ -119,9 +118,6 @@ private fun PatchCreateSection(
     onCreate: () -> Unit,
 ) {
     val patterns = state.patterns
-    val updatePatterns: ((PatternState) -> PatternState) -> Unit = { transform ->
-        onStateChange(state.copy(patterns = transform(patterns)))
-    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -190,39 +186,10 @@ private fun PatchCreateSection(
             color = MaterialTheme.colorScheme.outlineVariant
         )
 
-        SectionTitle("自定义规则（可选）", Icons.AutoMirrored.Outlined.Rule)
-
-        PatternFileRow(
-            "Region 过滤规则 JSON",
-            patterns.regionPatternPath,
-            { path -> updatePatterns { it.copy(regionPatternPath = path) } },
-        )
-        PatternFileRow(
-            "MCFunction 过滤规则 JSON",
-            patterns.commandPatternPath,
-            { path -> updatePatterns { it.copy(commandPatternPath = path) } },
-        )
-        PatternFileRow(
-            "Command Data 过滤规则 JSON",
-            patterns.commandDataPatternPath,
-            { path -> updatePatterns { it.copy(commandDataPatternPath = path) } },
-        )
-        PatternFileRow(
-            "MCJson 过滤规则 JSON",
-            patterns.mcjPatternPath,
-            { path -> updatePatterns { it.copy(mcjPatternPath = path) } },
-        )
-        PatternFileRow(
-            "Command 正则提取规则 JSON",
-            patterns.commandRegexPatternPath,
-            { path -> updatePatterns { it.copy(commandRegexPatternPath = path) } },
-            placeholder = "留空则不使用...",
-        )
-        PatternFileRow(
-            "Cext 规则 JSON",
-            patterns.cextPatternPath,
-            { path -> updatePatterns { it.copy(cextPatternPath = path) } },
-            placeholder = "留空则不使用...",
+        MCTPatternEditor(
+            patterns = patterns,
+            onPatternsChange = { onStateChange(state.copy(patterns = it)) },
+            slots = MCTPatternSlot.entries,
         )
 
         Spacer(Modifier.height(4.dp))

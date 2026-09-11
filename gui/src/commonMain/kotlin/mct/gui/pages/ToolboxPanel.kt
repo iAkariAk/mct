@@ -429,9 +429,17 @@ private fun ToolboxOperationDialog(
                     }
                     ToolboxOperation.CommandTest -> {
                         PathField("命令样例文件", state.commandInput) { onStateChange(state.copy(commandInput = it)) }
-                        PathField("Command Pattern JSON（可选）", state.commandPatternPath) { onStateChange(state.copy(commandPatternPath = it)) }
-                        PathField("Command Data Pattern JSON（可选）", state.commandDataPatternPath) { onStateChange(state.copy(commandDataPatternPath = it)) }
-                        TextSwitch(state.commandNoBuiltin, { onStateChange(state.copy(commandNoBuiltin = it)) }, "禁用内置规则")
+                        MCTPatternEditor(
+                            patterns = state.commandPatterns,
+                            onPatternsChange = { onStateChange(state.copy(commandPatterns = it)) },
+                            slots = listOf(
+                                MCTPatternSlot.Command,
+                                MCTPatternSlot.CommandData,
+                                MCTPatternSlot.CommandComponent,
+                                MCTPatternSlot.CommandRegex,
+                            ),
+                            title = "命令提取规则",
+                        )
                         AnimatedVisibility(
                             visible = state.commandResult.isNotBlank(),
                             enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +

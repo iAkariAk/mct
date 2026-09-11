@@ -17,10 +17,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import mct.Env
-import mct.MCTPattern
-import mct.command.*
-import mct.dp.compile
+import mct.command.CommandExtractPattern
+import mct.command.CommandRegexPattern
+import mct.command.extractTextFromCommands
 import mct.gui.model.GuiSettings
+import mct.gui.model.MCTPatternState
 import mct.gui.model.MtlxSource
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
@@ -157,22 +158,10 @@ data class CommandTestResult(
 context(env: Env)
 suspend fun testCommandPatterns(
     input: String,
-    commandPatternPath: String?,
-    commandDataPatternPath: String?,
-    noBuiltin: Boolean,
+    patterns: MCTPatternState,
 ): List<CommandTestResult> = withContext(Dispatchers.IO) {
     val text = env.fs.read(input.toPath()) { readUtf8() }
-    val extraCommand = commandPatternPath?.takeIf(String::isNotBlank)
-        ?.let { path -> env.fs.read(path.toPath()) { readUtf8() } }
-        ?.let { MCTJson.decodeFromString<List<CommandExtractPattern>>(it) }
-    val extraCommandData = commandDataPatternPath?.takeIf(String::isNotBlank)
-        ?.let { path -> env.fs.read(path.toPath()) { readUtf8() } }
-        ?.let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
-        .orEmpty()
-    val command = extraCommand?.compile(!noBuiltin) ?: BuiltinCommandPatterns
-    val commandData: List<DataPointerPattern> = if (noBuiltin) extraCommandData
-    else BuiltinCommandDataPatterns + extraCommandData
-    val matches = extractTextFromCommands(text, MCTPattern(command = command, commandData = commandData))
+    val matches = extractTextFromCommands(text, composePattern(patterns))
         .sortedBy { it.indices.first }
         .map { CommandTestResult(it.content, it.indices.first, it.indices.last + 1) }
     env.logger.info { "命令模式测试找到 ${matches.size} 条文本" }

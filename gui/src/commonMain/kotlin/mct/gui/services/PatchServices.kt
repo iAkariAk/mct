@@ -32,7 +32,7 @@ suspend fun createPatchFile(
     kind: PatchKind,
     format: PatchFormat,
     validation: Boolean,
-    patterns: PatternState,
+    patterns: MCTPatternState,
 ) = withContext(Dispatchers.IO) {
     env.logger.info { "正在打开存档: $input" }
     either<MCTError, Unit> {

@@ -15,10 +15,7 @@ import mct.dp.extractFromDatapack
 import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
-import mct.gui.model.GuiSettings
-import mct.gui.model.LogEntry
-import mct.gui.model.PatternState
-import mct.gui.model.TranslationEngineKind
+import mct.gui.model.*
 import mct.gui.util.setting
 import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
@@ -82,14 +79,13 @@ suspend fun runExtraction(
     input: String,
     output: String,
     mode: String,
-    disableFilter: Boolean,
-    patterns: PatternState,
+    patterns: MCTPatternState,
 ) {
     withContext(Dispatchers.IO) {
         env.logger.info { "正在打开: $input" }
         val inputPath = input.toPath()
 
-        if (mode == "cext" && patterns.cextPatternPath.isBlank()) {
+        if (mode == "cext" && patterns[MCTPatternSlot.Cext].path.isBlank()) {
             env.logger.error { "Cext 提取需要选择 Cext 规则 JSON" }
             return@withContext
         }
@@ -97,12 +93,7 @@ suspend fun runExtraction(
         @Suppress("UNCHECKED_CAST")
         val result = either {
             val workspace = MCTWorkspace(inputPath, env)
-            val pattern = composePattern(
-                patterns,
-                includeRegion = mode != "datapack",
-                includeMcjson = mode != "region",
-                disableBuiltinFilter = disableFilter,
-            )
+            val pattern = composePattern(patterns)
             when (mode) {
                 "region" -> workspace.extractFromRegion(pattern).toList() as List<ExtractionGroup>
                 "datapack" -> workspace.extractFromDatapack(pattern).toList() as List<ExtractionGroup>
