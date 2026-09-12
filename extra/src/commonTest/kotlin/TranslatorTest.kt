@@ -108,7 +108,7 @@ class TranslatorTest : FreeSpec({
             }
         }
 
-        "should destrip with correct type" {
+        "should destrip with correct format" {
             val source = "{\"color\":\"green\",\"text\":\"[Enabled]\"}"
             val strip = source.strip(source.inferFormatKind())
             val result = strip.destrip("[已启用]") as TranslationResult.Translated

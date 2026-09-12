@@ -7,27 +7,21 @@ import arrow.core.raise.recover
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import mct.EnvHolder
 import mct.MCTError
-import mct.command.MCCommandJson
 import mct.extra.ai.*
 import mct.kit.TranslationMapping
 import mct.model.patch.FormatKind
 import mct.model.patch.validate
 import mct.model.text.*
 import mct.notify
-import mct.serializer.MCTJson
-import mct.serializer.Snbt
 import mct.util.*
 import mct.util.IO
+import mct.util.formatir.IRElement
 import mct.util.formatir.IRList
-import mct.util.formatir.toIR
-import mct.util.formatir.toJsonElement
-import mct.util.formatir.toNbtTag
-import net.benwoodworth.knbt.NbtTag
+import mct.util.formatir.decodeFromString
+import mct.util.formatir.encodeToString
 
 data class LLMTranslationError(val reason: ChatCompletionCallError) : TranslationError, MCTError by reason
 
@@ -243,7 +237,11 @@ internal sealed interface ComponentStrip {
         val source: SingleTextComponent<*>,
         val strip: String,
         val isSingleList: Boolean = false,
-    ) : ComponentStrip
+    ) : ComponentStrip {
+        init {
+            check(sourceFormat != PlainStr)
+        }
+    }
 }
 
 private fun ComponentStrip.stripOrOriginal() = when (this) {
@@ -263,9 +261,8 @@ internal fun String.strip(format: FormatKind): ComponentStrip {
     var isList = false
     val component = Option.catch {
         when (format) {
-            JsonStr, JsonObj -> MCCommandJson.decodeFromString<JsonElement>(raw).toIR()
-            SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(raw).toIR()
             PlainStr -> null
+            else -> IRElement.decodeFromString(format, raw)
         }?.let {
             if (it is IRList) {
                 it.takeIf { it.size == 1 }?.first()?.also { isList = true } ?: return ComponentStrip.CannotStrip(raw)
@@ -322,15 +319,12 @@ internal fun ComponentStrip.destrip(response: String?) = response?.let {
     when (this) {
         is ComponentStrip.Simplified -> {
             val str = when (sourceFormat) {
-                FormatKind.PlainStr -> response
+                PlainStr -> unreachable
                 else -> {
                     val ir = source.replaceText(response).encodeToIR().let { e ->
                         if (isSingleList) IRList(e) else e
                     }
-                    when (sourceFormat) {
-                        JsonStr, JsonObj -> MCTJson.encodeToString(ir.toJsonElement())
-                        SnbtStr, Nbt -> ir.toNbtTag().toSnbt(false)
-                    }
+                    ir.encodeToString(sourceFormat)
                 }
             }
             TranslationResult.Translated(str)

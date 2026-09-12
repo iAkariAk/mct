@@ -13,23 +13,17 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.utils.io.*
 import kotlinx.schema.json.serializers.toJsonElements
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import mct.Env
 import mct.LoggerHolder
-import mct.command.MCCommandJson
 import mct.logger
 import mct.model.patch.FormatKind
+import mct.model.patch.FormatKind.PlainStr
 import mct.model.text.*
-import mct.serializer.Snbt
-import mct.util.decodeFromString
-import mct.util.encodeToString
-import mct.util.formatir.toIR
-import mct.util.formatir.toJsonElement
-import mct.util.formatir.toNbtTag
+import mct.util.formatir.IRElement
+import mct.util.formatir.decodeFromString
+import mct.util.formatir.encodeToString
 import mct.util.unreachable
-import net.benwoodworth.knbt.NbtTag
 
 sealed interface ApiTranslationError : TranslationError {
     data class RetryTooMuch(val maxRetry: Int, val exceptions: List<Exception>) : ApiTranslationError {
@@ -178,12 +172,8 @@ class ApiTranslator(private val api: TranslationApi, override val env: Env) : Tr
                             texts[cursor++]
                         }
                         val encodedComponent = when (format) {
-                            JsonStr, JsonObj -> MCCommandJson.encodeToString(
-                                translatedComponent.toIR().toJsonElement()
-                            )
-
-                            SnbtStr, Nbt -> Snbt.encodeToString<NbtTag>(translatedComponent.toIR().toNbtTag())
                             PlainStr -> unreachable
+                            else -> translatedComponent.toIR().encodeToString(format)
                         }
                         translated[index] = TranslationResult.Translated(encodedComponent)
 
@@ -205,9 +195,8 @@ internal fun String.trimComponent(format: FormatKind): ComponentTrim {
     val raw = this
     val component = Option.catch {
         when (format) {
-            JsonStr, JsonObj -> MCCommandJson.decodeFromString<JsonElement>(raw).toIR()
-            SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(raw).toIR()
             PlainStr -> null
+            else -> IRElement.decodeFromString(format, raw)
         }?.decodeToCompound()
     }.getOrNull() ?: return ComponentTrim.Failure(raw)
     if (!component.hasHumbleReadableText()) return ComponentTrim.Untranslatable(raw)
@@ -220,7 +209,11 @@ internal sealed interface ComponentTrim {
         val component: TextComponent<*>,
         val format: FormatKind,
         val texts: List<String>
-    ) : ComponentTrim
+    ) : ComponentTrim {
+        init {
+            check(format != PlainStr)
+        }
+    }
 
     data class Failure(val original: String) : ComponentTrim
     data class Untranslatable(val original: String) : ComponentTrim

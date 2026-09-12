@@ -1,8 +1,16 @@
 package mct.util.formatir
 
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import kotlinx.serialization.json.JsonNull.isString
+import mct.command.MCCommandJson
+import mct.model.patch.FormatKind
+import mct.model.patch.FormatKind.Nbt
+import mct.serializer.Snbt
 import mct.serializer.asNbtListUnsafe
+import mct.util.StandardJson
+import mct.util.decodeFromString
 import net.benwoodworth.knbt.*
 
 sealed interface IRConverter<T> {
@@ -10,7 +18,10 @@ sealed interface IRConverter<T> {
     fun decodeFromIR(element: IRElement): T
 }
 
-sealed interface IRElement
+sealed interface IRElement {
+    companion object
+}
+
 data class IRByte(val value: Byte) : IRElement {
     override fun toString() = value.toString()
 }
@@ -55,6 +66,18 @@ data class IRList(val value: List<IRElement>) : IRElement, List<IRElement> by va
 
 data object IRNull : IRElement {
     override fun toString() = "null"
+}
+
+fun IRElement.Companion.decodeFromString(format: FormatKind, str: String): IRElement = when (format) {
+    JsonStr, JsonObj -> MCCommandJson.decodeFromString<JsonElement>(str).toIR()
+    SnbtStr, Nbt -> Snbt.decodeFromString<NbtTag>(str).toIR()
+    PlainStr -> error("PlainStr isn't a decodable format")
+}
+
+fun IRElement.encodeToString(format: FormatKind) = when (format) {
+    JsonStr, JsonObj -> StandardJson.encodeToString(toJsonElement())
+    SnbtStr, Nbt -> Snbt.encodeToString(toNbtTag())
+    PlainStr -> error("PlainStr isn't a encodable format")
 }
 
 fun IRElement.toJsonElement() = JsonIRConverter.decodeFromIR(this)
