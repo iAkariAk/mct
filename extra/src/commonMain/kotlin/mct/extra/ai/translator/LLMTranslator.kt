@@ -129,7 +129,7 @@ class LLMTranslator internal constructor(
                     append(availableTerms.render())
                     appendLine()
                 }
-                appendLine("-- MCT-CLI:START --")
+                appendLine("-- MCT:START --")
                 translatableStrips.filter { it.value !is ComponentStrip.Untranslatable }
                     .map { (_, strip) ->
                         val str = strip.stripOrOriginal()
@@ -338,7 +338,7 @@ internal fun ComponentStrip.destrip(response: String?) = response?.let {
 
 private val LINE_PREFIX = Regex2("""^\[(\d+)]\s*""")
 private val REGEX_LLM_OUTPUT =
-    """(?s)^-- MCT-CLI:TRANSLATED --\n(.*?)\n-- MCT-CLI:TERMS --\n(.*?)(?:\n-- MCT-CLI:END --)?\s*$""".toRegex2()
+    """(?s)^-- MCT:TRANSLATED --\n(.*?)\n-- MCT:TERMS --\n(.*?)(?:\n-- MCT:END --)?\s*$""".toRegex2()
 
 internal fun parseLLMResponse(content: String, expectedSize: Int): Pair<TermTable, List<String?>> {
     val (appendedTranslated, appendTermsStr) = REGEX_LLM_OUTPUT.matchEntire(content)?.destructured

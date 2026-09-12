@@ -128,7 +128,7 @@ internal fun buildTranslationPrompt(format: FormatKind, prompts: LLMTranslationP
 
         ## 输入协议
 
-        - `-- MCT-CLI:START --` 之前是已有术语映射，每行格式为 `原文 => 译文`。必须采用这些译法，但不要重复输出已有术语。
+        - `-- MCT:START --` 之前是已有术语映射，每行格式为 `原文 => 译文`。必须采用这些译法，但不要重复输出已有术语。
         - 标记之后每行格式为 `[N] 内容`，编号从 0 开始。
         - 内容可能是纯文本，也可能是完整的 JSON、SNBT、Minecraft 命令或命令参数。根据内容本身判断：纯文本仍输出纯文本；结构化内容仍输出相同类型的完整结构。不得把纯文本包装成结构，也不得只返回结构中的译文片段。
         - 本批来源类型提示为：$${format.promptDescription()}。它只帮助区分 JSON 与 SNBT，不表示每项都一定是结构化文本。
@@ -246,15 +246,15 @@ internal fun buildTranslationPrompt(format: FormatKind, prompts: LLMTranslationP
 
         只能输出以下结构，不得添加代码围栏、解释、注释或其他内容：
 
-        -- MCT-CLI:TRANSLATED --
+        -- MCT:TRANSLATED --
         [0] <编号 0 的完整译文或完整结构>
         [1] <编号 1 的完整译文或完整结构>
         ...
-        -- MCT-CLI:TERMS --
+        -- MCT:TERMS --
         {
           "新术语原文": "新术语译文"
         }
-        -- MCT-CLI:END --
+        -- MCT:END --
 
         三个标记必须逐字出现；TRANSLATED 行数必须等于输入项数；TERMS 必须是 String 到 String 的合法 JSON Object，没有新术语时输出 `{}`。
 

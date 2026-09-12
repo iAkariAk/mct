@@ -56,15 +56,15 @@ class TranslatorTest : FreeSpec({
 
         "parse test" {
             val response = """
-            -- MCT-CLI:TRANSLATED --
+            -- MCT:TRANSLATED --
             [0] a
             [1] b
             [2] c
-            -- MCT-CLI:TERMS --
+            -- MCT:TERMS --
             {
             "Iroha": "彩叶"
             }
-            -- MCT-CLI:END --
+            -- MCT:END --
         """.trimIndent()
             val (terms, translated) = parseLLMResponse(response, 3)
             terms shouldBe mapOf("Iroha" to "彩叶")
@@ -120,12 +120,12 @@ class TranslatorTest : FreeSpec({
             val mockCall = testChatCompletionCall(contextOf<Env>())
             "plain text" {
                 val mockResponse = """
-            -- MCT-CLI:TRANSLATED --
+            -- MCT:TRANSLATED --
             [0] 你好世界
             [1] 这是测试
-            -- MCT-CLI:TERMS --
+            -- MCT:TERMS --
             {}
-            -- MCT-CLI:END --
+            -- MCT:END --
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
@@ -146,11 +146,11 @@ class TranslatorTest : FreeSpec({
 
             "with existing terms" {
                 val mockResponse = """
-            -- MCT-CLI:TRANSLATED --
+            -- MCT:TRANSLATED --
             [0] 辉夜姬很漂亮
-            -- MCT-CLI:TERMS --
+            -- MCT:TERMS --
             {}
-            -- MCT-CLI:END --
+            -- MCT:END --
         """.trimIndent()
 
                 val existingTerms = mapOf("Kaguya" to "辉夜姬")
@@ -170,13 +170,13 @@ class TranslatorTest : FreeSpec({
 
             "new terms discovered" {
                 val mockResponse = """
-            -- MCT-CLI:TRANSLATED --
+            -- MCT:TRANSLATED --
             [0] 彩叶在散步
-            -- MCT-CLI:TERMS --
+            -- MCT:TERMS --
             {
             "Iroha": "彩叶"
             }
-            -- MCT-CLI:END --
+            -- MCT:END --
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
@@ -195,11 +195,11 @@ class TranslatorTest : FreeSpec({
 
             "json text component" {
                 val mockResponse = """
-            -- MCT-CLI:TRANSLATED --
+            -- MCT:TRANSLATED --
             [0] 你好
-            -- MCT-CLI:TERMS --
+            -- MCT:TERMS --
             {}
-            -- MCT-CLI:END --
+            -- MCT:END --
         """.trimIndent()
 
                 val mockChat = mockChatCompletion(mockResponse)
@@ -225,12 +225,12 @@ class TranslatorTest : FreeSpec({
                         val idx = callIndex++
                         callChunkSizes += expectedSize
                         val content = buildString {
-                            appendLine("-- MCT-CLI:TRANSLATED --")
+                            appendLine("-- MCT:TRANSLATED --")
                             (0 until expectedSize).joinTo(this, "\n") { i -> "[$i] chunk${idx}_line${i}" }
                             appendLine()
-                            appendLine("-- MCT-CLI:TERMS --")
+                            appendLine("-- MCT:TERMS --")
                             appendLine("{}")
-                            append("-- MCT-CLI:END --")
+                            append("-- MCT:END --")
                         }
                         parseLLMResponse(content, expectedSize)
                     }
