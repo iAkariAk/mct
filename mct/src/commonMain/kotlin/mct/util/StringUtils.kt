@@ -10,6 +10,7 @@ fun String.unescaped() = ESCAPE_REGEX.replace(this) {
         "r" -> "\r"
         "t" -> "\t"
         "\"" -> "\""
+        "'" -> "'"
         else -> r
     }
 }
@@ -114,6 +115,13 @@ fun Int.codePointToString() = when (this) {
 
     else -> throw IllegalArgumentException("$this isn't a legal code point")
 }
+
+fun String.indexRangeOf(str: String, startIndex: Int = 0, ignoreCase: Boolean = false): IntRange? =
+    indexOf(str, startIndex, ignoreCase).takeIf { it != -1 }?.let { it..<it + str.length }
+
+
+fun String.laseIndexRangeOf(str: String, startIndex: Int = 0, ignoreCase: Boolean = false): IntRange? =
+    lastIndexOf(str, startIndex, ignoreCase).takeIf { it != -1 }?.let { it..<it + str.length }
 
 // https://zh.minecraft.wiki/w/%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4ID
 private val NAMESPACED_IDENTIFIER = Regex2("""(?:(?<namespace>[\w\-.]+):)?(?<name>[\w\-./]+)""")

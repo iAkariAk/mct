@@ -80,9 +80,9 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer, private
         while (currentToken?.type != SnbtTokenType.R_BRACKET) {
             val next = advance()
             if (next.type == SnbtTokenType.R_BRACKET) return SnbtList(
-                startIndex..startIndex + 1,
+                startIndex..currentToken!!.indices.last,
                 list
-            )
+            ) // empty list or tailed comma list
             val value = parseTag(Metadata(type))
             list += value
             expectAny({ next2 ->

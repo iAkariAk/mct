@@ -6,6 +6,7 @@ import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.*
+import mct.util.indexRangeOf
 import net.benwoodworth.knbt.NbtCompound
 import net.benwoodworth.knbt.NbtInt
 import net.benwoodworth.knbt.NbtString
@@ -77,7 +78,14 @@ class SnbtTest : FreeSpec({
 
     "literal" {
         shouldNotThrowAny {
-            parseTest("""{Name:generic.max_health,Base:10, ObjK: X-ray}""")
+            val snbt = "{Name:generic.max_health,Base:10, ObjK: X-ray}"
+            parseTest(snbt) shouldBe SnbtCompound(
+                snbt.indices, mapOf(
+                    "Name" to SnbtString(snbt.indexRangeOf("generic.max_health")!!, "generic.max_health", null),
+                    "Base" to SnbtInt(snbt.indexRangeOf("10")!!, 10),
+                    "ObjK" to SnbtString(snbt.indexRangeOf("X-ray")!!, "X-ray", null),
+                )
+            )
         }
     }
 
@@ -89,32 +97,35 @@ class SnbtTest : FreeSpec({
     }
 
     "dot literal list" {
-        parseTest(
-            """
+        val snbt = """
             {Dialog:[I,t," ",w,i,l,l," ",b,e," ",w,o,n,d,e,r,f,u,l,.]}
         """.trimIndent()
-        )
+        parseTest(snbt)
     }
 
     "single quote escape" {
-        parseTest(
-            """
-            'Shina\'s Mimi and Mimi\'s Shina \\\\ '   
-        """.trimIndent()
-        )
+        val snbt = """'Shina\'s Mimi and Mimi\'s Shina \\\\ '"""
+        val result = parseTest(snbt) as SnbtString
+        result shouldBe SnbtString(snbt.indices, snbt, '\'')
+        result.content shouldBe """Shina's Mimi and Mimi's Shina \\ """
     }
 
     "tail comma" {
-        parseTest(
-            """
-            {height:0.2f, width:0.65f ,}
-        """.trimIndent()
+        val snbt1 = "{height:0.2f, width:0.65f ,}"
+        parseTest(snbt1) shouldBe SnbtCompound(
+            snbt1.indices, mapOf(
+                "height" to SnbtFloat(8..11, 0.2f),
+                "width" to SnbtFloat(20..24, 0.65f)
+            )
         )
 
-        parseTest(
-            """
-            [1,2,3,]
-        """.trimIndent()
+        val snbt2 = "[1,2,3,]"
+        parseTest(snbt2) shouldBe SnbtList(
+            snbt2.indices, listOf(
+                SnbtInt(1..1, 1),
+                SnbtInt(3..3, 2),
+                SnbtInt(5..5, 3),
+            )
         )
     }
 

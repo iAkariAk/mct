@@ -4,6 +4,7 @@ import mct.model.patch.SnbtSyntaxKind
 import mct.util.doubleUnquoted
 import mct.util.formatir.*
 import mct.util.singleQuoted
+import mct.util.singleUnquoted
 import mct.util.unreachable
 
 sealed interface SnbtTag {
@@ -74,7 +75,7 @@ data class SnbtDouble(override val indices: IntRange, val value: Double) : SnbtT
 data class SnbtString(override val indices: IntRange, val raw: String, val boundary: Char?) : SnbtTag {
     val content = when (boundary) {
         '"' -> raw.doubleUnquoted()
-        '\'' -> raw.substring(1, raw.length - 1).replace("\\'", "'")
+        '\'' -> raw.singleUnquoted()
         null -> raw
         else -> unreachable
     }
