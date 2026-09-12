@@ -6,9 +6,10 @@ Use this guidance whenever a task adds, removes, or modifies builtin patterns.
 
 | Pattern file | Test file | Test class |
 |---|---|---|
-| `mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/dp/mcjson/MCJDataPointerPatternTest.kt` | `MCJDataPointerPatternTest` |
+| `mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/dp/mcjson/MCJDataPointerPatternTest.kt`, `MCJStructurePatternTest.kt` | `MCJDataPointerPatternTest` |
 | `mct/src/commonMain/kotlin/mct/command/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/command/CommandExtractPatternTest.kt` | `CommandExtractPatternTest` |
-| `mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/nbt/NbtDataPointerPatternTest.kt` | `NbtDataPointerPatternTest` |
+| `mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt` | `mct/src/commonTest/kotlin/mct/nbt/NbtDataPointerPatternTest.kt`, `NbtCommandPatternTest.kt` | `NbtDataPointerPatternTest` |
+| `mct/src/commonMain/kotlin/mct/pointer/CommonPatterns.kt` (shared component paths) | covered by `MCJDataPointerPatternTest` and `NbtDataPointerPatternTest` | — |
 
 After changing any builtin pattern set, update the corresponding test file.
 
@@ -18,7 +19,7 @@ Builtin path-pattern tests should be one aggregate `BuiltinSet` test, not one Ko
 
 ```kotlin
 class NbtDataPointerPatternTest : FreeSpec({
-    "BuiltinNbtPatterns BuiltinSet" {
+    "BuiltinSet" {
         listOf(
             match(">#display>#Name", "item display Name"),
             match(">#display>#Lore", "item display Lore"),
@@ -64,13 +65,24 @@ Keep low-level behavior tests outside the BuiltinSet table:
 - `DataPointer.matchesRight`
 - regex matching behavior
 - `PatternSet` DSL behavior
-- `DataPointerPattern.compile`
+- `DataPointer.compile`
 - command condition and selector primitives
 - target selector intrinsic extraction
 - recursive subcommand extraction
 - greedy range behavior
 
 These tests describe mechanics. BuiltinSet tests describe builtin catalog coverage.
+
+Current low-level suites:
+
+| Suite | File |
+|---|---|
+| `DataPointerTest` | `mct/src/commonTest/kotlin/mct/pointer/DataPointerTest.kt` |
+| `DataPointerPatternTest` (helpers + DSL) | `mct/src/commonTest/kotlin/mct/pointer/DataPointerPatternTest.kt` |
+| `CommandsTest`, `TypedArgSelectionsTest` | `mct/src/commonTest/kotlin/mct/command/` |
+| `NbtCommandPatternTest` | `mct/src/commonTest/kotlin/mct/nbt/NbtCommandPatternTest.kt` |
+| `MCJStructurePatternTest` | `mct/src/commonTest/kotlin/mct/dp/mcjson/MCJStructurePatternTest.kt` |
+| `NonstandardJsonTest` | `mct/src/commonTest/kotlin/mct/util/NonstandardJsonTest.kt` |
 
 ## Validation
 

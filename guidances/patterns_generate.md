@@ -1,6 +1,6 @@
 # Pattern Generation Guide
 
-**Process note:** After completing any task that adds, removes, or modifies patterns in ANY of the three files below, update this guidance file to reflect the new knowledge gained. This includes: findings from wiki audits, pitfalls discovered, DSL features used, pattern strategies that worked/didn't work, and changes to `isTextComponent()` / `ALL_FIELD` / `STRUCTURAL_FIELDS` in `Util.kt`.
+**Process note:** After completing any task that adds, removes, or modifies patterns in ANY of the files below, update this guidance file to reflect the new knowledge gained. This includes: findings from wiki audits, pitfalls discovered, DSL features used, pattern strategies that worked/didn't work, and changes to `isTextComponent()` / `ALL_FIELD` / `STRUCTURAL_FIELDS` in `mct/src/commonMain/kotlin/mct/model/text/Util.kt`.
 
 ---
 
@@ -14,20 +14,21 @@ Write more patterns for the following files. Each file uses a different pattern 
 
 **Purpose:** Extract translatable text from data pack `.json` files (advancements, loot tables, jukebox songs, trim patterns, etc.)
 
-**Key insight:** The `extractTextMCJ()` function extracts ALL string leaf values from JSON, then **filters** by patterns. A `RightPattern` checks if the NBT pointer path **ends with** the given string. A `RegexPattern` matches the full encoded path.
+**Key insight:** The `extractTextFromMCJson()` function walks the JSON tree and produces candidates — every string leaf, plus every array/object the text-component detector accepts, taken **as a whole at its own pointer** with `FormatKind.JsonObj` — then **filters** them by patterns. Matching goes through `CompiledDataPointer.matched()`, which returns the **first** matching pattern, so order in the set matters. A `RightPattern` checks if the pointer path **ends with** the given string. A `RegexPattern` matches the full encoded path.
 
 **How paths work:**
 - For `{"display": {"title": {"text": "Hello"}}}`, the leaf string `"Hello"` is at path `>#display>#title>#text`
 - A `RightPattern("#text")` matches any path ending in `#text` (covers all text component values)
 - A `RightPattern("#description")` matches root-level descriptions as plain strings
 - A `RegexPattern("""#description>#(?:text|translate|fallback)$""")` matches text component description leaves
+- Arrays that look like text components (`pages`, `Lore`, sign `messages`) are emitted once at the container path (`>#pages`), with no `>#pages>0` candidates
 
 **References:**
 - https://datapack-wiki.pages.dev/
 - https://minecraft.wiki/w/Data_pack — overall structure, all registry JSON types
 - https://minecraft.wiki/w/Text_component_format — how text components work (check for new fields)
 
-**Existing coverage:** Advancements (title/description), item components (custom_name/lore), signs, books, loot table functions, CustomName, jukebox description, trim/banner description, painting variant title/author, loot table translate variants, set_attributes modifier names
+**Existing coverage:** Advancements (title/description), modern item/entity components (via shared `pointer/CommonPatterns.kt`), signs, books, loot table functions (incl. `set_nbt` re-walked as SNBT), CustomName, jukebox/item description, dialogs (`external_title`, action labels/tooltips), painting variant title/author, set_attributes modifier names
 
 **Look for:** Any registry JSON with text component fields that aren't yet matched. Good candidates have `"text"`, `"translate"`, `"fallback"` fields or plain string descriptions. Common registries: `painting_variant`, `wolf_variant` (1.21.2+), `instrument`, `feat` (1.21.5+). When a text component uses `"translate"`, also include the `"fallback"` path since both are leaf nodes.
 
@@ -41,15 +42,15 @@ Write more patterns for the following files. Each file uses a different pattern 
 
 **Key insight:** The system parses each line as an `MCCommand(name, args)`. Patterns specify:
 1. **PreCondition** — e.g. `WithSize(N)` (≥N args), `WithSize(N, strict=true)` (exactly N args), `Any()`, `Regex("...")` (matches raw), or `And(...)` / `Or(...)` to combine
-2. **IndexSelector** — which arg(s) to inspect: `Positions(N)` (specific position), `GreedyPositions(N)` (from position N to end, **no post condition applied for greedy selectors**), or `Positions(N to IndexSelection.SnbtEntire)` (parse as SNBT and extract sub-texts via data patterns)
-3. **PostCondition** — e.g. `Matches { cmd, arg -> ... }` (custom predicate), `Regex("...")`, `Contain("...")`
+2. **IndexSelector** — which arg(s) to inspect: `Positions(N)` (whole arg at 1-based position N), `GreedyPositions(N)` (from position N to end, **no post condition applied for greedy selectors**), `Positions(N to ArgSelection.SnbtEntire)` (parse as SNBT and extract sub-texts via data patterns), or the other `ArgSelection` variants: `PlainEntire`, `TextComponentEntire`, `WithInfo(format, syntax)`, `ItemStack`, `BlockState`
+3. **PostCondition** — e.g. `Matches { cmd, arg -> ... }` (custom predicate, **DSL-only, not JSON-serializable**), `Regex("...")`, `Contain("...")`, `Equal("...")`, `At(pos, ...)`
 
 **Argument parsing details:** The MCFunction parser tracks bracket states (`[]`, `{}`) and quote states (`'`, `"`) globally, so `@e[tag=foo]` or `{"text":"hello"}` each count as a single arg. The `MCCommand.get(Int)` operator is **1-based**: `cmd[1]` = `args[0]`, `cmd[2]` = `args[1]`, etc.
 
-**SNBT selection (`IndexSelection.SnbtEntire`):**
-When `Positions(N to IndexSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTextsByPointer()` extracts text components and leaf strings from the SNBT tree. Results are filtered through `BuiltinCommandDataPatterns` by compiling each pointer once (`it.pointer.compile().matches(patterns)`). Text components usually produce `FormatKind.SnbtStr`; plain SNBT strings produce `FormatKind.PlainStr`.
+**SNBT selection (`ArgSelection.SnbtEntire`):**
+When `Positions(N to ArgSelection.SnbtEntire)` is used, the arg at position N is parsed as SNBT, then `SnbtTag.extractTextsByPointer()` extracts text components and leaf strings from the SNBT tree. Results are filtered through `pattern.commandData` (default `BuiltinCommandDataPatterns`, which starts from `BuiltinNbtPatterns`). Text-component compounds/lists come back as `FormatKind.SnbtStr`; individual SNBT string leaves use `raw.inferFormatKind(syntax)` — a quoted leaf whose payload is JSON is `JsonStr`, a quoted plain string is `PlainStr`. Remember `format` describes the content **inside** the quotation when `syntax` is a quote kind. `ArgSelection.ItemStack` (`id[new=...]`) filters through `pattern.commandComponent`; `ArgSelection.BlockState` and the `id{old}` form through `pattern.commandData`.
 
-Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (which has specific patterns for display entity text, CustomName, and dialog SNBT fields). Without `withAry()`, selection still receives the default command data patterns through `extractTextFromCommand`, but the pattern must match the actual SNBT pointer produced by the walker.
+`withAry()` only binds the post condition to `Any`; it does **not** choose the pattern set. The data-component filter is applied by the selection itself, so a pattern must match the actual SNBT pointer produced by the walker. If a selection fails (SNBT parse error, arg not a text component), the whole arg is extracted as `PlainStr` and an error is logged.
 
 **Common commands with text components (Java Edition):**
 
@@ -67,13 +68,15 @@ Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (whi
 | `team add` | `<team> [<displayName>]` | 3 | `Positions(3)` + Matches { add } |
 | `team modify displayName` | `<team> displayName <component>` | 4 | `Positions(4)` + Matches { displayName } |
 | `team modify prefix/suffix` | `<team> (prefix\|suffix) <component>` | 4 | `Positions(4)` + Matches { prefix/suffix } |
-| `data modify ... set value` | `<target> [<path>] set value <json>` | 6-7 | `Positions(N)` + isTextComponent |
+| `data modify ... set value` | `<target> [<path>] set value <json>` | 7 (entity/storage) or 9 (block) | `Positions(N to ArgSelection.TextComponentEntire)` + Matches { set value && isSerializedTextComponent } |
 | `data merge entity/storage` | `<target> <nbt>` | 4 (SnbtEntire) | `And(WithSize(4), Regex("merge (entity\|storage)"))` + `Positions(4 to SnbtEntire)` |
 | `data merge block` | `<pos> <nbt>` | 6 (SnbtEntire) | `And(WithSize(6), Regex("merge block"))` + `Positions(6 to SnbtEntire)` |
 | `summon` | `<entity> [<pos>] [<nbt>]` | 5 (SnbtEntire) | `Positions(5 to SnbtEntire).withAry()` |
-| `setblock` | `<pos> <block> [destroy\|keep\|replace]` | 5 (SnbtEntire) | `WithSize(5)` + `Positions(5 to SnbtEntire)` + Matches { startsWith("{") } |
-| `give` | `<targets> <item>` | 2 | `Positions(2)` + Matches { contains component markers } |
+| `setblock` | `<pos> <block> [<state>] [<data>]` | 5 (SnbtEntire) | `WithSize(5)` + `Positions(5 to SnbtEntire)` + Matches { startsWith("{") } |
+| `give` | `<targets> <item>` | 2 (ItemStack) | `Positions(2 to ArgSelection.ItemStack).withAry()` |
+| `item modify/replace/fill/override` | many shapes | 5-13 | `Positions(N to SnbtEntire)` for modifier forms, `Positions(N to ItemStack)` for `with <item>` forms |
 | `dialog show` | `<targets> <dialog>` | 3 (SnbtEntire, inline SNBT only) | `Positions(3 to SnbtEntire)` + Matches { show && startsWith("{") } |
+| `replaceitem` | `block\|entity ... <item>` | 8-11 | `Positions(N to WithInfo(JsonStr))` + Matches { isJson } |
 | `kick` | `<targets> [<reason>]` | greedy 2 | `GreedyPositions(2)` (message type, plain text) |
 | `say`, `me`, `teammsg` | `<message>` | greedy 0 | `GreedyPositions()` |
 | `msg`, `tell`, `w` | `<targets> <message>` | greedy 2 | `GreedyPositions(2)` |
@@ -84,9 +87,9 @@ Use `withAry()` on the index selector to apply `BuiltinCommandDataPatterns` (whi
 - `fill` / `place` / `damage` / `kill` — None accept text components.
 - `execute run` / `return run` — Handled recursively, no direct pattern needed.
 
-**For commands that wrap subcommands** (`execute run <cmd>`, `return run <cmd>`), recursive extraction is handled in `MCFunction.kt`'s `extractTextFromCommand()` — the subcommand is re-parsed and patterns are applied recursively. No pattern for the wrapping command itself is needed.
+**For commands that wrap subcommands** (`execute run <cmd>`, `return run <cmd>`), recursive extraction is handled in `mct/src/commonMain/kotlin/mct/command/Extract.kt` (`extractTextFromCommand`) — the subcommand is re-parsed and patterns are applied recursively. `mct/src/commonMain/kotlin/mct/dp/mcfunction/MCFunction.kt` is only the file-level extractor. No pattern for the wrapping command itself is needed.
 
-**Data path for `Positions(N to IndexSelection.SnbtEntire)` without `withAry()`:**
+**Data path for `Positions(N to ArgSelection.SnbtEntire)` without `withAry()`:**
 If you use `Positions(N to SnbtEntire)` + a `Matches` post condition (without `withAry()`), the flow is:
 1. The post condition filters the raw arg
 2. SnbtEntire tries to parse the arg as SNBT
@@ -97,7 +100,7 @@ If you use `Positions(N to SnbtEntire)` + a `Matches` post condition (without `w
 - https://minecraft.wiki/w/Commands — full command reference
 - Pay attention to commands that accept JSON text components
 
-**Existing coverage:** say, me, teammsg, msg/tell/w, tellraw, title, dialog, bossbar, scoreboard, team, data, give, item, kick, summon, setblock, data merge (16 command groups; waypoint and spreadplayers removed per wiki audit — they have no text component args)
+**Existing coverage:** say, me, teammsg, msg/tell/w, tellraw, title, dialog, bossbar, scoreboard, team, data, data merge, give, item, replaceitem, kick, summon, setblock (waypoint and spreadplayers removed per wiki audit — they have no text component args)
 
 **Look for:** Commands that accept JSON text components or NBT with text that aren't yet covered. Before adding a pattern, verify the exact wiki syntax at https://minecraft.wiki/w/Commands/<command> — many commands that "seem like" they accept text components actually don't (e.g. spreadplayers, waypoint, damage, kill, place, fill). Always check the wiki first.
 
@@ -109,35 +112,38 @@ If you use `Positions(N to SnbtEntire)` + a `Matches` post condition (without `w
 
 **Purpose:** Extract translatable text from Minecraft region files (`.mca`) — chunk NBT data.
 
-**Key insight:** The `extractTexts()` function walks NBT recursively and produces pointer paths for leaf strings. Patterns filter which paths to keep. The format differs from MCJSON:
+**Key insight:** `NbtTag.extractText()` walks NBT recursively and produces pointer paths — every `NbtString` leaf, plus any compound/list recognized as a text component (emitted as one SNBT block at its own pointer). Patterns filter which paths to keep. The format differs from MCJSON:
 - Region NBT uses SNBT format
 - Text components in NBT are detected via `isTextComponent()` / `isTextComponentShorthanded()` — when a compound contains ONLY known text-component fields AND non-structural fields have primitive values, it extracts the whole compound as SNBT rather than recursing into it
 - Item stacks within containers/entities are recursively walked — their display/components are matched by existing item patterns
 
 **Important: isTextComponent() value type check**
-The function `isTextComponent()` in `Util.kt` requires:
+The function `isTextComponent()` in `mct/src/commonMain/kotlin/mct/model/text/Util.kt` requires:
 1. All keys are in `ALL_FIELD` (known text-component field names)
 2. For non-structural fields (`text`, `translate`, `color`, `bold`, etc.), the value must be a primitive type (string, boolean, number), NOT a compound or list
-3. Structural fields (`extra`, `with`, `hover_event`, `click_event`, `score`, `separator`, `player`, `shadow_color`) may hold compound/list values
+3. Structural fields (`extra`, `with`, `hover_event`, `click_event`, `hoverEvent`, `clickEvent`, `score`, `separator`, `player`, `shadow_color`) may hold compound/list values
 
 **NbtList isTextComponent() (New):**
 Since the latest refactor, `NbtList<*>.isTextComponent()` also works — if a list contains only text-component elements (strings or nested text compounds), it is extracted as a single SNBT block rather than recursed into individual elements. This mirrors the `NbtCompound` behavior and prevents path explosion for uniform text-component lists.
 
-**Current `ALL_FIELD` fields (keep in sync with `Util.kt`):**
+**Current `ALL_FIELD` fields (keep in sync with `model/text/Util.kt`):**
 ```
-text, translate, with, fallback,
-score, selector, keybind,
-nbt, block, entity, storage,
-interpret, plain, separator, source,
-object, sprite, atlas, player, hat,     // hat added in 1.21.5+ object:"player"
-extra, type,
-color, font,
+type,
+text, translate, fallback, with,
+score, selector, separator, keybind,
+nbt, source, block, entity, storage,
+interpret, plain,
+object, atlas, sprite, player, hat,
+extra,
+color, shadow_color, font,
 bold, italic, underlined, strikethrough, obfuscated,
-shadow_color, insertion,
-click_event, hover_event
+insertion,
+click_event, hover_event, clickEvent, hoverEvent
 ```
 
-Structural fields (allow compound/list values): `extra`, `with`, `hover_event`, `click_event`, `score`, `separator`, `player` (profile data), `shadow_color` (can be [R,G,B,Opacity]).
+`MAYBE_MAJOR_FIELDS` (used by the string-level `String.isTextComponent()` sniff) is a smaller set: `text`, `translate`, `selector`, `score`, `nbt`, `keybind`.
+
+Structural fields (allow compound/list values): `extra`, `with`, `hover_event`, `click_event`, `hoverEvent`, `clickEvent`, `score`, `separator`, `player` (profile data), `shadow_color` (can be [R,G,B,Opacity]).
 
 This prevents `{text:["hello","world"]}` from being incorrectly treated as a text component (where `text` has a list value). Without this check, the entire root would be extracted at the empty root path (`DataPointer.Terminator`), discarding internal structure and never matching any `>#text`-based pattern.
 
@@ -185,7 +191,27 @@ These patterns match text components nested within data components. The non-anch
 - Lectern Book
 - bundle_contents, container list, charged_projectiles
 
-**When adding a pattern, verify the exact NBT key casing** (Minecraft NBT typically uses PascalCase: `CustomName`, not `custom_name`). Signal-to-noise matters — avoid patterns so broad they'd match non-translatable strings.
+**When adding a pattern, verify the exact NBT key casing** (Minecraft NBT typically uses PascalCase: `CustomName`, not `custom_name`; modern data components are the exception and use snake_case keys under `#components`). Signal-to-noise matters — avoid patterns so broad they'd match non-translatable strings.
+
+---
+
+### 4. `mct/src/commonMain/kotlin/mct/command/CommandComponentPattern.kt`
+
+**DSL:** plain `listOf(ComponentPattern(...))` — no builder.
+
+**Purpose:** decide which keys of an item's modern component list (`give @p diamond_sword[custom_name={...},lore=[...]]`) are extracted. Consumed by `ArgSelection.ItemStack` for the `id[key=value,...]` form; each key is looked up with `findByCompoundKey` (`namespace:name`, or a bare name that defaults to `minecraft`).
+
+`ComponentPattern(namespace = "minecraft", name, pattern: DataPointerPattern? = null)`:
+- `pattern == null` → the component is extracted only when it yields exactly one text slice.
+- `pattern != null` → keep only slices whose pointer matches.
+
+Builtin entries: `custom_name`, `item_name`, `text_display`, `description`, `lore`, `written_book_content` (regex `>#(?:text|author|pages)$`), `writable_book_content` (right `pages`).
+
+---
+
+### 5. `mct/src/commonMain/kotlin/mct/cext/CextBuitlinPatterns.kt`
+
+**Purpose:** builtin opt-in presets for the `cext` extractor, which selects files by path regex and reuses the normal mcjson / mcfunction / nbt / snbt pipelines with a narrowed pattern set. Exactly one preset exists today: `level_dat` (`select = "level\\.dat"`, `CextFormatKind.Nbt(compression = Gzip, patterns = customOf { +EqualPattern(">#>#Data>#LevelName") })`). Add a preset here when MCT should scan a world file that the default datapack/region passes skip.
 
 ---
 
@@ -225,10 +251,10 @@ java -jar cli/build/libs/cli-0.0-SNAPSHOT-all.jar region extract \
 ```
 
 ### Debugging extraction counts
-When the SNBT selection test (`test snbt selecting`) counts change, investigate by:
+When extraction counts change, investigate by:
 1. Checking which files/functions have changed extraction counts
 2. Understanding that `isTextComponent()` determines whether the root NBT is extracted as a whole vs recursed into
-3. Verifying `BuiltinCommandDataPatterns` paths match the actual pointer paths produced by `SnbtTag.extractTexts()`
+3. Verifying `BuiltinCommandDataPatterns` paths match the actual pointer paths produced by `SnbtTag.extractTextsByPointer()`
 
 ### Common pitfalls
 
@@ -242,13 +268,13 @@ When the SNBT selection test (`test snbt selecting`) counts change, investigate 
 
 **5. Greedy selectors ignore post conditions** — `GreedyPositions(N)` extracts from position N to end of command without checking the post condition. Use `NonGreedy` (`Positions`) with `Matches` if you need conditional extraction.
 
-**6. SNBT selection uses command data patterns** — `IndexSelection.SnbtEntire` parses the selected arg as SNBT, extracts pointer-addressed text slices, then filters with `BuiltinCommandDataPatterns` (or custom `-pD` patterns). Text compounds are usually `FormatKind.SnbtStr`; plain SNBT string leaves are `FormatKind.PlainStr`. If an expected string is missing, inspect the actual pointer path and kind before broadening the pattern.
+**6. SNBT selection uses command data patterns** — `ArgSelection.SnbtEntire` parses the selected arg as SNBT, extracts pointer-addressed text slices, then filters with `BuiltinCommandDataPatterns` (or custom `--pattern-command-data` patterns). Text-component compounds/lists are `FormatKind.SnbtStr`; individual SNBT string leaves use `inferFormatKind(syntax)` — a quoted leaf whose payload is JSON is `JsonStr`, a bare literal is `PlainStr`. In general `format` describes the content **inside** the quotation when the slice's `syntax` is a quote kind, so never read it as "the format of the raw slice text". If an expected string is missing, inspect the actual pointer path, syntax and format before broadening the pattern.
 
 **7. NbtList backfill with Terminator** — When a `NbtList` is extracted as a text component (via the new `NbtList.isTextComponent()` path), the backfill expects a `Terminator` replacement with `FormatKind.Nbt`. The `transform()` function now handles this case — `NbtList` branches check `decodeTerminatorOrNull<NbtList<NbtTag>>()` first before processing individual elements.
 
 **8. Always check the wiki first before adding a command pattern** — Many commands that seem like they'd accept text components actually don't (waypoint, spreadplayers, damage, kill, fill, place). Verify at https://minecraft.wiki/w/Commands/<command>.
 
-**9. After completing any pattern task, update this guidance file** — Record new pitfalls discovered, changes to `Util.kt` ALL_FIELD/STRUCTURAL_FIELDS, new pattern strategies, wiki pages researched, and commands/entities/block-entities verified as not having text components (to avoid re-checking).
+**9. After completing any pattern task, update this guidance file** — Record new pitfalls discovered, changes to `model/text/Util.kt` ALL_FIELD/STRUCTURAL_FIELDS, new pattern strategies, wiki pages researched, and commands/entities/block-entities verified as not having text components (to avoid re-checking).
 
 ## Translator Rules
 
