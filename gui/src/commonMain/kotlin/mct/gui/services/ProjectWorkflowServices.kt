@@ -10,6 +10,25 @@ import java.io.File
 private const val PROJECT_FILE = "mct.toml"
 
 /**
+ * Validate a project name before it becomes a directory under the working directory.
+ *
+ * Returns an error message, or `null` when the name is usable. Rejecting `.`/`..` and path
+ * separators is what keeps the CLI from resolving the project directory outside the working
+ * directory (and from deleting or overwriting files there).
+ */
+fun projectNameError(name: String): String? {
+    val trimmed = name.trim()
+    return when {
+        trimmed.isEmpty() -> "请输入项目名称"
+        trimmed == "." || trimmed == ".." -> "项目名称不能是 . 或 .."
+        trimmed.any { it == '/' || it == '\\' } -> "项目名称不能包含路径分隔符"
+        trimmed.endsWith(":") -> "项目名称不能以冒号结尾"
+        trimmed != name -> "项目名称首尾不能有空白字符"
+        else -> null
+    }
+}
+
+/**
  * Create a project by delegating to the CLI implementation.
  *
  * [projectDirectory] is the CLI working directory. The CLI creates
@@ -24,18 +43,36 @@ suspend fun initialiseProject(
     source: String,
 ): String {
     require(projectDirectory.isNotBlank()) { "请选择 CLI 工作目录" }
-    require(name.isNotBlank()) { "请输入项目名称" }
+    val nameError = projectNameError(name)
+    require(nameError == null) { nameError.orEmpty() }
     require(source.isNotBlank()) { "请选择源存档目录" }
 
     val workingDirectory = File(projectDirectory).absoluteFile
     require(workingDirectory.isDirectory) { "CLI 工作目录不存在: $workingDirectory" }
 
+    val projectName = name.trim()
+    val projectRoot = File(workingDirectory, projectName).canonicalFile
+    require(projectRoot.parentFile == workingDirectory.canonicalFile) {
+        "项目名称解析后不在工作目录内: $projectRoot"
+    }
+
+    // The CLI creates `projectRoot/src` before walking the source tree; if the source contains
+    // that directory, the copy recurses into itself.
+    val sourceRoot = File(source).canonicalFile
+    val sourcePrefix = sourceRoot.path + File.separator
+    val projectPrefix = projectRoot.path + File.separator
+    require(!(projectRoot.path + File.separator + "src").startsWith(sourcePrefix)) {
+        "源存档不能是项目目录或其上级目录（会产生自我拷贝）"
+    }
+    require(!sourceRoot.path.startsWith(projectPrefix)) {
+        "源存档不能位于项目目录内"
+    }
+
     runCliProjectCommand(
         workingDirectory = workingDirectory,
-        arguments = listOf("project", "init", name, "--from", File(source).absolutePath),
+        arguments = listOf("project", "init", projectName, "--from", sourceRoot.absolutePath),
     )
 
-    val projectRoot = File(workingDirectory, name).absoluteFile
     require(File(projectRoot, PROJECT_FILE).isFile) {
         "CLI 未创建 $PROJECT_FILE，请检查上方输出"
     }

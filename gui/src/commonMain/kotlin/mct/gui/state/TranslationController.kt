@@ -43,6 +43,12 @@ class TranslationController(
 
     private val disposed = AtomicBoolean(false)
 
+    /** Credentials whose probe succeeded; a repeated setup with the same pair is a no-op. */
+    private var lastProbedCredentials: Pair<String, String>? = null
+
+    /** The in-flight "AI optimize" request, if any. */
+    private var optimizeJob: Job? = null
+
     // Sign callbacks arrive from IO workers, so they hop onto [scope] before
     // touching snapshot state.
 
@@ -73,6 +79,7 @@ class TranslationController(
         if (token.isBlank()) {
             val previous = withContext(Dispatchers.Main) {
                 clientManager.chatCompletionCall = null
+                lastProbedCredentials = null
                 clientManager.openAIClient.also {
                     clientManager.openAIClient = null
                     state = state.copy(availableModels = emptyList(), isModelsLoading = false)
@@ -81,6 +88,10 @@ class TranslationController(
             closeClient(previous)
             return
         }
+
+        // Editing an unrelated field re-runs the caller's effect; skip the network round-trip
+        // unless the credentials actually changed.
+        if (lastProbedCredentials == (url.orEmpty() to token) && clientManager.openAIClient != null) return
 
         withContext(Dispatchers.Main) {
             clientManager.chatCompletionCall = null
@@ -110,6 +121,7 @@ class TranslationController(
                 }
             }
             if (!installed) return
+            lastProbedCredentials = url.orEmpty() to token
             if (previous !== probedClient) closeClient(previous)
 
             withContext(Dispatchers.Main) {
@@ -154,20 +166,39 @@ class TranslationController(
         }
     }
 
-    /** Have the LLM improve a literature-style prompt. Logs errors itself. */
-    suspend fun optimizePrompt(current: String): String? {
+    /**
+     * Run an "AI optimize" pass over the current literature-style prompt.
+     *
+     * Runs on [scope] rather than a panel's composition scope: leaving the translate tab must
+     * not cancel a paid request, and the result is written into the current state, so edits the
+     * user makes while the request is in flight survive.
+     */
+    fun optimizeLiteratureStyle() {
+        if (optimizeJob?.isActive == true) return
         val cl = clientManager.chatCompletionCall
         if (cl == null) {
             logs.add(LogEntry(LoggerLevel.Error, "请先在 API 设置中连接"))
-            return null
+            return
         }
-        logs.add(LogEntry(null, "正在优化翻译风格提示词..."))
-        return either {
-            cl.optimizePrompt(current)
-        }.onLeft {
-            env.logger.error { "优化失败: ${it.message}" }
-            scope.launch { snackbar.showSnackbar("优化失败: ${it.message}") }
-        }.getOrNull()
+        val current = state.literatureStyle
+        state = state.copy(isOptimizing = true)
+        optimizeJob = scope.launch {
+            try {
+                val improved = either {
+                    cl.optimizePrompt(current)
+                }.onLeft {
+                    env.logger.error { "优化失败: ${it.message}" }
+                    snackbar.showSnackbar("优化失败: ${it.message}")
+                }.getOrNull()
+                if (improved != null) state = state.copy(literatureStyle = improved)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                env.logger.error { "优化失败: ${e.message}" }
+            } finally {
+                state = state.copy(isOptimizing = false)
+            }
+        }
     }
 
     private suspend fun closeClient(client: OpenAI?) {

@@ -43,6 +43,7 @@ data class ApiSettings(
     val temperature: Double? = null,
     val concurrency: Int = 1,
     val concurrentByKind: Boolean = false,
+    val prettyOutput: Boolean = false,
     val engine: TranslationEngine = TranslationEngine.Ai,
     val api: ApiTranslateState = ApiTranslateState(),
 )
@@ -52,6 +53,8 @@ val apiSetting = setting<ApiSettings>("api-settings", ::ApiSettings)
 @Serializable
 data class ThemeSettings(
     val seedColorArgb: Int = 0,
+    val isDynamicThemeEnabled: Boolean = false,
+    val isRainbowTheme: Boolean = false,
 )
 
 val themeSetting = setting<ThemeSettings>("theme-settings", ::ThemeSettings)
@@ -142,6 +145,11 @@ suspend fun runTranslation(
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
+    if (output.isBlank() || mappingOutput.isBlank() || (engine == TranslationEngine.Ai && termOutput.isBlank())) {
+        env.logger.error { "输出路径不能为空（替换文件、映射文件与术语表）" }
+        return
+    }
+
     val (extractionGroups, existingTerms, caches) = withContext(Dispatchers.IO) {
         val json = env.fs.read(input.toPath()) { readUtf8() }
         val groups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
@@ -213,10 +221,10 @@ suspend fun runTranslation(
     val wrappedOnCancel: OnLLMTranslationCancel = { terms, salvaged ->
         runCatching {
             val salvaged = caches + salvaged
-            mappingOutput.toPath().writeJson(salvaged, pretty = GuiSettings.prettyOutput)
+            writeOutputJson(mappingOutput, salvaged)
             env.logger.info { "已保存 ${salvaged.size} 条部分映射到 $mappingOutput" }
             if (engine == TranslationEngine.Ai) {
-                termOutput.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
+                writeOutputJson(termOutput, terms)
                 env.logger.info { "已保存 ${terms.size} 条术语到 $termOutput" }
             }
         }
@@ -233,13 +241,13 @@ suspend fun runTranslation(
             )
             val replacements = extractionGroups.replace(mapping)
 
-            output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
-            mappingOutput.toPath().writeJson(mapping, pretty = GuiSettings.prettyOutput)
+            writeOutputJson(output, replacements)
+            writeOutputJson(mappingOutput, mapping)
 
             env.logger.info { "替换文件已写入: $output" }
             env.logger.info { "映射文件已写入: $mappingOutput" }
             if (engine == TranslationEngine.Ai) {
-                termOutput.toPath().writeJson(translator.terms, pretty = GuiSettings.prettyOutput)
+                writeOutputJson(termOutput, translator.terms)
                 env.logger.info { "新发现 ${translator.terms.size - existingTerms.size} 个术语" }
                 env.logger.info { "术语表已写入: $termOutput" }
             }
@@ -247,11 +255,22 @@ suspend fun runTranslation(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            env.logger.error { "翻译未完成，输出写入失败: ${e.message}" }
             env.logger.error { e.stackTraceToString() }
         } finally {
-            runCatching { translator.close() }
+            // The AI engine's client is owned by the client manager and reused by later runs;
+            // only self-contained translators (the API engine) may close their own client.
+            if (engine != TranslationEngine.Ai) runCatching { translator.close() }
         }
     }
+}
+
+/** Write [data] as JSON, creating the destination's parent directory if needed. */
+context(env: Env)
+private inline fun <reified T : Any> writeOutputJson(path: String, data: T) {
+    val target = path.toPath()
+    target.parent?.let(env.fs::createDirectories)
+    target.writeJson(data, pretty = GuiSettings.prettyOutput)
 }
 
 /**

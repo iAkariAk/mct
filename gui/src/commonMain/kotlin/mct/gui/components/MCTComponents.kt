@@ -13,9 +13,7 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -427,6 +425,21 @@ fun MapInfoFields(
     onValueChange: (MapInfo) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Raw text is kept locally so a half-typed value (a trailing ", ", a lone space) is not
+    // normalized away while the user is still typing; the parsed form is only what is emitted.
+    var name by remember { mutableStateOf(value.name.orEmpty()) }
+    var description by remember { mutableStateOf(value.description.orEmpty()) }
+    var authors by remember { mutableStateOf(value.authors.joinToString(", ")) }
+
+    LaunchedEffect(value.name) { value.name.orEmpty().let { if (it != name.trim()) name = it } }
+    LaunchedEffect(value.description) {
+        value.description.orEmpty().let { if (it != description.trim()) description = it }
+    }
+    LaunchedEffect(value.authors) {
+        val parsed = authors.split(',').map(String::trim).filter(String::isNotEmpty)
+        if (parsed != value.authors) authors = value.authors.joinToString(", ")
+    }
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "地图信息（可选）",
@@ -439,22 +452,33 @@ fun MapInfoFields(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         ConfigTextField(
-            value = value.name.orEmpty(),
-            onValueChange = { onValueChange(value.copy(name = it.ifBlank { null })) },
+            value = name,
+            onValueChange = {
+                name = it
+                onValueChange(value.copy(name = it.trim().ifBlank { null }))
+            },
             label = { Text("地图名称") },
             placeholder = { Text("例如：Aetherial Ascent") },
         )
         ConfigTextField(
-            value = value.description.orEmpty(),
-            onValueChange = { onValueChange(value.copy(description = it.ifBlank { null })) },
+            value = description,
+            onValueChange = {
+                description = it
+                onValueChange(value.copy(description = it.trim().ifBlank { null }))
+            },
             label = { Text("地图简介") },
             placeholder = { Text("简要描述剧情、背景或玩法") },
             singleLine = false,
         )
         ConfigTextField(
-            value = value.authors.joinToString(", "),
-            onValueChange = { authors ->
-                onValueChange(value.copy(authors = authors.split(',').map(String::trim).filter(String::isNotEmpty)))
+            value = authors,
+            onValueChange = {
+                authors = it
+                onValueChange(
+                    value.copy(
+                        authors = it.split(',').map(String::trim).filter(String::isNotEmpty)
+                    )
+                )
             },
             label = { Text("地图作者") },
             placeholder = { Text("多个作者请用英文逗号分隔") },

@@ -10,6 +10,8 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -32,17 +34,19 @@ fun TermExtractPanel(
     onRun: () -> Unit,
     onCancel: () -> Unit = {},
 ) {
+    // Latest state at invocation time keeps every field callback's identity stable.
+    val currentState by rememberUpdatedState(state)
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(input = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(input = it.absolutePath())) } }
 
     val outputSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(output = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(output = ensureJsonExt(it.absolutePath()))) }
     }
 
     val termPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(existingTermPath = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(existingTermPath = it.absolutePath())) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ── Header ───────────────────────────────────────────────
@@ -77,14 +81,14 @@ fun TermExtractPanel(
             label = "提取结果 JSON（来自步骤①）",
             placeholder = "选择 extractions.json...",
             value = state.input,
-            onValueChange = { onStateChange(state.copy(input = it)) },
+            onValueChange = { onStateChange(currentState.copy(input = it)) },
             onBrowse = { inputPicker.launch() },
         )
         PathRow(
             label = "输出术语表 JSON",
             placeholder = "选择保存位置...",
             value = state.output,
-            onValueChange = { onStateChange(state.copy(output = it)) },
+            onValueChange = { onStateChange(currentState.copy(output = it)) },
             onBrowse = { outputSaver.launch(suggestedName = "terms", defaultExtension = "json") },
         )
 
@@ -122,7 +126,7 @@ fun TermExtractPanel(
                 }
                 OutlinedTextField(
                     value = state.targetLanguage,
-                    onValueChange = { onStateChange(state.copy(targetLanguage = it)) },
+                    onValueChange = { onStateChange(currentState.copy(targetLanguage = it)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium,
@@ -141,18 +145,18 @@ fun TermExtractPanel(
 
                 LiteratureStyleField(
                     value = state.literatureStyle,
-                    onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
+                    onValueChange = { onStateChange(currentState.copy(literatureStyle = it)) },
                     title = "自定义术语提取风格提示词",
                 )
 
                 MapInfoFields(
                     value = state.mapInfo,
-                    onValueChange = { onStateChange(state.copy(mapInfo = it)) },
+                    onValueChange = { onStateChange(currentState.copy(mapInfo = it)) },
                 )
 
                 ExtraPromptsField(
                     value = state.extraPrompts,
-                    onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
+                    onValueChange = { onStateChange(currentState.copy(extraPrompts = it)) },
                 )
 
                 // Existing term table
@@ -176,7 +180,7 @@ fun TermExtractPanel(
                     label = "已有术语表 JSON（增量提取）",
                     placeholder = "留空则从头提取...",
                     value = state.existingTermPath,
-                    onValueChange = { onStateChange(state.copy(existingTermPath = it)) },
+                    onValueChange = { onStateChange(currentState.copy(existingTermPath = it)) },
                     onBrowse = { termPicker.launch() },
                 )
             }

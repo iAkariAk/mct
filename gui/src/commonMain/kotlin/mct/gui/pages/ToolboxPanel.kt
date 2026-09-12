@@ -1,6 +1,8 @@
 package mct.gui.pages
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -82,8 +84,8 @@ private val ToolboxSections = listOf(
     ),
 )
 
-/** Text pools only apply to Region / Datapack. */
-private val PoolModes = RunMode.entries.filterNot { it == RunMode.Cext }
+/** Pool kinds: every extraction mode emits an `ExtractionGroup` list the pool engine accepts. */
+private val PoolModes = RunMode.entries
 
 @Composable
 private fun ToolboxHero(modifier: Modifier = Modifier) {
@@ -264,6 +266,11 @@ private fun ToolboxOperationDialog(
     onConfirm: () -> Unit,
 ) {
     val motionScheme = MaterialTheme.motionScheme
+    // Stable identity for the rule editor's remembered callbacks.
+    val currentState by rememberUpdatedState(state)
+    val onPatternsChange: (MCTPatternState) -> Unit = remember(onStateChange) {
+        { updated -> onStateChange(currentState.copy(commandPatterns = updated)) }
+    }
     val pointerPatternPicker = rememberFilePickerLauncher(
         type = FileKitType.File(),
         mode = FileKitMode.Single,
@@ -323,12 +330,12 @@ private fun ToolboxOperationDialog(
                             placeholder = { Text("例如 >#display>#Name") },
                             singleLine = true,
                         )
+                        // Short one-line cards: a size animation would re-measure the dialog's
+                        // remaining content for dozens of frames with no visual payoff.
                         AnimatedVisibility(
                             visible = state.pointerResult != null,
-                            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
-                                expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
-                            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
-                                shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+                            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+                            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
                         ) {
                             val matched = state.pointerResult == "true"
                             Surface(
@@ -418,7 +425,7 @@ private fun ToolboxOperationDialog(
                         PathField("命令样例文件", state.commandInput) { onStateChange(state.copy(commandInput = it)) }
                         MCTPatternEditor(
                             patterns = state.commandPatterns,
-                            onPatternsChange = { onStateChange(state.copy(commandPatterns = it)) },
+                            onPatternsChange = onPatternsChange,
                             slots = listOf(
                                 MCTPatternSlot.Command,
                                 MCTPatternSlot.CommandData,
@@ -429,10 +436,8 @@ private fun ToolboxOperationDialog(
                         )
                         AnimatedVisibility(
                             visible = state.commandResult.isNotBlank(),
-                            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
-                                expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
-                            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
-                                shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+                            enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+                            exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
                         ) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.*
 import mct.Env
 import mct.Notifier
+import mct.cli.NotifierHooks
 import mct.extra.ai.AiSign
 import mct.extra.ai.translator.TranslateSign
 import mct.gui.model.*
@@ -26,6 +27,9 @@ import okio.FileSystem
 class AppViewModel(clientManager: ClientManager) {
     /** Scope tied to this ViewModel's lifetime; cancelled by [dispose]. */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /** Set by [dispose]; late sign callbacks from in-process CLI runs are dropped. */
+    private var disposed = false
 
     val snackbarHostState = SnackbarHostState()
 
@@ -52,7 +56,12 @@ class AppViewModel(clientManager: ClientManager) {
     var toolboxState by mutableStateOf(ToolboxState())
 
     init {
-        scope.launch { logs.collect() }
+        // In-process CLI runs (the project workflow) publish through NotifierHooks, which is
+        // separate from this VM's own Notifier; subscribe so their progress/token/reasoning
+        // signs reach the GUI.
+        NotifierHooks.onTranslateSign(::onTranslateSign)
+        NotifierHooks.onAiSign(::onAiSign)
+        scope.launch(Dispatchers.Default) { logs.collect() }
         scope.launch { reasoning.collect() }
     }
 
@@ -61,12 +70,14 @@ class AppViewModel(clientManager: ClientManager) {
      * UI dispatcher themselves.
      */
     private fun onTranslateSign(sign: TranslateSign) {
+        if (disposed) return
         when (sign) {
             is TranslateSign.Progress -> translation.onProgress(sign)
         }
     }
 
     private fun onAiSign(sign: AiSign) {
+        if (disposed) return
         when (sign) {
             is AiSign.ConsumeToken -> translation.onTokenConsume(sign.count)
             is AiSign.Reasoning -> reasoning.accept(sign)
@@ -75,6 +86,7 @@ class AppViewModel(clientManager: ClientManager) {
 
     /** Must be called by the owning composable's `DisposableEffect` cleanup. */
     fun dispose() {
+        disposed = true
         translation.close()
         scope.cancel()
     }

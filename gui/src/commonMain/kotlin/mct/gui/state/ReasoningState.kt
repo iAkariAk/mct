@@ -14,6 +14,12 @@ import mct.gui.model.GuiSettings
 private const val BATCH_WINDOW_MILLIS = 32L
 private const val MAX_BATCH_SIZE = 512
 
+/** Publishes at most this often per request while streaming. */
+private const val PUBLISH_INTERVAL_MILLIS = 250L
+
+/** ...or as soon as this many characters accumulated since the last publish. */
+private const val PUBLISH_CHAR_THRESHOLD = 4_096
+
 /**
  * Streaming reasoning output of in-flight requests, keyed by request id.
  *
@@ -33,6 +39,8 @@ class ReasoningState {
 
     private val builders = LinkedHashMap<Int, StringBuilder>()
     private val terminated = LinkedHashMap<Int, Boolean>()
+    private val publishedLength = HashMap<Int, Int>()
+    private val publishedAt = HashMap<Int, Long>()
 
     private var opened by mutableStateOf(false)
 
@@ -55,6 +63,8 @@ class ReasoningState {
     fun clear() {
         builders.clear()
         terminated.clear()
+        publishedLength.clear()
+        publishedAt.clear()
         clearPublished()
     }
 
@@ -95,17 +105,33 @@ class ReasoningState {
         touched.forEach(::publish)
     }
 
-    private fun publish(id: Int) {
+    private fun publish(id: Int, force: Boolean = false) {
+        // A finished request must be published immediately; while streaming, throttle so the
+        // growing text is not copied into snapshot state on every 32 ms batch.
+        val finished = terminated[id] == true
+        val length = builders[id]?.length ?: 0
+        if (!force) {
+            if (!finished && !opened) return
+            if (!finished) {
+                val grewBy = length - (publishedLength[id] ?: 0)
+                val elapsed = System.currentTimeMillis() - (publishedAt[id] ?: 0L)
+                if (grewBy < PUBLISH_CHAR_THRESHOLD && elapsed < PUBLISH_INTERVAL_MILLIS) return
+            }
+        }
         contents[id] = builders[id]?.toString().orEmpty()
-        active[id] = terminated[id] != true
+        active[id] = !finished
+        publishedLength[id] = length
+        publishedAt[id] = System.currentTimeMillis()
     }
 
     private fun publishAll() {
-        builders.keys.forEach(::publish)
+        builders.keys.forEach { publish(it, force = true) }
     }
 
     private fun clearPublished() {
         contents.clear()
         active.clear()
+        publishedLength.clear()
+        publishedAt.clear()
     }
 }

@@ -58,7 +58,9 @@ fun LogConsole(
             }
     }
 
-    LaunchedEffect(visibleLogLines.size, followLatest) {
+    // Keyed by the newest entry's sequence, not the list size: the ring buffer keeps `size`
+    // pinned at its cap, which would freeze follow mode after 5000 lines.
+    LaunchedEffect(visibleLogLines.lastOrNull()?.sequence, followLatest) {
         if (followLatest && visibleLogLines.isNotEmpty()) {
             isAutoScrolling = true
             try {

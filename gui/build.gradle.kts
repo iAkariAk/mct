@@ -57,6 +57,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "mct"
             packageVersion = "0.0.1"
         }
 

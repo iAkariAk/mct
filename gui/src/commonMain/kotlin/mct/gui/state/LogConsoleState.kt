@@ -4,11 +4,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import mct.LoggerLevel
 import mct.gui.model.LogEntry
 import java.util.concurrent.atomic.AtomicLong
@@ -101,6 +99,8 @@ class LogConsoleState {
                 batch += queue.tryReceive().getOrNull() ?: break
             }
 
+            // Filtering and materialising the batch is pure CPU work; only the observable
+            // list mutations hop onto the UI thread.
             val current = generation.get()
             val entries = batch.asSequence()
                 .filter { it.generation == current }
@@ -109,8 +109,10 @@ class LogConsoleState {
             batch.clear()
             if (entries.isEmpty()) continue
 
-            lines.appendTrimming(entries, MAX_ENTRIES)
-            visible.appendTrimming(entries.filter(::shows), MAX_ENTRIES)
+            withContext(Dispatchers.Main.immediate) {
+                lines.appendTrimming(entries, MAX_ENTRIES)
+                visible.appendTrimming(entries.filter(::shows), MAX_ENTRIES)
+            }
         }
     }
 

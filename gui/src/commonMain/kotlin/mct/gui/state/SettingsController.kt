@@ -1,5 +1,6 @@
 package mct.gui.state
 
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -11,6 +12,7 @@ import mct.LoggerLevel
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
 import mct.gui.services.ApiSettings
+import mct.gui.services.ThemeSettings
 import mct.gui.services.apiSetting
 import mct.gui.services.themeSetting
 import kotlin.time.Duration.Companion.seconds
@@ -31,6 +33,17 @@ class SettingsController(
 ) {
     /** Last snapshot successfully written to disk; guards no-op auto-saves. */
     private var lastSaved: ApiSettings? = null
+    private var lastSavedTheme: ThemeSettings? = null
+
+    /**
+     * The API-relevant slice of UI state that would be persisted.
+     *
+     * [derivedStateOf] caches the value: unrelated translate-panel edits recompute it but do not
+     * invalidate observers, so auto-save keeps counting down instead of restarting on every
+     * keystroke anywhere in the panel.
+     */
+    private val apiSnapshot = derivedStateOf { snapshot() }
+    private val themeSnapshot = derivedStateOf { themeSnapshotOf() }
 
     /** The snapshot of current UI state that would be persisted. */
     fun snapshot() = ApiSettings(
@@ -42,50 +55,71 @@ class SettingsController(
         temperature = GuiSettings.temperature,
         concurrency = GuiSettings.concurrency,
         concurrentByKind = GuiSettings.concurrentByKind,
+        prettyOutput = GuiSettings.prettyOutput,
         engine = translation.state.engine,
         api = translation.state.api,
     )
 
+    private fun themeSnapshotOf() = ThemeSettings(
+        seedColorArgb = GuiSettings.seedColorArgb,
+        isDynamicThemeEnabled = GuiSettings.isDynamicThemeEnabled,
+        isRainbowTheme = GuiSettings.isRainbowTheme,
+    )
+
     /** Load settings from disk and apply them to UI state. */
     suspend fun load() = withContext(Dispatchers.IO) {
-        val saved = apiSetting.load()
-        val theme = themeSetting.load()
+        val saved = apiSetting.loadOrNull()
+        if (saved == null && apiSetting.exists()) {
+            logs.add(LogEntry(LoggerLevel.Warning, "无法读取 ${apiSetting.path}，已使用默认 API 设置"))
+        }
+        val theme = themeSetting.loadOrNull()
+        if (theme == null && themeSetting.exists()) {
+            logs.add(LogEntry(LoggerLevel.Warning, "无法读取 ${themeSetting.path}，已使用默认主题设置"))
+        }
+        val api = saved ?: ApiSettings()
+        val themeSettings = theme ?: ThemeSettings()
         withContext(Dispatchers.Main) {
             translation.state = translation.state.copy(
-                apiUrl = saved.apiUrl,
-                model = saved.model,
-                apiToken = saved.apiToken,
-                engine = saved.engine,
-                api = saved.api,
+                apiUrl = api.apiUrl,
+                model = api.model,
+                apiToken = api.apiToken,
+                engine = api.engine,
+                api = api.api,
             )
-            GuiSettings.temperature = saved.temperature
-            GuiSettings.useStreamApi = saved.useStreamApi
-            GuiSettings.tokenThreshold = saved.tokenThreshold
-            GuiSettings.concurrency = saved.concurrency
-            GuiSettings.concurrentByKind = saved.concurrentByKind
-            GuiSettings.seedColorArgb = theme.seedColorArgb
-            if (theme.seedColorArgb != 0) GuiSettings.isDynamicThemeEnabled = true
+            GuiSettings.temperature = api.temperature
+            GuiSettings.useStreamApi = api.useStreamApi
+            GuiSettings.tokenThreshold = api.tokenThreshold
+            GuiSettings.concurrency = api.concurrency
+            GuiSettings.concurrentByKind = api.concurrentByKind
+            GuiSettings.prettyOutput = api.prettyOutput
+            GuiSettings.seedColorArgb = themeSettings.seedColorArgb
+            GuiSettings.isDynamicThemeEnabled = themeSettings.isDynamicThemeEnabled
+            GuiSettings.isRainbowTheme = themeSettings.isRainbowTheme
             lastSaved = snapshot()
-            if (saved.apiUrl.isNotBlank() || saved.apiToken.isNotBlank()) {
+            lastSavedTheme = themeSnapshotOf()
+            if (api.apiUrl.isNotBlank() || api.apiToken.isNotBlank()) {
                 logs.add(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
             }
         }
     }
 
     /**
-     * Auto-save: write to disk once [snapshot] has been stable for [AUTO_SAVE_DEBOUNCE].
+     * Auto-save: write to disk once a snapshot has been stable for [AUTO_SAVE_DEBOUNCE].
      *
      * Started from composition; the first snapshot is skipped so startup writes nothing.
      */
     @OptIn(FlowPreview::class)
     suspend fun autoSave() {
-        snapshotFlow { snapshot() }
+        snapshotFlow { apiSnapshot.value to themeSnapshot.value }
             .drop(1)
             .distinctUntilChanged()
             .debounce(AUTO_SAVE_DEBOUNCE)
-            .collect { settings ->
-                if (!save(settings)) {
-                    logs.add(LogEntry(LoggerLevel.Warning, "自动保存设置失败: ${apiSetting.path}"))
+            .collect { (api, theme) ->
+                if (!save(api)) {
+                    logs.add(LogEntry(LoggerLevel.Warning, "自动保存 API 设置失败: ${apiSetting.path}"))
+                }
+                if (!saveTheme(theme)) {
+                    logs.add(LogEntry(LoggerLevel.Warning, "自动保存主题设置失败: ${themeSetting.path}"))
                 }
             }
     }
@@ -95,6 +129,13 @@ class SettingsController(
         if (settings == lastSaved) return true
         val saved = withContext(Dispatchers.IO) { apiSetting.save(settings) }
         if (saved) lastSaved = settings
+        return saved
+    }
+
+    private suspend fun saveTheme(settings: ThemeSettings): Boolean {
+        if (settings == lastSavedTheme) return true
+        val saved = withContext(Dispatchers.IO) { themeSetting.save(settings) }
+        if (saved) lastSavedTheme = settings
         return saved
     }
 }

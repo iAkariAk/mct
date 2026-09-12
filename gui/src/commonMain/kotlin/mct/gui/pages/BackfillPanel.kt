@@ -7,6 +7,8 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,12 +32,14 @@ fun BackfillPanel(
     isRunning: Boolean,
     onRun: () -> Unit,
 ) {
+    // Latest state at invocation time keeps every field callback's identity stable.
+    val currentState by rememberUpdatedState(state)
     val dirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(input = it.absolutePath())) }
+        file?.let { onStateChange(currentState.copy(input = it.absolutePath())) }
     }
     val filePicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(replacements = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(replacements = it.absolutePath())) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PanelSection("输入 / 输出", Icons.Outlined.FolderOpen) {
@@ -43,14 +47,14 @@ fun BackfillPanel(
                 "Minecraft 存档目录",
                 "选择包含 level.dat 的文件夹...",
                 state.input,
-                { onStateChange(state.copy(input = it)) }) {
+                { onStateChange(currentState.copy(input = it)) }) {
                 dirPicker.launch()
             }
             PathRow(
                 "替换文件 JSON（来自步骤②）",
                 "选择 replacements.json...",
                 state.replacements,
-                { onStateChange(state.copy(replacements = it)) }) {
+                { onStateChange(currentState.copy(replacements = it)) }) {
                 filePicker.launch()
             }
         }
@@ -60,7 +64,7 @@ fun BackfillPanel(
                 entries = RunMode.entries,
                 selected = state.mode,
                 label = { it.label },
-                onSelected = { onStateChange(state.copy(mode = it)) },
+                onSelected = { onStateChange(currentState.copy(mode = it)) },
             )
             Text(
                 state.mode.description,

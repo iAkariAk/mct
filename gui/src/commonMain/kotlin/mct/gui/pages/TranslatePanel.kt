@@ -1,7 +1,9 @@
 package mct.gui.pages
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -18,8 +20,6 @@ import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import mct.gui.components.*
 import mct.gui.model.ApiTranslateState
 import mct.gui.model.TranslateState
@@ -36,37 +36,41 @@ fun TranslatePanel(
     isRunning: Boolean,
     onRun: () -> Unit,
     onCancel: () -> Unit = {},
-    onOptimizePrompt: suspend (String) -> String? = { _ -> null },
+    onOptimizePrompt: () -> Unit = {},
 ) {
     var showToken by remember { mutableStateOf(false) }
     var showApiToken by remember { mutableStateOf(false) }
     var modelMenuExpanded by remember { mutableStateOf(false) }
-    var optimizeJob by remember { mutableStateOf<Job?>(null) }
-    val scope = rememberCoroutineScope()
-    val motionScheme = MaterialTheme.motionScheme
+    // Read the latest state at invocation time so every field callback below keeps a stable
+    // identity: a captured `state` would be invalidated by any edit, recomposing the whole panel.
+    val currentState by rememberUpdatedState(state)
     val api = state.api
     val updateApi: ((ApiTranslateState) -> ApiTranslateState) -> Unit = { transform ->
-        onStateChange(state.copy(api = transform(api)))
+        onStateChange(currentState.copy(api = transform(api)))
     }
 
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(input = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(input = it.absolutePath())) } }
 
+    val mappingSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
+        file?.let { onStateChange(currentState.copy(mappingOutput = ensureJsonExt(it.absolutePath()))) }
+    }
     val outputSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(output = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(output = ensureJsonExt(it.absolutePath()))) }
     }
     val termSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(termOutput = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(termOutput = ensureJsonExt(it.absolutePath()))) }
     }
     val termPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(existingTermPath = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(existingTermPath = it.absolutePath())) } }
     val cachesPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(state.copy(cachesPath = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(cachesPath = it.absolutePath())) } }
 
-    val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() && state.termOutput.isNotBlank() &&
+    val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() &&
+            state.mappingOutput.isNotBlank() && state.termOutput.isNotBlank() &&
             when (state.engine) {
                 TranslationEngine.Ai -> state.model.isNotBlank() && state.apiToken.isNotBlank()
                 TranslationEngine.Api -> api.url.isNotBlank() && api.targetLanguage.isNotBlank()
@@ -79,24 +83,24 @@ fun TranslatePanel(
             "提取结果 JSON（来自步骤①）",
             "选择 extractions.json...",
             state.input,
-            { onStateChange(state.copy(input = it)) }) {
+            { onStateChange(currentState.copy(input = it)) }) {
             inputPicker.launch()
         }
         PathRow(
             "输出替换Mapping JSON",
             "选择保存位置...",
             state.mappingOutput,
-            { onStateChange(state.copy(mappingOutput = it)) }) {
-            outputSaver.launch(suggestedName = "mappings", defaultExtension = "json")
+            { onStateChange(currentState.copy(mappingOutput = it)) }) {
+            mappingSaver.launch(suggestedName = "mappings", defaultExtension = "json")
         }
-        PathRow("输出替换文件 JSON", "选择保存位置...", state.output, { onStateChange(state.copy(output = it)) }) {
+        PathRow("输出替换文件 JSON", "选择保存位置...", state.output, { onStateChange(currentState.copy(output = it)) }) {
             outputSaver.launch(suggestedName = "replacements", defaultExtension = "json")
         }
         PathRow(
             "输出术语表 JSON",
             "选择保存位置...",
             state.termOutput,
-            { onStateChange(state.copy(termOutput = it)) }) {
+            { onStateChange(currentState.copy(termOutput = it)) }) {
             termSaver.launch(suggestedName = "terms", defaultExtension = "json")
         }
 
@@ -110,7 +114,7 @@ fun TranslatePanel(
             entries = TranslationEngine.entries,
             selected = state.engine,
             label = { it.label },
-            onSelected = { onStateChange(state.copy(engine = it)) },
+            onSelected = { onStateChange(currentState.copy(engine = it)) },
         )
 
         when (state.engine) {
@@ -124,7 +128,7 @@ fun TranslatePanel(
 
                 ConfigTextField(
                     value = state.apiUrl,
-                    onValueChange = { onStateChange(state.copy(apiUrl = it)) },
+                    onValueChange = { onStateChange(currentState.copy(apiUrl = it)) },
                     label = { Text("API 地址") },
                     placeholder = { Text("留空使用 OpenAI 官方；或填入 https://api.openai.com/v1/") }
                 )
@@ -132,7 +136,7 @@ fun TranslatePanel(
                 Box {
                     ConfigTextField(
                         value = state.model,
-                        onValueChange = { onStateChange(state.copy(model = it)) },
+                        onValueChange = { onStateChange(currentState.copy(model = it)) },
                         label = { Text("模型名称") },
                         readOnly = true,
                         placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-v4-pro...") },
@@ -153,7 +157,7 @@ fun TranslatePanel(
                                 DropdownMenuItem(
                                     text = { Text(m) },
                                     onClick = {
-                                        onStateChange(state.copy(model = m))
+                                        onStateChange(currentState.copy(model = m))
                                         modelMenuExpanded = false
                                     }
                                 )
@@ -164,7 +168,7 @@ fun TranslatePanel(
 
                 ConfigTextField(
                     value = state.apiToken,
-                    onValueChange = { onStateChange(state.copy(apiToken = it)) },
+                    onValueChange = { onStateChange(currentState.copy(apiToken = it)) },
                     label = { Text("API 密钥") },
                     placeholder = { Text("sk-...") },
                     visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
@@ -258,64 +262,47 @@ fun TranslatePanel(
             "已有术语表 JSON（可选）",
             "留空则从头翻译...",
             state.existingTermPath,
-            { onStateChange(state.copy(existingTermPath = it)) }) {
+            { onStateChange(currentState.copy(existingTermPath = it)) }) {
             termPicker.launch()
         }
         PathRow(
             "翻译缓存 JSON（可选）",
             "留空则无缓存...",
             state.cachesPath,
-            { onStateChange(state.copy(cachesPath = it)) }) {
+            { onStateChange(currentState.copy(cachesPath = it)) }) {
             cachesPicker.launch()
         }
 
         if (state.engine == TranslationEngine.Ai) {
             LiteratureStyleField(
                 value = state.literatureStyle,
-                onValueChange = { onStateChange(state.copy(literatureStyle = it)) },
+                onValueChange = { onStateChange(currentState.copy(literatureStyle = it)) },
                 optimizing = state.isOptimizing,
-                onOptimizeClick = {
-                    if (optimizeJob != null) return@LiteratureStyleField
-                    optimizeJob = scope.launch {
-                        onStateChange(state.copy(isOptimizing = true))
-                        try {
-                            val improved = onOptimizePrompt(state.literatureStyle)
-                            if (improved != null) {
-                                onStateChange(state.copy(literatureStyle = improved, isOptimizing = false))
-                            } else {
-                                onStateChange(state.copy(isOptimizing = false))
-                            }
-                        } catch (_: Exception) {
-                            onStateChange(state.copy(isOptimizing = false))
-                        } finally {
-                            optimizeJob = null
-                        }
-                    }
-                },
+                onOptimizeClick = onOptimizePrompt,
             )
 
             MapInfoFields(
                 value = state.mapInfo,
-                onValueChange = { onStateChange(state.copy(mapInfo = it)) },
+                onValueChange = { onStateChange(currentState.copy(mapInfo = it)) },
             )
 
             ExtraPromptsField(
                 value = state.extraPrompts,
-                onValueChange = { onStateChange(state.copy(extraPrompts = it)) },
+                onValueChange = { onStateChange(currentState.copy(extraPrompts = it)) },
             )
 
             Spacer(Modifier.height(12.dp))
             TextSwitch(
                 modifier = Modifier.fillMaxWidth(),
                 checked = state.handleGradientAggressively,
-                onCheckedChange = { onStateChange(state.copy(handleGradientAggressively = it)) },
+                onCheckedChange = { onStateChange(currentState.copy(handleGradientAggressively = it)) },
                 text = "启用激进的渐变色文本处理",
             )
 
             Spacer(Modifier.height(12.dp))
             ConfigTextField(
                 value = state.targetLanguage,
-                onValueChange = { onStateChange(state.copy(targetLanguage = it)) },
+                onValueChange = { onStateChange(currentState.copy(targetLanguage = it)) },
                 label = { Text("目标语言") },
                 placeholder = { Text("简体中文") }
             )
@@ -361,12 +348,10 @@ private fun TranslationProgressCard(
     )
 
     AnimatedVisibility(
-        visible = isRunning || progress() > 0f,
+        visible = isRunning,
         modifier = modifier,
-        enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
-            expandVertically(animationSpec = motionScheme.defaultSpatialSpec()),
-        exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
-            shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+        enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+        exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
     ) {
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),

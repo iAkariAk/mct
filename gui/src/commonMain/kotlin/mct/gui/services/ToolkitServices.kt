@@ -12,6 +12,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.schema.generator.json.serialization.SerializationClassJsonSchemaGenerator
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -56,6 +57,7 @@ suspend fun flattenTextPool(
     val groups = when (kind) {
         "region" -> MCTJson.decodeFromString<List<RegionExtractionGroup>>(content)
         "datapack" -> MCTJson.decodeFromString<List<DatapackExtractionGroup>>(content)
+        "cext" -> MCTJson.decodeFromString<List<CextExtractionGroup>>(content)
         else -> error("未知提取类型: $kind")
     }
     val pool = groups.exportIntoPool(simply)
@@ -140,9 +142,9 @@ suspend fun exportPatternSchema(
     output: String,
 ) = withContext(Dispatchers.IO) {
     val descriptor = when (kind) {
-        PatternSchemaKind.Command -> CommandExtractPattern.serializer().descriptor
-        PatternSchemaKind.DataPointer -> DataPointerPattern.serializer().descriptor
-        PatternSchemaKind.CommandRegex -> CommandRegexPattern.serializer().descriptor
+        PatternSchemaKind.Command -> ListSerializer(CommandExtractPattern.serializer()).descriptor
+        PatternSchemaKind.DataPointer -> ListSerializer(DataPointerPattern.serializer()).descriptor
+        PatternSchemaKind.CommandRegex -> ListSerializer(CommandRegexPattern.serializer()).descriptor
     }
     val schema = SerializationClassJsonSchemaGenerator(json = MCTJson).generateSchema(descriptor)
     output.toPath().writeJson(schema, pretty = GuiSettings.prettyOutput)

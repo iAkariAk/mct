@@ -11,6 +11,9 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -39,31 +42,53 @@ fun PatchPanel(
     onApply: () -> Unit,
 ) {
     val motionScheme = MaterialTheme.motionScheme
+    // Latest state at invocation time keeps every field callback's identity stable.
+    val currentState by rememberUpdatedState(state)
+    // Stable identities: the rule editor and the fields below memoise on these.
+    val onCreateStateChange: (PatchCreateState) -> Unit = remember(onStateChange) {
+        { updated -> onStateChange(currentState.copy(create = updated)) }
+    }
+    val onApplyStateChange: (PatchApplyState) -> Unit = remember(onStateChange) {
+        { updated -> onStateChange(currentState.copy(apply = updated)) }
+    }
     val create = state.create
     val apply = state.apply
 
     val createDirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(create = create.copy(input = it.absolutePath()))) }
+        file?.let {
+            val s = currentState
+            onStateChange(s.copy(create = s.create.copy(input = it.absolutePath())))
+        }
     }
     val mappingPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single,
     ) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(create = create.copy(mapping = it.absolutePath()))) }
+        file?.let {
+            val s = currentState
+            onStateChange(s.copy(create = s.create.copy(mapping = it.absolutePath())))
+        }
     }
     val patchSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
         file?.let {
+            val s = currentState
             onStateChange(
-                state.copy(create = create.copy(output = ensureExtension(it.absolutePath(), create.format.extension)))
+                s.copy(create = s.create.copy(output = ensureExtension(it.absolutePath(), s.create.format.extension)))
             )
         }
     }
     val applyDirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(apply = apply.copy(input = it.absolutePath()))) }
+        file?.let {
+            val s = currentState
+            onStateChange(s.copy(apply = s.apply.copy(input = it.absolutePath())))
+        }
     }
     val patchPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single,
     ) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(apply = apply.copy(patch = it.absolutePath()))) }
+        file?.let {
+            val s = currentState
+            onStateChange(s.copy(apply = s.apply.copy(patch = it.absolutePath())))
+        }
     }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -87,17 +112,22 @@ fun PatchPanel(
             when (section) {
                 PatchSection.Create -> PatchCreateSection(
                     state = create,
-                    onStateChange = { onStateChange(state.copy(create = it)) },
+                    onStateChange = onCreateStateChange,
                     isRunning = isRunning,
                     onBrowseInput = { createDirPicker.launch() },
                     onBrowseMapping = { mappingPicker.launch() },
-                    onBrowseOutput = { patchSaver.launch(suggestedName = "patch", defaultExtension = create.format.extension) },
+                    onBrowseOutput = {
+                        patchSaver.launch(
+                            suggestedName = "patch",
+                            defaultExtension = currentState.create.format.extension,
+                        )
+                    },
                     onCreate = onCreate,
                 )
 
                 PatchSection.Apply -> PatchApplySection(
                     state = apply,
-                    onStateChange = { onStateChange(state.copy(apply = it)) },
+                    onStateChange = onApplyStateChange,
                     isRunning = isRunning,
                     onBrowseInput = { applyDirPicker.launch() },
                     onBrowsePatch = { patchPicker.launch() },
@@ -119,6 +149,10 @@ private fun PatchCreateSection(
     onCreate: () -> Unit,
 ) {
     val patterns = state.patterns
+    val currentState by rememberUpdatedState(state)
+    val onPatternsChange: (MCTPatternState) -> Unit = remember(onStateChange) {
+        { updated -> onStateChange(currentState.copy(patterns = updated)) }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
@@ -189,7 +223,7 @@ private fun PatchCreateSection(
 
         MCTPatternEditor(
             patterns = patterns,
-            onPatternsChange = { onStateChange(state.copy(patterns = it)) },
+            onPatternsChange = onPatternsChange,
             slots = MCTPatternSlot.entries,
         )
 

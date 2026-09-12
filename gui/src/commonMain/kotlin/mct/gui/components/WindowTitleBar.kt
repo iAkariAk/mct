@@ -16,15 +16,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.WindowPlacement
@@ -142,17 +143,29 @@ private fun RainbowTitleAccent(modifier: Modifier = Modifier) {
         label = "title-rainbow-accent-phase",
     )
 
-    Canvas(modifier = modifier) {
-        if (size.width <= 0f || size.height <= 0f) return@Canvas
-        val shift = phase.value * size.width
-        drawRect(
-            brush = Brush.horizontalGradient(
-                colors = RainbowAccentColors,
-                startX = shift - size.width,
-                endX = shift,
-                tileMode = TileMode.Repeated,
-            )
+    // The brush is fixed at the bar's width and only translated each frame: rebuilding a
+    // LinearGradient (with its colour array and shader cache) per frame was pure churn.
+    var width by remember { mutableFloatStateOf(0f) }
+    val brush = remember(width) {
+        if (width <= 0f) null
+        else Brush.horizontalGradient(
+            colors = RainbowAccentColors,
+            startX = 0f,
+            endX = width,
+            tileMode = TileMode.Repeated,
         )
+    }
+
+    Canvas(modifier = modifier.onSizeChanged { width = it.width.toFloat() }) {
+        if (size.width <= 0f || size.height <= 0f) return@Canvas
+        val brush = brush ?: return@Canvas
+        val shift = phase.value * size.width
+        translate(left = shift - size.width) {
+            drawRect(
+                brush = brush,
+                size = Size(size.width, size.height),
+            )
+        }
     }
 }
 

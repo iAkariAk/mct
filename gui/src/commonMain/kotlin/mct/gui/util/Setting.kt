@@ -15,32 +15,40 @@ val settingsDir: Path = "${System.getProperty("user.home")}/.mct/".toPath()
 
 interface Setting<T> {
     val path: Path
+    fun exists(): Boolean = SystemFileSystem.exists(path)
+
+    /** Load the persisted value, or `null` when the file is absent or unreadable. */
+    fun loadOrNull(): T?
+
+    /** Load the persisted value, falling back to the default. */
     fun load(): T
+
     fun save(value: T): Boolean
 }
 
 inline fun <reified T> setting(name: String, crossinline default: () -> T): Setting<T> = object : Setting<T> {
     override val path: Path = settingsDir / ("$name.json")
-    override fun load(): T = try {
-        if (SystemFileSystem.exists(path)) {
-            SystemFileSystem.read(path) {
-                SettingsJson.decodeFromBufferedSource<T>(this)
-            }
-        } else default()
-    } catch (e: Exception) {
-        println("[MCT] 加载设置失败 (${path.name}): ${e.message}")
-        default()
+
+    override fun loadOrNull(): T? {
+        if (!SystemFileSystem.exists(path)) return null
+        return runCatching {
+            SystemFileSystem.read(path) { SettingsJson.decodeFromBufferedSource<T>(this) }
+        }.getOrNull()
     }
 
-    override fun save(value: T) = try {
+    override fun load(): T = loadOrNull() ?: default()
+
+    /**
+     * Write the file atomically: a crash mid-write leaves the previous contents intact
+     * instead of a truncated file that [loadOrNull] would silently replace with defaults.
+     */
+    override fun save(value: T): Boolean = runCatching {
         SystemFileSystem.createDirectories(path.parent!!)
-        SystemFileSystem.write(path) {
+        val temp = (path.parent!! / (path.name + ".tmp"))
+        SystemFileSystem.write(temp) {
             SettingsJson.encodeToBufferedSink<T>(value, this)
         }
+        SystemFileSystem.atomicMove(temp, path)
         true
-    } catch (e: Exception) {
-        println("[MCT] 保存设置失败 (${path.name}): ${e.message}")
-        false
-    }
-
+    }.getOrElse { false }
 }

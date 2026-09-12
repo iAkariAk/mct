@@ -46,12 +46,15 @@ fun main() {
         ) {
             val isDark = isSystemInDarkTheme()
 
-            LaunchedEffect(isDark) {
+            LaunchedEffect(isDark, GuiSettings.seedColorArgb) {
                 window.minimumSize = java.awt.Dimension(400, 300)
                 ThemeState.restoreFromSettings(isDark)
             }
 
-            val colorScheme = ThemeState.colorScheme ?: if (isDark) darkColorScheme() else lightColorScheme()
+            // The persisted dynamic seed only applies while the user has the dynamic theme on.
+            val dynamicScheme = if (GuiSettings.isDynamicThemeEnabled) ThemeState.colorScheme else null
+            val colorScheme = dynamicScheme ?: if (isDark) darkColorScheme() else lightColorScheme()
+            val appModifier = remember { Modifier.fillMaxSize() }
             MaterialTheme(
                 colorScheme = colorScheme,
                 motionScheme = MotionScheme.expressive(),
@@ -68,7 +71,7 @@ fun main() {
                             rainbowAccent = GuiSettings.isRainbowTheme,
                         )
                         Box(Modifier.weight(1f)) {
-                            App(Modifier.fillMaxSize())
+                            App(appModifier)
                             SettingsSheet(
                                 visible = settingsVisible,
                                 onDismiss = { settingsVisible = false }
@@ -195,6 +198,7 @@ fun App(modifier: Modifier = Modifier) {
                                     isRunning = vm.operations.isRunning,
                                     onRun = {
                                         vm.translation.resetProgress()
+                                        vm.reasoning.clear()
                                         vm.operations.launch {
                                             with(vm.env) {
                                                 either {
@@ -232,15 +236,14 @@ fun App(modifier: Modifier = Modifier) {
                                         }
                                     },
                                     onCancel = { vm.operations.cancel() },
-                                    onOptimizePrompt = { current ->
-                                        vm.translation.optimizePrompt(current)
-                                    })
+                                    onOptimizePrompt = { vm.translation.optimizeLiteratureStyle() })
 
                                 Tab.TermExtract -> TermExtractPanel(
                                     state = vm.termExtractState,
                                     onStateChange = setTermExtractState,
                                     isRunning = vm.operations.isRunning,
                                     onRun = {
+                                        vm.reasoning.clear()
                                         vm.operations.launch {
                                             with(vm.env) {
                                                 runTermExtraction(

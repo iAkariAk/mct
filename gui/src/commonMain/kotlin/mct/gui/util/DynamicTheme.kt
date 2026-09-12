@@ -26,6 +26,10 @@ import org.jetbrains.skia.*
 object ThemeState {
     var colorScheme: ColorScheme? by mutableStateOf(null)
 
+    /** Latest system light/dark state, so runtime picks build a scheme matching it. */
+    var isDark by mutableStateOf(true)
+        private set
+
     /** Build a scheme from [argb] and apply it. */
     private fun applyArgb(argb: Int, isDark: Boolean) {
         colorScheme = dynamicColorScheme(
@@ -36,14 +40,15 @@ object ThemeState {
     }
 
     /** Called when the user picks an image — writes [argb] into settings + scheme. */
-    fun applySeedArgb(argb: Int, isDark: Boolean = true) {
+    fun applySeedArgb(argb: Int) {
         GuiSettings.seedColorArgb = argb
         GuiSettings.isDynamicThemeEnabled = true
         applyArgb(argb, isDark)
     }
 
-    /** Called on startup — rebuilds the scheme from the persisted seed (if any). */
-    fun restoreFromSettings(isDark: Boolean = true) {
+    /** Called on startup and whenever the system theme or the seed changes. */
+    fun restoreFromSettings(isDark: Boolean) {
+        this.isDark = isDark
         val argb = GuiSettings.seedColorArgb
         if (argb != 0) applyArgb(argb, isDark)
     }
@@ -134,7 +139,7 @@ class ImageThemeState {
             if (color != null) {
                 val argb = color.toArgb()
                 ThemeState.applySeedArgb(argb)
-                withContext(Dispatchers.IO) { themeSetting.save(ThemeSettings(seedColorArgb = argb)) }
+                persistTheme()
             } else {
                 errorMessage = "无法从图片中提取主题色"
             }
@@ -152,9 +157,21 @@ class ImageThemeState {
         isProcessing = false
         errorMessage = null
         ThemeState.reset()
-        withContext(Dispatchers.IO) {
-            runCatching { themeSetting.save(ThemeSettings(seedColorArgb = 0)) }
-        }
+        persistTheme()
+    }
+
+    /**
+     * Write the theme settings right away; picking a colour is a deliberate action, so it
+     * should not wait for the auto-save debounce.
+     */
+    private suspend fun persistTheme() = withContext(Dispatchers.IO) {
+        themeSetting.save(
+            ThemeSettings(
+                seedColorArgb = GuiSettings.seedColorArgb,
+                isDynamicThemeEnabled = GuiSettings.isDynamicThemeEnabled,
+                isRainbowTheme = GuiSettings.isRainbowTheme,
+            )
+        )
     }
 }
 

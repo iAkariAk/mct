@@ -16,6 +16,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLaunche
 import mct.gui.components.PathRow
 import mct.gui.components.SectionTitle
 import mct.gui.model.ProjectWorkflowState
+import mct.gui.services.projectNameError
 
 private data class ProjectStep(
     val number: Int,
@@ -45,6 +46,7 @@ fun ProjectPanel(
         file?.let { onStateChange(state.copy(source = it.absolutePath())) }
     }
     val hasProjectDirectory = state.directory.isNotBlank()
+    val nameError = projectNameError(state.name).takeIf { state.name.isNotBlank() }
 
     Column(
         modifier = modifier.fillMaxWidth().padding(16.dp),
@@ -139,6 +141,7 @@ fun ProjectPanel(
                     ProjectNameField(
                         value = state.name,
                         onValueChange = { onStateChange(state.copy(name = it)) },
+                        error = nameError,
                         modifier = Modifier.weight(1f),
                     )
                     Box(Modifier.weight(1f)) {
@@ -156,6 +159,7 @@ fun ProjectPanel(
                     ProjectNameField(
                         value = state.name,
                         onValueChange = { onStateChange(state.copy(name = it)) },
+                        error = nameError,
                     )
                     PathRow(
                         label = "源 Minecraft 存档",
@@ -175,11 +179,12 @@ fun ProjectPanel(
         val steps = remember(
             hasProjectDirectory,
             state.name.isNotBlank(),
+            nameError,
             state.source.isNotBlank(),
             onInit, onUpdate, onTerms, onTranslate, onBuild, onPatch,
         ) {
             listOf(
-                ProjectStep(1, "Init", Icons.Outlined.CreateNewFolder, hasProjectDirectory && state.name.isNotBlank() && state.source.isNotBlank(), onInit),
+                ProjectStep(1, "Init", Icons.Outlined.CreateNewFolder, hasProjectDirectory && nameError == null && state.name.isNotBlank() && state.source.isNotBlank(), onInit),
                 ProjectStep(2, "Update", Icons.Outlined.Update, hasProjectDirectory, onUpdate),
                 ProjectStep(3, "术语", Icons.Outlined.Spellcheck, hasProjectDirectory, onTerms),
                 ProjectStep(4, "翻译", Icons.Outlined.Translate, hasProjectDirectory, onTranslate),
@@ -267,6 +272,7 @@ private fun ProjectNameField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    error: String? = null,
 ) {
     Column(modifier) {
         Text("项目名称", style = MaterialTheme.typography.labelMedium)
@@ -276,7 +282,9 @@ private fun ProjectNameField(
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            isError = error != null,
             placeholder = { Text("CLI 将创建同名子目录") },
+            supportingText = error?.let { message -> { Text(message) } },
         )
     }
 }
