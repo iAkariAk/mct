@@ -1,6 +1,5 @@
 package mct.command
 
-import io.kotest.assertions.fail
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.assertions.withClue
@@ -16,7 +15,6 @@ import mct.dp.mcfunction.backfillMCFunction
 import mct.mappings
 import mct.model.patch.*
 import mct.model.patch.DatapackReplacement.MCFunction
-import mct.util.unreachable
 
 class CommandsTest : StringSpec({
     fun parseCommandsWithLogger(mcf: String): List<MCCommand> {
@@ -26,7 +24,7 @@ class CommandsTest : StringSpec({
         }
     }
 
-    fun extractText(str: String): List<DatapackExtraction> {
+    fun extractText(str: String): List<DatapackExtraction.MCFunction> {
         val logger = Logger.Console()
         return context(logger) {
             extractTextFromCommands(str).map {
@@ -76,11 +74,7 @@ class CommandsTest : StringSpec({
     "test backfill" {
         val extraction = extractText(TEST_COMMANDS)
         val replacements = extraction.map {
-            when (it) {
-                is DatapackExtraction.MCFunction -> MCFunction(it.indices, "{CIALLO}", null)
-                is DatapackExtraction.MCJson -> fail("Should not reach")
-                is DatapackExtraction.Nbt -> unreachable
-            }
+            MCFunction(it.indices, "{CIALLO}")
         }
         val backfilled = TEST_COMMANDS.backfillMCFunction(replacements)
         backfilled shouldBe $$"""
@@ -123,8 +117,7 @@ class CommandsTest : StringSpec({
         // Greedy extraction on "say" goes to end of command, so backfill should replace the full range
         val mcf = "say hello world"
         val extractions = extractText(mcf)
-        val funcExtractions = extractions.filterIsInstance<DatapackExtraction.MCFunction>()
-        val replacement = MCFunction(funcExtractions[0].indices, "{greeting}", null)
+        val replacement = MCFunction(extractions[0].indices, "{greeting}")
         val backfilled = mcf.backfillMCFunction(listOf(replacement))
         backfilled shouldBe "say {greeting}"
     }
@@ -135,11 +128,10 @@ class CommandsTest : StringSpec({
                 say beta
             """.trimIndent()
         val extractions = extractText(mcf)
-        val funcExtractions = extractions.filterIsInstance<DatapackExtraction.MCFunction>()
-        funcExtractions.size shouldBe 2
+        extractions.size shouldBe 2
         val replacements = listOf(
-            MCFunction(funcExtractions[0].indices, "{A}", null),
-            MCFunction(funcExtractions[1].indices, "{B}", null),
+            MCFunction(extractions[0].indices, "{A}"),
+            MCFunction(extractions[1].indices, "{B}"),
         )
         val backfilled = mcf.backfillMCFunction(replacements)
         backfilled shouldBe """
@@ -153,8 +145,8 @@ class CommandsTest : StringSpec({
         shouldThrowAny {
             raw.backfillMCFunction(
                 listOf(
-                    MCFunction(4..6, "X", null),
-                    MCFunction(5..7, "X", null),
+                    MCFunction(4..6, "X"),
+                    MCFunction(5..7, "X"),
                 )
             )
         }.message shouldStartWith "Replacements cannot overlap with each other"
@@ -162,8 +154,8 @@ class CommandsTest : StringSpec({
         shouldNotThrowAny {
             raw.backfillMCFunction(
                 listOf(
-                    MCFunction(4..6, "X", null),
-                    MCFunction(7..100, "X", null),
+                    MCFunction(4..6, "X"),
+                    MCFunction(7..100, "X"),
                 )
             )
         }
@@ -171,7 +163,6 @@ class CommandsTest : StringSpec({
 
     "test syntax kind is propagated through extraction" {
         val selectorExtraction = extractText("msg @p[name=foo] bar")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "foo" }
         selectorExtraction shouldNotBe null
         selectorExtraction!!.syntax shouldBe SnbtSyntaxKind.LiteralString
@@ -180,7 +171,6 @@ class CommandsTest : StringSpec({
     "test syntax kind double-quoted" {
         // For double-quoted names, the raw content stored includes the quotes
         val selectorExtraction = extractText("""msg @p[name="hello"] bar""")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "\"hello\"" }
         selectorExtraction shouldNotBe null
         selectorExtraction!!.content shouldBe "\"hello\""
@@ -190,7 +180,6 @@ class CommandsTest : StringSpec({
     "test syntax kind single-quoted" {
         // For single-quoted names, the raw content stored includes the quotes
         val selectorExtraction = extractText("msg @p[name='world'] bar")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "'world'" }
         selectorExtraction shouldNotBe null
         selectorExtraction!!.syntax shouldBe SnbtSyntaxKind.SingleQuoteString
@@ -201,7 +190,6 @@ class CommandsTest : StringSpec({
         val extractions = extractText(mcf)
         extractions.size shouldBe 2
         val selectorExtraction = extractions
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.unquoted() == "Foo" }
         selectorExtraction shouldNotBe null
         selectorExtraction!!.syntax shouldBe SnbtSyntaxKind.SingleQuoteString
@@ -278,7 +266,6 @@ class CommandsTest : StringSpec({
         // should carry the correct syntax kind
         val extraction =
             extractText("""dialog show @a {"type":"minecraft:notice","title":{"text":"Hello","color":"red"}}""")
-                .filterIsInstance<DatapackExtraction.MCFunction>()
                 .find { "Hello" in it.content }
         extraction shouldNotBe null
         extraction!!.syntax shouldBe SnbtSyntaxKind.Compound
@@ -288,7 +275,6 @@ class CommandsTest : StringSpec({
         // data merge entity uses SnbtEntire at position 4 with BuiltinCommandDataPatterns
         // Should extract at least one text from the NBT
         val extraction = extractText("""data merge entity @e[limit=1] {CustomName:"Hello"}""")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .firstOrNull()
         // At minimum, an extraction should exist (syntax depends on how data merge pattern routes)
         extraction shouldNotBe null
@@ -297,7 +283,6 @@ class CommandsTest : StringSpec({
     "test plain extraction (tellraw) carries null syntax" {
         // tellraw uses Positions(2) = PlainEntire → syntax is null
         val extraction = extractText("""tellraw @a {"text":"Hello","color":"red"}""")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { "Hello" in it.content }
         extraction shouldNotBe null
         extraction!!.syntax shouldBe null
@@ -306,7 +291,6 @@ class CommandsTest : StringSpec({
     "test target selector literal string carries LiteralString syntax" {
         // Unquoted selector names should get LiteralString, not Compound
         val selectorExtraction = extractText("msg @p[name=literalName] bar")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "literalName" }
         selectorExtraction shouldNotBe null
         selectorExtraction!!.syntax shouldBe SnbtSyntaxKind.LiteralString
@@ -316,7 +300,6 @@ class CommandsTest : StringSpec({
         // Simulate how region/Extract.kt converts ExtractedCommandSlice to Location
         // with the syntax field
         val slice = extractText("msg @p[name=bareword] bar")
-            .filterIsInstance<DatapackExtraction.MCFunction>()
             .find { it.content == "bareword" }
         slice shouldNotBe null
 

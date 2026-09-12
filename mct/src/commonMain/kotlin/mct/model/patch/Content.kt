@@ -104,14 +104,14 @@ sealed interface ExtractionContent {
         val raw: String,
         val locations: List<Location>, // must be ordered ascendingly based on indices
     ) : ExtractionContent {
-        override val format: FormatKind = FormatKind.PlainStr
+        override val format: FormatKind = PlainStr
 
         @Serializable
         data class Location(
             override val indices: IntRangeSerializable,
             override val content: String,
             val syntax: SnbtSyntaxKind? = null,
-            val format: FormatKind = PlainStr
+            val format: FormatKind = PlainStr // [format] represents the content inside the quotation if [syntax] is a quote type
         ) : StringIndices {
             inline fun unquoted() = content.unquoted(syntax)
         }

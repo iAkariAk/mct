@@ -35,7 +35,7 @@ private fun Sequence<StringIndicesWithSyntaxFormat>.offset(baseIndex: Int): Sequ
             it.indices.offset(baseIndex),
             it.content,
             it.syntax,
-            SnbtStr
+            it.format,
         )
     }
 
@@ -167,7 +167,7 @@ sealed interface ArgSelection {
     @Serializable
     @SerialName("with_info")
     data class WithInfo(
-        val format: FormatKind,
+        val format: FormatKind, // the [format] is the content inside the quotation if [syntax] is any quote type
         val syntax: SnbtSyntaxKind? = null
     ) : ArgSelection {
         context(_: Raise<IndexSelectError>)

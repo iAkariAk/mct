@@ -8,7 +8,7 @@ import mct.serializer.Regex2Serializable
 @Serializable
 data class GroupInfo(
     val syntax: SnbtSyntaxKind? = null,
-    val format: FormatKind = PlainStr
+    val format: FormatKind? = null  // the [format] is the content inside the quotation if [syntax] is any quote type
 ) {
     companion object {
         val Default = GroupInfo()

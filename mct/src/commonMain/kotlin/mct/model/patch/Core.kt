@@ -58,8 +58,16 @@ enum class SnbtSyntaxKind {
     SingleQuoteString,
     DoubleQuoteString,
     LiteralString;
+
+    fun isQuote() = this == SingleQuoteString || this == DoubleQuoteString
 }
 
+
+fun String.inferSyntaxKind(): SnbtSyntaxKind = when {
+    surroundedBy('\'') -> SnbtSyntaxKind.SingleQuoteString
+    surroundedBy('\"') -> SnbtSyntaxKind.DoubleQuoteString
+    else -> SnbtSyntaxKind.LiteralString
+}
 
 fun String.unquoted(syntax: SnbtSyntaxKind?) = when (syntax) {
     SingleQuoteString -> singleUnquoted()
@@ -81,12 +89,17 @@ fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.inferFormatKind(shouldTextComponent: Boolean = false, json: EitherJson = MCCommandJsonRight): FormatKind =
-    when {
-        if (shouldTextComponent) isTextComponentJson(json) else isJson(json) -> FormatKind.JsonStr
-        if (shouldTextComponent) isTextComponentSnbt() else isSnbt() -> FormatKind.SnbtStr
+fun String.inferFormatKind(
+    json: EitherJson = MCCommandJsonRight,
+    syntax: SnbtSyntaxKind? = null
+): FormatKind {
+    val content = if (syntax?.isQuote() == true) unquoted(syntax) else this
+    return when {
+        content.isJson(json) -> FormatKind.JsonStr
+        content.isSnbt() -> FormatKind.SnbtStr
         else -> FormatKind.PlainStr
     }
+}
 
 fun FormatKind.isString(): Boolean =
     this == FormatKind.JsonStr || this == FormatKind.SnbtStr || this == FormatKind.PlainStr

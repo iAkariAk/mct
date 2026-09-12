@@ -55,13 +55,13 @@ sealed interface DatapackExtraction : Extraction {
         val indices: IntRangeSerializable,
         val content: String,
         val syntax: SnbtSyntaxKind? = null,
-        val format: FormatKind = PlainStr
+        val format: FormatKind = PlainStr // the [format] is the content inside the quotation if [syntax] is any quote type
     ) : DatapackExtraction {
         inline fun unquoted() = content.unquoted(syntax)
 
         inline fun replace(replacement: (String) -> String): DatapackReplacement.MCFunction {
             val r = replacement(content.unquoted(syntax))
-            return DatapackReplacement.MCFunction(indices, r.doubleQuotedIfString(syntax), syntax)
+            return DatapackReplacement.MCFunction(indices, r.doubleQuotedIfString(syntax))
         }
     }
 
@@ -78,13 +78,6 @@ sealed interface DatapackExtraction : Extraction {
             DatapackReplacement.Nbt(nbt.replace(replace))
     }
 }
-
-//internal inline fun DatapackExtraction.replace(replacement: (String) -> String): DatapackReplacement = when (this) {
-//    is DatapackExtraction.MCFunction -> replace(replacement)
-//    is DatapackExtraction.MCJson -> replace(replacement)
-//    is DatapackExtraction.Nbt -> TODO()
-//}
-
 
 /**
  * Replacements to be applied to a specific file in a datapack.
@@ -113,7 +106,6 @@ sealed interface DatapackReplacement : Replacement {
     data class MCFunction(
         val indices: IntRangeSerializable,
         val replacement: String,
-        val syntax: SnbtSyntaxKind?,
     ) : DatapackReplacement
 
     /**

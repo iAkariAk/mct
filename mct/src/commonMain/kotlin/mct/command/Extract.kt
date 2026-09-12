@@ -9,12 +9,17 @@ import mct.MCTPattern
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
+import mct.model.patch.inferFormatKind
+import mct.model.patch.inferSyntaxKind
 import mct.model.text.isTextComponent
 import mct.model.text.isTextComponentShorthanded
 import mct.pointer.DataPointer
 import mct.pointer.markArray
 import mct.pointer.markMap
-import mct.util.*
+import mct.util.StringIndices
+import mct.util.groups2
+import mct.util.offset
+import mct.util.overlapsWith
 import mct.util.snbt.SnbtCompound
 import mct.util.snbt.SnbtList
 import mct.util.snbt.SnbtString
@@ -58,7 +63,7 @@ fun extractTextFromCommands(
                             it.range,
                             it.value,
                             info?.syntax,
-                            info?.format ?: FormatKind.PlainStr,
+                            info?.format ?: it.value.inferFormatKind(syntax = info?.syntax),
                         )
                     }
                 }
@@ -157,7 +162,7 @@ internal data class PointerWithExtensionForSnbt(
     override val indices: IntRange, // relate to the arg
     override val content: String,
     override val syntax: SnbtSyntaxKind,
-    override val format: FormatKind,
+    override val format: FormatKind,  // the [format] is the content inside the quotation if [syntax] is any quote type
 ) : StringIndicesWithSyntaxFormat
 
 internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): Sequence<PointerWithExtensionForSnbt> =
@@ -169,7 +174,7 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
                     indices,
                     snbt.substring(indices.offset(-snbtOffset)),
                     syntax = SnbtSyntaxKind.List,
-                    format = FormatKind.SnbtStr,
+                    format = SnbtStr,
                 )
             )
         } else {
@@ -187,7 +192,7 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
                     indices,
                     snbt.substring(indices.offset(-snbtOffset)),
                     syntax = SnbtSyntaxKind.Compound,
-                    format = FormatKind.SnbtStr,
+                    format = SnbtStr,
                 )
             )
         } else asSequence().flatMap { (key, value) ->
@@ -201,8 +206,8 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
                 DataPointer.Terminator,
                 indices,
                 raw,
-                syntax = syntaxKind,
-                format = FormatKind.PlainStr
+                syntax = syntax,
+                format = raw.inferFormatKind(syntax = syntax),
             )
         )
 
@@ -232,29 +237,24 @@ internal object CommandExtractorIntrinsic {
     // https://minecraft.wiki/w/Target_selectors
     private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
     private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
-    fun extractFromTargetSelector(args: List<MCCommand.Arg>): Sequence<StringIndicesWithSyntaxFormat> = args.asSequence()
-        .filter { SELECTOR_REGEX.matches(it.content) }
-        .mapNotNull { arg ->
-            SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
-                val negative = result.value.startsWith("name=!")
-                val value = result.groupValues[1]
-                ExtractedCommandSlice(
-                    (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
-                    value,
-                    syntax = value.inferSyntaxKind(),
-                    format = FormatKind.PlainStr
-                )
+    fun extractFromTargetSelector(args: List<MCCommand.Arg>): Sequence<StringIndicesWithSyntaxFormat> =
+        args.asSequence()
+            .filter { SELECTOR_REGEX.matches(it.content) }
+            .mapNotNull { arg ->
+                SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
+                    val negative = result.value.startsWith("name=!")
+                    val value = result.groupValues[1]
+                    val syntax = value.inferSyntaxKind()
+                    ExtractedCommandSlice(
+                        (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
+                        value,
+                        syntax = syntax,
+                        format = value.inferFormatKind(syntax = syntax),
+                    )
+                }
             }
-        }
 
 
     fun extract(command: MCCommand): Sequence<StringIndicesWithSyntaxFormat> =
         extractFromTargetSelector(command.args)
-}
-
-
-private fun String.inferSyntaxKind(): SnbtSyntaxKind = when {
-    surroundedBy('\'') -> SnbtSyntaxKind.SingleQuoteString
-    surroundedBy('\"') -> SnbtSyntaxKind.DoubleQuoteString
-    else -> SnbtSyntaxKind.LiteralString
 }

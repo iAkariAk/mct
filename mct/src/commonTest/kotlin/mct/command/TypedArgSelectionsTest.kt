@@ -41,7 +41,7 @@ class TypedArgSelectionsTest : FreeSpec({
                 indices = (startIndex + itemStack.indexOf("'Hello'"))..(startIndex + itemStack.indexOf("'Hello'") + "'Hello'".lastIndex),
                 content = "'Hello'",
                 syntax = SingleQuoteString,
-                format = SnbtStr
+                format = PlainStr
             )
         )
     }
@@ -54,7 +54,7 @@ class TypedArgSelectionsTest : FreeSpec({
 
         command.substring(slice.indices) shouldBe slice.content
         command.backfillMCFunction(
-            listOf(MCFunction(slice.indices, "'你好'", slice.syntax))
+            listOf(MCFunction(slice.indices, "'你好'"))
         ) shouldBe "give @s minecraft:stick[item_name='你好']"
     }
 
@@ -79,7 +79,7 @@ class TypedArgSelectionsTest : FreeSpec({
                 indices = (startIndex + blockState.indexOf(customName))..(startIndex + blockState.indexOf(customName) + customName.lastIndex),
                 content = customName,
                 syntax = SingleQuoteString,
-                format = SnbtStr
+                format = JsonStr
             )
         )
     }

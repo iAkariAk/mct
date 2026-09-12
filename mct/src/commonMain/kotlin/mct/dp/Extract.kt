@@ -11,6 +11,7 @@ import mct.MCTWorkspace
 import mct.command.BuiltinCommandPatterns
 import mct.command.CommandExtractPattern
 import mct.command.ExtractPatternSet
+import mct.command.plus
 import mct.dp.mcfunction.MCFunctionExtractor
 import mct.dp.mcjson.MCJsonExtractor
 import mct.dp.nbt.NbtExtractor

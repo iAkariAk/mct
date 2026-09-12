@@ -12,6 +12,7 @@ import mct.EnvHolder
 import mct.MCTError
 import mct.extra.ai.*
 import mct.kit.TranslationMapping
+import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.validate
 import mct.model.text.*
@@ -252,11 +253,8 @@ private fun ComponentStrip.stripOrOriginal() = when (this) {
 }
 
 context(env: EnvHolder)
-internal fun String.strip(format: FormatKind): ComponentStrip {
+internal fun String.strip(format: FormatKind): ComponentStrip = run {
     val raw = this
-    fun cannotStrip() = null.also {
-        env.logger.warning { "Cannot strip $raw" }
-    }
 
     var isList = false
     val component = Option.catch {
@@ -265,21 +263,23 @@ internal fun String.strip(format: FormatKind): ComponentStrip {
             else -> IRElement.decodeFromString(format, raw)
         }?.let {
             if (it is IRList) {
-                it.takeIf { it.size == 1 }?.first()?.also { isList = true } ?: return ComponentStrip.CannotStrip(raw)
+                it.takeIf { it.size == 1 }?.first()?.also { isList = true } ?: return@run ComponentStrip.CannotStrip(raw)
             } else it
         }?.decodeToCompound()
-    }.getOrNull() ?: return ComponentStrip.NoComponent(raw)
+    }.getOrNull() ?: return@run ComponentStrip.NoComponent(raw)
 
-    if (!component.hasHumbleReadableText()) return ComponentStrip.Untranslatable(raw)
-    val single = component as? SingleTextComponent<*> ?: return ComponentStrip.CannotStrip(raw)
+    if (!component.hasHumbleReadableText()) return@run ComponentStrip.Untranslatable(raw)
+    val single = component as? SingleTextComponent<*> ?: return@run ComponentStrip.CannotStrip(raw)
 
     val strip = (if (single.extra == null) {
         when (single) {
             is TextComponent.Plain -> single.text
-            else -> cannotStrip()
+            else -> null
         }
-    } else cannotStrip()) ?: return ComponentStrip.CannotStrip(raw)
-    return ComponentStrip.Simplified(raw, format, single, strip, isList)
+    } else null) ?: return@run ComponentStrip.CannotStrip(raw)
+    return@run ComponentStrip.Simplified(raw, format, single, strip, isList)
+}.also { strip ->
+  logger.debug { "Strip $this ==> $strip" }
 }
 
 @Suppress("UNCHECKED_CAST")

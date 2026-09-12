@@ -17,6 +17,8 @@ import mct.*
 import mct.command.BuiltinCommandDataPatterns
 import mct.command.BuiltinCommandPatterns
 import mct.command.BuiltinMinecraftComponentPatterns
+import mct.command.CommandExtractPattern
+import mct.dp.compileWith
 import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.nbt.BuiltinNbtPatterns
 import mct.util.SystemFileSystem
@@ -129,13 +131,14 @@ fun BaseCliktCommand<*>.withPattern(): Lazy<MCTPattern> {
                 disableFilterForMCJson.value,
                 BuiltinMCJsonPatterns
             ) { x, y -> x + y },
-            command = gatherPattern(
-                command.value,
-                disableBuiltinForCommand.value,
-                false,
-                BuiltinCommandPatterns
-            ) { x, y -> x + y }
-                ?: panic("Cannot use the `--disable-builtin-command` when no path to the pattern is passed"),
+            command = when {
+                command.value == null -> BuiltinCommandPatterns.takeUnless { disableBuiltinForCommand.value }
+                disableBuiltinForCommand.value ->
+                    command.value!!.readJson<List<CommandExtractPattern>>().compileWith()
+
+                else -> command.value!!.readJson<List<CommandExtractPattern>>()
+                    .compileWith(BuiltinCommandPatterns)
+            } ?: panic("Cannot use the `--disable-builtin-command` when no path to the pattern is passed"),
             commandData = gatherPattern(
                 commandData.value,
                 disableBuiltinForCommandData.value,

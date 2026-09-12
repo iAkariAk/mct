@@ -74,12 +74,12 @@ data class SnbtDouble(override val indices: IntRange, val value: Double) : SnbtT
 data class SnbtString(override val indices: IntRange, val raw: String, val boundary: Char?) : SnbtTag {
     val content = when (boundary) {
         '"' -> raw.doubleUnquoted()
-        '\'' -> raw.substring(1, raw.length - 1)
+        '\'' -> raw.substring(1, raw.length - 1).replace("\\'", "'")
         null -> raw
         else -> unreachable
     }
 
-    val syntaxKind = when (boundary) {
+    val syntax = when (boundary) {
         '"' -> SnbtSyntaxKind.DoubleQuoteString
         '\'' -> SnbtSyntaxKind.SingleQuoteString
         null -> SnbtSyntaxKind.LiteralString
