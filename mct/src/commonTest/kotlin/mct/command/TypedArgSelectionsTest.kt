@@ -1,6 +1,7 @@
 package mct.command
 
 import io.kotest.assertions.arrow.core.shouldNotRaise
+import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import mct.MCTPattern
@@ -66,6 +67,10 @@ class TypedArgSelectionsTest : FreeSpec({
         command.backfillMCFunction(
             listOf(MCFunction(slice.indices, "'你好'"))
         ) shouldBe "execute if items entity @p weapon.mainhand diamond_sword[!minecraft:damage,minecraft:item_name='你好']"
+
+        shouldNotThrowAny {
+            selectItemStack("diamond_sword[!minecraft:damage]",0)
+        }
     }
 
     "nested text component range points at the complete component value" {

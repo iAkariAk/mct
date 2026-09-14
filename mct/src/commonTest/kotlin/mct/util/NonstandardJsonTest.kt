@@ -4,6 +4,7 @@ import io.kotest.assertions.throwables.shouldNotThrow
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 import mct.dp.mcjson.MCJson
@@ -31,7 +32,6 @@ private fun NonstandardJson.shouldNotBeParsed(@Language("json") json: String) {
 
 private fun positiveAndNegativeCase(
     isLenient: Boolean? = null,
-    allowComments: Boolean? = null,
     allowTrailingComma: Boolean? = null,
     allowIllegalEscape: Boolean? = null,
     allowSingleQuote: Boolean? = null,
@@ -93,6 +93,12 @@ class NonstandardJsonTest : FreeSpec({
                 }
             """.trimIndent()
         )
+    }
+
+    "slash inside a string isn't a comment" {
+        MCJson.shouldBeParsed("""{"text":"http://example.com/a/b"}""")
+        MCJson.standardize("""{"text":"a/b"}""") shouldBe """{"text":"a/b"}"""
+        MCJson.standardize("""{"text":"a/*b*/c"}""") shouldBe """{"text":"a/*b*/c"}"""
     }
 
     "should work" {

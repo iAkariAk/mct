@@ -219,12 +219,11 @@ private fun computeGreedyRange(
     selector: IndexSelector.Greedy,
 ): Pair<IntRange, IntRange> {
     val commandBeginIndex = command.indices.first
-    val beginIndexRelative =
-        if (selector.position == 0) {
-            if (command.name.length == command.raw.length) command.name.length
-            else command.args.firstOrNull()?.relativeIndices?.first?.minus(command.trimOffset)
-                ?: (command.name.length + command.raw.indexOfFirst { it != ' ' })
-        } else command[selector.position].relativeIndices.first - command.trimOffset
+    val beginIndexRelative = if (selector.position == 0) {
+        if (command.name.length == command.raw.length) command.name.length
+        else command.args.firstOrNull()?.relativeIndices?.first?.minus(command.trimOffset)
+            ?: (command.name.length + command.raw.indexOfFirst { it != ' ' })
+    } else command[selector.position].relativeIndices.first - command.trimOffset
     val endIndexRelative = command.raw.length - 1
     val relRange = beginIndexRelative..endIndexRelative
     val absRange = (commandBeginIndex + command.trimOffset + beginIndexRelative)..

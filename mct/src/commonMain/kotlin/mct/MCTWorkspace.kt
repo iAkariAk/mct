@@ -149,7 +149,7 @@ private class DimensionProviderV1(workspace: MCTWorkspace) : DimensionProvider, 
 }
 
 
-// before 26.1-snapshot-6
+// 26.1-snapshot-6 and later moved the built-in dimensions under `dimensions/minecraft/<name>`
 private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, Map<String, Dimension> by (buildMap {
     fun minecraft(name: String) {
         val id = "minecraft:$name"

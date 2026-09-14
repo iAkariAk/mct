@@ -247,6 +247,22 @@ class TextComponentTest : FreeSpec({
             compound.toIR().containsKey("color") shouldBe false
             raw["color"] shouldBe IRString("red")
         }
+
+        "treats an explicit null as an absent field" {
+            val raw = IRObject(
+                mapOf(
+                    "selector" to IRString("@a"),
+                    "separator" to IRNull,
+                    "bold" to IRNull,
+                    "extra" to IRNull,
+                )
+            )
+            val compound = TextComponent.fromIR(raw) as TextComponent.Selector
+
+            compound.separator shouldBe null
+            compound.bold shouldBe null
+            compound.extra shouldBe null
+        }
     }
 
     "TextComponent validation" - {

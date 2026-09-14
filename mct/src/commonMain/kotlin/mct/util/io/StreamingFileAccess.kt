@@ -129,7 +129,7 @@ private class ZipFileWalkStream(private val zip: Path, private val fs: FileSyste
                     StreamingFileWriting(it, { source } to {}, { sink } to { s -> s.flush(); zos.closeEntry() }, ::copy) {
                         zos.close()
                         zis.close()
-                        fs.delete(tmpZip)
+                        fs.atomicMove(tmpZip, zip)
                         throw it
                     }
                 } else {

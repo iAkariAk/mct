@@ -150,10 +150,10 @@ class CommandExtractPatternTest : FreeSpec({
 
         "WithSize - non-strict (lower bound)" {
             val cond = PreCondition.Companion.WithSize(2)
-            // non-strict: size <= args.size (lower bound check)
-            cond.matches(cmd("say", "hello")) shouldBe false   // 1 arg, 2 < 1
-            cond.matches(cmd("tell", "@p", "hi")) shouldBe true  // 2 args, 2 >= 2
-            cond.matches(cmd("tell", "@p", "hi", "extra")) shouldBe true // 3 args, 2 >= 3
+            // non-strict: size <= args.size, i.e. the command needs at least `size` args
+            cond.matches(cmd("say", "hello")) shouldBe false   // 1 arg < 2
+            cond.matches(cmd("tell", "@p", "hi")) shouldBe true  // 2 args >= 2
+            cond.matches(cmd("tell", "@p", "hi", "extra")) shouldBe true // 3 args >= 2
         }
 
         "WithSize - strict (==)" {
@@ -322,11 +322,11 @@ class CommandExtractPatternTest : FreeSpec({
                     "tellraw", "@a",
                     """{"text":"hello","color":"red"}"""
                 )
-                val tooManyArgsCmd = cmd("tellraw", "@a", "one", "two", "three")
+                val extraArgsCmd = cmd("tellraw", "@a", "one", "two", "three")
                 val wrongContentCmd = cmd("tellraw", "@a", "plain text")
 
                 pattern.preCondition.matches(validCmd) shouldBe true
-                pattern.preCondition.matches(tooManyArgsCmd) shouldBe true  // 4 args > WithSize(2)
+                pattern.preCondition.matches(extraArgsCmd) shouldBe true  // 4 args >= WithSize(2)
 
                 val selector = pattern.selector as IndexSelector.NonGreedy
                 selector.matches(2) shouldBe true
@@ -341,6 +341,9 @@ class CommandExtractPatternTest : FreeSpec({
             "BuiltinSet" {
                 listOf(
                     commandContentCase("say command", "say Hello world everyone", "Hello world everyone"),
+                    // WithSize(2) is a lower bound, so a multi-token greedy message must still be extracted
+                    commandContentCase("tell command multi-token message", "tell @a hello world", "hello world"),
+                    commandContentCase("kick command optional reason", "kick @a reason here", "reason here"),
                     commandCase(
                         "tellraw command",
                         """tellraw @a {"text":"Hello","color":"red"}""",
@@ -754,8 +757,18 @@ class CommandExtractPatternTest : FreeSpec({
         }
 
         "greedy from position 0 with no args uses full name offset" {
-            // This tests the case where command.name.length == command.raw.length
-            // e.g., the greedy selector tries to read beyond the command name
+            // command.name.length == command.raw.length: a bare command with no args at all.
+            // The greedy range then falls back to the name offset and collapses to an empty
+            // slice, so the command name is never offered for translation.
+            val cmds = parseMCFunction("say")
+            cmds.size shouldBe 1
+
+            val matches = cmds.flatMap(::matchCmd)
+
+            matches.size shouldBe 1
+            val slice = matches.single()
+            slice.content shouldBe ""
+            slice.indices.first shouldBe "say".length // the name offset, not 0
         }
 
         "greedy from position 0 with single word arg" {

@@ -56,11 +56,10 @@ private fun SnbtTag.selectSnbt(
     snbt: String,
     snbtOffset: Int,
     patterns: List<DataPointerPattern>?
-): SelectResult =
-    extractTextsByPointer(snbt, snbtOffset)
-        .filter { it.pointer.compile().matches(patterns) }
-        .offset(baseIndex)
-        .asSelectResult()
+): SelectResult = extractTextsByPointer(snbt, snbtOffset)
+    .filter { it.pointer.compile().matches(patterns) }
+    .offset(baseIndex)
+    .asSelectResult()
 
 context(_: Raise<IndexSelectError>)
 private fun selectItemStackPropertyList(

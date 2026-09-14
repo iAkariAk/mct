@@ -36,6 +36,14 @@ data class MCCommand(
         return args[index]
     }
 
+    /**
+     * 1-based index
+     */
+    fun getOrNull(position: Int): Arg? {
+        val index = position - 1
+        return args.getOrNull(index)
+    }
+
     operator fun contains(arg: String) = args.any { it.content == arg }
 
     data class Arg(

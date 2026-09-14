@@ -49,7 +49,6 @@ data class NonstandardJson(
     fun standardize(json: String): String {
         val result = StringBuilder(json.length)
         var i = 0
-        var inComments = false
         var inSingleQuote = false
         var inDoubleQuote = false
         while (i < json.length) {
@@ -97,7 +96,7 @@ data class NonstandardJson(
                     }
                 }
 
-                '/' if i + 1 < json.length -> {
+                '/' if !inSingleQuote && !inDoubleQuote && i + 1 < json.length -> {
                     val next = json[i + 1]
                     when (next) {
                         '/' -> {
@@ -110,9 +109,11 @@ data class NonstandardJson(
                         '*' -> {
                             val j = json.indexOf("*/", i + 2)
                             if (j == -1) break
-                            i = j
-
+                            i = j + 2
+                            continue
                         }
+
+                        else -> result.append(c)
                     }
                 }
 

@@ -280,7 +280,7 @@ sealed class TextComponent<out IR : IRElement> {
         raw: IRObject,
     ) : SingleTextComponent<IRObject>(raw) {
         var selector: String = raw.requiredString("selector")
-        var separator: TextComponent<*>? = raw["separator"]?.let { TextComponent.fromIR(it) }
+        var separator: TextComponent<*>? = raw.optionalTextComponent("separator")
 
         constructor(
             selector: String,
