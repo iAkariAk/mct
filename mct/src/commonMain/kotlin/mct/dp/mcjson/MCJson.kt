@@ -6,7 +6,6 @@ import mct.util.NonstandardJson
 
 val MCJson = NonstandardJson(
     isLenient = true,
-    allowComments = true,
     allowTrailingComma = true,
     allowIllegalEscape = true,
     allowSingleQuote = true

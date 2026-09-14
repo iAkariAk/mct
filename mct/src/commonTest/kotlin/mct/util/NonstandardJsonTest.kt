@@ -38,14 +38,12 @@ private fun positiveAndNegativeCase(
     @Language("json") json: String
 ) {
     NonstandardJson(
-        allowComments = allowComments?: false,
         allowTrailingComma = allowTrailingComma ?: false,
         isLenient = isLenient ?: false,
         allowIllegalEscape = allowIllegalEscape ?: false,
         allowSingleQuote = allowSingleQuote ?: false
     ).shouldBeParsed(json)
     NonstandardJson(
-        allowComments = allowComments?.let { !it } ?: false,
         allowTrailingComma = allowTrailingComma?.let { !it } ?: false,
         isLenient = isLenient?.let { !it } ?: false,
         allowIllegalEscape = allowIllegalEscape?.let { !it } ?: false,
@@ -82,6 +80,18 @@ class NonstandardJsonTest : FreeSpec({
               "tag": "{display:{Name:'{\"text\":\"Aurastaff of Permafrost\",\"color\":\"green\",\"italic\":\"false\",\"underlined\":\"true\"}',Lore:['{\"text\":\"Loe and Lai were once the greatest of \"}','{\"text\":\"friends, and together designed many powerful\"}','{\"text\":\"devices for the Tehrmari with divine magic\"}','{\"text\":\"from the fabled forge, Soletta. Though few in\"}','{\"text\":\"number and no longer in production, these\"}','{\"text\":\"staves are immaculately maintained and \"}','{\"text\":\"priceless to the residents of Lo\\'Dahr.\"}','{\"text\":\" \"}','{\"text\":\"Selective Hypothermia\",\"color\":\"green\",\"italic\":\"false\"}','{\"text\":\"When placed, prevents naturally spawning enemies\",\"color\":\"dark_gray\"}','{\"text\":\"from spawning within a 32-block radius around\",\"color\":\"dark_gray\"}','{\"text\":\"itself. Does not work in the overworld.\",\"color\":\"dark_gray\"}','{\"text\":\"\"}','{\"text\":\"Trinket\",\"color\":\"green\",\"italic\":\"false\"}']},WardStaff:1b,CustomModelData:810001,EntityTag:{id:marker,Tags:[\"ward_staff_place\"]}}"
             }
         """.trimIndent()
+        )
+    }
+
+    "comments strip" {
+        @Suppress("JsonStandardCompliance")
+        MCJson.shouldBeParsed(
+            """
+                {  
+                    "text": "ciallo", // world
+                    "oops"/*Okey*/: 0
+                }
+            """.trimIndent()
         )
     }
 

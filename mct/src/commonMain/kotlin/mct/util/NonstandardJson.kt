@@ -33,7 +33,6 @@ val StandardJson = Json {
 val StandardJsonLeft = StandardJson.left()
 
 data class NonstandardJson(
-    val allowComments: Boolean = false,
     val allowTrailingComma: Boolean = true,
     val isLenient: Boolean = false,
     val allowIllegalEscape: Boolean = false,
@@ -42,7 +41,7 @@ data class NonstandardJson(
     private val json = Json {
         val self = this@NonstandardJson
         ignoreUnknownKeys = true
-        allowComments = self.allowComments
+        allowComments = true
         allowTrailingComma = self.allowTrailingComma
         isLenient = self.isLenient
     }
@@ -50,6 +49,7 @@ data class NonstandardJson(
     fun standardize(json: String): String {
         val result = StringBuilder(json.length)
         var i = 0
+        var inComments = false
         var inSingleQuote = false
         var inDoubleQuote = false
         while (i < json.length) {
@@ -94,6 +94,25 @@ data class NonstandardJson(
                         }
 
                         else -> result.append(c)
+                    }
+                }
+
+                '/' if i + 1 < json.length -> {
+                    val next = json[i + 1]
+                    when (next) {
+                        '/' -> {
+                            val j = json.indexOf('\n', i + 2)
+                            if (j == -1) break
+                            i = j
+
+                        }
+
+                        '*' -> {
+                            val j = json.indexOf("*/", i + 2)
+                            if (j == -1) break
+                            i = j
+
+                        }
                     }
                 }
 
