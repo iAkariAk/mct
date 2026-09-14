@@ -476,12 +476,14 @@ private fun IRObject.requiredString(key: String): String =
 
 private fun IRObject.optionalString(key: String): String? = when (val value = this[key]) {
     null -> null
+    IRNull -> null
     is IRString -> value.value
     else -> throw TextComponentCodecException("$key must be an IRString")
 }
 
 private fun IRObject.optionalBoolean(key: String): Boolean? = when (val value = this[key]) {
     null -> null
+    IRNull -> null
     is IRBoolean -> value.value
     is IRByte -> value.value != 0.toByte()
     else -> throw TextComponentCodecException("$key must be an IRBoolean or IRByte")
@@ -489,12 +491,14 @@ private fun IRObject.optionalBoolean(key: String): Boolean? = when (val value = 
 
 private fun <T> IRObject.optionalList(key: String, convert: (IRElement) -> T): List<T>? = when (val value = this[key]) {
     null -> null
+    IRNull -> null
     is IRList -> value.map(convert)
     else -> throw TextComponentCodecException("$key must be a list")
 }
 
 private fun IRObject.optionalTextComponent(key: String): TextComponent<*>? = when (val value = this[key]) {
     null -> null
+    IRNull -> null
     is IRString -> TextComponent.Plain(value)
     is IRObject, is IRList -> TextComponent.fromIR(value)
     else -> throw TextComponentCodecException("$key must be a text compound")
