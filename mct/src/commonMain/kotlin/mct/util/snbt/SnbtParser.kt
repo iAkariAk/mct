@@ -57,7 +57,7 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer, private
         while (currentToken?.type != SnbtTokenType.R_BRACE) {
             val next = advance()
             if (next.type == SnbtTokenType.R_BRACE) return SnbtCompound(
-                startIndex..startIndex + 1,
+                startIndex..currentToken!!.indices.last,
                 obj
             )
             val key = parseString()
