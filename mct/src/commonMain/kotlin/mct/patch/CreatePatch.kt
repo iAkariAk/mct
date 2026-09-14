@@ -26,7 +26,7 @@ suspend fun MCTWorkspace.createPatch(
 
     val validation = if (!validation) null else {
         val hashTree =
-            fs.computeHashTree(rootDir, SHA1).associate { (path, hash) -> path.relativeTo(rootDir).toString() to hash }
+            fs.computeHashTree(rootDir, SHA1).associate { (path, hash) -> path.relativeTo(rootDir).normalized().toString() to hash }
         PatchValidation(hashTree)
     }
 

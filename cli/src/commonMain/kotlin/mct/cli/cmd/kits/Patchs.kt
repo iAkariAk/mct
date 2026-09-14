@@ -2,19 +2,23 @@ package mct.cli.cmd.kits
 
 import arrow.core.raise.Raise
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.enum
-import com.github.ajalt.mordant.rendering.TextStyles
+import com.github.ajalt.mordant.rendering.TextColors
+import com.github.ajalt.mordant.rendering.TextStyles.bold
+import com.github.ajalt.mordant.terminal.Terminal
 import mct.MCTError
 import mct.cli.*
 import mct.kit.TranslationMapping
 import mct.model.patch.Patch
 import mct.model.patch.PatchValidationFailureStrategy
 import mct.model.patch.PathKind
+import mct.patch.HashValidatingFailure
 import mct.patch.applyPatch
 import mct.patch.createPatch
 import mct.util.io.readCbor
@@ -76,24 +80,30 @@ private class ApplyPatch : WorkspaceCommand(name = "apply", help = "Apply a patc
         }
         when (val result = workspace.applyPatch(patch, validationStrategy)) {
             is Success -> {
-                if (result.warning.isEmpty()) {
+                if (result.warnings.isEmpty()) {
                     printlnGreen("Patch was successfully applied")
                 } else {
-                    printlnYellow("Patch was successfully applied with some unmatched as the following")
-                    result.warning.forEach { (path, reason) ->
-                        val (expected, actual) = reason
-                        printlnYellow("${TextStyles.bold(path)}: expect $expected, but got $actual")
-                    }
+                    printlnYellow("Patch was successfully applied with some warnings as the following")
+                    result.warnings.display(terminal, true)
                 }
             }
 
             is ValidationFailure -> {
-                printlnRed("The patch has been failed to apply due to the following unmatched:")
-                result.unmatched.forEach { (path, reason) ->
-                    val (expected, actual) = reason
-                    printlnRed("${TextStyles.bold(path)}: expect $expected, but got $actual")
-                }
+                printlnRed("The patch has been failed to apply due to the following errors:")
+                result.errors.display(terminal, false)
             }
         }
     }
+}
+
+private fun List<HashValidatingFailure>.display(terminal: Terminal, isWarning: Boolean = false) = forEach { failure ->
+    val message = when (failure) {
+        is Missing -> "Missing file: ${bold(failure.key)}"
+        is Redundant -> "Redundant file: ${bold(failure.key)}"
+        is Unmatched -> "Unmatched file: ${bold(failure.key)}, expected: ${bold(failure.expected)}, but got ${
+            bold(failure.actual)
+        }"
+    }
+    val color = if (isWarning) TextColors.yellow else TextColors.red
+    terminal.println(color(message))
 }

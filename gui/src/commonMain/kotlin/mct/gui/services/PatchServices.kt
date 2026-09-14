@@ -9,6 +9,7 @@ import mct.MCTWorkspace
 import mct.gui.model.*
 import mct.kit.TranslationMapping
 import mct.model.patch.Patch
+import mct.patch.HashValidatingFailure
 import mct.patch.PatchResult
 import mct.patch.applyPatch
 import mct.patch.createPatch
@@ -77,22 +78,25 @@ suspend fun applyPatchFile(
 
         when (val result = workspace.applyPatch(patch, strategy.value)) {
             is PatchResult.Success -> {
-                if (result.warning.isEmpty()) {
+                if (result.warnings.isEmpty()) {
                     env.logger.info { "补丁应用成功。" }
                 } else {
-                    env.logger.warning { "补丁已应用，但以下 ${result.warning.size} 处内容与创建时不同：" }
-                    result.warning.forEach { (path, reason) ->
-                        env.logger.warning { "$path: 期望 ${reason.expected}，实际 ${reason.actual}" }
-                    }
+                    env.logger.warning { "补丁已应用，但有以下 ${result.warnings.size} 处与创建补丁时不一致：" }
+                    result.warnings.forEach { env.logger.warning { it.describe() } }
                 }
             }
 
             is PatchResult.ValidationFailure -> {
-                env.logger.error { "补丁校验失败，共 ${result.unmatched.size} 处与创建时不同：" }
-                result.unmatched.forEach { (path, reason) ->
-                    env.logger.error { "$path: 期望 ${reason.expected}，实际 ${reason.actual}" }
-                }
+                env.logger.error { "补丁校验失败，共 ${result.errors.size} 处与创建补丁时不一致，补丁未应用：" }
+                result.errors.forEach { env.logger.error { it.describe() } }
             }
         }
     }.onLeft { env.logger.error { it.message } }
+}
+
+/** One log line per validation mismatch. [HashValidatingFailure.Unmatched] carries both hash values, the other two only a path. */
+private fun HashValidatingFailure.describe(): String = when (this) {
+    is HashValidatingFailure.Missing -> "存档中缺少文件: $key"
+    is HashValidatingFailure.Redundant -> "存档中多出文件: $key"
+    is HashValidatingFailure.Unmatched -> "文件内容不一致: $key，期望 $expected，实际 $actual"
 }
