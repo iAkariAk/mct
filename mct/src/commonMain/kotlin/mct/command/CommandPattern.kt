@@ -67,7 +67,7 @@ fun interface PreCondition {
         @SerialName("with_size")
         data class WithSize(val size: Int, val strict: Boolean = false) : PreCondition {
             override fun matches(command: MCCommand) =
-                if (strict) size == command.args.size else size >= command.args.size
+                if (strict) size == command.args.size else size <= command.args.size
         }
 
         @Serializable

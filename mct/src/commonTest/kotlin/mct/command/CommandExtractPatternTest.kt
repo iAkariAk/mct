@@ -148,12 +148,12 @@ class CommandExtractPatternTest : FreeSpec({
             PreCondition.Companion.Any.matches(cmd("give", "@p", "diamond")) shouldBe true
         }
 
-        "WithSize - non-strict (upper bound)" {
+        "WithSize - non-strict (lower bound)" {
             val cond = PreCondition.Companion.WithSize(2)
-            // non-strict: size >= args.size (upper bound check)
-            cond.matches(cmd("say", "hello")) shouldBe true   // 1 arg, 2 >= 1
+            // non-strict: size <= args.size (lower bound check)
+            cond.matches(cmd("say", "hello")) shouldBe false   // 1 arg, 2 < 1
             cond.matches(cmd("tell", "@p", "hi")) shouldBe true  // 2 args, 2 >= 2
-            cond.matches(cmd("tell", "@p", "hi", "extra")) shouldBe false // 3 args, 2 < 3
+            cond.matches(cmd("tell", "@p", "hi", "extra")) shouldBe true // 3 args, 2 >= 3
         }
 
         "WithSize - strict (==)" {
@@ -326,7 +326,7 @@ class CommandExtractPatternTest : FreeSpec({
                 val wrongContentCmd = cmd("tellraw", "@a", "plain text")
 
                 pattern.preCondition.matches(validCmd) shouldBe true
-                pattern.preCondition.matches(tooManyArgsCmd) shouldBe false  // 4 args > WithSize(2)
+                pattern.preCondition.matches(tooManyArgsCmd) shouldBe true  // 4 args > WithSize(2)
 
                 val selector = pattern.selector as IndexSelector.NonGreedy
                 selector.matches(2) shouldBe true
