@@ -58,6 +58,16 @@ class TypedArgSelectionsTest : FreeSpec({
         ) shouldBe "give @s minecraft:stick[item_name='你好']"
     }
 
+    "negative predicate should be skipped" {
+        val command = "execute if items entity @p weapon.mainhand diamond_sword[!minecraft:damage,minecraft:item_name='Hello']"
+        val itemStackStart = command.indexOf("diamond_sword")
+        val itemStack = command.substring(itemStackStart)
+        val slice = selectItemStack(itemStack, itemStackStart).singlePortion()
+        command.backfillMCFunction(
+            listOf(MCFunction(slice.indices, "'你好'"))
+        ) shouldBe "execute if items entity @p weapon.mainhand diamond_sword[!minecraft:damage,minecraft:item_name='你好']"
+    }
+
     "nested text component range points at the complete component value" {
         val itemStack = "minecraft:stick[item_name='{\"text\":\"Hello\"}']"
         val startIndex = 13

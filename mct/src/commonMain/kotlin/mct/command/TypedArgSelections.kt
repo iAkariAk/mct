@@ -81,13 +81,15 @@ private fun selectItemStackPropertyList(
 
     return sequence {
         while (lexer.index < str.length) {
-            val ch = str[lexer.index]
             skipWhitespace()
-            if (ch == '!') {
+            val ch = str[lexer.index]
+            if (ch == '!') { // skip
                 var ch2 = str[lexer.index]
                 while (ch2 != ',' && !ch2.isWhitespace() && lexer.index < str.length) {
+                    if (lexer.index + 1 >= str.length) break
                     ch2 = str[++lexer.index]
                 }
+                lexer.index++
                 continue
             } else {
                 var ch2 = str[lexer.index]
