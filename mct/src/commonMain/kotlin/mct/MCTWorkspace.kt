@@ -158,7 +158,7 @@ private class DimensionProviderV2(workspace: MCTWorkspace) : DimensionProvider, 
 
     scanCustomizedDimensions(workspace)
 
-    minecraft("nether")
+    minecraft("the_nether")
     minecraft("overworld")
     minecraft("the_end")
 }) {
