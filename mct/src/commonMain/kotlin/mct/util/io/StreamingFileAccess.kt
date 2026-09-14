@@ -24,6 +24,7 @@ data class StreamingFileWriting(
     override val file: StreamingFile,
     val source: Pair<() -> BufferedSource, /*close:*/ (BufferedSource) -> Unit>,
     val sink: Pair<() -> BufferedSink, /*close:*/(BufferedSink) -> Unit>,
+    val onNotChanged: () -> Unit,
     val onFailure: (Throwable) -> Unit,
 ) : StreamingFileOperation
 
@@ -88,7 +89,8 @@ private class FileSystemFileWalkStream(private val dir: Path, private val fs: Fi
                 {
                     require(isRead)
                     fs.sink(file.path).buffer()
-                } to BufferedSink::close
+                } to BufferedSink::close,
+                {}
             ) {} // Don't handle onFailure because sink must be got before source is close
         }.closable { }
 }
@@ -112,27 +114,32 @@ private class ZipFileWalkStream(private val zip: Path, private val fs: FileSyste
         val zos = fs.openZipOutputStream(zip)
         val source = zis.source().buffer()
         val sink = zos.sink().buffer()
+        fun copy() {
+            source.readAll(sink)
+            sink.flush()
+            zos.closeEntry()
+        }
+
         return zis.walk()
             .filter { !it.isDirectory }
             .map(ZipEntry::toStreamingFile)
             .mapNotNull {
                 zos.putNextEntry(ZipEntry(it.path.toString()))
                 if (predicate(it)) {
-                    StreamingFileWriting(it, { source } to {}, { sink } to { s -> s.flush(); zos.closeEntry() }) {
+                    StreamingFileWriting(it, { source } to {}, { sink } to { s -> s.flush(); zos.closeEntry() }, ::copy) {
                         zos.close()
                         zis.close()
-                        fs.atomicMove(tmpZip, zip)
+                        fs.delete(tmpZip)
                         throw it
                     }
                 } else {
-                    source.readAll(sink)
-                    sink.flush()
-                    zos.closeEntry()
+                    copy()
                     null
                 }
             }.closable {
                 zos.close()
                 zis.close()
+                fs.atomicMove(tmpZip, zip)
                 fs.delete(tmpZip)
             }
 

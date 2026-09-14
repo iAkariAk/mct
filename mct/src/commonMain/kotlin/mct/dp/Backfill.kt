@@ -36,14 +36,13 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
             val walk = if (m.isDirectory) fs.walkDirectory(datapackPath) else fs.walkZip(datapackPath)
             val replacementGroups = replacementGroups.associateBy { it.path }
             val writing = walk.write {
-                it.path.toString() in replacementGroups
+                !replacementGroups[it.path.toString()]?.replacements.isNullOrEmpty()
             }
-            writing.forEach handleFile@{ (file, tmp1, tmp2, onFailure) ->
+            writing.forEach handleFile@{ (file, tmp1, tmp2, onNotChanged, onFailure) ->
                 val (getSource, closeSource) = tmp1
                 val (getSink, closeSink) = tmp2
                 val path = file.path
                 val replacementGroup = replacementGroups[path.toString()]!!
-                replacementGroup.replacements.ifEmpty { return@handleFile }
                 val source = getSource()
                 try {
                     @Suppress("UNCHECKED_CAST")
