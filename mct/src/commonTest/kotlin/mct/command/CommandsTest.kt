@@ -122,6 +122,14 @@ class CommandsTest : StringSpec({
         backfilled shouldBe "say {greeting}"
     }
 
+    "test spaces should be skip" {
+        val mcf = "say      hello world"
+        val extractions = extractText(mcf)
+        val replacement = MCFunction(extractions[0].indices, "{greeting}")
+        val backfilled = mcf.backfillMCFunction(listOf(replacement))
+        backfilled shouldBe "say {greeting}"
+    }
+
     "test backfill multiple extractions from different lines" {
         val mcf = """
                 say alpha

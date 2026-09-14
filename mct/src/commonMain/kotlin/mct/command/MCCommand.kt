@@ -142,7 +142,7 @@ fun parseCommands(content: String): List<MCCommand> {
                 continue
             }
 
-            if (c == ' ' && peekedState == RootState) { // cmd argument
+            if (c == ' ' && peekedState == RootState && buffer.isNotBlank()) { // cmd argument
                 bindBufferIntoCmd(col - 1)
                 continue
             }
@@ -168,7 +168,7 @@ fun parseCommands(content: String): List<MCCommand> {
             }
         }
 
-        if (buffer.isNotEmpty()) {
+        if (buffer.isNotBlank()) {
             bindBufferIntoCmd(line.length - 1)
         }
 
