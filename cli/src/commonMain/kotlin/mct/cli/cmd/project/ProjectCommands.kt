@@ -26,6 +26,7 @@ import mct.cext.backfillCext
 import mct.cext.extractByCext
 import mct.cli.*
 import mct.cli.util.CURRENT_PATH
+import mct.cli.util.evaluateEnvvar
 import mct.command.*
 import mct.dp.backfillDatapack
 import mct.dp.compile
@@ -218,7 +219,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     suspend fun createCall() = context(env) {
         ChatCompletionCall(
             apiUrl = ai.apiUrl,
-            token = ai.token,
+            token = ai.token.evaluateEnvvar(),
             model = ai.model,
             useStreamApi = ai.useStreamApi,
             temperature = ai.temperature,

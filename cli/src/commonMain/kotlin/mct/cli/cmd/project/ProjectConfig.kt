@@ -2,6 +2,7 @@ package mct.cli.cmd.project
 
 import com.akuleshov7.ktoml.annotations.TomlComments
 import com.akuleshov7.ktoml.annotations.TomlInlineTable
+import com.akuleshov7.ktoml.annotations.TomlMultiline
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.EnvHolder
@@ -181,7 +182,7 @@ data class AIConfig(
     @TomlComments("OpenAI-compatible API base URL (e.g. https://api.openai.com/v1/ or https://api.deepseek.com/v1/)")
     val apiUrl: String = "https://api.openai.com/v1/",
 
-    @TomlComments("API access token")
+    @TomlComments("API access token, Use @XXX to refer to your envvar")
     val token: String = "Token / API Key",
 
     @TomlComments("Model name (e.g. gpt-5-luna, deepseek-flash)")
@@ -197,6 +198,7 @@ data class AIConfig(
 
     @SerialName("literature_style")
     @TomlComments("Custom literature-style prompt for translation")
+    @TomlMultiline
     val literatureStyle: String = LLMTranslationPrompts.literatureStyle,
 
     @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${LLMTranslationPrompts.targetLanguage})")
