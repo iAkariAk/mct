@@ -53,7 +53,7 @@ fun ExtractPanel(
                 { onStateChange(currentState.copy(input = it)) }) {
                 dirPicker.launch()
             }
-            PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(currentState.copy(output = it)) }) {
+            PathRow("输出 JSON 文件", "选择保存位置...", state.output, { onStateChange(currentState.copy(output = it)) }, mustExist = false) {
                 fileSaver.launch(suggestedName = "extractions", defaultExtension = "json")
             }
         }

@@ -89,6 +89,7 @@ fun TermExtractPanel(
             placeholder = "选择保存位置...",
             value = state.output,
             onValueChange = { onStateChange(currentState.copy(output = it)) },
+            mustExist = false,
             onBrowse = { outputSaver.launch(suggestedName = "terms", defaultExtension = "json") },
         )
 

@@ -15,6 +15,7 @@ import mct.gui.services.ApiSettings
 import mct.gui.services.ThemeSettings
 import mct.gui.services.apiSetting
 import mct.gui.services.themeSetting
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /** Debounce window for auto-saving settings: write this long after editing stops. */
@@ -97,23 +98,26 @@ class SettingsController(
             GuiSettings.isRainbowTheme = themeSettings.isRainbowTheme
             lastSaved = snapshot()
             lastSavedTheme = themeSnapshotOf()
-            if (api.apiUrl.isNotBlank() || api.apiToken.isNotBlank()) {
+            // Only when a file was really read: on a first run, or after a failed read reported
+            // above, the values came from defaults and saying otherwise would be misleading.
+            if (saved != null && (api.apiUrl.isNotBlank() || api.apiToken.isNotBlank())) {
                 logs.add(LogEntry(null, "已加载 API 设置 (${apiSetting.path})"))
             }
         }
     }
 
     /**
-     * Auto-save: write to disk once a snapshot has been stable for [AUTO_SAVE_DEBOUNCE].
+     * Auto-save: write to disk once a snapshot has been stable for [debounce].
      *
      * Started from composition; the first snapshot is skipped so startup writes nothing.
+     * [debounce] is a test seam: production always uses [AUTO_SAVE_DEBOUNCE].
      */
     @OptIn(FlowPreview::class)
-    suspend fun autoSave() {
+    suspend fun autoSave(debounce: Duration = AUTO_SAVE_DEBOUNCE) {
         snapshotFlow { apiSnapshot.value to themeSnapshot.value }
             .drop(1)
             .distinctUntilChanged()
-            .debounce(AUTO_SAVE_DEBOUNCE)
+            .debounce(debounce)
             .collect { (api, theme) ->
                 if (!save(api)) {
                     logs.add(LogEntry(LoggerLevel.Warning, "自动保存 API 设置失败: ${apiSetting.path}"))
@@ -122,6 +126,18 @@ class SettingsController(
                     logs.add(LogEntry(LoggerLevel.Warning, "自动保存主题设置失败: ${themeSetting.path}"))
                 }
             }
+    }
+
+    /**
+     * Write the pending snapshot now, without waiting for [AUTO_SAVE_DEBOUNCE].
+     *
+     * Called when the application is closing: an edit made just before the window is closed would
+     * otherwise sit in the debounce window and never reach disk, which loses every setting the user
+     * changed in the last few seconds.
+     */
+    suspend fun flush() {
+        save(snapshot())
+        saveTheme(themeSnapshotOf())
     }
 
     /** Write [settings], skipping when it equals the last successfully written snapshot. */

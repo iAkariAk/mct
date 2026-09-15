@@ -23,7 +23,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import mct.extra.ai.translator.MapInfo
+import java.io.File
 
 private enum class ActionButtonVisualState {
     Idle,
@@ -62,13 +66,27 @@ fun SectionTitle(text: String, icon: ImageVector? = null) {
     }
 }
 
+/**
+ * A labelled path field with a browse button.
+ *
+ * With [mustExist] set (the default, for paths that are read), a path that does not resolve is
+ * reported under the field instead of surfacing later as a failed run. Destinations the run
+ * creates pass `mustExist = false`.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PathRow(
     label: String, placeholder: String,
     value: String, onValueChange: (String) -> Unit,
+    mustExist: Boolean = true,
     onBrowse: () -> Unit,
 ) {
+    val missing = rememberMissingPath(value, mustExist)
+    val supporting: (@Composable () -> Unit)? = if (missing) {
+        { Text("路径不存在") }
+    } else {
+        null
+    }
     Column {
         Text(
             label,
@@ -82,7 +100,9 @@ fun PathRow(
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
                 singleLine = true,
+                isError = missing,
                 placeholder = { Text(placeholder) },
+                supportingText = supporting,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
@@ -98,6 +118,26 @@ fun PathRow(
             }
         }
     }
+}
+
+private const val PATH_CHECK_DEBOUNCE_MILLIS = 250L
+
+/**
+ * Whether [value] names something that is not on disk, resolved off the UI thread.
+ *
+ * The delay keeps a path that is being typed from flashing the warning on every keystroke; the
+ * warning clears immediately instead, so it never outlives the value that produced it.
+ */
+@Composable
+internal fun rememberMissingPath(value: String, mustExist: Boolean): Boolean {
+    var missing by remember { mutableStateOf(false) }
+    LaunchedEffect(value, mustExist) {
+        missing = false
+        if (!mustExist || value.isBlank()) return@LaunchedEffect
+        delay(PATH_CHECK_DEBOUNCE_MILLIS)
+        missing = withContext(Dispatchers.IO) { !File(value).exists() }
+    }
+    return missing
 }
 
 /**
@@ -528,6 +568,7 @@ fun ConfigTextField(
     modifier: Modifier = Modifier.fillMaxWidth(),
     visualTransformation: VisualTransformation = VisualTransformation.None,
     readOnly: Boolean = false,
+    isError: Boolean = false,
     trailingIcon: @Composable (() -> Unit)? = null,
 ) {
     OutlinedTextField(
@@ -540,6 +581,7 @@ fun ConfigTextField(
         visualTransformation = visualTransformation,
         trailingIcon = trailingIcon,
         readOnly = readOnly,
+        isError = isError,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant

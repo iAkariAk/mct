@@ -176,6 +176,7 @@ private fun PatchCreateSection(
             "选择保存位置...",
             state.output,
             { onStateChange(state.copy(output = it)) },
+            mustExist = false,
             onBrowse = onBrowseOutput,
         )
 

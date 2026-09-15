@@ -90,17 +90,25 @@ fun TranslatePanel(
             "输出替换Mapping JSON",
             "选择保存位置...",
             state.mappingOutput,
-            { onStateChange(currentState.copy(mappingOutput = it)) }) {
+            { onStateChange(currentState.copy(mappingOutput = it)) },
+            mustExist = false,
+        ) {
             mappingSaver.launch(suggestedName = "mappings", defaultExtension = "json")
         }
-        PathRow("输出替换文件 JSON", "选择保存位置...", state.output, { onStateChange(currentState.copy(output = it)) }) {
+        PathRow(
+            "输出替换文件 JSON", "选择保存位置...", state.output,
+            { onStateChange(currentState.copy(output = it)) },
+            mustExist = false,
+        ) {
             outputSaver.launch(suggestedName = "replacements", defaultExtension = "json")
         }
         PathRow(
             "输出术语表 JSON",
             "选择保存位置...",
             state.termOutput,
-            { onStateChange(currentState.copy(termOutput = it)) }) {
+            { onStateChange(currentState.copy(termOutput = it)) },
+            mustExist = false,
+        ) {
             termSaver.launch(suggestedName = "terms", defaultExtension = "json")
         }
 

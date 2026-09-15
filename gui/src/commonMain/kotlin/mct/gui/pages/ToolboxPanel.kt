@@ -376,6 +376,7 @@ private fun ToolboxOperationDialog(
                             placeholder = "选择保存位置",
                             value = state.exportOutput,
                             onValueChange = { onStateChange(state.copy(exportOutput = it)) },
+                            mustExist = false,
                             onBrowse = { exportOutputPicker.launch() },
                         )
                     }
@@ -390,16 +391,16 @@ private fun ToolboxOperationDialog(
                             label = { it.label },
                             onSelected = { onStateChange(state.copy(mtlxSource = it)) },
                         )
-                        PathField("MTLX 输出文件", state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
+                        PathField("MTLX 输出文件", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
                     }
                     ToolboxOperation.TranslateMtlx -> {
                         PathField("MTLX 文件", state.mtlxInput) { onStateChange(state.copy(mtlxInput = it)) }
                         PathField("文本池 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
-                        PathField("映射输出 JSON", state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
+                        PathField("映射输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
                     }
                     ToolboxOperation.ReplaceAll -> {
                         PathField("提取结果 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
-                        PathField("替换输出 JSON", state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
+                        PathField("替换输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
                         ConfigTextField(
                             value = state.replacement,
                             onValueChange = { onStateChange(state.copy(replacement = it)) },
@@ -419,7 +420,7 @@ private fun ToolboxOperationDialog(
                             label = { it.label },
                             onSelected = { onStateChange(state.copy(schemaKind = it)) },
                         )
-                        PathField("Schema 输出 JSON", state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
+                        PathField("Schema 输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
                     }
                     ToolboxOperation.CommandTest -> {
                         PathField("命令样例文件", state.commandInput) { onStateChange(state.copy(commandInput = it)) }
@@ -460,7 +461,7 @@ private fun ToolboxOperationDialog(
                             placeholder = { Text("latest 或具体版本，如 1.21.5") },
                             singleLine = true,
                         )
-                        PathField("语言包输出目录", state.officialOutput) { onStateChange(state.copy(officialOutput = it)) }
+                        PathField("语言包输出目录", state.officialOutput, mustExist = false) { onStateChange(state.copy(officialOutput = it)) }
                         ConfigTextField(
                             value = state.officialConcurrency,
                             onValueChange = { onStateChange(state.copy(officialConcurrency = it)) },
@@ -471,7 +472,7 @@ private fun ToolboxOperationDialog(
                     ToolboxOperation.CombineOfficialLanguage -> {
                         PathField("源语言 JSON", state.officialSourceLanguage) { onStateChange(state.copy(officialSourceLanguage = it)) }
                         PathField("目标语言 JSON", state.officialTargetLanguage) { onStateChange(state.copy(officialTargetLanguage = it)) }
-                        PathField("术语表输出 JSON", state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
+                        PathField("术语表输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
                     }
                 }
             }
@@ -508,7 +509,7 @@ private fun PoolFields(
 ) {
     PathField("提取结果 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
     if (showMapping) PathField("映射 JSON", state.mappingInput) { onStateChange(state.copy(mappingInput = it)) }
-    PathField(if (showMapping) "替换输出 JSON" else "文本池输出 JSON", state.poolOutput) {
+    PathField(if (showMapping) "替换输出 JSON" else "文本池输出 JSON", state.poolOutput, mustExist = false) {
         onStateChange(state.copy(poolOutput = it))
     }
     if (!showMapping) {
@@ -522,12 +523,23 @@ private fun PoolFields(
     }
 }
 
+/**
+ * Path field without a browse button. Read paths ([mustExist]) mark themselves in the label when
+ * they do not resolve; destinations the run creates are left alone.
+ */
 @Composable
-private fun PathField(label: String, value: String, onValueChange: (String) -> Unit) {
+private fun PathField(
+    label: String,
+    value: String,
+    mustExist: Boolean = true,
+    onValueChange: (String) -> Unit,
+) {
+    val missing = rememberMissingPath(value, mustExist)
     ConfigTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(if (missing) "$label（路径不存在）" else label) },
+        isError = missing,
         singleLine = true,
     )
 }

@@ -10,11 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import arrow.core.raise.either
@@ -28,26 +31,66 @@ import mct.gui.model.*
 import mct.gui.pages.*
 import mct.gui.services.*
 import mct.gui.util.ThemeState
+import mct.gui.util.revealInFileExplorer
+import mct.gui.window.applyNativeWindowFrame
 import org.koin.compose.koinInject
 import org.koin.core.context.startKoin
+import java.awt.Dimension
+
+/** Ctrl+F (Cmd+F on macOS) opens the console find bar, as it does in a browser. */
+private fun KeyEvent.isFindShortcut(): Boolean =
+    type == KeyEventType.KeyDown && key == Key.F && (isCtrlPressed || isMetaPressed)
 
 fun main() {
     startKoin { modules(apiModule) }
 
     application {
+        val clientManager = koinInject<ClientManager>()
+        // Hoisted out of App() so the window can route title-level shortcuts (Ctrl+F) to the model.
+        val vm = remember { AppViewModel(clientManager) }
         val state = rememberWindowState(size = DpSize(820.dp, 760.dp))
         var settingsVisible by remember { mutableStateOf(false) }
+        val exitScope = rememberCoroutineScope()
+
+        // Closing writes the settings that are still inside the auto-save debounce window; without
+        // it, anything edited in the last few seconds before closing is silently dropped.
+        val requestClose: () -> Unit = remember(vm, exitScope) {
+            {
+                exitScope.launch {
+                    try {
+                        vm.settings.flush()
+                    } finally {
+                        exitApplication()
+                    }
+                }
+            }
+        }
 
         Window(
-            onCloseRequest = ::exitApplication,
+            onCloseRequest = requestClose,
             state = state,
             undecorated = true,
             transparent = true,
+            onPreviewKeyEvent = { event ->
+                if (event.isFindShortcut()) {
+                    vm.logs.openSearch()
+                    true
+                } else {
+                    false
+                }
+            },
         ) {
             val isDark = isSystemInDarkTheme()
 
+            // Restores a real native frame under Compose's own chrome, so the window manager
+            // animates maximize/restore/minimize again. Windows only; a no-op elsewhere.
+            DisposableEffect(window) {
+                applyNativeWindowFrame(window)
+                onDispose { }
+            }
+
             LaunchedEffect(isDark, GuiSettings.seedColorArgb) {
-                window.minimumSize = java.awt.Dimension(400, 300)
+                window.minimumSize = Dimension(400, 300)
                 ThemeState.restoreFromSettings(isDark)
             }
 
@@ -55,23 +98,27 @@ fun main() {
             val dynamicScheme = if (GuiSettings.isDynamicThemeEnabled) ThemeState.colorScheme else null
             val colorScheme = dynamicScheme ?: if (isDark) darkColorScheme() else lightColorScheme()
             val appModifier = remember { Modifier.fillMaxSize() }
+            // Maximized the window covers the work area edge to edge, so the corner radius would
+            // only carve transparent notches out of the desktop. Floating keeps it.
+            val windowShape =
+                if (state.placement == WindowPlacement.Maximized) RectangleShape else MaterialTheme.shapes.medium
             MaterialTheme(
                 colorScheme = colorScheme,
                 motionScheme = MotionScheme.expressive(),
             ) {
                 Surface(
-                    modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
+                    modifier = Modifier.fillMaxSize().clip(windowShape),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(Modifier.fillMaxSize()) {
                         WindowTitleBar(
                             state,
-                            onCloseRequest = ::exitApplication,
+                            onCloseRequest = requestClose,
                             onOpenSettings = { settingsVisible = !settingsVisible },
                             rainbowAccent = GuiSettings.isRainbowTheme,
                         )
                         Box(Modifier.weight(1f)) {
-                            App(appModifier)
+                            App(vm, appModifier)
                             SettingsSheet(
                                 visible = settingsVisible,
                                 onDismiss = { settingsVisible = false }
@@ -87,10 +134,8 @@ fun main() {
 // ── Application shell ─────────────────────────────────────────
 
 @Composable
-fun App(modifier: Modifier = Modifier) {
+fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
-    val clientManager = koinInject<ClientManager>()
-    val vm = remember { AppViewModel(clientManager) }
     val tabScrollStates = remember { Tab.entries.associateWith { ScrollState(initial = 0) } }
     val pageTravelPx = with(LocalDensity.current) { 24.dp.roundToPx() }
     val rootModifier = remember { Modifier.fillMaxSize().padding(16.dp) }
@@ -428,10 +473,15 @@ fun App(modifier: Modifier = Modifier) {
                 }
             }, bottom = {
                 LogConsole(
-                    visibleLogLines = vm.logs.visible,
-                    logLevelFilter = vm.logs.levelFilter,
-                    onLogLevelFilterChange = { vm.logs.levelFilter = it },
+                    logs = vm.logs,
                     onShowReasoning = { vm.reasoning.visible = true },
+                    onOpenPath = { path ->
+                        if (!revealInFileExplorer(path)) {
+                            vm.scope.launch {
+                                vm.snackbarHostState.showSnackbar("无法在资源管理器中打开: $path")
+                            }
+                        }
+                    },
                 )
             })
         }

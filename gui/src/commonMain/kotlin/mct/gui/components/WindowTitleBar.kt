@@ -1,7 +1,6 @@
 package mct.gui.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,12 +47,11 @@ fun FrameWindowScope.WindowTitleBar(
     rainbowAccent: Boolean = false,
 ) {
     val isMax = windowState.placement == WindowPlacement.Maximized
+    val motionScheme = MaterialTheme.motionScheme
+    // The frame styles are restored by `applyNativeWindowFrame` on Windows, so the platform
+    // animates this transition; where that is unavailable it is a plain, unanimated switch.
     val toggleMax = {
-        windowState.placement = if (isMax) {
-            WindowPlacement.Floating
-        } else {
-            WindowPlacement.Maximized
-        }
+        windowState.placement = if (isMax) WindowPlacement.Floating else WindowPlacement.Maximized
     }
 
     Column(Modifier.fillMaxWidth()) {
@@ -95,6 +93,13 @@ fun FrameWindowScope.WindowTitleBar(
                 WinCtlBtn(onClick = { toggleMax() }) {
                     AnimatedContent(
                         targetState = isMax,
+                        transitionSpec = {
+                            val enter = fadeIn(animationSpec = motionScheme.fastEffectsSpec()) +
+                                scaleIn(animationSpec = motionScheme.fastSpatialSpec(), initialScale = 0.85f)
+                            val exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                                scaleOut(animationSpec = motionScheme.fastSpatialSpec(), targetScale = 0.85f)
+                            enter togetherWith exit
+                        },
                         label = "max-btn"
                     ) { maxd ->
                         if (maxd)

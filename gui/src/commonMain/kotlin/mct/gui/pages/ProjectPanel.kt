@@ -128,6 +128,8 @@ fun ProjectPanel(
                     placeholder = "初始化前选父目录；已有项目选择含 mct.toml 的目录",
                     value = state.directory,
                     onValueChange = { onStateChange(state.copy(directory = it)) },
+                    // `init` creates the project directory, so an absent one is not an error yet.
+                    mustExist = false,
                     onBrowse = { projectDirectoryPicker.launch() },
                 )
             }
