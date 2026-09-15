@@ -6,10 +6,21 @@ import com.akuleshov7.ktoml.annotations.TomlMultiline
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.EnvHolder
+import mct.FSHolder
+import mct.MCTPattern
+import mct.cext.CextPattern
+import mct.cli.util.requirePath
+import mct.command.*
+import mct.dp.compile
+import mct.dp.compileWith
+import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.env
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.*
 import mct.model.patch.PathKind
+import mct.nbt.BuiltinNbtPatterns
+import mct.pointer.DataPointerPattern
+import mct.util.io.readJson
 
 @Serializable
 @SerialName("project")
@@ -54,24 +65,33 @@ data class ProjectConfig(
 )
 
 @Serializable
+@TomlInlineTable
+data class PatternWithBuiltin<T>(
+    val patterns: T,
+    @SerialName("has_builtin")
+    val hasBuiltin: Boolean = true) {
+
+}
+
+@Serializable
 @SerialName("patterns")
 data class PatternsConfig(
     @TomlComments("Paths to region data-pointer pattern JSON files (extract texts from block entities, signs, etc.)")
-    val nbt: Set<String> = emptySet(),
+    val nbt: PatternWithBuiltin<Set<String>> = PatternWithBuiltin(emptySet()),
 
     @TomlComments("Paths to mcjson data-pointer pattern JSON files")
-    val mcjson: Set<String> = emptySet(),
+    val mcjson: PatternWithBuiltin<Set<String>> = PatternWithBuiltin(emptySet()),
 
     @TomlComments("Paths to command extract pattern JSON files")
-    val command: Set<String> = emptySet(),
+    val command: PatternWithBuiltin<Set<String>> = PatternWithBuiltin(emptySet()),
 
     @SerialName("command_data")
     @TomlComments("Paths to command SNBT data-pointer pattern JSON files (extract data from command arguments)")
-    val commandData: Set<String> = emptySet(),
+    val commandData: PatternWithBuiltin<Set<String>> = PatternWithBuiltin(emptySet()),
 
     @SerialName("command_component")
     @TomlComments("Paths to command component pattern JSON files (extract data from command arguments which has component)")
-    val commandComponent: Set<String> = emptySet(),
+    val commandComponent: PatternWithBuiltin<Set<String>> = PatternWithBuiltin(emptySet()),
 
     @SerialName("command_regex")
     @TomlComments("Paths to command regex pattern JSON files")
@@ -83,6 +103,51 @@ data class PatternsConfig(
 ) {
     companion object {
         val Empty = PatternsConfig()
+    }
+
+    context(_: FSHolder)
+    fun evaluate(): MCTPattern {
+        val nbtPatterns = nbt.patterns.flatMap {
+            requirePath(it, "Region pattern").readJson<List<DataPointerPattern>>()
+        }.let { if (nbt.hasBuiltin) BuiltinNbtPatterns + it else it }
+
+        val commandPatterns = command.patterns.flatMap {
+            requirePath(it, "Command pattern").readJson<List<CommandExtractPattern>>()
+        }.let { if (command.hasBuiltin) it.compileWith(BuiltinCommandPatterns) else it.compile() }
+
+        val mcjsonPatterns = mcjson.patterns.flatMap {
+            requirePath(it, "MCJson pattern").readJson<List<DataPointerPattern>>()
+        }.let { if (nbt.hasBuiltin) BuiltinMCJsonPatterns + it else it }
+
+        val commandComponentPatterns = commandComponent.patterns.flatMap {
+            requirePath(it, "Command Component pattern").readJson<List<ComponentPattern>>()
+        }.let { if (nbt.hasBuiltin) BuiltinMinecraftComponentPatterns + it else it }
+
+        val commandDataPatterns = commandData.patterns.flatMap {
+            requirePath(it, "Command Data pattern").readJson<List<DataPointerPattern>>()
+        }.let { if (nbt.hasBuiltin) BuiltinCommandDataPatterns + it else it }
+
+
+        val commandRegexPatterns = commandRegex.flatMap {
+            requirePath(it, "Command Regex pattern").readJson<List<CommandRegexPattern>>()
+        }
+
+        val cextPattern = cext.map {
+            requirePath(it, "Cext pattern").readJson<CextPattern>()
+        }.let {
+            CextPattern(
+                optIn = it.flatMap(CextPattern::optIn), customs = it.flatMap(CextPattern::customs)
+            )
+        }
+        return MCTPattern(
+            nbt = nbtPatterns,
+            mcjson = mcjsonPatterns,
+            command = commandPatterns,
+            commandData = commandDataPatterns,
+            commandComponent = commandComponentPatterns,
+            commandRegex = commandRegexPatterns,
+            cext = cextPattern
+        )
     }
 }
 

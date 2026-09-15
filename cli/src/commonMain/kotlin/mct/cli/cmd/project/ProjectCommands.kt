@@ -19,19 +19,14 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
 import mct.MCTError
-import mct.MCTPattern
 import mct.MCTWorkspace
-import mct.cext.CextPattern
 import mct.cext.backfillCext
 import mct.cext.extractByCext
 import mct.cli.*
 import mct.cli.util.CURRENT_PATH
 import mct.cli.util.evaluateEnvvar
-import mct.command.*
 import mct.dp.backfillDatapack
-import mct.dp.compile
 import mct.dp.extractFromDatapack
-import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.extra.ai.AiSign
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.TermExtractionPrompts
@@ -44,9 +39,7 @@ import mct.kit.exportIntoPool
 import mct.model.patch.*
 import mct.mtl.MTLX
 import mct.mtl.translateByMTLX
-import mct.nbt.BuiltinNbtPatterns
 import mct.patch.createPatch
-import mct.pointer.DataPointerPattern
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.copyToRecursively
@@ -54,7 +47,6 @@ import mct.util.io.readJson
 import mct.util.io.readText
 import mct.util.io.writeJson
 import okio.Path
-import okio.Path.Companion.toPath
 
 private const val POOL_CACHE = "all_texts.json"
 private const val REGION_EXTRACTION_CACHE = "region_extractions.json"
@@ -139,56 +131,6 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     val termsFile by lazy { projectDir / projectConfig.terms }
     val mappingFile by lazy { projectDir / projectConfig.mappings }
     val mtlxFile by lazy { projectConfig.mtlx?.let { projectDir / it } }
-
-    fun gatherPattern(): MCTPattern {
-        fun requirePath(path: String, label: String): Path {
-            val p = path.toPath()
-            if (!fs.exists(p)) panic("$label pattern file not found: $path")
-            return p
-        }
-
-        val nbtPatterns = patterns.nbt.flatMap {
-            requirePath(it, "Region").readJson<List<DataPointerPattern>>()
-        }.ifEmpty { BuiltinNbtPatterns }
-
-        val commandPatterns = patterns.command.flatMap {
-            requirePath(it, "Command").readJson<List<CommandExtractPattern>>()
-        }.let { if (it.isEmpty()) BuiltinCommandPatterns else it.compile() }
-
-        val mcjsonPatterns = patterns.mcjson.flatMap {
-            requirePath(it, "MCJson").readJson<List<DataPointerPattern>>()
-        }.ifEmpty { BuiltinMCJsonPatterns }
-
-        val commandComponentPatterns = patterns.commandComponent.flatMap {
-            requirePath(it, "Command Component").readJson<List<ComponentPattern>>()
-        }.ifEmpty { BuiltinMinecraftComponentPatterns }
-
-        val commandDataPatterns = patterns.commandData.flatMap {
-            requirePath(it, "Command Data").readJson<List<DataPointerPattern>>()
-        }.ifEmpty { BuiltinCommandDataPatterns }
-
-
-        val commandRegexPatterns = patterns.commandRegex.flatMap {
-            requirePath(it, "Command Regex").readJson<List<CommandRegexPattern>>()
-        }
-
-        val cextPattern = patterns.cext.map {
-            requirePath(it, "Cext").readJson<CextPattern>()
-        }.let {
-            CextPattern(
-                optIn = it.flatMap(CextPattern::optIn), customs = it.flatMap(CextPattern::customs)
-            )
-        }
-        return MCTPattern(
-            nbt = nbtPatterns,
-            mcjson = mcjsonPatterns,
-            command = commandPatterns,
-            commandData = commandDataPatterns,
-            commandComponent = commandComponentPatterns,
-            commandRegex = commandRegexPatterns,
-            cext = cextPattern
-        )
-    }
 
     context(_: Raise<MCTError>)
     fun workspace(dir: Path = srcDir): MCTWorkspace {
@@ -275,7 +217,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val w = workspace()
-        val pattern = gatherPattern()
+        val pattern = patterns.evaluate()
 
         val existingMapping = if (fs.exists(mappingFile)) {
             mappingFile.readJson<TranslationMapping>()
@@ -612,7 +554,7 @@ private class AssemblePatch : ProjectCommand("patch", "create a patch file") {
     override suspend fun App() {
         ensureExtracted()
         val w = workspace(srcDir)
-        val pattern = gatherPattern()
+        val pattern = patterns.evaluate()
         val regionGroups = if (fs.exists(regionExtractionFile)) {
             regionExtractionFile.readJson<List<ExtractionGroup>>() as List<RegionExtractionGroup>
         } else emptyList()
