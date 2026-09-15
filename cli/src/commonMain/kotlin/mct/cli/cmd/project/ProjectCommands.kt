@@ -10,6 +10,7 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.mordant.rendering.TextAlign
 import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles.bold
@@ -46,6 +47,7 @@ import mct.util.io.copyToRecursively
 import mct.util.io.readJson
 import mct.util.io.readText
 import mct.util.io.writeJson
+import mct.util.unreachable
 import okio.Path
 
 private const val POOL_CACHE = "all_texts.json"
@@ -67,11 +69,12 @@ class ProjectCommands : SuspendingCliktCommand(name = "project") {
     override suspend fun run() = Unit
 }
 
-
 private class Init : BaseCommand(name = "init") {
     val projectName by argument(help = "The name of the project")
     val projectDir by option("--project-dir", "-D").path().default(Path.CURRENT_PATH)
     val mapDir by option("--from", help = "The path to your map").path().required()
+
+    val translationEngine by option("--translation-engine").choice("ai", "api").default("ai")
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
@@ -95,6 +98,11 @@ private class Init : BaseCommand(name = "init") {
         } catch (e: Exception) {
             printlnRed("Failed to copy world: ${e.message ?: "unknown error"}")
             panic("Failed to copy world: ${e.message ?: "unknown error"}")
+        }
+        ProjectConfigDefaults.translateEngine = when (translationEngine) {
+            "ai" -> TranslationEngine.AI
+            "api" -> TranslationEngine.Api.MTranServer.Default
+            else -> unreachable
         }
         val config = ProjectConfig(
             name = projectName,

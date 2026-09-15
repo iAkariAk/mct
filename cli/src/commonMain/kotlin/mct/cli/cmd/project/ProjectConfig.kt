@@ -22,6 +22,10 @@ import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointerPattern
 import mct.util.io.readJson
 
+object ProjectConfigDefaults {
+    var translateEngine: TranslationEngine = TranslationEngine.AI
+}
+
 @Serializable
 @SerialName("project")
 data class ProjectConfig(
@@ -69,7 +73,8 @@ data class ProjectConfig(
 data class PatternWithBuiltin<T>(
     val patterns: T,
     @SerialName("has_builtin")
-    val hasBuiltin: Boolean = true) {
+    val hasBuiltin: Boolean = true
+) {
 
 }
 
@@ -208,6 +213,10 @@ sealed class TranslationEngine {
             @TomlInlineTable
             override val config: ApiConfig = ApiConfig.Default,
         ) : Api() {
+            companion object {
+                val Default = MTranServer()
+            }
+
             override fun createApi(): TranslationApi =
                 TranslationApis.MTranServerTranslation(apiUrl, token, config.maxRetry, config.source, config.target)
 
@@ -226,7 +235,7 @@ sealed class TranslationEngine {
 @SerialName("translation")
 data class TranslationConfig(
     @TomlComments("The engine used to translate text")
-    val engine: TranslationEngine = TranslationEngine.AI,
+    val engine: TranslationEngine = ProjectConfigDefaults.translateEngine,
 
     @TomlComments("Translate chunks concurrently. (WARN: parallelism will cause terms to be ineffective when using AI engine; default: 1)")
     val concurrency: Int = 1,
