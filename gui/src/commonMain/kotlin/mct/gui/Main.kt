@@ -136,7 +136,10 @@ fun main() {
 @Composable
 fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
-    val tabScrollStates = remember { Tab.entries.associateWith { ScrollState(initial = 0) } }
+    // The project tab brings its own scrolling panes, so only the other tabs get an outer scroll.
+    val tabScrollStates = remember {
+        Tab.entries.filterNot { it == Tab.Project }.associateWith { ScrollState(initial = 0) }
+    }
     val pageTravelPx = with(LocalDensity.current) { 24.dp.roundToPx() }
     val rootModifier = remember { Modifier.fillMaxSize().padding(16.dp) }
 
@@ -149,7 +152,6 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
     val setTermExtractState: (TermExtractState) -> Unit = remember(vm) { { vm.termExtractState = it } }
     val setBackfillState: (BackfillState) -> Unit = remember(vm) { { vm.backfillState = it } }
     val setPatchState: (PatchState) -> Unit = remember(vm) { { vm.patchState = it } }
-    val setProjectState: (ProjectWorkflowState) -> Unit = remember(vm) { { vm.projectState = it } }
     val setToolboxState: (ToolboxState) -> Unit = remember(vm) { { vm.toolboxState = it } }
 
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
@@ -194,279 +196,253 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
 
             DraggableSplitPane(modifier = paneModifier, top = {
                 val motionScheme = MaterialTheme.motionScheme
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                    shape = MaterialTheme.shapes.large,
-                ) {
-                    AnimatedContent(
-                        targetState = vm.selectedTab,
-                        modifier = Modifier.fillMaxSize(),
-                        transitionSpec = {
-                            val dir = if (targetState > initialState) 1 else -1
-                            val enter = slideInHorizontally(
-                                animationSpec = motionScheme.defaultSpatialSpec(),
-                                initialOffsetX = { _ -> dir * pageTravelPx },
-                            ) + fadeIn(animationSpec = motionScheme.defaultEffectsSpec())
-                            val exit = slideOutHorizontally(
-                                animationSpec = motionScheme.fastSpatialSpec(),
-                                targetOffsetX = { _ -> -dir * pageTravelPx },
-                            ) + fadeOut(animationSpec = motionScheme.fastEffectsSpec())
-                            enter togetherWith exit
-                        },
-                        label = "tab-content"
-                    ) { tab ->
-                        val contentScroll = tabScrollStates.getValue(tab)
-                        Column(modifier = Modifier.fillMaxSize().verticalScroll(contentScroll)) {
-                            when (tab) {
-                                Tab.Extract -> ExtractPanel(
-                                    state = vm.extractState,
-                                    onStateChange = setExtractState,
-                                    isRunning = vm.operations.isRunning,
-                                    onRun = {
-                                        vm.operations.launch {
-                                            with(vm.env) {
-                                                runExtraction(
-                                                    vm.extractState.input,
-                                                    vm.extractState.output,
-                                                    vm.extractState.mode.key,
-                                                    vm.extractState.patterns,
-                                                )
+                AnimatedContent(
+                    targetState = vm.selectedTab,
+                    modifier = Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        val dir = if (targetState > initialState) 1 else -1
+                        val enter = slideInHorizontally(
+                            animationSpec = motionScheme.defaultSpatialSpec(),
+                            initialOffsetX = { _ -> dir * pageTravelPx },
+                        ) + fadeIn(animationSpec = motionScheme.defaultEffectsSpec())
+                        val exit = slideOutHorizontally(
+                            animationSpec = motionScheme.fastSpatialSpec(),
+                            targetOffsetX = { _ -> -dir * pageTravelPx },
+                        ) + fadeOut(animationSpec = motionScheme.fastEffectsSpec())
+                        enter togetherWith exit
+                    },
+                    label = "tab-content",
+                ) { tab ->
+                    if (tab == Tab.Project) {
+                        // The project workflow renders its own large cards and scrolling
+                        // lists, so it sits outside the shared card and outer scroll column.
+                        ProjectPanel(
+                            controller = vm.project,
+                            isRunning = vm.operations.isRunning,
+                        )
+                    } else {
+                        Card(
+                            modifier = Modifier.fillMaxSize(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                            shape = MaterialTheme.shapes.large,
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize()
+                                    .verticalScroll(tabScrollStates.getValue(tab)),
+                            ) {
+                                when (tab) {
+                                    Tab.Extract -> ExtractPanel(
+                                        state = vm.extractState,
+                                        onStateChange = setExtractState,
+                                        isRunning = vm.operations.isRunning,
+                                        onRun = {
+                                            vm.operations.launch {
+                                                with(vm.env) {
+                                                    runExtraction(
+                                                        vm.extractState.input,
+                                                        vm.extractState.output,
+                                                        vm.extractState.mode.key,
+                                                        vm.extractState.patterns,
+                                                    )
+                                                }
                                             }
-                                        }
-                                    })
+                                        })
 
-                                Tab.Translate -> TranslatePanel(
-                                    state = vm.translation.state,
-                                    onStateChange = setTranslateState,
-                                    translationProgress = { vm.translation.progress },
-                                    translationStatus = { vm.translation.status },
-                                    isRunning = vm.operations.isRunning,
-                                    onRun = {
-                                        vm.translation.resetProgress()
-                                        vm.reasoning.clear()
-                                        vm.operations.launch {
-                                            with(vm.env) {
-                                                either {
-                                                    runTranslation(
-                                                        input = vm.translation.state.input,
-                                                        output = vm.translation.state.output,
-                                                        mappingOutput = vm.translation.state.mappingOutput,
-                                                        termOutput = vm.translation.state.termOutput,
-                                                        termPath = vm.translation.state.existingTermPath.ifBlank { null },
-                                                        cachesPath = vm.translation.state.cachesPath.ifBlank { null },
-                                                        literatureStyle = vm.translation.state.literatureStyle,
-                                                        targetLanguage = vm.translation.state.targetLanguage,
-                                                        handleGradientAggressively = vm.translation.state.handleGradientAggressively,
-                                                        mapInfo = vm.translation.state.mapInfo,
-                                                        extraPrompts = vm.translation.state.extraPrompts.ifBlank { null },
-                                                        engine = vm.translation.state.engine,
-                                                        api = vm.translation.state.api,
-                                                        onFailure = {
-                                                            vm.scope.launch {
-                                                                vm.snackbarHostState.showSnackbar(it.message)
-                                                            }
-                                                        },
-                                                        clientManager = vm.translation.clientManager,
-                                                        onCancel = { _, salvaged ->
-                                                            vm.logs.add(
-                                                                LogEntry(
-                                                                    null,
-                                                                    "翻译被取消，已保存 ${salvaged.size} 条已翻译文本"
+                                    Tab.Translate -> TranslatePanel(
+                                        state = vm.translation.state,
+                                        onStateChange = setTranslateState,
+                                        translationProgress = { vm.translation.progress },
+                                        translationStatus = { vm.translation.status },
+                                        isRunning = vm.operations.isRunning,
+                                        onRun = {
+                                            vm.translation.resetProgress()
+                                            vm.reasoning.clear()
+                                            vm.operations.launch {
+                                                with(vm.env) {
+                                                    either {
+                                                        runTranslation(
+                                                            input = vm.translation.state.input,
+                                                            output = vm.translation.state.output,
+                                                            mappingOutput = vm.translation.state.mappingOutput,
+                                                            termOutput = vm.translation.state.termOutput,
+                                                            termPath = vm.translation.state.existingTermPath.ifBlank { null },
+                                                            cachesPath = vm.translation.state.cachesPath.ifBlank { null },
+                                                            literatureStyle = vm.translation.state.literatureStyle,
+                                                            targetLanguage = vm.translation.state.targetLanguage,
+                                                            handleGradientAggressively = vm.translation.state.handleGradientAggressively,
+                                                            mapInfo = vm.translation.state.mapInfo,
+                                                            extraPrompts = vm.translation.state.extraPrompts.ifBlank { null },
+                                                            engine = vm.translation.state.engine,
+                                                            api = vm.translation.state.api,
+                                                            onFailure = {
+                                                                vm.scope.launch {
+                                                                    vm.snackbarHostState.showSnackbar(it.message)
+                                                                }
+                                                            },
+                                                            clientManager = vm.translation.clientManager,
+                                                            onCancel = { _, salvaged ->
+                                                                vm.logs.add(
+                                                                    LogEntry(
+                                                                        null,
+                                                                        "翻译被取消，已保存 ${salvaged.size} 条已翻译文本"
+                                                                    )
                                                                 )
+                                                            },
+                                                        )
+                                                    }
+                                                }.onLeft { vm.scope.launch { vm.snackbarHostState.showSnackbar(it.message) } }
+                                            }
+                                        },
+                                        onCancel = { vm.operations.cancel() },
+                                        onOptimizePrompt = { vm.translation.optimizeLiteratureStyle() })
+
+                                    Tab.TermExtract -> TermExtractPanel(
+                                        state = vm.termExtractState,
+                                        onStateChange = setTermExtractState,
+                                        isRunning = vm.operations.isRunning,
+                                        onRun = {
+                                            vm.reasoning.clear()
+                                            vm.operations.launch {
+                                                with(vm.env) {
+                                                    runTermExtraction(
+                                                        clientManager = vm.translation.clientManager,
+                                                        input = vm.termExtractState.input,
+                                                        output = vm.termExtractState.output,
+                                                        termPath = vm.termExtractState.existingTermPath.takeIf { it.isNotBlank() },
+                                                        targetLanguage = vm.termExtractState.targetLanguage,
+                                                        literatureStyle = vm.termExtractState.literatureStyle,
+                                                        mapInfo = vm.termExtractState.mapInfo,
+                                                        extraPrompts = vm.termExtractState.extraPrompts.ifBlank { null },
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onCancel = { vm.operations.cancel() })
+
+                                    Tab.Backfill -> BackfillPanel(
+                                        state = vm.backfillState,
+                                        onStateChange = setBackfillState,
+                                        isRunning = vm.operations.isRunning,
+                                        onRun = {
+                                            vm.operations.launch {
+                                                runBackfill(
+                                                    vm.env,
+                                                    vm.backfillState.input,
+                                                    vm.backfillState.replacements,
+                                                    vm.backfillState.mode.key,
+                                                )
+                                            }
+                                        })
+
+                                    Tab.Patch -> PatchPanel(
+                                        state = vm.patchState,
+                                        onStateChange = setPatchState,
+                                        isRunning = vm.operations.isRunning,
+                                        onCreate = {
+                                            vm.operations.launch {
+                                                val state = vm.patchState.create
+                                                with(vm.env) {
+                                                    createPatchFile(
+                                                        input = state.input,
+                                                        mappingPath = state.mapping,
+                                                        output = state.output,
+                                                        kind = state.kind,
+                                                        format = state.format,
+                                                        validation = state.validation,
+                                                        patterns = state.patterns,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onApply = {
+                                            vm.operations.launch {
+                                                val state = vm.patchState.apply
+                                                with(vm.env) {
+                                                    applyPatchFile(
+                                                        input = state.input,
+                                                        patchPath = state.patch,
+                                                        format = state.format,
+                                                        strategy = state.strategy,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                    )
+
+                                    Tab.Toolbox -> ToolboxPanel(
+                                        state = vm.toolboxState,
+                                        onStateChange = setToolboxState,
+                                        isRunning = vm.operations.isRunning,
+                                        onRunOperation = { operation ->
+                                            vm.operations.launch {
+                                                val state = vm.toolboxState
+                                                with(vm.env) {
+                                                    when (operation) {
+                                                        ToolboxOperation.PointerTest -> {
+                                                            val result = runPointerTest(
+                                                                state.pointerKind.key,
+                                                                state.pointerPatternPath.takeIf { it.isNotBlank() },
+                                                                state.noBuiltin,
+                                                                state.pointerInput,
                                                             )
-                                                        },
-                                                    )
-                                                }
-                                            }.onLeft { vm.scope.launch { vm.snackbarHostState.showSnackbar(it.message) } }
-                                        }
-                                    },
-                                    onCancel = { vm.operations.cancel() },
-                                    onOptimizePrompt = { vm.translation.optimizeLiteratureStyle() })
+                                                            vm.toolboxState = state.copy(pointerResult = result.toString())
+                                                        }
 
-                                Tab.TermExtract -> TermExtractPanel(
-                                    state = vm.termExtractState,
-                                    onStateChange = setTermExtractState,
-                                    isRunning = vm.operations.isRunning,
-                                    onRun = {
-                                        vm.reasoning.clear()
-                                        vm.operations.launch {
-                                            with(vm.env) {
-                                                runTermExtraction(
-                                                    clientManager = vm.translation.clientManager,
-                                                    input = vm.termExtractState.input,
-                                                    output = vm.termExtractState.output,
-                                                    termPath = vm.termExtractState.existingTermPath.takeIf { it.isNotBlank() },
-                                                    targetLanguage = vm.termExtractState.targetLanguage,
-                                                    literatureStyle = vm.termExtractState.literatureStyle,
-                                                    mapInfo = vm.termExtractState.mapInfo,
-                                                    extraPrompts = vm.termExtractState.extraPrompts.ifBlank { null },
-                                                )
-                                            }
-                                        }
-                                    },
-                                    onCancel = { vm.operations.cancel() })
-
-                                Tab.Backfill -> BackfillPanel(
-                                    state = vm.backfillState,
-                                    onStateChange = setBackfillState,
-                                    isRunning = vm.operations.isRunning,
-                                    onRun = {
-                                        vm.operations.launch {
-                                            runBackfill(
-                                                vm.env,
-                                                vm.backfillState.input,
-                                                vm.backfillState.replacements,
-                                                vm.backfillState.mode.key,
-                                            )
-                                        }
-                                    })
-
-                                Tab.Patch -> PatchPanel(
-                                    state = vm.patchState,
-                                    onStateChange = setPatchState,
-                                    isRunning = vm.operations.isRunning,
-                                    onCreate = {
-                                        vm.operations.launch {
-                                            val state = vm.patchState.create
-                                            with(vm.env) {
-                                                createPatchFile(
-                                                    input = state.input,
-                                                    mappingPath = state.mapping,
-                                                    output = state.output,
-                                                    kind = state.kind,
-                                                    format = state.format,
-                                                    validation = state.validation,
-                                                    patterns = state.patterns,
-                                                )
-                                            }
-                                        }
-                                    },
-                                    onApply = {
-                                        vm.operations.launch {
-                                            val state = vm.patchState.apply
-                                            with(vm.env) {
-                                                applyPatchFile(
-                                                    input = state.input,
-                                                    patchPath = state.patch,
-                                                    format = state.format,
-                                                    strategy = state.strategy,
-                                                )
-                                            }
-                                        }
-                                    },
-                                )
-
-                                Tab.Project -> ProjectPanel(
-                                    state = vm.projectState,
-                                    onStateChange = setProjectState,
-                                    isRunning = vm.operations.isRunning,
-                                    onInit = {
-                                        vm.operations.launch {
-                                            val state = vm.projectState
-                                            val projectRoot = with(vm.env) {
-                                                initialiseProject(state.directory, state.name, state.source)
-                                            }
-                                            vm.projectState = state.copy(directory = projectRoot)
-                                        }
-                                    },
-                                    onUpdate = {
-                                        vm.operations.launch {
-                                            with(vm.env) { updateProject(vm.projectState.directory) }
-                                        }
-                                    },
-                                    onTerms = {
-                                        vm.operations.launch {
-                                            with(vm.env) { extractProjectTerms(vm.projectState.directory) }
-                                        }
-                                    },
-                                    onTranslate = {
-                                        vm.operations.launch {
-                                            with(vm.env) { translateProject(vm.projectState.directory) }
-                                        }
-                                    },
-                                    onBuild = {
-                                        vm.operations.launch {
-                                            with(vm.env) { buildProject(vm.projectState.directory) }
-                                        }
-                                    },
-                                    onPatch = {
-                                        vm.operations.launch {
-                                            with(vm.env) { assembleProjectPatch(vm.projectState.directory) }
-                                        }
-                                    },
-                                )
-
-                                Tab.Toolbox -> ToolboxPanel(
-                                    state = vm.toolboxState,
-                                    onStateChange = setToolboxState,
-                                    isRunning = vm.operations.isRunning,
-                                    onRunOperation = { operation ->
-                                        vm.operations.launch {
-                                            val state = vm.toolboxState
-                                            with(vm.env) {
-                                                when (operation) {
-                                                    ToolboxOperation.PointerTest -> {
-                                                        val result = runPointerTest(
-                                                            state.pointerKind.key,
-                                                            state.pointerPatternPath.takeIf { it.isNotBlank() },
-                                                            state.noBuiltin,
-                                                            state.pointerInput,
+                                                        ToolboxOperation.ExportSnbt -> runExportSnbt(
+                                                            state.exportInput,
+                                                            state.exportOutput,
                                                         )
-                                                        vm.toolboxState = state.copy(pointerResult = result.toString())
-                                                    }
-
-                                                    ToolboxOperation.ExportSnbt -> runExportSnbt(
-                                                        state.exportInput,
-                                                        state.exportOutput,
-                                                    )
-                                                    ToolboxOperation.FlattenPool -> flattenTextPool(
-                                                        state.poolInput, state.poolOutput, state.poolKind.key, state.poolSimply
-                                                    )
-                                                    ToolboxOperation.UnflattenPool -> unflattenTextPool(
-                                                        state.poolInput, state.mappingInput, state.poolOutput
-                                                    )
-                                                    ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
-                                                        state.poolInput, state.poolOutput, state.mtlxSource
-                                                    )
-                                                    ToolboxOperation.TranslateMtlx -> translateByMtlx(
-                                                        state.mtlxInput, state.poolInput, state.poolOutput
-                                                    )
-                                                    ToolboxOperation.ReplaceAll -> replaceAllExtractions(
-                                                        state.poolInput, state.poolOutput, state.replacement
-                                                    )
-                                                    ToolboxOperation.ExportSchema -> exportPatternSchema(
-                                                        when (state.schemaKind) {
-                                                            SchemaKind.Command -> PatternSchemaKind.Command
-                                                            SchemaKind.DataPointer -> PatternSchemaKind.DataPointer
-                                                            SchemaKind.CommandRegex -> PatternSchemaKind.CommandRegex
-                                                        },
-                                                        state.poolOutput,
-                                                    )
-                                                    ToolboxOperation.CommandTest -> {
-                                                        val matches = testCommandPatterns(
-                                                            state.commandInput,
-                                                            state.commandPatterns,
+                                                        ToolboxOperation.FlattenPool -> flattenTextPool(
+                                                            state.poolInput, state.poolOutput, state.poolKind.key, state.poolSimply
                                                         )
-                                                        vm.toolboxState = state.copy(
-                                                            commandResult = matches.joinToString("\n") {
-                                                                "[${it.start}, ${it.endExclusive}) ${it.content}"
-                                                            }.ifBlank { "未匹配到可提取文本。" },
+                                                        ToolboxOperation.UnflattenPool -> unflattenTextPool(
+                                                            state.poolInput, state.mappingInput, state.poolOutput
+                                                        )
+                                                        ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
+                                                            state.poolInput, state.poolOutput, state.mtlxSource
+                                                        )
+                                                        ToolboxOperation.TranslateMtlx -> translateByMtlx(
+                                                            state.mtlxInput, state.poolInput, state.poolOutput
+                                                        )
+                                                        ToolboxOperation.ReplaceAll -> replaceAllExtractions(
+                                                            state.poolInput, state.poolOutput, state.replacement
+                                                        )
+                                                        ToolboxOperation.ExportSchema -> exportPatternSchema(
+                                                            when (state.schemaKind) {
+                                                                SchemaKind.Command -> PatternSchemaKind.Command
+                                                                SchemaKind.DataPointer -> PatternSchemaKind.DataPointer
+                                                                SchemaKind.CommandRegex -> PatternSchemaKind.CommandRegex
+                                                            },
+                                                            state.poolOutput,
+                                                        )
+                                                        ToolboxOperation.CommandTest -> {
+                                                            val matches = testCommandPatterns(
+                                                                state.commandInput,
+                                                                state.commandPatterns,
+                                                            )
+                                                            vm.toolboxState = state.copy(
+                                                                commandResult = matches.joinToString("\n") {
+                                                                    "[${it.start}, ${it.endExclusive}) ${it.content}"
+                                                                }.ifBlank { "未匹配到可提取文本。" },
+                                                            )
+                                                        }
+                                                        ToolboxOperation.DownloadOfficialLanguage -> downloadOfficialLanguages(
+                                                            state.officialMinecraftVersion,
+                                                            state.officialOutput,
+                                                            state.officialConcurrency.toInt(),
+                                                        )
+                                                        ToolboxOperation.CombineOfficialLanguage -> combineOfficialLanguages(
+                                                            state.officialSourceLanguage,
+                                                            state.officialTargetLanguage,
+                                                            state.poolOutput,
                                                         )
                                                     }
-                                                    ToolboxOperation.DownloadOfficialLanguage -> downloadOfficialLanguages(
-                                                        state.officialMinecraftVersion,
-                                                        state.officialOutput,
-                                                        state.officialConcurrency.toInt(),
-                                                    )
-                                                    ToolboxOperation.CombineOfficialLanguage -> combineOfficialLanguages(
-                                                        state.officialSourceLanguage,
-                                                        state.officialTargetLanguage,
-                                                        state.poolOutput,
-                                                    )
                                                 }
                                             }
-                                        }
-                                    })
+                                        })
+                                }
                             }
                         }
                     }

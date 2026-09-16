@@ -235,6 +235,165 @@ fun <T> EnumButtonGroup(
     }
 }
 
+/** Smallest weight a collapsing entry keeps, so [androidx.compose.foundation.layout.RowScope.weight] stays valid. */
+private const val MinWeight = 0.001f
+
+/**
+ * Connected button group of *actions* that collapses into a single cancel button while one of them
+ * runs.
+ *
+ * Running a project command takes minutes, so the group morphs instead of just greying out: the
+ * other entries animate their width and opacity to zero and the running one grows to the whole
+ * group, takes the error container colour and becomes the cancel affordance. Widths are animated
+ * through the entries' weights, which keeps the connected geometry intact the whole way.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun <T> CollapsibleActionButtonGroup(
+    entries: List<T>,
+    label: (T) -> String,
+    icon: (T) -> ImageVector,
+    cancelLabel: (T) -> String,
+    enabled: Boolean,
+    running: T?,
+    onAction: (T) -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val motionScheme = MaterialTheme.motionScheme
+    // Single progress for the whole bar: every entry reads the same value, so they stay in step.
+    val collapse by animateFloatAsState(
+        targetValue = if (running != null) 1f else 0f,
+        animationSpec = motionScheme.defaultSpatialSpec(),
+        label = "action-collapse",
+    )
+    // Entry contents fade out on the fast curve, i.e. before their buttons are narrow enough to
+    // clip them: a glyph still visible while the button shrinks would be cut in half mid-animation.
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (running != null) 0f else 1f,
+        animationSpec = motionScheme.fastEffectsSpec(),
+        label = "action-collapse-content",
+    )
+
+    ButtonGroup(
+        overflowIndicator = { menuState -> ButtonGroupDefaults.OverflowIndicator(menuState = menuState) },
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    ) {
+        val scope = this
+        val single = entries.size == 1
+        entries.forEachIndexed { index, entry ->
+            val isRunning = running == entry
+            val collapsed = running != null && !isRunning
+            customItem(
+                buttonGroupContent = {
+                    val shapes = when {
+                        // Once the group has visually collapsed, the survivor is a lone button.
+                        collapse > 0.5f && isRunning -> ButtonDefaults.shapes()
+                        single -> ButtonDefaults.shapes()
+                        index == 0 -> ButtonShapes(
+                            shape = ButtonGroupDefaults.connectedLeadingButtonShape,
+                            pressedShape = ButtonGroupDefaults.connectedLeadingButtonPressShape,
+                        )
+
+                        index == entries.lastIndex -> ButtonShapes(
+                            shape = ButtonGroupDefaults.connectedTrailingButtonShape,
+                            pressedShape = ButtonGroupDefaults.connectedTrailingButtonPressShape,
+                        )
+
+                        else -> ButtonShapes(
+                            shape = ShapeDefaults.Small,
+                            pressedShape = ButtonGroupDefaults.connectedMiddleButtonPressShape,
+                        )
+                    }
+                    // The running entry grows by the weight the others give up, so the row always
+                    // adds up to its original width. A collapsed entry keeps a sliver of weight:
+                    // `Modifier.weight` rejects zero, and at zero width it is invisible anyway.
+                    val weight = when {
+                        collapsed -> (1f - collapse).coerceAtLeast(MinWeight)
+                        isRunning -> 1f + (entries.size - 1) * collapse
+                        else -> 1f
+                    }
+                    Button(
+                        // A collapsed entry is a sliver; it must not fire its action if a click
+                        // still lands on it.
+                        onClick = {
+                            when {
+                                running == null -> onAction(entry)
+                                isRunning -> onCancel()
+                                else -> Unit
+                            }
+                        },
+                        // Collapsing entries are disabled: they are not actionable while another
+                        // entry runs, and the group's own disabled colours read as such. Only the
+                        // entry that becomes the cancel button stays interactive.
+                        enabled = isRunning || running == null && enabled,
+                        shapes = shapes,
+                        colors = if (isRunning) {
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            )
+                        } else {
+                            ButtonDefaults.buttonColors()
+                        },
+                        modifier = with(scope) {
+                            Modifier
+                                .weight(weight)
+                                .graphicsLayer { alpha = if (collapsed) 1f - collapse else 1f }
+                        },
+                    ) {
+                        AnimatedContent(
+                            targetState = isRunning,
+                            transitionSpec = {
+                                val enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
+                                    scaleIn(animationSpec = motionScheme.defaultSpatialSpec(), initialScale = 0.9f)
+                                val exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
+                                    scaleOut(animationSpec = motionScheme.fastSpatialSpec(), targetScale = 0.9f)
+                                enter togetherWith exit
+                            },
+                            contentAlignment = Alignment.Center,
+                            label = "action-entry",
+                        ) { canceling ->
+                            Row(
+                                modifier = Modifier.graphicsLayer {
+                                    // Only the entries that are collapsing: the one that stays on
+                                    // screen keeps its label, including the cancel label.
+                                    if (collapsed) alpha = contentAlpha
+                                },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (canceling) {
+                                    Icon(
+                                        Icons.Outlined.Stop,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(cancelLabel(entry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                } else {
+                                    Icon(icon(entry), contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(label(entry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                },
+                menuContent = { menuState ->
+                    DropdownMenuItem(
+                        text = { Text(label(entry)) },
+                        onClick = {
+                            menuState.dismiss()
+                            onAction(entry)
+                        },
+                    )
+                },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ActionButton(

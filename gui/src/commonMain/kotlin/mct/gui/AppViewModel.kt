@@ -45,6 +45,7 @@ class AppViewModel(clientManager: ClientManager) {
     val translation = TranslationController(clientManager, env, logs, snackbarHostState, scope)
     val operations = OperationRunner(scope, logs, snackbarHostState)
     val settings = SettingsController(logs, translation)
+    val project = ProjectController(env, scope, operations, snackbarHostState)
 
     // ── Panel data states ───────────────────────────────────────
     var selectedTab by mutableStateOf(Tab.Extract)
@@ -52,7 +53,6 @@ class AppViewModel(clientManager: ClientManager) {
     var termExtractState by mutableStateOf(TermExtractState())
     var backfillState by mutableStateOf(BackfillState())
     var patchState by mutableStateOf(PatchState())
-    var projectState by mutableStateOf(ProjectWorkflowState())
     var toolboxState by mutableStateOf(ToolboxState())
 
     init {

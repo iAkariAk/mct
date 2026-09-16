@@ -59,6 +59,9 @@ data class ThemeSettings(
 
 val themeSetting = setting<ThemeSettings>("theme-settings", ::ThemeSettings)
 
+/** Project history shown on the project overview page, newest first. */
+val projectHistorySetting = setting<ProjectHistory>("projects", ::ProjectHistory)
+
 // ---- Shared logger ------------------------------------------------------
 
 /**

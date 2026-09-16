@@ -255,13 +255,6 @@ data class TermExtractState(
 )
 
 @Immutable
-data class ProjectWorkflowState(
-    val directory: String = "",
-    val name: String = "",
-    val source: String = "",
-)
-
-@Immutable
 data class ToolboxState(
     val pointerKind: PointerKind = PointerKind.Region,
     val pointerPatternPath: String = "",

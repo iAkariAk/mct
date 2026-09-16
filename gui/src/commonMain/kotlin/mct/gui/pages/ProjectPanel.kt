@@ -1,292 +1,269 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package mct.gui.pages
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CreateNewFolder
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
+import mct.gui.components.EnumButtonGroup
+import mct.gui.components.HoverHint
 import mct.gui.components.PathRow
-import mct.gui.components.SectionTitle
-import mct.gui.model.ProjectWorkflowState
+import mct.gui.model.ProjectHistoryEntry
+import mct.gui.model.ProjectTranslationEngine
 import mct.gui.services.projectNameError
+import mct.gui.state.ProjectController
 
-private data class ProjectStep(
-    val number: Int,
-    val title: String,
-    val icon: ImageVector,
-    val enabled: Boolean,
-    val onClick: () -> Unit,
-)
-
+/**
+ * The project tab: the project overview while nothing is open, the workspace once a project is,
+ * plus the "new project" dialog floating above both.
+ */
 @Composable
 fun ProjectPanel(
-    state: ProjectWorkflowState,
-    onStateChange: (ProjectWorkflowState) -> Unit,
+    controller: ProjectController,
     isRunning: Boolean,
-    onInit: () -> Unit,
-    onUpdate: () -> Unit,
-    onTerms: () -> Unit,
-    onTranslate: () -> Unit,
-    onBuild: () -> Unit,
-    onPatch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val projectDirectoryPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(directory = it.absolutePath())) }
-    }
-    val sourceDirectoryPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(source = it.absolutePath())) }
-    }
-    val hasProjectDirectory = state.directory.isNotBlank()
-    val nameError = projectNameError(state.name).takeIf { state.name.isNotBlank() }
-
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.tertiaryContainer,
-            tonalElevation = 2.dp,
-        ) {
-            Row(
-                modifier = Modifier.padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Surface(
-                    modifier = Modifier.size(52.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.tertiary,
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Outlined.Terminal,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiary,
-                        )
-                    }
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        "CLI 项目工作流",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                    Text(
-                        "使用mct project批量管理项目",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.tertiary,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Link,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onTertiary,
-                        )
-                        Text(
-                            "CLI 原生",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onTertiary,
-                        )
-                    }
-                }
-            }
-        }
-
-        SectionTitle("项目位置", Icons.Outlined.FolderOpen)
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                PathRow(
-                    label = "CLI 工作目录 / 项目根目录",
-                    placeholder = "初始化前选父目录；已有项目选择含 mct.toml 的目录",
-                    value = state.directory,
-                    onValueChange = { onStateChange(state.copy(directory = it)) },
-                    // `init` creates the project directory, so an absent one is not an error yet.
-                    mustExist = false,
-                    onBrowse = { projectDirectoryPicker.launch() },
-                )
-            }
-        }
-
-        SectionTitle("初始化参数", Icons.Outlined.CreateNewFolder)
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val useTwoColumns = maxWidth >= 680.dp
-            if (useTwoColumns) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ProjectNameField(
-                        value = state.name,
-                        onValueChange = { onStateChange(state.copy(name = it)) },
-                        error = nameError,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Box(Modifier.weight(1f)) {
-                        PathRow(
-                            label = "源 Minecraft 存档",
-                            placeholder = "选择包含 level.dat 的目录",
-                            value = state.source,
-                            onValueChange = { onStateChange(state.copy(source = it)) },
-                            onBrowse = { sourceDirectoryPicker.launch() },
-                        )
-                    }
-                }
+    val motionScheme = MaterialTheme.motionScheme
+    Box(modifier = modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = controller.opened,
+            // Keyed by directory so switching between two projects animates instead of mutating
+            // the open one's page in place.
+            contentKey = { it?.directory },
+            transitionSpec = {
+                // Opening a project moves forward, returning to the list moves back.
+                val forward = targetState != null
+                val enter = slideInHorizontally(
+                    animationSpec = motionScheme.defaultSpatialSpec(),
+                    initialOffsetX = { width -> if (forward) width else -width },
+                ) + fadeIn(animationSpec = motionScheme.defaultEffectsSpec())
+                val exit = slideOutHorizontally(
+                    animationSpec = motionScheme.fastSpatialSpec(),
+                    targetOffsetX = { width -> if (forward) -width else width },
+                ) + fadeOut(animationSpec = motionScheme.fastEffectsSpec())
+                enter togetherWith exit
+            },
+            modifier = Modifier.fillMaxSize(),
+            label = "project-page",
+        ) { project: ProjectHistoryEntry? ->
+            if (project == null) {
+                ProjectOverviewPage(controller, isRunning)
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ProjectNameField(
-                        value = state.name,
-                        onValueChange = { onStateChange(state.copy(name = it)) },
-                        error = nameError,
+                ProjectWorkspacePage(controller, project, isRunning)
+            }
+        }
+        ProjectInitDialog(
+            controller = controller,
+            isRunning = isRunning,
+            visible = controller.isInitDialogVisible,
+        )
+    }
+}
+
+/** Modal for `mct project init`: parent directory, name, source world and translation engine. */
+@Composable
+private fun ProjectInitDialog(
+    controller: ProjectController,
+    isRunning: Boolean,
+    visible: Boolean,
+) {
+    val motionScheme = MaterialTheme.motionScheme
+    val form = controller.initForm
+    val nameError = projectNameError(form.name).takeIf { form.name.isNotBlank() }
+    val directoryPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
+        file?.let { picked -> controller.updateInitForm { it.copy(directory = picked.absolutePath()) } }
+    }
+    val sourcePicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
+        file?.let { picked -> controller.updateInitForm { it.copy(source = picked.absolutePath()) } }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+        exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.32f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { if (!isRunning) controller.hideInitDialog() }
+            )
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .widthIn(max = 520.dp)
+                    .padding(24.dp)
+                    .animateEnterExit(
+                        enter = scaleIn(
+                            animationSpec = motionScheme.defaultSpatialSpec(),
+                            initialScale = 0.92f,
+                        ) + fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
+                        exit = scaleOut(
+                            animationSpec = motionScheme.fastSpatialSpec(),
+                            targetScale = 0.92f,
+                        ) + fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
+                    ),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                tonalElevation = 3.dp,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.CreateNewFolder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("新建项目", style = MaterialTheme.typography.headlineSmall)
+                            Text(
+                                "调用 mct project init：创建项目目录、复制源存档并生成 mct.toml。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        HoverHint("关闭") {
+                            IconButton(onClick = controller::hideInitDialog, enabled = !isRunning) {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    contentDescription = "关闭",
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    PathRow(
+                        label = "CLI 工作目录",
+                        placeholder = "项目将创建在该目录下的同名子目录中",
+                        value = form.directory,
+                        onValueChange = { value -> controller.updateInitForm { it.copy(directory = value) } },
+                        onBrowse = { directoryPicker.launch() },
                     )
+
+                    Column {
+                        Text("项目名称", style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = form.name,
+                            onValueChange = { value -> controller.updateInitForm { it.copy(name = value) } },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = nameError != null,
+                            placeholder = { Text("例如：MyMap（CLI 据此在工作目录下建同名子目录）") },
+                            supportingText = nameError?.let { message -> { Text(message) } },
+                        )
+                    }
+
                     PathRow(
                         label = "源 Minecraft 存档",
                         placeholder = "选择包含 level.dat 的目录",
-                        value = state.source,
-                        onValueChange = { onStateChange(state.copy(source = it)) },
-                        onBrowse = { sourceDirectoryPicker.launch() },
+                        value = form.source,
+                        onValueChange = { value -> controller.updateInitForm { it.copy(source = value) } },
+                        onBrowse = { sourcePicker.launch() },
                     )
-                }
-            }
-        }
 
-        SectionTitle("执行步骤", Icons.Outlined.AccountTree)
-        // The step table is rebuilt only when availability or a callback changes. Building it
-        // inline would allocate a new List and six ProjectStep objects on every keystroke,
-        // recomposing all six step cards.
-        val steps = remember(
-            hasProjectDirectory,
-            state.name.isNotBlank(),
-            nameError,
-            state.source.isNotBlank(),
-            onInit, onUpdate, onTerms, onTranslate, onBuild, onPatch,
-        ) {
-            listOf(
-                ProjectStep(1, "Init", Icons.Outlined.CreateNewFolder, hasProjectDirectory && nameError == null && state.name.isNotBlank() && state.source.isNotBlank(), onInit),
-                ProjectStep(2, "Update", Icons.Outlined.Update, hasProjectDirectory, onUpdate),
-                ProjectStep(3, "术语", Icons.Outlined.Spellcheck, hasProjectDirectory, onTerms),
-                ProjectStep(4, "翻译", Icons.Outlined.Translate, hasProjectDirectory, onTranslate),
-                ProjectStep(5, "Build", Icons.Outlined.Build, hasProjectDirectory, onBuild),
-                ProjectStep(6, "补丁", Icons.Outlined.Difference, hasProjectDirectory, onPatch),
-            )
-        }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HoverHint("mct project init --translation-engine：写入 mct.toml 的 [translation.engine]") {
+                            Text("翻译引擎", style = MaterialTheme.typography.labelMedium)
+                        }
+                        EnumButtonGroup(
+                            entries = ProjectTranslationEngine.entries,
+                            selected = form.engine,
+                            label = { it.label },
+                            onSelected = { engine -> controller.updateInitForm { it.copy(engine = engine) } },
+                        )
+                    }
 
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val columns = when {
-                maxWidth >= 720.dp -> 3
-                maxWidth >= 420.dp -> 2
-                else -> 1
-            }
-            val spacing = 12.dp
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                maxItemsInEachRow = columns,
-                horizontalArrangement = Arrangement.spacedBy(spacing),
-                verticalArrangement = Arrangement.spacedBy(spacing),
-            ) {
-                steps.forEach { step ->
-                    WorkflowStepCard(
-                        step = step,
-                        isRunning = isRunning,
-                        // FlowRow divides each row by weight; never compute card widths from maxWidth.
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WorkflowStepCard(
-    step: ProjectStep,
-    isRunning: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        modifier = modifier.heightIn(min = 172.dp),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    controller.initError?.let { message ->
                         Text(
-                            step.number.toString(),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TextButton(
+                            onClick = controller::hideInitDialog,
+                            enabled = !isRunning,
+                            modifier = Modifier.weight(1f),
+                            shapes = ButtonDefaults.shapes(),
+                        ) {
+                            Text("取消")
+                        }
+                        Button(
+                            onClick = controller::initialise,
+                            enabled = !isRunning,
+                            modifier = Modifier.weight(1f),
+                            shapes = ButtonDefaults.shapes(),
+                        ) {
+                            if (isRunning) {
+                                LoadingIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = LocalContentColor.current,
+                                )
+                            } else {
+                                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (isRunning) "创建中..." else "创建项目")
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(
+                            Icons.Outlined.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "创建过程会在下方控制台输出 CLI 日志",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-                Icon(step.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(step.title, style = MaterialTheme.typography.titleMedium)
-            }
-            Spacer(Modifier.weight(1f))
-            FilledTonalButton(
-                onClick = step.onClick,
-                enabled = step.enabled && !isRunning,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                shape = MaterialTheme.shapes.large,
-            ) {
-                Icon(Icons.Outlined.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("执行 ${step.title}")
             }
         }
-    }
-}
-
-@Composable
-private fun ProjectNameField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    error: String? = null,
-) {
-    Column(modifier) {
-        Text("项目名称", style = MaterialTheme.typography.labelMedium)
-        Spacer(Modifier.height(4.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            isError = error != null,
-            placeholder = { Text("CLI 将创建同名子目录") },
-            supportingText = error?.let { message -> { Text(message) } },
-        )
     }
 }
