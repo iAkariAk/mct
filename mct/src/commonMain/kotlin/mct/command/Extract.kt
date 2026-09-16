@@ -124,8 +124,9 @@ internal fun extractTextFromCommand(
                 is IndexSelector.NonGreedy ->
                     command.args.asSequence()
                         .withIndex()
-                        .filter { (index, _) -> selector.matches(index + 1) }
-                        .filter { (_, arg) -> pattern.postCondition.matches(command, arg) }
+                        .filter { (index, arg) ->
+                            selector.matches(index + 1) && pattern.postCondition.matches(command, arg)
+                        }
                         .flatMap { (index, arg) ->
                             recover(
                                 block = {
