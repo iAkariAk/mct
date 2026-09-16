@@ -74,13 +74,18 @@ fun extractTextFromCommands(
     } else fromCommandPattern
 }
 
-
 context(_: Raise<IndexSelectError>, _: LoggerHolder)
 internal fun extractTextFromCommand(
     command: MCCommand,
     patterns: MCTPattern = MCTPattern.Default,
+    useIntrinsic: Boolean = true
 ): List<StringIndicesWithSyntaxFormat> {
     // return run <command> (1.21+) — similar recursive subcommand extraction
+    fun mergeResult(fromPattern: List<StringIndicesWithSyntaxFormat>) =
+        if (useIntrinsic) CommandExtractorIntrinsic.extract(command).filter { efi ->
+            fromPattern.none { efp -> efi.indices overlapsWith efp.indices }
+        }.toList().plus(fromPattern) else fromPattern
+
     if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`
         val index = command.args.indexOfFirst { it.content == "run" }
         val subBeginPos = index + 1
@@ -98,8 +103,9 @@ internal fun extractTextFromCommand(
                 content = arg.content
             )
         }
-        val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs)
-        return extractTextFromCommand(subCommand, patterns)
+        val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs, false)
+        val fromPattern = extractTextFromCommand(subCommand, patterns, false)
+        return mergeResult(fromPattern)
     }
     val fromPattern = (patterns.command[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
@@ -148,10 +154,8 @@ internal fun extractTextFromCommand(
                         }
             }
         }.toList()
-    val fromIntrinsic = CommandExtractorIntrinsic.extract(command).filter { efi ->
-        fromPattern.none { efp -> efi.indices overlapsWith efp.indices }
-    }.toList()
-    return fromIntrinsic + fromPattern
+
+    return mergeResult(fromPattern)
 }
 
 // Refer to mct.region.ExtractKt.extractTexts
