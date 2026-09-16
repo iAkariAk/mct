@@ -28,7 +28,7 @@ val BuiltinMCJsonPatterns = PatternSet {
     +RegexPattern(""">#(front|back)_text>#messages$""")
 
     // --- Written Books ---
-    +RegexPattern(""">#pages""")                  // Individual book pages
+    +RightPattern(""">#pages""")                  // Individual book pages
     +RightPattern(">#title")                           // Book title or dialog title
     +RightPattern(">#author")                          // Book author
     // --- Dialog ---
