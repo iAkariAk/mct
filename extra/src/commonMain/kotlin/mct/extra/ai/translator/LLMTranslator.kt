@@ -263,7 +263,8 @@ internal fun String.strip(format: FormatKind): ComponentStrip = run {
             else -> IRElement.decodeFromString(format, raw)
         }?.let {
             if (it is IRList) {
-                it.takeIf { it.size == 1 }?.first()?.also { isList = true } ?: return@run ComponentStrip.CannotStrip(raw)
+                it.takeIf { it.size == 1 }?.first()?.also { isList = true }
+                    ?: return@run ComponentStrip.CannotStrip(raw)
             } else it
         }?.decodeToCompound()
     }.getOrNull() ?: return@run ComponentStrip.NoComponent(raw)
@@ -279,7 +280,14 @@ internal fun String.strip(format: FormatKind): ComponentStrip = run {
     } else null) ?: return@run ComponentStrip.CannotStrip(raw)
     return@run ComponentStrip.Simplified(raw, format, single, strip, isList)
 }.also { strip ->
-  logger.debug { "Strip $this ==> $strip" }
+    logger.debug {
+        when (strip) {
+            is CannotStrip -> "[strip] Cannot strip: ${strip.original}"
+            is NoComponent -> "[strip] No a component: ${strip.original}"
+            is Untranslatable -> "[strip] Untranslatable: ${strip.original}"
+            is Simplified -> "[strip] Strip: ${strip.original} ==(${strip.sourceFormat})=> ${strip.strip}"
+        }
+    }
 }
 
 @Suppress("UNCHECKED_CAST")
