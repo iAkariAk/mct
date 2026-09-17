@@ -82,7 +82,7 @@ fun String.quoted(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
+fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) { // FIXME: quoting content is dangerous when the string wrapped by other quote
     SingleQuoteString -> doubleQuoted()
     DoubleQuoteString -> doubleQuoted()
     LiteralString -> doubleQuoted()
