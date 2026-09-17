@@ -19,6 +19,7 @@ import mct.pointer.compile
 import mct.util.Regex2
 import mct.util.groups2
 import mct.util.offset
+import mct.util.snbt.ParseException
 import mct.util.snbt.SnbtLexer
 import mct.util.snbt.SnbtParser
 import mct.util.snbt.SnbtTag
@@ -101,7 +102,11 @@ private fun selectItemStackPropertyList(
                 lexer.index++
                 skipWhitespace()
                 val valueStartIndex = lexer.index
-                val value = parser.parse()
+                val value = try {
+                parser.parse()
+                } catch (e: ParseException) {
+                    raise(IndexSelectError.Parse(str, e))
+                }
                 val valueStr = str.substring(value.indices)
                 val extracted = value.extractTextsByPointer(valueStr, valueStartIndex)
                 val pattern = patterns?.findByCompoundKey(key)

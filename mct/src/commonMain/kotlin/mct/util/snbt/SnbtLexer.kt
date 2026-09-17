@@ -35,7 +35,7 @@ class SnbtLexer(private val string: String, startIndex: Int = 0) {
         return when (ch) {
             '"', '\'' -> readString(ch)
             '.' -> if (peek(1)?.isDigit() ?: false) readNumber() else readLiteral()
-            '-', in '0'..'9' -> readNumber()
+            '+','-', in '0'..'9' -> readNumber()
             ',' -> singleChar(COMMA)
             ':' -> singleChar(COLON)
             ';' -> singleChar(SEMICOLON)
@@ -111,5 +111,5 @@ class SnbtLexer(private val string: String, startIndex: Int = 0) {
 }
 
 private fun Char.isLetterOrUnderscore() = this.isLetter() || this == '_'
-private fun Char.isIdentifier() = this.isLetter() || this in "._-"
-private fun Char.isIdentifierOrDigit() = this.isLetterOrDigit() || this in "._-"
+private fun Char.isIdentifier() = this.isLetter() || this in "._-§"
+private fun Char.isIdentifierOrDigit() = this.isLetterOrDigit() || this in "._-§"

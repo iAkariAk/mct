@@ -83,8 +83,12 @@ sealed interface IndexSelectError : MCTError {
     data class Parse(
         val raw: String,
         val reason: String,
+        val exception: Exception? = null
     ) : IndexSelectError {
-        override val message = "When parsing $raw, get $reason"
+        constructor(raw: String, exception: Exception) : this(raw, exception.message ?: "<null>", exception)
+
+        override val message =
+            if (exception != null) "When parsing $raw: ${exception.stackTraceToString()}" else "When parsing $raw: get $reason"
     }
 
     data class IllegalInput(
