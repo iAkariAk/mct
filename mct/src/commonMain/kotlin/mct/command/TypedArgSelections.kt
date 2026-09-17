@@ -221,7 +221,7 @@ sealed interface ArgSelection {
     @Serializable
     @SerialName("block_state")
     data object BlockState : ArgSelection {
-        private val BLOCK_STATE_REGEX = Regex2("""^(?<id>[\w:.]+)(?:\[.*?])?(?<snbt>\{.*\})$""")
+        private val BLOCK_STATE_REGEX = Regex2("""^(?<id>[\w:.]+)(?:\[.*?])?(?<snbt>\{.*\})?$""")
 
         context(_: Raise<IndexSelectError>)
         override fun select(
@@ -232,7 +232,7 @@ sealed interface ArgSelection {
                 IndexSelectError.Parse(arg.content, "The arg didn't match BlockState(${BLOCK_STATE_REGEX.pattern})")
             )
 //            val id = result.groups2["id"]!!
-            val snbt = result.groups2["snbt"]!!
+            val snbt = result.groups2["snbt"] ?: return SelectResult.None
             return selectSnbt(arg.indices.first + snbt.range.first, snbt.value, patterns?.commandData)
         }
     }

@@ -451,9 +451,20 @@ val BuiltinCommandPatterns = PatternSet {
 
 
     // ── setblock (NBT data with text components) ─────────────────
-    // setblock <pos> <block> [<state>] [<data>]
-    // The NBT data at position 5 may contain text components like CustomName
     command("setblock") {
+        // setblock <pos> <block> [destroy|keep|replace|strict]
+        WithSize(4) then {
+            Positions(4 to ArgSelection.BlockState) then {
+                Matches("setblock 5th arg") { command, arg ->
+                    command.args.size == 4 || (command.args.size == 5 && (arg.content == "destroy"
+                            || arg.content == "keep"
+                            || arg.content == "replace"
+                            || arg.content == "strict"))
+                }
+            }
+        }
+
+        // setblock <pos> <block> {snbt}
         WithSize(5) then {
             Positions(5 to ArgSelection.SnbtEntire) then {
                 Matches("setblock nbt") { _, arg ->

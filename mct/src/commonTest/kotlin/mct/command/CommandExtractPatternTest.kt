@@ -568,6 +568,12 @@ class CommandExtractPatternTest : FreeSpec({
                     commandContentCase(
                         "setblock with NBT data",
                         """setblock ~ ~ ~ minecraft:chest {CustomName:'{"text":"Treasure","color":"gold"}'}""",
+                        """'{"text":"Treasure","color":"gold"}'"""
+                    ),
+                    commandContentCase(
+                        "setblock with NBT data",
+                        """setblock -244 88 610 minecraft:spruce_wall_sign[facing=north]{Text1:'"A"'}""",
+                        """'"A"'"""
                     ),
                     commandContentCase(
                         "data merge entity NBT",

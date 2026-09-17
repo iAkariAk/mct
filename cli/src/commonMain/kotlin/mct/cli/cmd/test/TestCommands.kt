@@ -10,8 +10,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
-import com.github.ajalt.mordant.rendering.TextColors.blue
-import com.github.ajalt.mordant.rendering.TextColors.green
+import com.github.ajalt.mordant.rendering.TextColors.*
 import com.github.ajalt.mordant.rendering.TextStyles.bold
 import mct.MCTError
 import mct.cli.*
@@ -67,11 +66,15 @@ private class CommandTest : BaseCommand(name = "command", help = "Test command p
     override suspend fun App() {
         val testedContent = testedFile.readText()
         val matchResults = extractTextFromCommands(testedContent, pattern).sortedByDescending { it.indices.first }
-        val display = matchResults.fold(StringBuilder(testedContent)) { acc, r ->
-            acc.setRange(r.indices.first, r.indices.last + 1, (bold + green)(r.content))
-            acc
+        val display = StringBuilder(testedContent)
+        matchResults.forEach { r ->
+            display.setRange(r.indices.first, r.indices.last + 1, (bold + green)(r.content))
         }
-        terminal.println(display)
+        display.lines().forEach { line ->
+            val isComment = line.trimStart().startsWith('#')
+            if (isComment) terminal.println(gray(line))
+            else terminal.println(line)
+        }
     }
 }
 
