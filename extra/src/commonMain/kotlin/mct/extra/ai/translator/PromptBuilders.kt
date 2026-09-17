@@ -8,7 +8,7 @@ private val NAME_LOCALIZATION_RULES = """
 - 名称具有明确且适合本地化的语义时，可以采用符合目标语言习惯和世界观风格的自然意译；没有适合意译的明确语义时，采用接近原读音、自然、易读且符合角色或世界观气质的音译。
 - 音译应尽量接近原读音，同时兼顾名称的气质、世界观风格、角色形象和文字观感；不得使用机械拼音式或逐字母式转写。
 - 已确认是专名但没有已有译名时，不得仅因译名不确定而原样保留；应按目标语言惯例采用保守且全文一致的音译或本地化译名，并记录到 TERMS。
-- 只有语法位置能够证明某段内容承担账号名、资源 ID、注册名、选择器、命令目标或其他机器身份时，才能将其作为标识符原样保留。处于命令参数位置本身不是充分证据：`say`、`tellraw`、`title` 等命令中的玩家可见消息和文本组件仍须按自然语言处理。
+- 只有语法位置能够证明某段内容承担账号名、资源 ID、注册名、选择器的非name字段、命令目标或其他机器身份时，才能将其作为标识符原样保留。处于命令参数位置本身不是充分证据：`say`、`tellraw`、`title` 等命令中的玩家可见消息和文本组件仍须按自然语言处理。
 - 已有术语映射始终优先；相同术语语义核心在全文只能使用同一译名。
 
 以下示例假设目标语言为简体中文，只演示人名与机器标识符的判定，不规定固定译名，也不构成完整列表：
@@ -17,7 +17,7 @@ private val NAME_LOCALIZATION_RULES = """
 - `Asta` → `阿斯塔`：没有适合意译的明确语义时，应采用自然、易读且接近原读音的音译，不得机械逐字母转写。
 - `Mako entered the room.` → `真子进入了房间。`：`Mako` 在自然语言句子中指代人物，应按人名本地化并记录到 TERMS；实际译名仍须结合语境确定。
 - `{"text":"Mako is here."}` → `{"text":"真子在这里。"}`：`Mako` 位于玩家可见文本中并指代人物，同样应按人名处理，同时保持文本组件结构。
-- `Mako` 若位于已确认的玩家账号字段、记分板目标、资源位置、选择器目标或其他机器身份位置，则必须逐字保留；若位于命令中的玩家可见消息，则仍按人名本地化。
+- `Mako` 若位于已确认的玩家账号字段、记分板目标、资源位置、选择器目标（name字段）或其他机器身份位置，则必须将这些机器身份也一并按人名本地化。
 """.trimIndent()
 
 private val TERM_SELECTION_RULES = """
@@ -75,12 +75,12 @@ private val MINECRAFT_TRANSLATION_RULES = $$"""
 
 - JSON、SNBT、Minecraft 命令及其参数必须保持完整结构，只处理其中明确属于玩家可见消息载荷的自然语言内容，包括 Minecraft 文本组件以及命令语法明确指定的人类可读消息参数。
 - 可处理文本组件中的 `text`、`fallback`、`extra` 以及 `with` 内嵌文本组件的自然语言。
-- 对 `say` 的消息、`tellraw`/`title` 等命令中的文本组件及其他语法上明确属于玩家可见消息的参数，翻译其自然语言内容；不得因它们位于命令参数中就将整段误判为机器标识符。命令关键字、选择器、目标、坐标、资源 ID 和其他非文本参数仍逐字保留。
+- 对 `say` 的消息、`tellraw`/`title` 等命令中的文本组件及其他语法上明确属于玩家可见消息的参数，翻译其自然语言内容；不得因它们位于命令参数中就将整段误判为机器标识符。命令关键字、选择器非name字段、目标、坐标、资源 ID 和其他非文本参数仍逐字保留。
 - 对 translatable 文本组件，`translate` 若是本地化键（如en），则必须逐字保留，仅当为自然语言时翻译；`fallback` 可以翻译。翻译过程中保证其中的格式占位符及其参数对应关系必须保持正确。
 - `with` 是 `translate` 或 `fallback` 的格式化参数表。只递归处理其中明确属于文本组件的自然语言；数字、布尔值、标识符等非文本参数必须逐字保留。
 - `%s` 按顺序引用 `with` 参数，`%1$s`、`%2$s` 等按下标引用。不得丢失、重复或错误绑定参数，也不要仅因目标语言语序不同而重排 `with`；需要调整可翻译 `fallback` 的语序时，使用带编号的占位符保持参数对应。
 - 文本中的颜色与格式控制码（如 `§a`、`§6`）必须逐字保留，不得翻译、删除或拆散。位于非文本字段、承担机器语义的枚举值同样不得翻译；相同单词若位于玩家可见文本中，仍按自然语言处理。
-- 资源位置、命名空间 ID、标签、UUID、键名、方块状态、物品组件/谓词 ID 及其非文本值、命令关键字、选择器、NBT 路径、`Tags` 等非文本数据一律原样保留，即使它们看起来像自然语言。
+- 资源位置、命名空间 ID、标签、UUID、键名、方块状态、物品组件/谓词 ID 及其非文本值、命令关键字、选择器的非name字段、NBT 路径、`Tags` 等非文本数据一律原样保留，即使它们看起来像自然语言。
 - 对 `item_stack`、`block_state`、`item_predicate`、`block_predicate` 等复合参数，同样只处理内部明确的文本组件；ID、属性、组件/谓词名称、非文本 SNBT 数据和外层语法不得改变，但嵌套文本组件中的自然语言仍应处理。
 
 ### 玩家可见文本与混合内容
@@ -99,16 +99,16 @@ private val MINECRAFT_TRANSLATION_RULES = $$"""
 - `{"text":"Damage:6"}` → `{"text":"伤害:6"}`：`Damage` 是玩家可见标签，应翻译，数值和结构保持不变。
 - `{"damage":6}` 中的 `damage` 是字段名，必须原样保留。
 - `Power:12/Radius:4m` → `力量:12/半径:4米`：逐段翻译玩家可见标签和显示单位，数值、冒号、斜杠及各段对应关系保持不变；不得因整段包含数字、冒号和斜杠而原样返回。
-- `say Mako entered the room.` → `say 真子进入了房间。`：消息是玩家可见自然语言，`Mako` 应按人名本地化；记分板目标、选择器或账号字段中的 `Mako` 才按已确认的机器身份保留。
+- `say Mako entered the room.` → `say 真子进入了房间。`：消息是玩家可见自然语言，`Mako` 应按人名本地化；记分板目标、选择器或账号字段中的 `Mako` 需按照相应语法（引号包裹）一并人名本地化。
 """.trimIndent()
 
 private val MINECRAFT_TERM_SCAN_RULES = $$"""
 ### 结构化内容的术语扫描边界
 
 - JSON、SNBT、Minecraft 命令及其参数只用于定位玩家可见自然语言；不得改写输入结构，也不得把结构或非文本数据作为术语。
-- 检查文本组件中的 `text`、 `translate`、 `fallback`、`extra`、`with` 内嵌文本组件，以及命令语法明确指定的人类可读消息参数。`translate` 若是本地化键，则提取术语，若是自然语言 ，则提取术语；选择器、目标和其他机器参数也不是术语。
+- 检查文本组件中的 `text`、 `translate`、 `fallback`、`extra`、`with` 内嵌文本组件，以及命令语法明确指定的人类可读消息参数。`translate` 若是本地化键，则提取术语，若是自然语言 ，则提取术语；选择器非name字段、目标和其他机器参数也不是术语。
 - `with` 中的数字、布尔值、标识符和其他非文本参数不是术语；`%s`、`%1$s` 等格式占位符也不是术语。
-- 颜色与格式控制码（如 `§a`、`§6`）、枚举值、资源位置、命名空间 ID、标签、UUID、键名、方块状态、组件/谓词 ID、命令关键字、选择器、NBT 路径和 `Tags` 均不得提取。
+- 颜色与格式控制码（如 `§a`、`§6`）、枚举值、资源位置、命名空间 ID、标签、UUID、键名、方块状态、组件/谓词 ID、命令关键字、选择器非name字段（如@e[tag=abc]）、NBT 路径和 `Tags` 均不得提取。
 - 对 `item_stack`、`block_state`、`item_predicate`、`block_predicate` 等复合参数，只扫描其内部明确的文本组件；ID、属性、组件/谓词名称、非文本 SNBT 数据和外层语法都不是术语。
 """.trimIndent()
 
@@ -180,9 +180,8 @@ internal fun buildTranslationPrompt(format: FormatKind, prompts: LLMTranslationP
         """.trimIndent()
     )
 
-    if (prompts.handleGradientAggressively) {
-        append(
-            """
+    if (prompts.handleGradientAggressively) append(
+        """
 
             ### 渐变色文本组件激进处理（受限结构例外）
 
@@ -211,8 +210,8 @@ internal fun buildTranslationPrompt(format: FormatKind, prompts: LLMTranslationP
             - `Frost Guardian` → `能够冻结敌人的永冬守护者` 不可接受，因为新增了具体能力和游戏机制。
             - `Deals damage to nearby enemies` → `对周围附近的敌人造成伤害` 可以接受；扩写为 `释放寒冰冲击，对周围敌人造成大量伤害` 不可接受，因为新增了攻击形式、元素属性和伤害强度。
             """.trimIndent()
-        )
-    }
+    )
+
 
     append(
         """
@@ -257,7 +256,11 @@ internal fun buildTranslationPrompt(format: FormatKind, prompts: LLMTranslationP
         -- MCT:END --
 
         三个标记必须逐字出现；TRANSLATED 行数必须等于输入项数；TERMS 必须是 String 到 String 的合法 JSON Object，没有新术语时输出 `{}`。
-
+        """.trimIndent()
+    )
+    if (prompts.staticChecking) append(
+        """
+        
         ## 输出前静态检查
 
         生成最终结果前必须逐项检查：

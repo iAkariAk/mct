@@ -82,6 +82,7 @@ class ProjectConfigEditor(
     val aiHandleGradient = field { it.ai.handleGradientAggressively }
     val aiHttpLogging = field { it.ai.enableHttpLogging }
     val aiThinkingOutput = field { it.ai.enableThinkingOutput }
+    val aiStaticChecking = field { it.ai.staticChecking }
 
     // ── translation engine ──────────────────────────────────────
     val engineKind = field { ProjectEngineKind.of(it.translation.engine) }

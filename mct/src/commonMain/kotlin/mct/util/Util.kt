@@ -70,6 +70,9 @@ inline fun String.findAll(str: String): Sequence<IntRange> = sequence {
 interface StringIndices {
     val indices: IntRange
     val content: String
+
+    operator fun component1() = indices
+    operator fun component2() = content
 }
 
 fun StringIndices(indices: IntRange, content: String): StringIndices = StringIndicesImpl(indices, content)

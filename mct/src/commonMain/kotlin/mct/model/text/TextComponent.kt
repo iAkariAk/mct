@@ -2,7 +2,13 @@
 package mct.model.text
 
 import kotlinx.serialization.Serializable
+import mct.command.getTargetSelectorName
+import mct.command.isTargetSelector
+import mct.model.patch.inferSyntaxKind
+import mct.model.patch.quoted
+import mct.model.patch.unquoted
 import mct.util.Regex2
+import mct.util.StringIndices
 import mct.util.formatir.*
 import mct.util.unreachable
 
@@ -70,6 +76,7 @@ fun TextComponent<*>.hasHumbleReadableText(): Boolean = !isPureTranslateKeyCompo
         is TextComponent.Translatable -> translate.isHumbleReadableText() || fallback?.isHumbleReadableText() == true
                 || with?.any(TextComponent<*>::hasHumbleReadableText) == true || extra?.hasHumbleReadableText() == true
 
+        is TextComponent.Score -> score.name.isTargetSelector() && score.name.getTargetSelectorName()?.content?.isHumbleReadableText() ?: false
         else -> extra?.hasText() == true
     }
 }
@@ -81,6 +88,11 @@ fun TextComponent<*>.flatten() = when (this) {
 
 
 fun TextComponent<*>.flattenText() = mutableListOf<String>().also(::flattenTextTo)
+
+private fun TextComponent.Score.getHumbleReadableNameOrNull(): StringIndices? =
+    score.name.takeIf(String::isTargetSelector)
+        ?.getTargetSelectorName()?.takeIf { it.content.isHumbleReadableText() }
+
 private fun TextComponent<*>.flattenTextTo(result: MutableList<String>) {
     when (this) {
         is ManyTextComponent -> {
@@ -93,6 +105,12 @@ private fun TextComponent<*>.flattenTextTo(result: MutableList<String>) {
             when (this) {
                 is TextComponent.Plain -> result.add(text)
                 is TextComponent.Translatable -> fallback?.let { result.add(it) }
+                is TextComponent.Score -> getHumbleReadableNameOrNull()?.let { name ->
+                    val syntax = name.content.inferSyntaxKind()
+                    val content = name.content.unquoted(syntax)
+                    result.add(content)
+                }
+
                 else -> Unit
             }
             extra?.flattenTextTo(result)
@@ -120,6 +138,16 @@ fun TextComponent<*>.transformText(transform: (text: String) -> String): TextCom
                     extra = extra?.transformText(transform)
                 }
             }
+
+            is TextComponent.Score -> getHumbleReadableNameOrNull()?.let { name ->
+                val syntax = name.content.inferSyntaxKind()
+                val content = name.content.unquoted(syntax)
+                copy().apply {
+                    score = score.copy(
+                        name = transform(content).quoted(syntax)
+                    )
+                }
+            } ?: this
 
             else -> {
                 if (extra != null) copy().apply {

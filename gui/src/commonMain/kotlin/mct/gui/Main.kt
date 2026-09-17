@@ -274,6 +274,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                                             handleGradientAggressively = vm.translation.state.handleGradientAggressively,
                                                             mapInfo = vm.translation.state.mapInfo,
                                                             extraPrompts = vm.translation.state.extraPrompts.ifBlank { null },
+                                                            staticChecking = vm.translation.state.staticChecking,
                                                             engine = vm.translation.state.engine,
                                                             api = vm.translation.state.api,
                                                             onFailure = {

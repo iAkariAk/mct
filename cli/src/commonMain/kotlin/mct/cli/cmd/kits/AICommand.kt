@@ -153,6 +153,11 @@ class AITranslate : AICommand(
     ).flag()
 
 
+    val staticChecking by option(
+        "--static-checking", help = "Append static checking prompt to LLM (maybe make the thinking longer)"
+    ).flag()
+
+
     context(_: Raise<MCTError>)
     override suspend fun App() {
         logger.info { "Loading extractions from $input" }
@@ -175,7 +180,8 @@ class AITranslate : AICommand(
                 targetLanguage = targetLanguage,
                 handleGradientAggressively = handleGradient,
                 mapInfo = mapInfo,
-                extraPrompts = extraPrompts
+                extraPrompts = extraPrompts,
+                staticChecking = staticChecking
             ),
             defaultTerms = terms,
             tokenThreshold = tokenThreshold,

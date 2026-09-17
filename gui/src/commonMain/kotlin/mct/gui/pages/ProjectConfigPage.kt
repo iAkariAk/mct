@@ -94,7 +94,11 @@ private fun ConfigSectionHeader(controller: ProjectController, editor: ProjectCo
         }
         HoverHint("在资源管理器中打开 $PROJECT_FILE") {
             IconButton(onClick = { controller.revealProjectFile(PROJECT_FILE) }) {
-                Icon(Icons.Outlined.Description, contentDescription = "打开 $PROJECT_FILE", modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Outlined.Description,
+                    contentDescription = "打开 $PROJECT_FILE",
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
         Button(
@@ -211,7 +215,7 @@ private fun ProjectPatternsGroup(editor: ProjectConfigEditor) {
     ConfigGroup("提取规则 patterns", Icons.AutoMirrored.Outlined.Rule) {
         Text(
             "每一类的规则文件之外，还可以决定是否保留该类的内置规则。从磁盘选择的文件会写成绝对路径："
-                + "这些路径由 CLI 按其自身工作目录解析，而不是项目目录。",
+                    + "这些路径由 CLI 按其自身工作目录解析，而不是项目目录。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -321,6 +325,12 @@ private fun ProjectAiGroup(editor: ProjectConfigEditor) {
             hint = "ai.thinking_output — 输出 LLM 思考过程（默认 false）",
             checked = editor.aiThinkingOutput,
             onCheckedChange = { value -> editor.updateAi { it.copy(enableThinkingOutput = value) } },
+        )
+        ConfigSwitchRow(
+            label = "静态检查",
+            hint = "ai.static_checking — 启用静态检查（可能让LLM思考链更长）（默认 false）",
+            checked = editor.aiStaticChecking,
+            onCheckedChange = { value -> editor.updateAi { it.copy(staticChecking = value) } },
         )
     }
 }

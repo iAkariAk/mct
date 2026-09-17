@@ -33,7 +33,8 @@ data class LLMTranslationPrompts(
     val targetLanguage: String = Defaults.targetLanguage,
     val handleGradientAggressively: Boolean = Defaults.handleGradientAggressively,
     val mapInfo: MapInfo = Defaults.mapInfo,
-    val extraPrompts: String? = Defaults.extraPrompts
+    val extraPrompts: String? = Defaults.extraPrompts,
+    val staticChecking: Boolean = Defaults.staticChecking
 ) {
     companion object Defaults {
         val literatureStyle = """
@@ -46,6 +47,7 @@ data class LLMTranslationPrompts(
         const val handleGradientAggressively = false
         val mapInfo = MapInfo.None
         val extraPrompts: String? = null
+        const val staticChecking: Boolean = false
 
         val Default = LLMTranslationPrompts() // Always at least to wait the above initialization
     }

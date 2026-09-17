@@ -163,9 +163,9 @@ internal fun extractTextFromCommand(
 // due to using IR dragging slow performance
 
 internal data class PointerWithExtensionForSnbt(
-    val pointer: DataPointer,
     override val indices: IntRange, // relate to the arg
     override val content: String,
+    val pointer: DataPointer,
     override val syntax: SnbtSyntaxKind,
     override val format: FormatKind,  // the [format] is the content inside the quotation if [syntax] is any quote type
 ) : StringIndicesWithSyntaxFormat
@@ -175,9 +175,9 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
         is SnbtList -> if (isTextComponent()) {
             sequenceOf(
                 PointerWithExtensionForSnbt(
-                    DataPointer.Terminator,
                     indices,
                     snbt.substring(indices.offset(-snbtOffset)),
+                    DataPointer.Terminator,
                     syntax = SnbtSyntaxKind.List,
                     format = SnbtStr,
                 )
@@ -193,9 +193,9 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
         is SnbtCompound -> if (isTextComponent() || isTextComponentShorthanded()) {
             sequenceOf(
                 PointerWithExtensionForSnbt(
-                    DataPointer.Terminator,
                     indices,
                     snbt.substring(indices.offset(-snbtOffset)),
+                    DataPointer.Terminator,
                     syntax = SnbtSyntaxKind.Compound,
                     format = SnbtStr,
                 )
@@ -208,9 +208,9 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
 
         is SnbtString -> sequenceOf(
             PointerWithExtensionForSnbt(
-                DataPointer.Terminator,
                 indices,
                 raw,
+                DataPointer.Terminator,
                 syntax = syntax,
                 format = raw.inferFormatKind(syntax = syntax),
             )
@@ -239,23 +239,18 @@ private fun computeGreedyRange(
 
 internal object CommandExtractorIntrinsic {
     // https://minecraft.wiki/w/Target_selectors
-    private val SELECTOR_REGEX = Regex("""^@[praesn]\[.*]$""")
-    private val SELECTOR_NAME_REGEX = Regex("""name=!?("(?:\\.|.)*?"|'.*?'|[\w:]*)[,\]]""")
     fun extractFromTargetSelector(args: List<MCCommand.Arg>): Sequence<StringIndicesWithSyntaxFormat> =
         args.asSequence()
-            .filter { SELECTOR_REGEX.matches(it.content) }
+            .filter { it.content.isTargetSelector() }
             .mapNotNull { arg ->
-                SELECTOR_NAME_REGEX.find(arg.content)?.let { result ->
-                    val negative = result.value.startsWith("name=!")
-                    val value = result.groupValues[1]
-                    val syntax = value.inferSyntaxKind()
-                    ExtractedCommandSlice(
-                        (arg.indices.first + result.range.first + 5 + if (negative) 1 else 0)..<arg.indices.first + result.range.last,
-                        value,
-                        syntax = syntax,
-                        format = value.inferFormatKind(syntax = syntax),
-                    )
-                }
+                val (indices, name) = arg.content.getTargetSelectorName() ?: return@mapNotNull null
+                val syntax = name.inferSyntaxKind()
+                ExtractedCommandSlice(
+                    indices = indices.offset(arg.indices.first),
+                    content = name,
+                    syntax = syntax,
+                    format = name.inferFormatKind(syntax = syntax),
+                )
             }
 
 

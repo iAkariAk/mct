@@ -47,9 +47,9 @@ data class MCCommand(
     operator fun contains(arg: String) = args.any { it.content == arg }
 
     data class Arg(
-        val relativeIndices: IntRange,
         override val indices: IntRange,
         override val content: String,
+        val relativeIndices: IntRange,
     ) : StringIndices
 
     companion object

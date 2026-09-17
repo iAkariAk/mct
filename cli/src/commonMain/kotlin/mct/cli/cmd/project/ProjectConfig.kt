@@ -172,6 +172,7 @@ sealed class TranslationEngine {
                     handleGradientAggressively = ai.handleGradientAggressively,
                     mapInfo = config.mapInfo,
                     extraPrompts = ai.extraPrompts,
+                    staticChecking = ai.staticChecking,
                 ),
                 defaultTerms = existingTerms,
                 tokenThreshold = ai.tokenThreshold,
@@ -276,24 +277,22 @@ data class AIConfig(
     val literatureStyle: String = LLMTranslationPrompts.literatureStyle,
 
     @TomlComments("Target language (e.g. 简体中文, English, 日本語; default: ${LLMTranslationPrompts.targetLanguage})")
-    @SerialName(
-        "target_language"
-    )
+    @SerialName("target_language")
     val targetLanguage: String = LLMTranslationPrompts.targetLanguage,
 
     @TomlComments("That will be appended to the end of all prompts; it'll DAMAGE AI Translate if FILLED OUT IMPROPERLY")
-    @SerialName(
-        "extra_prompts"
-    )
+    @SerialName("extra_prompts")
     val extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
+
+    @TomlComments("Append static check to LLM; it maybe let thinking of LLM longer")
+    @SerialName("static_check")
+    val staticChecking: Boolean = LLMTranslationPrompts.staticChecking,
 
     @TomlComments("Temperature for the AI model (0.0-2.0, null = use model default, i.e. 1.0)")
     val temperature: Double? = 1.0,
 
     @TomlComments("Enable aggressive gradient text handling (default: ${LLMTranslationPrompts.handleGradientAggressively})")
-    @SerialName(
-        "handle_gradient"
-    )
+    @SerialName("handle_gradient")
     val handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
 
     @TomlComments("Enable http logging for debug (default: false)")

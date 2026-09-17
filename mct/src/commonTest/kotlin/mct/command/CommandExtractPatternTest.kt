@@ -5,6 +5,7 @@ package mct.command
 import io.kotest.assertions.arrow.core.shouldNotRaise
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import mct.Logger
 import mct.command.Expectation.Expect
@@ -585,6 +586,19 @@ class CommandExtractPatternTest : FreeSpec({
         fun extractTargetSelector(mcf: String): List<StringIndicesWithSyntaxFormat> {
             val cmds = parseMCFunction(mcf)
             return cmds.flatMap { CommandExtractorIntrinsic.extractFromTargetSelector(it.args) }
+        }
+
+        "should be target selector" {
+            listOf(
+                "@a[name=abc]",
+                "@p[name=abc]",
+                "@n[name=abc]",
+                "@r[name=abc]",
+                "@s[name=abc]",
+                "@n[name=abc]",
+            ).all {
+                it.isTargetSelector() && it.getTargetSelectorName()?.content == "abc"
+            }.shouldBeTrue()
         }
 
         "extracts literal name" {

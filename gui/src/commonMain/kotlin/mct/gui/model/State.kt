@@ -232,6 +232,8 @@ data class TranslateState(
     val handleGradientAggressively: Boolean = LLMTranslationPrompts.handleGradientAggressively,
     val mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
     val extraPrompts: String = LLMTranslationPrompts.extraPrompts.orEmpty(),
+
+    val staticChecking: Boolean = LLMTranslationPrompts.staticChecking,
     val engine: TranslationEngine = TranslationEngine.Ai,
     val api: ApiTranslateState = ApiTranslateState(),
 )

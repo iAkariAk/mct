@@ -302,6 +302,15 @@ fun TranslatePanel(
             Spacer(Modifier.height(12.dp))
             TextSwitch(
                 modifier = Modifier.fillMaxWidth(),
+                checked = state.staticChecking,
+                onCheckedChange = { onStateChange(currentState.copy(staticChecking = it)) },
+                text = "启用静态检查(可能会让LLM思考链更长)",
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            TextSwitch(
+                modifier = Modifier.fillMaxWidth(),
                 checked = state.handleGradientAggressively,
                 onCheckedChange = { onStateChange(currentState.copy(handleGradientAggressively = it)) },
                 text = "启用激进的渐变色文本处理",
