@@ -4,11 +4,7 @@ package mct.model.text
 import kotlinx.serialization.Serializable
 import mct.command.getTargetSelectorName
 import mct.command.isTargetSelector
-import mct.model.patch.inferSyntaxKind
-import mct.model.patch.quoted
-import mct.model.patch.unquoted
 import mct.util.Regex2
-import mct.util.StringIndices
 import mct.util.formatir.*
 import mct.util.unreachable
 
@@ -84,78 +80,6 @@ fun TextComponent<*>.hasHumbleReadableText(): Boolean = !isPureTranslateKeyCompo
 fun TextComponent<*>.flatten() = when (this) {
     is ManyTextComponent -> components
     is SingleTextComponent<*> -> listOf(this)
-}
-
-
-fun TextComponent<*>.flattenText() = mutableListOf<String>().also(::flattenTextTo)
-
-private fun TextComponent.Score.getHumbleReadableNameOrNull(): StringIndices? =
-    score.name.takeIf(String::isTargetSelector)
-        ?.getTargetSelectorName()?.takeIf { it.content.isHumbleReadableText() }
-
-private fun TextComponent<*>.flattenTextTo(result: MutableList<String>) {
-    when (this) {
-        is ManyTextComponent -> {
-            components.forEach { component ->
-                component.flattenTextTo(result)
-            }
-        }
-
-        is SingleTextComponent<*> -> {
-            when (this) {
-                is TextComponent.Plain -> result.add(text)
-                is TextComponent.Translatable -> fallback?.let { result.add(it) }
-                is TextComponent.Score -> getHumbleReadableNameOrNull()?.let { name ->
-                    val syntax = name.content.inferSyntaxKind()
-                    val content = name.content.unquoted(syntax)
-                    result.add(content)
-                }
-
-                else -> Unit
-            }
-            extra?.flattenTextTo(result)
-        }
-    }
-}
-
-fun TextComponent<*>.transformText(transform: (text: String) -> String): TextComponent<*> = when (this) {
-    is ManyTextComponent -> {
-        components.map { component -> component.transformText(transform) }.let(::ManyTextComponent)
-    }
-
-    is SingleTextComponent<*> -> {
-        when (this) {
-            is TextComponent.Plain -> {
-                copy().apply {
-                    text = transform(text)
-                    extra = extra?.transformText(transform)
-                }
-            }
-
-            is TextComponent.Translatable -> {
-                copy().apply {
-                    fallback = fallback?.let(transform)
-                    extra = extra?.transformText(transform)
-                }
-            }
-
-            is TextComponent.Score -> getHumbleReadableNameOrNull()?.let { name ->
-                val syntax = name.content.inferSyntaxKind()
-                val content = name.content.unquoted(syntax)
-                copy().apply {
-                    score = score.copy(
-                        name = transform(content).quoted(syntax)
-                    )
-                }
-            } ?: this
-
-            else -> {
-                if (extra != null) copy().apply {
-                    extra = extra?.transformText(transform)
-                } else this
-            }
-        }
-    }
 }
 
 inline fun IRElement.decodeToCompound(): TextComponent<*> = TextComponent.fromIR(this)
