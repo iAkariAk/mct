@@ -269,7 +269,9 @@ private fun ToolboxOperationDialog(
     // Stable identity for the rule editor's remembered callbacks.
     val currentState by rememberUpdatedState(state)
     val onPatternsChange: (MCTPatternState) -> Unit = remember(onStateChange) {
-        { updated -> onStateChange(currentState.copy(commandPatterns = updated)) }
+        // The command test's result card belongs to the rules it ran with; keeping it across a rule
+        // change would show the previous run's matches as if they were the current ones.
+        { updated -> onStateChange(currentState.copy(commandPatterns = updated, commandResult = "")) }
     }
     val pointerPatternPicker = rememberFilePickerLauncher(
         type = FileKitType.File(),
@@ -285,7 +287,9 @@ private fun ToolboxOperationDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        // The "关闭" button is disabled while the operation runs; the scrim and Escape must not be a
+        // way around that, or the result would land in a dialog the user cannot see.
+        onDismissRequest = { if (!isRunning) onDismiss() },
         icon = { Icon(operation.icon(), contentDescription = null) },
         title = { Text(operation.title) },
         text = {
@@ -423,7 +427,9 @@ private fun ToolboxOperationDialog(
                         PathField("Schema 输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
                     }
                     ToolboxOperation.CommandTest -> {
-                        PathField("命令样例文件", state.commandInput) { onStateChange(state.copy(commandInput = it)) }
+                        PathField("命令样例文件", state.commandInput) {
+                            onStateChange(state.copy(commandInput = it, commandResult = ""))
+                        }
                         MCTPatternEditor(
                             patterns = state.commandPatterns,
                             onPatternsChange = onPatternsChange,

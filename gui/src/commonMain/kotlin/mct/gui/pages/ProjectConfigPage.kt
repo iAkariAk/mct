@@ -87,7 +87,7 @@ private fun ConfigSectionHeader(controller: ProjectController, editor: ProjectCo
         HoverHint("放弃未保存的修改，重新读取文件") {
             IconButton(
                 onClick = { controller.refreshData(preserveEdits = false) },
-                enabled = editor.isDirty && !editor.isSaving,
+                enabled = editor.isDirty && !editor.isSaving && !controller.isCommandRunning,
             ) {
                 Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "放弃修改", modifier = Modifier.size(20.dp))
             }
@@ -103,7 +103,7 @@ private fun ConfigSectionHeader(controller: ProjectController, editor: ProjectCo
         }
         Button(
             onClick = controller::saveConfig,
-            enabled = editor.isDirty && !editor.isSaving,
+            enabled = editor.isDirty && !editor.isSaving && !controller.isCommandRunning,
             shapes = ButtonDefaults.shapes(),
         ) {
             if (editor.isSaving) {
@@ -328,7 +328,7 @@ private fun ProjectAiGroup(editor: ProjectConfigEditor) {
         )
         ConfigSwitchRow(
             label = "静态检查",
-            hint = "ai.static_checking — 启用静态检查（可能让LLM思考链更长）（默认 false）",
+            hint = "ai.static_check — 启用静态检查（可能让LLM思考链更长）（默认 false）",
             checked = editor.aiStaticChecking,
             onCheckedChange = { value -> editor.updateAi { it.copy(staticChecking = value) } },
         )

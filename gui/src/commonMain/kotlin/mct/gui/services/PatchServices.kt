@@ -7,6 +7,7 @@ import mct.Env
 import mct.MCTError
 import mct.MCTWorkspace
 import mct.gui.model.*
+import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.model.patch.Patch
 import mct.patch.HashValidatingFailure
@@ -46,10 +47,14 @@ suspend fun createPatchFile(
         env.logger.info { "正在创建补丁（${kind.label} / ${format.label}）..." }
         val patch = workspace.createPatch(composePattern(patterns), mapping, kind.value, validation)
 
-        val target = output.toPath()
-        when (format) {
-            PatchFormat.Json -> target.writeJson(patch, pretty = GuiSettings.prettyOutput)
-            PatchFormat.Cbor -> target.writeCbor(patch)
+        // Written beside the target and moved onto it: a serialization failure (an unregistered
+        // pattern instance, say) or a full disk must not leave a half-written patch where the user's
+        // previous one was.
+        writeAtomically(env.fs, output.toPath()) { temp ->
+            when (format) {
+                PatchFormat.Json -> temp.writeJson(patch, pretty = GuiSettings.prettyOutput)
+                PatchFormat.Cbor -> temp.writeCbor(patch)
+            }
         }
         env.logger.info { "补丁已写入: $output" }
         env.logger.info { "补丁创建完成。" }

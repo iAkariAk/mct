@@ -70,9 +70,13 @@ fun TranslatePanel(
     ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(cachesPath = it.absolutePath())) } }
 
     val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() &&
-            state.mappingOutput.isNotBlank() && state.termOutput.isNotBlank() &&
+            state.mappingOutput.isNotBlank() &&
             when (state.engine) {
-                TranslationEngine.Ai -> state.model.isNotBlank() && state.apiToken.isNotBlank()
+                // The term table is an AI-side artifact: the API engine neither reads nor writes it,
+                // so demanding that path there only blocks a run that would have succeeded.
+                TranslationEngine.Ai -> state.model.isNotBlank() && state.apiToken.isNotBlank() &&
+                    state.termOutput.isNotBlank()
+
                 TranslationEngine.Api -> api.url.isNotBlank() && api.targetLanguage.isNotBlank()
             }
 
@@ -146,7 +150,10 @@ fun TranslatePanel(
                         value = state.model,
                         onValueChange = { onStateChange(currentState.copy(model = it)) },
                         label = { Text("模型名称") },
-                        readOnly = true,
+                        // Editable exactly when there is no probed list to pick from: a provider whose
+                        // /models endpoint fails would otherwise leave this field read-only with no
+                        // dropdown at all, i.e. no way to name the model the provider expects.
+                        readOnly = state.availableModels.isNotEmpty(),
                         placeholder = { Text("例如 gpt-4o, gpt-4o-mini, deepseek-v4-pro...") },
                         trailingIcon = if (state.availableModels.isNotEmpty()) {
                             {

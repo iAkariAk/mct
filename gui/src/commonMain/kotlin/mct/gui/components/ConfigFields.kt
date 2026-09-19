@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -192,7 +193,13 @@ fun ConfigIntField(
             text = digits
             digits.toIntOrNull()?.let(onValueChange)
         },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            // An emptied box stores nothing (there is nothing to parse), so the stored number has to
+            // become visible again instead of the field claiming a change that never happened.
+            .onFocusChanged { focus ->
+                if (!focus.isFocused && text.toIntOrNull() == null) text = current.toString()
+            },
         label = { Text(label) },
         supportingText = { Text(hint, style = MaterialTheme.typography.bodySmall) },
         singleLine = true,
@@ -351,7 +358,10 @@ fun ConfigPatternSlotField(
                 )
             }
             if (slot.slot.supportsBuiltin) {
-                HoverHint("patterns.${slot.slot.key}.has_builtin — 与该类的内置规则合并；关闭后只使用上面列出的文件") {
+                HoverHint(
+                    slot.slot.builtinNote
+                        ?: "patterns.${slot.slot.key}.has_builtin — 与该类的内置规则合并；关闭后只使用上面列出的文件",
+                ) {
                     Text(
                         "内置",
                         style = MaterialTheme.typography.labelMedium,
@@ -361,6 +371,15 @@ fun ConfigPatternSlotField(
                 }
                 Switch(checked = slot.hasBuiltin.value, onCheckedChange = slot::setHasBuiltin)
             }
+        }
+        slot.slot.builtinNote?.let { note ->
+            // Inline, not only in the tooltip: this switch is ignored by the CLI as it stands, and a
+            // control that silently does nothing is exactly what the note exists to prevent.
+            Text(
+                note,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
         if (paths.isEmpty()) {
             Text(

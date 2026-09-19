@@ -1,6 +1,8 @@
 package mct.gui.state
 
 import androidx.compose.runtime.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mct.Env
 import mct.cli.cmd.project.*
 import mct.gui.model.ProjectPatternPaths
@@ -43,6 +45,18 @@ class ProjectConfigEditor(
 
     var isSaving by mutableStateOf(false)
         private set
+
+    /** Serialises saves so two of them cannot write `mct.toml` at once. */
+    private val saveLock = Mutex()
+
+    /**
+     * The API engine settings as last seen in the editor.
+     *
+     * `translation.engine` holds either variant, so switching to AI drops the API value from the
+     * snapshot; keeping the last one here is what makes switching back restore what the user typed
+     * instead of the CLI's defaults.
+     */
+    private var lastApiEngine: TranslationEngine.Api? = null
 
     private fun <T> field(get: (ProjectConfig) -> T): State<T> = derivedStateOf { get(config) }
 
@@ -127,8 +141,14 @@ class ProjectConfigEditor(
      */
     fun selectEngineKind(kind: ProjectEngineKind) = updateTranslation {
         val engine = when (kind) {
-            ProjectEngineKind.Ai -> TranslationEngine.AI
-            ProjectEngineKind.Api -> it.engine as? TranslationEngine.Api ?: TranslationEngine.Api.MTranServer.Default
+            ProjectEngineKind.Ai -> {
+                (it.engine as? TranslationEngine.Api)?.let { api -> lastApiEngine = api }
+                TranslationEngine.AI
+            }
+
+            ProjectEngineKind.Api -> it.engine as? TranslationEngine.Api
+                ?: lastApiEngine
+                ?: TranslationEngine.Api.MTranServer.Default
         }
         it.copy(engine = engine)
     }
@@ -136,7 +156,9 @@ class ProjectConfigEditor(
     /** API settings of the current `translation.engine`; a no-op while the engine is AI. */
     private fun updateApi(transform: (TranslationEngine.Api) -> TranslationEngine.Api) = updateTranslation {
         val api = it.engine as? TranslationEngine.Api ?: return@updateTranslation it
-        it.copy(engine = transform(api))
+        val updated = transform(api)
+        lastApiEngine = updated
+        it.copy(engine = updated)
     }
 
     fun setApiUrl(value: String) = updateApi { it.withUrl(value) }
@@ -148,6 +170,7 @@ class ProjectConfigEditor(
     /** Adopt the [loaded] configuration; called by the controller once the file has been read. */
     fun applyLoaded(loaded: ProjectConfig) {
         config = loaded
+        lastApiEngine = loaded.translation.engine as? TranslationEngine.Api
         loadError = null
         isLoaded = true
         isDirty = false
@@ -160,10 +183,11 @@ class ProjectConfigEditor(
     }
 
     /** Write the edited configuration back to `mct.toml`. */
-    suspend fun save(): Result<Unit> {
+    suspend fun save(): Result<Unit> = saveLock.withLock {
+        val snapshot = config
         isSaving = true
-        return runCatching { with(env) { writeProjectConfig(directory, config) } }
-            .onSuccess { isDirty = false }
+        runCatching { with(env) { writeProjectConfig(directory, snapshot) } }
+            .onSuccess { if (config == snapshot) isDirty = false }
             .also { isSaving = false }
     }
 }

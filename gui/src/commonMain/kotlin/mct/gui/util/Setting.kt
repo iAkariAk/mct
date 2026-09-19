@@ -41,14 +41,17 @@ inline fun <reified T> setting(name: String, crossinline default: () -> T): Sett
     /**
      * Write the file atomically: a crash mid-write leaves the previous contents intact
      * instead of a truncated file that [loadOrNull] would silently replace with defaults.
+     *
+     * Writes are serialised per setting: two of them (the debounced auto-save and the flush on
+     * window close, or two project-history updates) would otherwise share the temp path and could
+     * move a half-written file onto the target.
      */
-    override fun save(value: T): Boolean = runCatching {
-        SystemFileSystem.createDirectories(path.parent!!)
-        val temp = (path.parent!! / (path.name + ".tmp"))
-        SystemFileSystem.write(temp) {
-            SettingsJson.encodeToBufferedSink<T>(value, this)
-        }
-        SystemFileSystem.atomicMove(temp, path)
-        true
-    }.getOrElse { false }
+    override fun save(value: T): Boolean = synchronized(this) {
+        runCatching {
+            writeAtomically(SystemFileSystem, path) { temp ->
+                SystemFileSystem.write(temp) { SettingsJson.encodeToBufferedSink<T>(value, this) }
+            }
+            true
+        }.getOrElse { false }
+    }
 }

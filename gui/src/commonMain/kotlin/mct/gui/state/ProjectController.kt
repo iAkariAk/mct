@@ -4,10 +4,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import mct.Env
 import mct.cli.cmd.project.AIConfig
 import mct.cli.cmd.project.ProjectConfig
@@ -61,6 +58,15 @@ class ProjectController(
     /** The action currently running; the action bar collapses to this entry's cancel button. */
     var runningAction by mutableStateOf<ProjectAction?>(null)
         private set
+
+    /**
+     * True while a `mct project` command is running.
+     *
+     * Such a run rewrites `mct.toml`, `mappings.json` and `terms.json` when it ends, so anything
+     * saved meanwhile is lost; the pages disable their editing affordances on this flag.
+     */
+    val isCommandRunning: Boolean
+        get() = runningAction != null
 
     // ── new-project dialog ──────────────────────────────────────
     var initForm by mutableStateOf(ProjectInitForm())
@@ -121,6 +127,9 @@ class ProjectController(
 
     fun close() {
         stopRunningAction()
+        // A load still in flight belongs to the project being closed; without the bump it would
+        // land its tables, `missing` and `dataError` on a controller that is no longer showing it.
+        ++loadGeneration
         opened = null
         section = ProjectSection.Dashboard
         editor = null
@@ -208,14 +217,23 @@ class ProjectController(
                 return@launch
             }
 
+            // The three tables are independent files; reading them one after another made a large
+            // mapping file delay the term and missing lists behind it for no reason.
             val readTables = runCatching {
                 with(env) {
-                    ProjectData(
-                        config = config,
-                        mappings = readProjectMappings(target.directory, config.mappings),
-                        terms = readProjectTerms(target.directory, config.terms),
-                        missing = readProjectMissing(target.directory),
-                    )
+                    coroutineScope {
+                        val mappingsJob = async { readProjectMappings(target.directory, config.mappings) }
+                        val termsJob = async { readProjectTerms(target.directory, config.terms) }
+                        val missingJob = async { readProjectMissing(target.directory) }
+                        ProjectData(
+                            config = config,
+                            mappings = mappingsJob.await(),
+                            mappingsPath = config.mappings,
+                            terms = termsJob.await(),
+                            termsPath = config.terms,
+                            missing = missingJob.await(),
+                        )
+                    }
                 }
             }
             if (generation != loadGeneration) return@launch
@@ -226,8 +244,8 @@ class ProjectController(
             if (!preserveEdits || current?.isDirty != true) current?.applyLoaded(config)
             readTables.fold(
                 onSuccess = { data ->
-                    if (!preserveEdits || !mappings.isDirty) mappings.applyLoaded(data.mappings)
-                    if (!preserveEdits || !terms.isDirty) terms.applyLoaded(data.terms)
+                    if (!preserveEdits || !mappings.isDirty) mappings.applyLoaded(data.mappings, data.mappingsPath)
+                    if (!preserveEdits || !terms.isDirty) terms.applyLoaded(data.terms, data.termsPath)
                     missing = data.missing
                     dataError = null
                 },
@@ -240,7 +258,10 @@ class ProjectController(
     private data class ProjectData(
         val config: ProjectConfig,
         val mappings: List<ProjectTextEntry>,
+        /** Path of each table as the configuration just read declares it. */
+        val mappingsPath: String,
         val terms: List<ProjectTextEntry>,
+        val termsPath: String,
         val missing: List<ProjectTextEntry>,
     )
 
@@ -272,6 +293,7 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
     /** Save the editor back to `mct.toml`, then reread everything the file points at. */
     fun saveConfig() {
         val current = editor ?: return
+        if (refuseWhileCommandRuns("保存项目配置")) return
         scope.launch {
             current.save().fold(
                 onSuccess = {
@@ -287,12 +309,42 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
     /** Save one text table. */
     fun saveTable(file: ProjectTextFile) {
         val table = editorOf(file) ?: return
+        if (refuseWhileCommandRuns("保存${file.title}")) return
+        // The rows were read from `loadedPath`, but the path they would be written to comes from the
+        // live editor — which may hold an unsaved change of that field. Writing the old rows to the
+        // new file would replace a table the user never opened.
+        val loadedFrom = table.loadedPath
+        val configured = pathOf(file)
+        if (loadedFrom != null && loadedFrom != configured) {
+            scope.launch {
+                snackbar.showSnackbar(
+                    "「${file.title}」的路径已改为 $configured 但尚未保存配置；" +
+                        "请先保存项目配置，再保存该表格",
+                )
+            }
+            return
+        }
         scope.launch {
             table.save { entries -> writeTable(file, entries) }.fold(
                 onSuccess = { snackbar.showSnackbar("${file.title}已保存") },
                 onFailure = { snackbar.showSnackbar(it.message ?: "${file.title}保存失败") },
             )
         }
+    }
+
+    /**
+     * Whether an editing action must be refused because a `mct project` command is running.
+     *
+     * The CLI rewrites `mct.toml`, `mappings.json` and `terms.json` at the end of a run, so anything
+     * saved meanwhile is silently replaced by the run's version; reporting why is better than
+     * accepting a write that disappears. Returns `true` when [what] was refused.
+     */
+    private fun refuseWhileCommandRuns(what: String): Boolean {
+        val running = runningAction ?: return false
+        scope.launch {
+            snackbar.showSnackbar("「${running.label}」正在运行，结束后才能$what")
+        }
+        return true
     }
 
     private suspend fun writeTable(file: ProjectTextFile, entries: List<ProjectTextEntry>) {

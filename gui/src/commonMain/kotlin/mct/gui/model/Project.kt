@@ -123,6 +123,13 @@ data class ProjectTextEntry(val source: String, val target: String?)
 data class ProjectPatternPaths(val paths: List<String> = emptyList(), val hasBuiltin: Boolean = true)
 
 /**
+ * Shown on the three categories whose `has_builtin` the CLI currently resolves through
+ * `nbt.has_builtin`, so the switch is not mistaken for an independent control.
+ */
+private const val SHARED_BUILTIN_SWITCH_NOTE =
+    "CLI 目前按「Region 方块实体」的内置开关处理本类（CLI 侧缺陷）：只有那个开关关闭时，本类的内置规则才会停用。"
+
+/**
  * One extraction-pattern category of `mct.toml`: its key in the file, a label, and the hint the
  * editor shows for it — the CLI's own comment on the key, in Chinese.
  */
@@ -131,6 +138,16 @@ enum class ProjectPatternSlot(
     val label: String,
     val hint: String,
     val supportsBuiltin: Boolean = false,
+    /**
+     * Why this category's 内置 switch cannot be trusted on its own, or `null` when it can.
+     *
+     * `PatternsConfig.evaluate()` in the CLI reads `nbt.has_builtin` for
+     * `mcjson`/`command_data`/`command_component`, so what the user writes in those three flags is
+     * currently decided by the Region switch. A toggle that silently does nothing is worse than one
+     * that says why, and the flag is still written to `mct.toml`, so it starts working unmodified
+     * once the CLI reads its own key.
+     */
+    val builtinNote: String? = null,
 ) {
     Nbt(
         key = "nbt",
@@ -143,6 +160,7 @@ enum class ProjectPatternSlot(
         label = "MCJson 组件",
         hint = "MCJson 数据指针规则 JSON 文件路径",
         supportsBuiltin = true,
+        builtinNote = SHARED_BUILTIN_SWITCH_NOTE,
     ),
     Command(
         key = "command",
@@ -155,12 +173,14 @@ enum class ProjectPatternSlot(
         label = "命令 SNBT 数据",
         hint = "命令 SNBT 数据指针规则 JSON 文件路径（从命令参数中提取数据）",
         supportsBuiltin = true,
+        builtinNote = SHARED_BUILTIN_SWITCH_NOTE,
     ),
     CommandComponent(
         key = "command_component",
         label = "命令组件",
         hint = "命令组件规则 JSON 文件路径（从带组件的命令参数中提取数据）",
         supportsBuiltin = true,
+        builtinNote = SHARED_BUILTIN_SWITCH_NOTE,
     ),
     CommandRegex(
         key = "command_regex",

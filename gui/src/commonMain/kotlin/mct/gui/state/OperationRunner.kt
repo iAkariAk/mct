@@ -27,14 +27,25 @@ class OperationRunner(
     var isRunning by mutableStateOf(false)
         private set
 
+    /**
+     * Whether the running operation is an AI/API translation.
+     *
+     * The translate panel's progress readout and its cancel affordance belong to a translation, and
+     * [isRunning] alone is shared by every panel: without this, translating to completion and then
+     * running anything else left the panel showing "翻译进度 100% · 完成" for an unrelated run.
+     */
+    var isTranslating by mutableStateOf(false)
+        private set
+
     private var job: Job? = null
     private var generation = 0L
 
-    fun launch(block: suspend CoroutineScope.() -> Unit) {
+    fun launch(isTranslation: Boolean = false, block: suspend CoroutineScope.() -> Unit) {
         val token = ++generation
         job?.cancel()
         logs.clear()
         isRunning = true
+        isTranslating = isTranslation
         job = scope.launch {
             try {
                 block()
@@ -47,6 +58,7 @@ class OperationRunner(
             } finally {
                 if (generation == token) {
                     isRunning = false
+                    isTranslating = false
                     job = null
                 }
             }

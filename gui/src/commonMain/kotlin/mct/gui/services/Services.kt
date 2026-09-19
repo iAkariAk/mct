@@ -17,6 +17,7 @@ import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
 import mct.gui.model.*
 import mct.gui.util.setting
+import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
@@ -115,7 +116,7 @@ suspend fun runExtraction(
             ifRight = { groups ->
                 val total = groups.sumOf { it.extractions.size }
                 env.logger.info { "提取了 ${groups.size} 个分组, 共 $total 条文本" }
-                output.toPath().writeJson(groups, pretty = GuiSettings.prettyOutput)
+                writeOutputJson(output, groups)
                 env.logger.info { "已写入: $output" }
                 env.logger.info { "完成。" }
             }
@@ -224,7 +225,7 @@ suspend fun runTranslation(
     }
 
     val wrappedOnCancel: OnLLMTranslationCancel = { terms, salvaged ->
-        runCatching {
+        val written = runCatching {
             val salvaged = caches + salvaged
             writeOutputJson(mappingOutput, salvaged)
             env.logger.info { "已保存 ${salvaged.size} 条部分映射到 $mappingOutput" }
@@ -233,7 +234,12 @@ suspend fun runTranslation(
                 env.logger.info { "已保存 ${terms.size} 条术语到 $termOutput" }
             }
         }
-        onCancel(terms, salvaged)
+        // This write is the only artifact of a cancelled run, and the caller's message says the
+        // results were saved; a failure has to be reported instead of leaving that claim standing.
+        written.onFailure { error ->
+            env.logger.error { "取消时写入部分结果失败: ${error.message}" }
+        }
+        if (written.isSuccess) onCancel(terms, salvaged)
     }
 
     withContext(Dispatchers.IO) {
@@ -270,12 +276,18 @@ suspend fun runTranslation(
     }
 }
 
-/** Write [data] as JSON, creating the destination's parent directory if needed. */
+/**
+ * Write [data] as JSON, creating the destination's parent directory if needed.
+ *
+ * The target is replaced atomically (see [writeAtomically]): a write that fails — no space left, a
+ * dropped network drive, a serialization error — leaves the previous output, often the product of a
+ * paid translation run, untouched instead of truncated.
+ */
 context(env: Env)
 private inline fun <reified T : Any> writeOutputJson(path: String, data: T) {
-    val target = path.toPath()
-    target.parent?.let(env.fs::createDirectories)
-    target.writeJson(data, pretty = GuiSettings.prettyOutput)
+    writeAtomically(env.fs, path.toPath()) { temp ->
+        temp.writeJson(data, pretty = GuiSettings.prettyOutput)
+    }
 }
 
 /**
@@ -307,6 +319,10 @@ suspend fun runBackfill(
                 when (mode) {
                     "region" -> {
                         val groups = all.filterIsInstance<RegionReplacementGroup>()
+                        if (groups.isEmpty()) {
+                            reportNothingToBackfill(env, "Region", all.size)
+                            return@fold
+                        }
                         env.logger.info { "正在回填 ${groups.size} 个 Region 替换分组..." }
                         val result = either<MCTError, Unit> {
                             workspace.backfillRegion(groups)
@@ -319,10 +335,16 @@ suspend fun runBackfill(
 
                     "datapack" -> {
                         val groups = all.filterIsInstance<DatapackReplacementGroup>()
+                        if (groups.isEmpty()) {
+                            reportNothingToBackfill(env, "Datapack", all.size)
+                            return@fold
+                        }
                         env.logger.info { "正在回填 ${groups.size} 个 Datapack 替换分组..." }
                         try {
                             workspace.backfillDatapack(groups)
                             env.logger.info { "Datapack 回填完成。" }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             env.logger.error { e.message ?: "未知错误" }
                         }
@@ -330,10 +352,16 @@ suspend fun runBackfill(
 
                     "cext" -> {
                         val groups = all.filterIsInstance<CextReplacementGroup>()
+                        if (groups.isEmpty()) {
+                            reportNothingToBackfill(env, "Cext", all.size)
+                            return@fold
+                        }
                         env.logger.info { "正在回填 ${groups.size} 个 Cext 替换分组..." }
                         try {
                             workspace.backfillCext(groups)
                             env.logger.info { "Cext 回填完成。" }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             env.logger.error { e.message ?: "未知错误" }
                         }
@@ -343,6 +371,24 @@ suspend fun runBackfill(
                 }
             }
         )
+    }
+}
+
+/**
+ * Report that the replacements file holds nothing for the selected mode.
+ *
+ * The file is a polymorphic list whose entries are produced by the *extract* panel's own mode
+ * setting, so selecting a mode that does not match it used to apply zero groups and still print
+ * "回填完成" — the user would ship an untranslated world believing the opposite.
+ */
+private fun reportNothingToBackfill(env: Env, mode: String, total: Int) {
+    if (total == 0) {
+        env.logger.error { "替换文件里没有任何替换分组，请先创建替换文件" }
+    } else {
+        env.logger.error {
+            "替换文件里没有 $mode 分组（共 $total 个分组，属于其它模式）；" +
+                "请把回填模式改成与提取时一致的模式"
+        }
     }
 }
 
@@ -365,6 +411,7 @@ suspend fun runTermExtraction(
     literatureStyle: String = LLMTranslationPrompts.literatureStyle,
     mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
     extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
+    onFailure: (String) -> Unit = {},
     onCancel: OnTermExtractCancel = {},
 ) {
     env.logger.info { "正在加载提取结果: $input" }
@@ -386,7 +433,10 @@ suspend fun runTermExtraction(
 
     val call = clientManager.chatCompletionCall
     if (call == null) {
+        // The same contract `runTranslation` uses: report a sentence the panel can show, rather than
+        // a console line the operator has to notice before the paid step silently does nothing.
         env.logger.error { "没有 API 连接，请先在设置中配置" }
+        onFailure("没有 API 连接，请先在 AI 翻译页配置 API 地址与密钥")
         return
     }
 
@@ -413,9 +463,7 @@ suspend fun runTermExtraction(
             val result = either {
                 extractor.extract(textPool) { partialTerms ->
                     env.logger.info { "提取被取消，已保存 ${partialTerms.size} 条术语" }
-                    runCatching {
-                        output.toPath().writeJson(partialTerms, pretty = GuiSettings.prettyOutput)
-                    }
+                    runCatching { writeOutputJson(output, partialTerms) }
                     onCancel(partialTerms)
                 }
             }
@@ -424,7 +472,7 @@ suspend fun runTermExtraction(
                 ifLeft = { error -> env.logger.error { "提取失败: ${error.message}" } },
                 ifRight = { terms ->
                     val newTerms = terms.size - existingTerms.size
-                    output.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
+                    writeOutputJson(output, terms)
                     env.logger.info { "提取了 ${terms.size} 条术语（新增 $newTerms）" }
                     env.logger.info { "术语表已写入: $output" }
                     env.logger.info { "完成。" }

@@ -19,6 +19,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLaunche
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import mct.gui.components.*
 import mct.gui.model.ExtractState
+import mct.gui.model.MCTPatternSlot
 import mct.gui.model.MCTPatternState
 import mct.gui.model.RunMode
 import mct.gui.util.ensureJsonExt
@@ -80,6 +81,14 @@ fun ExtractPanel(
 
         Spacer(Modifier.height(4.dp))
 
-        ActionButton("开始提取", isRunning, onRun, enabled = state.input.isNotBlank() && state.output.isNotBlank())
+        ActionButton(
+            label = "开始提取",
+            running = isRunning,
+            onClick = onRun,
+            // Cext extraction reads the rule file before anything else, so without one the run
+            // would only report the missing file and write nothing.
+            enabled = state.input.isNotBlank() && state.output.isNotBlank() &&
+                (state.mode != RunMode.Cext || state.patterns[MCTPatternSlot.Cext].path.isNotBlank()),
+        )
     }
 }

@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.command.main
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.mordant.rendering.AnsiLevel
 import com.github.ajalt.mordant.terminal.Terminal
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -19,12 +20,16 @@ import mct.cli.cmd.project.ProjectConfig
 import mct.extra.ai.translator.TermTable
 import mct.gui.model.ProjectTextEntry
 import mct.gui.model.ProjectTranslationEngine
+import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.serializer.MCTJson
 import mct.serializer.PrettyJson
+import okio.Path.Companion.toPath
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.OutputStream
 import java.io.PrintStream
+import java.nio.charset.Charset
 
 /** File that identifies a project root; the CLI (`ProjectCommands`) requires it in the project dir. */
 const val PROJECT_FILE = "mct.toml"
@@ -46,6 +51,9 @@ fun projectNameError(name: String): String? {
         trimmed == "." || trimmed == ".." -> "项目名称不能是 . 或 .."
         trimmed.any { it == '/' || it == '\\' } -> "项目名称不能包含路径分隔符"
         trimmed.endsWith(":") -> "项目名称不能以冒号结尾"
+        // The name is a positional argument, so a leading dash makes Clikt read it as options and
+        // the whole run fails with a usage error instead of creating anything.
+        trimmed.startsWith("-") -> "项目名称不能以 - 开头"
         trimmed != name -> "项目名称首尾不能有空白字符"
         else -> null
     }
@@ -93,9 +101,13 @@ suspend fun initialiseProject(
     }
 
     runCliProjectCommand(
-        workingDirectory = workingDirectory,
-        arguments = listOf(
+        listOf(
             "project", "init", projectName,
+            // `project init` reads `--project-dir` as the directory it creates `[name]` under, so
+            // the working directory is what the CLI must be told, not the project root it derives
+            // from it. Spelled out here rather than appended by the runner: the console line below
+            // is the only record of the directory a run used.
+            "--project-dir", workingDirectory.absolutePath,
             "--from", sourceRoot.absolutePath,
             "--translation-engine", engine.key,
         ),
@@ -129,22 +141,24 @@ suspend fun assembleProjectPatch(projectDirectory: String) =
 
 context(env: Env)
 private suspend fun runProjectCommand(projectDirectory: String, command: String) {
-    runCliProjectCommand(requireProjectRoot(projectDirectory), listOf("project", command))
+    val root = requireProjectRoot(projectDirectory)
+    runCliProjectCommand(listOf("project", command, "--project-dir", root.absolutePath))
 }
 
+/**
+ * Run one `mct` command in process, with [arguments] as its complete argument list.
+ *
+ * The caller spells out every path the command needs, `--project-dir` included; nothing is appended
+ * behind its back, so what the console reports as `CLI > mct …` is exactly what ran.
+ */
 context(env: Env)
-private suspend fun runCliProjectCommand(
-    workingDirectory: File,
-    arguments: List<String>,
-) {
-    require(workingDirectory.isDirectory) { "CLI 工作目录不存在: $workingDirectory" }
+private suspend fun runCliProjectCommand(arguments: List<String>) {
     val cliArguments = arguments + listOf(
-        "--project-dir", workingDirectory.absolutePath,
         // The CLI is silent by default (`ColorTerminalLogger(emptyList())` drops everything); its
         // info and warning lines are the progress detail this console exists for.
         "-l", "Info", "-l", "Warning", "-l", "Error",
     )
-    env.logger.info { "CLI > mct ${arguments.joinToString(" ")}" }
+    env.logger.info { "CLI > mct ${cliArguments.joinToString(" ")}" }
     withContext(Dispatchers.IO) {
         // The CLI prints through its own terminal, which writes to `System.out`; in process that is
         // the GUI's stdout, so everything the command reports (progress, counts, errors) would be
@@ -170,6 +184,19 @@ private suspend fun runCliProjectCommand(
                 // lines can arrive after the command returns; without this pause they would go to
                 // the real stdout and never reach the console.
                 delay(150)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RuntimeException) {
+                // Clikt reports a usage error by "exiting"; in process that surfaces as an exception
+                // whose type is private to the CLI module and whose message is only the status code
+                // (`Exit with status 1`). The parse error itself has already been written to the
+                // captured console above, so the useless wording and a stack trace must not become
+                // the message the operator sees.
+                throw if (e::class.simpleName == "CliExit") {
+                    IllegalStateException("CLI 参数错误（${e.message}），详见上方控制台输出", e)
+                } else {
+                    e
+                }
             } finally {
                 System.out.flush()
                 System.err.flush()
@@ -242,26 +269,35 @@ private fun levelFromAnsi(raw: String): LoggerLevel? {
 /**
  * An [OutputStream] that hands over complete lines. Mordant renders one line per write, but nothing
  * guarantees that, so the tail of a partial line is kept until its newline arrives.
+ *
+ * Collected as bytes, not chars: the `PrintStream` in front encodes text with the platform charset
+ * and hands over the encoded bytes, so a byte-to-char conversion would split every multi-byte
+ * character (Chinese paths and reasoning text would reach the console as mojibake). Each line is
+ * decoded with that same charset.
  */
 private class LineCollectingStream(private val onLine: (String) -> Unit) : OutputStream() {
-    private val buffer = StringBuilder()
+    private val buffer = ByteArrayOutputStream()
 
     // The CLI writes from its own threads (its logger has a dispatcher of its own), so writes are
     // serialized to keep lines whole.
     @Synchronized
     override fun write(b: Int) {
-        val char = b.toChar()
-        if (char == '\n') {
-            onLine(buffer.toString())
-            buffer.clear()
-        } else if (char != '\r') {
-            buffer.append(char)
+        if (b == NEWLINE) {
+            onLine(buffer.toString(Charset.defaultCharset()))
+            buffer.reset()
+        } else if (b != CARRIAGE_RETURN) {
+            buffer.write(b)
         }
     }
 
     @Synchronized
     override fun write(bytes: ByteArray, offset: Int, length: Int) {
         for (i in offset until offset + length) write(bytes[i].toInt())
+    }
+
+    private companion object {
+        const val NEWLINE = '\n'.code
+        const val CARRIAGE_RETURN = '\r'.code
     }
 }
 
@@ -326,7 +362,9 @@ suspend fun writeProjectConfig(projectDirectory: String, config: ProjectConfig) 
             cause,
         )
     }
-    file.writeText(text)
+    writeAtomically(env.fs, file.path.toPath()) { temp ->
+        env.fs.write(temp) { writeUtf8(text) }
+    }
     env.logger.info { "已写入项目配置: ${file.path}" }
 }
 
@@ -352,7 +390,10 @@ suspend fun readProjectMissing(projectDirectory: String): List<ProjectTextEntry>
     withContext(Dispatchers.IO) {
         val file = File(requireProjectRoot(projectDirectory), PROJECT_MISSING_FILE)
         if (!file.isFile) return@withContext emptyList()
-        val pool = MCTJson.decodeFromString<List<String>>(file.readText())
+        // The CLI's pool is a `Set` (`TranslationPool`), so duplicates are not a thing it can write;
+        // decoding as a `Set` keeps a hand-edited file with repeated texts from producing two rows
+        // with the same list key.
+        val pool = MCTJson.decodeFromString<Set<String>>(file.readText())
         env.logger.info { "已加载 ${pool.size} 条未映射文本: ${file.path}" }
         pool.map { ProjectTextEntry(it, null) }
     }
@@ -405,8 +446,9 @@ suspend fun writeProjectTerms(
 private inline fun <reified T> encodeTable(value: T, pretty: Boolean): String =
     if (pretty) PrettyJson.encodeToString(value) else MCTJson.encodeToString(value)
 
+context(env: Env)
 private fun writeProjectJson(projectDirectory: String, path: String, text: String) {
-    val file = resolveProjectPath(projectDirectory, path)
-    file.parentFile?.mkdirs()
-    file.writeText(text)
+    writeAtomically(env.fs, resolveProjectPath(projectDirectory, path).path.toPath()) { temp ->
+        env.fs.write(temp) { writeUtf8(text) }
+    }
 }

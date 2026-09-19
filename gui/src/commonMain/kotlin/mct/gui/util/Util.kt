@@ -1,6 +1,33 @@
 package mct.gui.util
 
+import okio.FileSystem
+import okio.Path
+
 fun Int.renderWithUnit(): String = toLong().renderWithUnit()
+
+/**
+ * Write a file through a sibling `<name>.tmp` that is moved onto the target once [write] returns.
+ *
+ * Every file this app replaces is one the user can lose: `mct.toml`, a translation table, an
+ * extraction result, a patch, the settings. Writing in place truncates the target before a single
+ * byte is produced, so a failed serialization, a full disk or a power loss leaves it half-written;
+ * going through a temp file keeps the previous contents intact until the new ones are complete.
+ *
+ * The parent directory is created for the same reason: these destinations are ones the user just
+ * picked, and the panels deliberately accept paths whose directory does not exist yet.
+ *
+ * A temp file left behind by an earlier crash is removed first, because the writers this helper is
+ * handed (okio's `write`, `Path.writeText`, `Path.writeJson`) create their target exclusively — a
+ * stale `.tmp` would make every later write of that file fail instead of being replaced.
+ */
+fun writeAtomically(fs: FileSystem, target: Path, write: (Path) -> Unit) {
+    val parent = target.parent
+    if (parent != null) fs.createDirectories(parent)
+    val temp = (parent ?: target) / (target.name + ".tmp")
+    runCatching { fs.delete(temp) }
+    write(temp)
+    fs.atomicMove(temp, target)
+}
 
 fun Long.renderWithUnit(): String = when {
     this <= 1000 -> "$this"

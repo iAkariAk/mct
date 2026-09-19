@@ -43,6 +43,9 @@ fun ProjectTextListSection(
     val entries = controller.entriesOf(file)
     val table = controller.editorOf(file)
     val path = controller.pathOf(file)
+    // A running `mct project` command rewrites the tables at its end, so editing is frozen while it
+    // lasts: anything saved now would be replaced by the run's own version.
+    val editing = table != null && !controller.isCommandRunning
     // Reset the query per file: the pages are different lists with different filters.
     var query by remember(file) { mutableStateOf("") }
     var edit by remember(file) { mutableStateOf<EntryEdit?>(null) }
@@ -82,7 +85,7 @@ fun ProjectTextListSection(
                         TextEntryRow(
                             entry = entry,
                             file = file,
-                            canEdit = table != null,
+                            canEdit = editing,
                             onEdit = { edit = EntryEdit(entry.source, entry.source, entry.target.orEmpty()) },
                             onDelete = { table?.remove(entry.source) },
                             modifier = Modifier.animateItem(),
@@ -91,7 +94,7 @@ fun ProjectTextListSection(
                 }
             }
 
-            if (table != null) {
+            if (editing) {
                 Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
                     HoverHint("添加一条${file.title}") {
                         FloatingActionButton(
@@ -192,14 +195,14 @@ private fun TextListHeader(
                 HoverHint("放弃未保存的修改，重新读取文件") {
                     IconButton(
                         onClick = { controller.refreshData(preserveEdits = false) },
-                        enabled = table.isDirty && !table.isSaving,
+                        enabled = table.isDirty && !table.isSaving && !controller.isCommandRunning,
                     ) {
                         Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "放弃修改", modifier = Modifier.size(20.dp))
                     }
                 }
                 Button(
                     onClick = { controller.saveTable(file) },
-                    enabled = table.isDirty && !table.isSaving,
+                    enabled = table.isDirty && !table.isSaving && !controller.isCommandRunning,
                     shapes = ButtonDefaults.shapes(),
                 ) {
                     if (table.isSaving) {
