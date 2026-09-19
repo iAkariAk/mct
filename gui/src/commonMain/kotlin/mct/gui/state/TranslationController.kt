@@ -91,7 +91,13 @@ class TranslationController(
 
         // Editing an unrelated field re-runs the caller's effect; skip the network round-trip
         // unless the credentials actually changed.
-        if (lastProbedCredentials == (url.orEmpty() to token) && clientManager.openAIClient != null) return
+        if (lastProbedCredentials == (url.orEmpty() to token) && clientManager.openAIClient != null) {
+            // The client is still the probed one, but the call may have been cleared by a failed
+            // probe in between (the token was edited to a wrong value and back). Without rebuilding
+            // it here, "开始翻译" would keep reporting "没有 API 连接" until the app restarts.
+            if (clientManager.chatCompletionCall == null) setupChatCompletion()
+            return
+        }
 
         withContext(Dispatchers.Main) {
             clientManager.chatCompletionCall = null
@@ -104,7 +110,23 @@ class TranslationController(
             val probedClient = withContext(Dispatchers.IO) {
                 with(env) { createOpenAIClient(url, token) }.also { candidate = it }
             }
-            val models = withContext(Dispatchers.IO) { probedClient.listModels() }
+            // A missing model list is not a missing connection: several OpenAI-compatible gateways do
+            // not implement `GET /models`, and refusing to install the client because of that left the
+            // AI engine unusable with no way back. The failure is reported, `availableModels` stays
+            // empty — which is also what makes the model field editable — and a wrong credential
+            // still surfaces as an error when a translation is actually requested.
+            val models = withContext(Dispatchers.IO) {
+                runCatching { probedClient.listModels() }
+                    .onFailure { error ->
+                        logs.add(
+                            LogEntry(
+                                LoggerLevel.Warning,
+                                "无法获取模型列表（${error.message}），仍按当前配置连接",
+                            ),
+                        )
+                    }
+                    .getOrDefault(emptyList())
+            }
             currentCoroutineContext().ensureActive()
 
             val previous = withContext(NonCancellable + Dispatchers.Main) {
@@ -125,7 +147,9 @@ class TranslationController(
             if (previous !== probedClient) closeClient(previous)
 
             withContext(Dispatchers.Main) {
-                if (state.model in models) setupChatCompletion()
+                // Always attempted: `setupChatCompletion` skips a model that is absent from a probed
+                // list itself, and with no list at all the configured model is the only candidate.
+                setupChatCompletion()
             }
         } catch (e: CancellationException) {
             throw e
@@ -139,6 +163,9 @@ class TranslationController(
                 }
             }
         } finally {
+            // A probe that did not install its client must not stay remembered as done: the same
+            // credentials would then be skipped on the next run and never retried.
+            if (!installed) lastProbedCredentials = null
             if (!installed) closeClient(candidate)
         }
     }

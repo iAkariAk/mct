@@ -7,6 +7,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import mct.LoggerLevel
 import mct.gui.model.GuiSettings
@@ -118,7 +120,12 @@ class SettingsController(
             .drop(1)
             .distinctUntilChanged()
             .debounce(debounce)
-            .collect { (api, theme) ->
+            .collect {
+                // The emission only says "something changed"; the payload is read at write time. A
+                // debounced value can be older than an edit made just before the window was closed,
+                // and writing that older snapshot after [flush] would undo the edit.
+                val api = snapshot()
+                val theme = themeSnapshotOf()
                 if (!save(api)) {
                     logs.add(LogEntry(LoggerLevel.Warning, "自动保存 API 设置失败: ${apiSetting.path}"))
                 }
@@ -140,18 +147,21 @@ class SettingsController(
         saveTheme(themeSnapshotOf())
     }
 
+    /** Serialises the api/theme writes, so a stale snapshot cannot land after a newer one. */
+    private val writeLock = Mutex()
+
     /** Write [settings], skipping when it equals the last successfully written snapshot. */
-    private suspend fun save(settings: ApiSettings): Boolean {
-        if (settings == lastSaved) return true
+    private suspend fun save(settings: ApiSettings): Boolean = writeLock.withLock {
+        if (settings == lastSaved) return@withLock true
         val saved = withContext(Dispatchers.IO) { apiSetting.save(settings) }
         if (saved) lastSaved = settings
-        return saved
+        saved
     }
 
-    private suspend fun saveTheme(settings: ThemeSettings): Boolean {
-        if (settings == lastSavedTheme) return true
+    private suspend fun saveTheme(settings: ThemeSettings): Boolean = writeLock.withLock {
+        if (settings == lastSavedTheme) return@withLock true
         val saved = withContext(Dispatchers.IO) { themeSetting.save(settings) }
         if (saved) lastSavedTheme = settings
-        return saved
+        saved
     }
 }

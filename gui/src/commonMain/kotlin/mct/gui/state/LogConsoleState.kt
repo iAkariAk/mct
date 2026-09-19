@@ -100,20 +100,23 @@ class LogConsoleState {
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     private val generation = AtomicLong(0)
-    private val nextSequence = AtomicLong(1)
+
+    /**
+     * Sequence numbers handed out by [collect], which is the single reader of [queue].
+     *
+     * Stamping in [add] would not be ordered: two producer threads (the CLI capture, the LLM
+     * workers) can take a number and then enqueue in the other order, and `hitsFor`'s binary search
+     * assumes the index is sorted by sequence.
+     */
+    private var nextSequence = 1L
 
     init {
         rebuildVisible()
     }
 
-    /** Queue [entry], assigning it a stable sequence number when it has none. */
+    /** Queue [entry]; the sequence number is assigned when the entry is drained, in arrival order. */
     fun add(entry: LogEntry) {
-        val sequenced = if (entry.sequence == 0L) {
-            entry.copy(sequence = nextSequence.getAndIncrement())
-        } else {
-            entry
-        }
-        queue.trySend(QueuedLog(generation.get(), sequenced))
+        queue.trySend(QueuedLog(generation.get(), entry))
     }
 
     /** Drop visible and queued entries, e.g. before a new operation. */
@@ -185,12 +188,20 @@ class LogConsoleState {
             val current = generation.get()
             val entries = batch.asSequence()
                 .filter { it.generation == current }
-                .map(QueuedLog::entry)
+                .map { queued ->
+                    // Number in arrival order, once, so the find-bar index stays sorted.
+                    queued.entry.takeIf { it.sequence != 0L }
+                        ?: queued.entry.copy(sequence = nextSequence++)
+                }
                 .toList()
             batch.clear()
             if (entries.isEmpty()) continue
 
             withContext(Dispatchers.Main.immediate) {
+                // A `clear()` may have run while the batch was being filtered off the UI thread (a
+                // new operation clears the console before it starts); those entries belong to the
+                // run that was just discarded.
+                if (generation.get() != current) return@withContext
                 lines.appendTrimming(entries, MAX_ENTRIES)
                 val added = entries.filter(::shows)
                 // A trim drops hits whose entries left the list, so the index is rebuilt rather

@@ -255,11 +255,11 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                         onStateChange = setTranslateState,
                                         translationProgress = { vm.translation.progress },
                                         translationStatus = { vm.translation.status },
-                                        isRunning = vm.operations.isRunning,
+                                        isRunning = vm.operations.isTranslating,
                                         onRun = {
                                             vm.translation.resetProgress()
                                             vm.reasoning.clear()
-                                            vm.operations.launch {
+                                            vm.operations.launch(isTranslation = true) {
                                                 with(vm.env) {
                                                     either {
                                                         runTranslation(
@@ -316,6 +316,11 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                                         literatureStyle = vm.termExtractState.literatureStyle,
                                                         mapInfo = vm.termExtractState.mapInfo,
                                                         extraPrompts = vm.termExtractState.extraPrompts.ifBlank { null },
+                                                        onFailure = {
+                                                            vm.scope.launch {
+                                                                vm.snackbarHostState.showSnackbar(it)
+                                                            }
+                                                        },
                                                     )
                                                 }
                                             }
@@ -388,7 +393,11 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                                                 state.noBuiltin,
                                                                 state.pointerInput,
                                                             )
-                                                            vm.toolboxState = state.copy(pointerResult = result.toString())
+                                                            // Read the state at write time: the panel stays
+                                                            // usable while the run lasts, so writing the pre-run
+                                                            // snapshot back would revert edits and re-open a
+                                                            // dialog the user dismissed.
+                                                            vm.toolboxState = vm.toolboxState.copy(pointerResult = result.toString())
                                                         }
 
                                                         ToolboxOperation.ExportSnbt -> runExportSnbt(
@@ -423,7 +432,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                                                 state.commandInput,
                                                                 state.commandPatterns,
                                                             )
-                                                            vm.toolboxState = state.copy(
+                                                            vm.toolboxState = vm.toolboxState.copy(
                                                                 commandResult = matches.joinToString("\n") {
                                                                     "[${it.start}, ${it.endExclusive}) ${it.content}"
                                                                 }.ifBlank { "未匹配到可提取文本。" },
@@ -451,11 +460,14 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
             }, bottom = {
                 LogConsole(
                     logs = vm.logs,
-                    onShowReasoning = { vm.reasoning.visible = true },
-                    onOpenPath = { path ->
-                        if (!revealInFileExplorer(path)) {
-                            vm.scope.launch {
-                                vm.snackbarHostState.showSnackbar("无法在资源管理器中打开: $path")
+                    // Stable identities: the console memoises each rendered line on them.
+                    onShowReasoning = remember(vm) { { vm.reasoning.visible = true } },
+                    onOpenPath = remember(vm) {
+                        { path ->
+                            if (!revealInFileExplorer(path)) {
+                                vm.scope.launch {
+                                    vm.snackbarHostState.showSnackbar("无法在资源管理器中打开: $path")
+                                }
                             }
                         }
                     },

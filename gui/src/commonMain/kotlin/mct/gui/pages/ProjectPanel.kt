@@ -233,7 +233,13 @@ private fun ProjectInitDialog(
                         }
                         Button(
                             onClick = controller::initialise,
-                            enabled = !isRunning,
+                            // Same conditions `initialise()` validates, so the button cannot look
+                            // ready while the click can only produce an error.
+                            enabled = !isRunning &&
+                                form.directory.isNotBlank() &&
+                                form.source.isNotBlank() &&
+                                form.name.isNotBlank() &&
+                                nameError == null,
                             modifier = Modifier.weight(1f),
                             shapes = ButtonDefaults.shapes(),
                         ) {

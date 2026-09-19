@@ -18,12 +18,14 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import mct.Env
+import mct.cli.util.downloadAndSha1
 import mct.command.CommandExtractPattern
 import mct.command.CommandRegexPattern
 import mct.command.extractTextFromCommands
 import mct.gui.model.GuiSettings
 import mct.gui.model.MCTPatternState
 import mct.gui.model.MtlxSource
+import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
 import mct.kit.exportIntoPool
@@ -39,6 +41,15 @@ import okio.Path.Companion.toPath
 import okio.buffer
 import okio.openZip
 import okio.use
+
+/**
+ * Write a tool's output through [writeAtomically], which keeps the previous output intact when the
+ * write fails. The parent directory is created there as well, matching the panels' promise that a
+ * `mustExist = false` destination need not exist yet.
+ */
+context(env: Env)
+private inline fun writeOutputAtomically(output: String, crossinline write: (okio.Path) -> Unit) =
+    writeAtomically(env.fs, output.toPath()) { temp -> write(temp) }
 
 /**
  * Stateless implementations for the file-to-file utilities shared with the CLI.
@@ -61,7 +72,7 @@ suspend fun flattenTextPool(
         else -> error("未知提取类型: $kind")
     }
     val pool = groups.exportIntoPool(simply)
-    output.toPath().writeJson(pool, pretty = GuiSettings.prettyOutput)
+    writeOutputAtomically(output) { it.writeJson(pool, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已将 ${groups.size} 个分组导出为 ${pool.size} 条文本: $output" }
 }
 
@@ -76,7 +87,7 @@ suspend fun unflattenTextPool(
     val translations = env.fs.read(mapping.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<TranslationMapping>(it) }
     val replacements = groups.replace(translations)
-    output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
+    writeOutputAtomically(output) { it.writeJson(replacements, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已将 ${translations.size} 条映射应用到 ${replacements.size} 个替换分组: $output" }
 }
 
@@ -98,7 +109,7 @@ suspend fun generateMtlxTemplate(
             mapping.generateMTLXTemplate() to mapping.size
         }
     }
-    output.toPath().writeText(template.render())
+    writeOutputAtomically(output) { it.writeText(template.render()) }
     env.logger.info { "已从 $count 条${source.label}生成 MTLX 模板: $output" }
 }
 
@@ -112,7 +123,7 @@ suspend fun translateByMtlx(
     val pool = env.fs.read(poolPath.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<TranslationPool>(it) }
     val mapping = pool.translateByMTLX(mtlx)
-    output.toPath().writeJson(mapping, pretty = GuiSettings.prettyOutput)
+    writeOutputAtomically(output) { it.writeJson(mapping, pretty = GuiSettings.prettyOutput) }
     val translated = mapping.count { it.value != null }
     env.logger.info { "MTLX 已匹配 $translated/${pool.size} 条文本: $output" }
 }
@@ -126,7 +137,7 @@ suspend fun replaceAllExtractions(
     val groups = env.fs.read(input.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<List<ExtractionGroup>>(it) }
     val replacements = groups.replaceSimply { replacement }
-    output.toPath().writeJson(replacements, pretty = GuiSettings.prettyOutput)
+    writeOutputAtomically(output) { it.writeJson(replacements, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已为 ${groups.size} 个分组生成固定替换: $output" }
 }
 
@@ -147,7 +158,7 @@ suspend fun exportPatternSchema(
         PatternSchemaKind.CommandRegex -> ListSerializer(CommandRegexPattern.serializer()).descriptor
     }
     val schema = SerializationClassJsonSchemaGenerator(json = MCTJson).generateSchema(descriptor)
-    output.toPath().writeJson(schema, pretty = GuiSettings.prettyOutput)
+    writeOutputAtomically(output) { it.writeJson(schema, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已导出 ${kind.name} JSON Schema: $output" }
 }
 
@@ -181,7 +192,7 @@ suspend fun combineOfficialLanguages(
     val target = env.fs.read(targetLanguage.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<JsonObject>(it) }
     val terms = target.mapKeys { (key, _) -> source[key]?.jsonPrimitive?.content ?: key }.let(::JsonObject)
-    output.toPath().writeJson(terms, pretty = GuiSettings.prettyOutput)
+    writeOutputAtomically(output) { it.writeJson(terms, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已合并 ${terms.size} 条官方语言条目: $output" }
 }
 
@@ -222,7 +233,13 @@ suspend fun downloadOfficialLanguages(
         val details = client.get(version["url"]!!.jsonPrimitive.content).body<JsonObject>()
         val clientJar = details["downloads"]!!.jsonObject["client"]!!.jsonObject
         val clientJarPath = cache / "client.jar"
-        client.downloadTo(clientJar["url"]!!.jsonPrimitive.content, clientJarPath)
+        // Verified against the manifest: an error page or a truncated body delivered with status 200
+        // would otherwise be kept as if it were the jar, and only fail much later.
+        val clientJarSha1 = clientJar["sha1"]!!.jsonPrimitive.content
+        val clientJarActual = client.downloadAndSha1(clientJar["url"]!!.jsonPrimitive.content, clientJarPath)
+        check(clientJarActual == clientJarSha1) {
+            "client.jar 校验失败：期望 sha1 $clientJarSha1，实际 $clientJarActual"
+        }
         env.fs.openZip(clientJarPath).use { zip ->
             zip.source("/assets/minecraft/lang/en_us.json".toPath()).buffer().use { source ->
                 env.fs.sink(root / "en_us.json").use(source::readAll)
@@ -238,7 +255,10 @@ suspend fun downloadOfficialLanguages(
                 val hash = entry.jsonObject["hash"]!!.jsonPrimitive.content
                 val url = "https://resources.download.minecraft.net/${hash.take(2)}/$hash"
                 launch(dispatcher) {
-                    client.downloadTo(url, root / name.removePrefix(prefix))
+                    val actual = client.downloadAndSha1(url, root / name.removePrefix(prefix))
+                    check(actual == hash) {
+                        "${name.removePrefix(prefix)} 校验失败：期望 sha1 $hash，实际 $actual"
+                    }
                 }
             }
         }
@@ -246,8 +266,4 @@ suspend fun downloadOfficialLanguages(
     }
 }
 
-context(env: Env)
-private suspend fun HttpClient.downloadTo(url: String, target: okio.Path) {
-    val bytes = get(url).body<ByteArray>()
-    env.fs.write(target) { write(bytes) }
-}
+

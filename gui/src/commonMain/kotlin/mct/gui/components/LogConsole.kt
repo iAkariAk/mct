@@ -353,8 +353,13 @@ private fun LogRow(
 ) {
     // Resolving paths stats the filesystem, so it is cached per message; entry text never changes.
     val links = remember(entry.message) { findPathLinks(entry.message) }
-    val text = remember(entry, colors, links, hits, currentHit, onOpenPath) {
-        consoleLine(entry, colors, links, hits, currentHit, onOpenPath)
+    // The callback is read through a stable indirection and kept out of the keys below: the caller
+    // builds it inline, so its identity changes whenever the console recomposes, and keying the text
+    // on it would rebuild every visible line — annotated string and layout — for each log batch.
+    val latestOpenPath by rememberUpdatedState(onOpenPath)
+    val openPath: (String) -> Unit = remember { { path -> latestOpenPath(path) } }
+    val text = remember(entry, colors, links, hits, currentHit) {
+        consoleLine(entry, colors, links, hits, currentHit, openPath)
     }
     SelectionContainer {
         Text(

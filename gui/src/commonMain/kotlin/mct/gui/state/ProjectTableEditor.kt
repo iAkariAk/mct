@@ -3,6 +3,8 @@ package mct.gui.state
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mct.gui.model.ProjectTextEntry
 import mct.gui.model.ProjectTextFile
 
@@ -23,9 +25,22 @@ class ProjectTableEditor(val file: ProjectTextFile) {
     var isSaving by mutableStateOf(false)
         private set
 
+    /**
+     * The configured path the current rows were read from, or `null` while nothing is loaded.
+     *
+     * The controller compares it with the live configuration before saving: the rows and the path
+     * they are written to must belong to the same file.
+     */
+    var loadedPath by mutableStateOf<String?>(null)
+        private set
+
+    /** Serialises saves so two of them cannot write the same file at once. */
+    private val saveLock = Mutex()
+
     /** Adopt the table read from disk. */
-    fun applyLoaded(loaded: List<ProjectTextEntry>) {
+    fun applyLoaded(loaded: List<ProjectTextEntry>, path: String? = null) {
         entries = loaded
+        loadedPath = path
         isDirty = false
     }
 
@@ -58,11 +73,19 @@ class ProjectTableEditor(val file: ProjectTextFile) {
         isDirty = true
     }
 
-    /** Write the table through [write] (supplied by the controller, which knows the file and path). */
-    suspend fun save(write: suspend (List<ProjectTextEntry>) -> Unit): Result<Unit> {
+    /**
+     * Write the table through [write] (supplied by the controller, which knows the file and path).
+     *
+     * The payload is snapshotted once the lock is taken, so a save queued behind another writes the
+     * newest rows instead of a stale copy. [isDirty] is only cleared when the rows are still the
+     * ones that were written: an edit made while the write was in flight is not in the file, and
+     * declaring it saved would hide it until the next reload.
+     */
+    suspend fun save(write: suspend (List<ProjectTextEntry>) -> Unit): Result<Unit> = saveLock.withLock {
+        val snapshot = entries
         isSaving = true
-        return runCatching { write(entries) }
-            .onSuccess { isDirty = false }
+        runCatching { write(snapshot) }
+            .onSuccess { if (entries == snapshot) isDirty = false }
             .also { isSaving = false }
     }
 

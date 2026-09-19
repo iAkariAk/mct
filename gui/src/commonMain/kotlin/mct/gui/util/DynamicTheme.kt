@@ -80,41 +80,47 @@ private const val SAMPLE_SIZE = 128
 suspend fun extractSeedColorFromFile(path: String): Color? = withContext(Dispatchers.IO) {
     try {
         val bytes = FileSystem.SYSTEM.read(path.toPath()) { readByteArray() }
-        val src = Image.makeFromEncoded(bytes)
+        // Skiko handles own native memory (a full-size decode is tens of megabytes each), so they are
+        // closed here instead of waiting for the GC to run their cleaners.
+        Image.makeFromEncoded(bytes).use { src ->
+            // Target sample dimensions
+            val scale = minOf(1f, SAMPLE_SIZE.toFloat() / maxOf(src.width, src.height))
+            val sw = (src.width * scale).toInt().coerceAtLeast(1)
+            val sh = (src.height * scale).toInt().coerceAtLeast(1)
 
-        // Target sample dimensions
-        val scale = minOf(1f, SAMPLE_SIZE.toFloat() / maxOf(src.width, src.height))
-        val sw = (src.width * scale).toInt().coerceAtLeast(1)
-        val sh = (src.height * scale).toInt().coerceAtLeast(1)
+            // Allocate a SMALL bitmap and scale the image into it directly
+            val dstInfo = ImageInfo(sw, sh, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL)
+            Bitmap().use { dstBitmap ->
+                dstBitmap.allocPixels(dstInfo)
+                val pixmap = dstBitmap.peekPixels() ?: return@withContext null
+                src.scalePixels(pixmap, SamplingMode.DEFAULT, false)
 
-        // Allocate a SMALL bitmap and scale the image into it directly
-        val dstInfo = ImageInfo(sw, sh, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL)
-        val dstBitmap = Bitmap().apply { allocPixels(dstInfo) }
-        val pixmap = dstBitmap.peekPixels() ?: return@withContext null
-        src.scalePixels(pixmap, SamplingMode.DEFAULT, false)
+                // Read the small pixel buffer (≤ SAMPLE_SIZE² × 4 bytes ≈ 64 KB)
+                val pixelBytes = dstBitmap.readPixels() ?: return@withContext null
+                val intPixels = IntArray(sw * sh) { rgbaOffset ->
+                    val off = rgbaOffset * 4
+                    val r = pixelBytes[off].toInt() and 0xFF
+                    val g = pixelBytes[off + 1].toInt() and 0xFF
+                    val b = pixelBytes[off + 2].toInt() and 0xFF
+                    val a = pixelBytes[off + 3].toInt() and 0xFF
+                    (a shl 24) or (r shl 16) or (g shl 8) or b
+                }
 
-        // Read the small pixel buffer (≤ SAMPLE_SIZE² × 4 bytes ≈ 64 KB)
-        val pixelBytes = dstBitmap.readPixels() ?: return@withContext null
-        val intPixels = IntArray(sw * sh) { rgbaOffset ->
-            val off = rgbaOffset * 4
-            val r = pixelBytes[off].toInt() and 0xFF
-            val g = pixelBytes[off + 1].toInt() and 0xFF
-            val b = pixelBytes[off + 2].toInt() and 0xFF
-            val a = pixelBytes[off + 3].toInt() and 0xFF
-            (a shl 24) or (r shl 16) or (g shl 8) or b
+                val palette = Palette.from(intPixels, sw, sh)
+                    .maximumColorCount(16)
+                    .generate()
+
+                val rgb = palette.vibrantSwatch?.rgb
+                    ?: palette.mutedSwatch?.rgb
+                    ?: palette.dominantSwatch?.rgb
+                    ?: palette.darkVibrantSwatch?.rgb
+                    ?: palette.lightMutedSwatch?.rgb
+
+                if (rgb != null) Color(rgb) else null
+            }
         }
-
-        val palette = Palette.from(intPixels, sw, sh)
-            .maximumColorCount(16)
-            .generate()
-
-        val rgb = palette.vibrantSwatch?.rgb
-            ?: palette.mutedSwatch?.rgb
-            ?: palette.dominantSwatch?.rgb
-            ?: palette.darkVibrantSwatch?.rgb
-            ?: palette.lightMutedSwatch?.rgb
-
-        if (rgb != null) Color(rgb) else null
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         e.printStackTrace()
         null

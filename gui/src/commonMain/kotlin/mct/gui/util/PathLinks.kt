@@ -12,10 +12,12 @@ data class PathLink(
 )
 
 /**
- * A path token: everything a Windows or POSIX path uses. A token may not start with `:` (that is
- * punctuation such as `已写入:`) but may contain one (the `C:` drive prefix).
+ * A path token: everything up to the next whitespace or quote. It may not start with `:` (that is
+ * punctuation such as `已写入:`), and the character set is deliberately not restricted to ASCII —
+ * the usual path in this app contains Chinese (`D:\我的世界\…`), and a truncated match such as
+ * `E:\` would link to the drive root instead of the file.
  */
-private val PathCandidate = Regex("""[A-Za-z0-9_.\\/~][A-Za-z0-9_.\-\\/~:]*""")
+private val PathCandidate = Regex("""[^\s"'<>|:][^\s"'<>|]*""")
 private val DrivePrefix = Regex("""^[A-Za-z]:""")
 private val FileExtension = Regex("""\.[A-Za-z0-9]{1,6}$""")
 
@@ -44,7 +46,8 @@ fun findPathLinks(
         searchFrom = match.range.last + 1
 
         for (end in candidateEnds(message, match.range.last + 1)) {
-            val token = message.substring(match.range.first, end).trimEnd('.', ',', ';', ':')
+            val token = message.substring(match.range.first, end)
+                .trimEnd('.', ',', ';', ':', '，', '。', '、', '；', '：', ')', '）', ']', '】', '」')
             if (!looksLikePath(token)) break
             val file = File(token).let { if (it.isAbsolute) it else File(workingDirectory, token) }
             if (file.exists()) {
