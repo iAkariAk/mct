@@ -122,15 +122,15 @@ data class PatternsConfig(
 
         val mcjsonPatterns = mcjson.patterns.flatMap {
             requirePath(it, "MCJson pattern").readJson<List<DataPointerPattern>>()
-        }.let { if (nbt.hasBuiltin) BuiltinMCJsonPatterns + it else it }
+        }.let { if (mcjson.hasBuiltin) BuiltinMCJsonPatterns + it else it }
 
         val commandComponentPatterns = commandComponent.patterns.flatMap {
             requirePath(it, "Command Component pattern").readJson<List<ComponentPattern>>()
-        }.let { if (nbt.hasBuiltin) BuiltinMinecraftComponentPatterns + it else it }
+        }.let { if (commandComponent.hasBuiltin) BuiltinMinecraftComponentPatterns + it else it }
 
         val commandDataPatterns = commandData.patterns.flatMap {
             requirePath(it, "Command Data pattern").readJson<List<DataPointerPattern>>()
-        }.let { if (nbt.hasBuiltin) BuiltinCommandDataPatterns + it else it }
+        }.let { if (commandData.hasBuiltin) BuiltinCommandDataPatterns + it else it }
 
 
         val commandRegexPatterns = commandRegex.flatMap {

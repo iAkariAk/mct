@@ -45,7 +45,7 @@ class MCT : SuspendingCliktCommand("MCT") {
 }
 
 
-private class CliExit(val statusCode: Int) : RuntimeException("Exit with status $statusCode")
+class CliExit(val statusCode: Int) : RuntimeException("Exit with status $statusCode")
 
 class Panic(message: String) : Throwable(message)
 
