@@ -12,7 +12,7 @@ import mct.model.patch.ExtractionGroup
 import mct.model.patch.replaceSimply
 import mct.util.io.writeJson
 
-class ReplaceAll : BaseCommand(name = "replace-all") {
+class ReplaceAllCommand : BaseCommand(name = "replace-all") {
     val input by option(
         "--input", "-i", help = "The path to what you want to replace extractions with a specified string"
     ).path().required()

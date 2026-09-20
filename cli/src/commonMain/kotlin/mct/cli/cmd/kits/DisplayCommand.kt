@@ -22,7 +22,7 @@ import mct.util.toJsonElementOrNull
 import mct.util.toSnbtNbtTagOrNull
 import mct.util.unreachable
 
-class Display : BaseCommand(name = "display", "Display TextComponent") {
+class DisplayCommand : BaseCommand(name = "display", "Display TextComponent") {
     val format by option("--format", "-f").choice("json", "snbt", "auto").default("auto")
     val textComponentStr: String by argument("text-component")
 

@@ -35,7 +35,7 @@ import okio.buffer
 import okio.openZip
 import okio.use
 
-class OfficialLang : BaseCommand("official", "Download official lang files") {
+class OfficialLangCommands : BaseCommand("official", "Download official lang files") {
     init {
         subcommands(DownloadLang(), CombineTermTable())
     }

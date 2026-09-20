@@ -17,7 +17,7 @@ import mct.model.patch.*
 import mct.util.io.writeJson
 import mct.util.unreachable
 
-class TextPool : BaseCommand(
+class TextPoolCommands : BaseCommand(
     name = "text-pool", help = "A tool helping you flatten and unflatten these nested extract"
 ) {
     init {

@@ -8,7 +8,7 @@ import mct.cli.WorkspaceCommand
 import mct.cli.path
 import mct.kit.exportRegionSnbt
 
-class ExportSnbt : WorkspaceCommand(
+class ExportSnbtCommand : WorkspaceCommand(
     name = "export-snbt", help = "A tool helping you extract all nbt from region files"
 ) {
     val output by option("--output", "-o", help = "The dir where the extracted snbt will be placed").path().required()

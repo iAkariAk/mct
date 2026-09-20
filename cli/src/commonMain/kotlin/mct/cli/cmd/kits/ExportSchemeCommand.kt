@@ -16,7 +16,7 @@ import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import mct.util.unreachable
 
-class ExportScheme : BaseCommand("export-scheme", help = "The JSON-scheme generated for kinds of mct pattern") {
+class ExportSchemeCommand : BaseCommand("export-scheme", help = "The JSON-scheme generated for kinds of mct pattern") {
     val kind by option("--kind", "-K").choice("command", "data_pointer", "command_regex").required()
     val output by option("--output", "-o", help = "The path to generated JSON Scheme").path().required()
     val pretty by option("--pretty", "-P", help = "Enable pretty JSON output").flag()

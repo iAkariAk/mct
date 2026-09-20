@@ -96,7 +96,7 @@ private enum class ConvertableFormat(val display: String) {
         if (this != Auto) this else fromExt(path.extension)
 }
 
-class Convert : BaseCommand("convert", "Convert different formats") {
+class ConvertCommand : BaseCommand("convert", "Convert different formats") {
     private val input by option("--input", "-i", help = "Path to input file").path().required()
     private val output by option("--output", "-o", help = "Path to output file").path().required()
     private val inputFormat by option(

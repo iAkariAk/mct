@@ -20,7 +20,7 @@ import mct.util.io.writeJson
 import mct.util.io.writeText
 import mct.util.unreachable
 
-class MTLXKit : BaseCommand("mtlx", "MTLX Toolkit") {
+class MTLXKitCommands : BaseCommand("mtlx", "MTLX Toolkit") {
     init {
         subcommands(Translate(), Generate())
     }

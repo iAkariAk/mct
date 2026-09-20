@@ -90,7 +90,7 @@ open class AICommand(
 }
 
 
-class TermExtract : AICommand(
+class TermExtractCommand : AICommand(
     name = "term-extract", help = "Extract term from text pool"
 ) {
     val input by option("--input", "-i", help = "The path to the JSON file oftext pool").path().required()
@@ -103,7 +103,7 @@ class TermExtract : AICommand(
     override suspend fun App() {
         logger.info { "Loading text from $input" }
         val texts = input.jsonFile<TranslationPool>()
-        val termCaches = this@TermExtract.termCaches.jsonFile<TermTable>(emptyMap())
+        val termCaches = this@TermExtractCommand.termCaches.jsonFile<TermTable>(emptyMap())
         var consumedTokenCount = 0
         NotifierHooks.onAiSign {
             if (it is AiSign.ConsumeToken) {
@@ -133,7 +133,7 @@ class TermExtract : AICommand(
     }
 }
 
-class AITranslate : AICommand(
+class AITranslateCommand : AICommand(
     name = "translate", help = "Translate via OpenAI api"
 ) {
     val input by option("--input", "-i", help = "The extraction JSON file to translate").path().required()

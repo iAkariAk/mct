@@ -7,7 +7,18 @@ import com.github.ajalt.clikt.core.subcommands
 
 class KitCommands : SuspendingCliktCommand(name = "kit") {
     init {
-        subcommands(ExportSnbt(), ExportScheme(), ReplaceAll(), TextPool(), TermExtract(), AITranslate(), MTLXKit(), OfficialLang(), Display(), Convert())
+        subcommands(
+            ExportSnbtCommand(),
+            ExportSchemeCommand(),
+            ReplaceAllCommand(),
+            TextPoolCommands(),
+            TermExtractCommand(),
+            AITranslateCommand(),
+            MTLXKitCommands(),
+            OfficialLangCommands(),
+            DisplayCommand(),
+            ConvertCommand()
+        )
     }
 
     override fun help(context: Context) = "Some helpful tool"
