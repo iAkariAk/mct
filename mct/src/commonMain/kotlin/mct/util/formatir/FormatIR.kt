@@ -1,5 +1,6 @@
 package mct.util.formatir
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
@@ -18,46 +19,57 @@ sealed interface IRConverter<T> {
     fun decodeFromIR(element: IRElement): T
 }
 
+@Serializable(IRElementSerializer::class)
 sealed interface IRElement {
     companion object
 }
 
+@Serializable(IRByteSerializer::class)
 data class IRByte(val value: Byte) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRShortSerializer::class)
 data class IRShort(val value: Short) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRIntSerializer::class)
 data class IRInt(val value: Int) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRLongSerializer::class)
 data class IRLong(val value: Long) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRFloatSerializer::class)
 data class IRFloat(val value: Float) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRDoubleSerializer::class)
 data class IRDouble(val value: Double) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRBooleanSerializer::class)
 data class IRBoolean(val value: Boolean) : IRElement {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRStringSerializer::class)
 data class IRString(val value: String) : IRElement {
     override fun toString() = value
 }
 
+@Serializable(IRObjectSerializer::class)
 data class IRObject(val value: Map<String, IRElement>) : IRElement, Map<String, IRElement> by value {
     override fun toString() = value.toString()
 }
 
+@Serializable(IRListSerializer::class)
 data class IRList(val value: List<IRElement>) : IRElement, List<IRElement> by value {
     constructor(vararg element: IRElement) : this(listOf(*element))
 

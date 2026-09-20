@@ -33,7 +33,7 @@ val MCTCbor = Cbor {
     ignoreUnknownKeys = true
 }
 
-private val CommonNbt = Nbt {
+val NbtCommon = Nbt {
     variant = NbtVariant.Java
     ignoreUnknownKeys = true
     compression = NbtCompression.None
@@ -41,15 +41,15 @@ private val CommonNbt = Nbt {
     encodeDefaults = false
 }
 
-val NbtZlib = Nbt(CommonNbt) {
+val NbtZlib = Nbt(NbtCommon) {
     compression = NbtCompression.Zlib
 }
 
-val NbtGzip = Nbt(CommonNbt) {
+val NbtGzip = Nbt(NbtCommon) {
     compression = NbtCompression.Gzip
 }
 
-val NbtNone = Nbt(CommonNbt) {
+val NbtNone = Nbt(NbtCommon) {
     compression = NbtCompression.None
 }
 
