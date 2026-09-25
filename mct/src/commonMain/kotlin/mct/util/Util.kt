@@ -1,6 +1,11 @@
+@file:OptIn(SealedSerializationApi::class)
+
 package mct.util
 
 import arrow.core.Either
+import kotlinx.serialization.SealedSerializationApi
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -153,6 +158,25 @@ inline fun Boolean.ifTrue(block: () -> Unit) = also { if (this) block() }
 inline fun Boolean.ifFalse(block: () -> Unit) = also { if (!this) block() }
 
 inline fun square(n: Int) = n * n
+
+internal fun deferDescriptor(deferred: () -> SerialDescriptor): SerialDescriptor = object : SerialDescriptor {
+
+    private val original: SerialDescriptor by lazy(deferred)
+
+    override val serialName: String
+        get() = original.serialName
+    override val kind: SerialKind
+        get() = original.kind
+    override val elementsCount: Int
+        get() = original.elementsCount
+
+    override fun getElementName(index: Int): String = original.getElementName(index)
+    override fun getElementIndex(name: String): Int = original.getElementIndex(name)
+    override fun getElementAnnotations(index: Int): List<Annotation> = original.getElementAnnotations(index)
+    override fun getElementDescriptor(index: Int): SerialDescriptor = original.getElementDescriptor(index)
+    override fun isElementOptional(index: Int): Boolean = original.isElementOptional(index)
+}
+
 
 @DslMarker
 annotation class BuilderMaker

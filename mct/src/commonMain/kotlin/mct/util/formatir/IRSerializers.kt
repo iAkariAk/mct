@@ -11,13 +11,13 @@ import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonDecoder
+import mct.util.deferDescriptor
 import net.benwoodworth.knbt.NbtDecoder
 
 object IRElementSerializer : KSerializer<IRElement> {
     override val descriptor = buildSerialDescriptor("mct.util.formatir.IRElementSerializer", PolymorphicKind.SEALED) {
-        element("IRList", IRListSerializer.descriptor)
-        element("IRList", IRListSerializer.descriptor)
-        element("IRObject", IRObjectSerializer.descriptor)
+        element("IRList", deferDescriptor { IRListSerializer.descriptor })
+        element("IRObject", deferDescriptor { IRObjectSerializer.descriptor })
         element("IRBoolean", IRBooleanSerializer.descriptor)
         element("IRString", IRStringSerializer.descriptor)
         element("IRByte", IRByteSerializer.descriptor)
