@@ -14,7 +14,19 @@ import kotlinx.serialization.json.JsonDecoder
 import net.benwoodworth.knbt.NbtDecoder
 
 object IRElementSerializer : KSerializer<IRElement> {
-    override val descriptor = buildSerialDescriptor("mct.util.formatir.IRElementSerializer", PolymorphicKind.SEALED)
+    override val descriptor = buildSerialDescriptor("mct.util.formatir.IRElementSerializer", PolymorphicKind.SEALED) {
+        element("IRList", IRListSerializer.descriptor)
+        element("IRList", IRListSerializer.descriptor)
+        element("IRObject", IRObjectSerializer.descriptor)
+        element("IRBoolean", IRBooleanSerializer.descriptor)
+        element("IRString", IRStringSerializer.descriptor)
+        element("IRByte", IRByteSerializer.descriptor)
+        element("IRShort", IRShortSerializer.descriptor)
+        element("IRInt", IRIntSerializer.descriptor)
+        element("IRLong", IRLongSerializer.descriptor)
+        element("IRFloat", IRFloatSerializer.descriptor)
+        element("IRDouble", IRDoubleSerializer.descriptor)
+    }
 
     override fun serialize(encoder: Encoder, value: IRElement) {
         when (value) {
