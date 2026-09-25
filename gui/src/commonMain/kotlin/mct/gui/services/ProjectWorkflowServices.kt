@@ -100,7 +100,7 @@ suspend fun initialiseProject(
         "源存档不能位于项目目录内"
     }
 
-    runCliProjectCommand(
+    runCliCommand(
         listOf(
             "project", "init", projectName,
             // `project init` reads `--project-dir` as the directory it creates `[name]` under, so
@@ -142,7 +142,7 @@ suspend fun assembleProjectPatch(projectDirectory: String) =
 context(env: Env)
 private suspend fun runProjectCommand(projectDirectory: String, command: String) {
     val root = requireProjectRoot(projectDirectory)
-    runCliProjectCommand(listOf("project", command, "--project-dir", root.absolutePath))
+    runCliCommand(listOf("project", command, "--project-dir", root.absolutePath))
 }
 
 /**
@@ -152,7 +152,7 @@ private suspend fun runProjectCommand(projectDirectory: String, command: String)
  * behind its back, so what the console reports as `CLI > mct …` is exactly what ran.
  */
 context(env: Env)
-private suspend fun runCliProjectCommand(arguments: List<String>) {
+internal suspend fun runCliCommand(arguments: List<String>) {
     val cliArguments = arguments + listOf(
         // The CLI is silent by default (`ColorTerminalLogger(emptyList())` drops everything); its
         // info and warning lines are the progress detail this console exists for.

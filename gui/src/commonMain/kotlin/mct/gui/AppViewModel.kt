@@ -46,6 +46,8 @@ class AppViewModel(clientManager: ClientManager) {
     val operations = OperationRunner(scope, logs, snackbarHostState)
     val settings = SettingsController(logs, translation)
     val project = ProjectController(env, scope, operations, snackbarHostState)
+    /** The map tool's decoded map and actions; the toolbox's map dialog reads it directly. */
+    val mapTool = MapToolController(env, operations)
 
     // ── Panel data states ───────────────────────────────────────
     var selectedTab by mutableStateOf(Tab.Extract)

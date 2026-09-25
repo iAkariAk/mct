@@ -68,6 +68,43 @@ enum class ToolboxOperation(val title: String, val actionLabel: String) {
     CommandTest("Command Pattern 测试", "测试"),
     DownloadOfficialLanguage("下载官方语言", "下载"),
     CombineOfficialLanguage("合并官方语言", "合并"),
+
+    /**
+     * `mct kit convert`, run in process: the CLI owns the conversion, the GUI only collects its
+     * options, exactly like the project workflow does for `mct project`.
+     */
+    Convert("格式转换", "转换"),
+
+    /**
+     * `mct kit map`: the map file is decoded into a [mct.map.MapFile] the dialog previews and edits.
+     * Loading is submitted like any other tool's action; the dialog's export and overwrite buttons
+     * act on the held map through [mct.gui.state.MapToolController] instead, because they are not a
+     * single form submission.
+     */
+    MapFile("地图查看与编辑", "加载地图"),
+}
+
+/** Container formats `mct kit convert` moves data between; [key] is its `--*-format` value. */
+enum class ConvertFormat(val key: String, val label: String) {
+    Auto("auto", "自动"),
+    Json("json", "JSON"),
+    Snbt("snbt", "SNBT"),
+    Nbt("nbt", "NBT"),
+}
+
+/** Compression kinds `mct kit convert --compression` accepts. */
+enum class ConvertCompression(val key: String, val label: String) {
+    None("none", "不压缩"),
+    Gzip("gzip", "Gzip"),
+    Zlib("zlib", "Zlib"),
+}
+
+/** Image containers the map tool writes; the extensions are the ones `mct kit map` recognises. */
+enum class MapImageFormat(val label: String, val extension: String) {
+    Png("PNG", "png"),
+    Bmp("BMP", "bmp"),
+    Jpeg("JPEG", "jpg"),
+    Gif("GIF", "gif"),
 }
 
 enum class SchemaKind(val key: String, val label: String) {
@@ -256,6 +293,48 @@ data class TermExtractState(
     val extraPrompts: String = LLMTranslationPrompts.extraPrompts.orEmpty(),
 )
 
+/**
+ * Fields of `mct kit convert`; the GUI hands them to the CLI rather than converting itself.
+ *
+ * [inputFormat] / [outputFormat] at [ConvertFormat.Auto] mean "infer from the extension", and the
+ * CLI rejects an inferred output format when there is no output path to infer it from — which is
+ * why batch mode requires an explicit [outputFormat].
+ */
+@Immutable
+data class ConvertToolState(
+    val input: String = "",
+    val output: String = "converted.json",
+    val inputFormat: ConvertFormat = ConvertFormat.Auto,
+    val outputFormat: ConvertFormat = ConvertFormat.Auto,
+    val compression: ConvertCompression = ConvertCompression.None,
+    /** 1..9, or blank for the CLI's default level. */
+    val compressionLevel: String = "",
+    val pretty: Boolean = false,
+    /** Treat [input] as a regex and convert every file it matches under [currentDirectory]. */
+    val batch: Boolean = false,
+    val currentDirectory: String = "",
+)
+
+/**
+ * Fields of the map tool; the decoded map itself is held by [mct.gui.state.MapToolController],
+ * because the preview is rendered from that map's colors rather than from the last picked file.
+ */
+@Immutable
+data class MapToolState(
+    val input: String = "",
+    val imageOutput: String = "",
+    val imageFormat: MapImageFormat = MapImageFormat.Png,
+)
+
+/**
+ * Outcome of one map tool action, shown inside the map dialog.
+ *
+ * A snackbar is not an option there: the modal dialog covers it, so a confirmation or a failure
+ * raised that way would never be read.
+ */
+@Immutable
+data class MapToolStatus(val text: String, val error: Boolean = false)
+
 @Immutable
 data class ToolboxState(
     val pointerKind: PointerKind = PointerKind.Region,
@@ -283,4 +362,6 @@ data class ToolboxState(
     val officialMinecraftVersion: String = "latest",
     val officialOutput: String = "",
     val officialConcurrency: String = "20",
+    val convert: ConvertToolState = ConvertToolState(),
+    val map: MapToolState = MapToolState(),
 )

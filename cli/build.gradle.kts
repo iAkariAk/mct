@@ -49,17 +49,17 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.arrow.suspendapp)
+            api(libs.arrow.suspendapp)
             api(libs.clikt)
-            implementation(libs.mordant)
-            implementation(libs.mordant.coroutines)
-            implementation(libs.mordant.markdown)
-            implementation(libs.kotlinx.serialization.json.okio)
-            implementation(libs.kotlinx.schema.generator.json)
-            implementation(libs.kotlinx.io.core)
-            implementation(libs.kotlinx.io.okio)
-            implementation(libs.ktoml.core)
-            implementation(libs.kiteimage)
+            api(libs.mordant)
+            api(libs.mordant.coroutines)
+            api(libs.mordant.markdown)
+            api(libs.kotlinx.serialization.json.okio)
+            api(libs.kotlinx.schema.generator.json)
+            api(libs.kotlinx.io.core)
+            api(libs.kotlinx.io.okio)
+            api(libs.ktoml.core)
+            api(libs.kiteimage)
             implementation(project(":mct"))
             implementation(project(":extra"))
         }

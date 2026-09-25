@@ -38,13 +38,13 @@ kotlin {
             implementation(project(":mct"))
             implementation(project(":extra"))
             implementation(project(":cli"))
-            // The CLI keeps ktoml as an `implementation` dependency, but the GUI reads and writes
-            // `mct.toml` through the CLI's own Toml codec, which needs the type on the classpath.
             implementation(libs.ktoml.core)
             implementation(libs.compose.material3)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material.icons.extended)
             implementation(libs.filekit.dialogs.compose)
+            implementation(libs.kiteimage)
+            implementation(libs.kiteimage.compose)
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.material.kolor)

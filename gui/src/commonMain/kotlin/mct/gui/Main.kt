@@ -381,6 +381,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                         state = vm.toolboxState,
                                         onStateChange = setToolboxState,
                                         isRunning = vm.operations.isRunning,
+                                        mapController = vm.mapTool,
                                         onRunOperation = { operation ->
                                             vm.operations.launch {
                                                 val state = vm.toolboxState
@@ -448,6 +449,13 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
                                                             state.officialTargetLanguage,
                                                             state.poolOutput,
                                                         )
+                                                        // The conversion is the CLI's; the GUI only
+                                                        // collects its options and runs it in process.
+                                                        ToolboxOperation.Convert -> convertFormats(state.convert)
+                                                        // Only the load goes through this dispatch;
+                                                        // the dialog's export and overwrite buttons
+                                                        // belong to the held map, not to a one-shot form.
+                                                        ToolboxOperation.MapFile -> vm.mapTool.load(state.map.input)
                                                     }
                                                 }
                                             }

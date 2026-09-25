@@ -110,6 +110,8 @@ class ConvertCommand : BaseCommand("convert", "Convert different formats") {
     private val input by option("--input", "-i", help = "Path to input file").required()
     private val regex by option("--regex", "-r", help = "Use regex to match input files").flag()
 
+    private val currentDir by option("--current", "-u", help = "Path to current dir").path().default(Path.CURRENT_PATH)
+
     private val output by option("--output", "-o", help = "Path to output file").path()
     private val inputFormat by option(
         "--input-format", "-if", help = "Input file format"
@@ -147,7 +149,7 @@ class ConvertCommand : BaseCommand("convert", "Convert different formats") {
         if (!regex) convert(input.toPath()) else {
             val regex = input.toRegex2()
             coroutineScope {
-                fs.listRecursively(Path.CURRENT_PATH)
+                fs.listRecursively(currentDir)
                     .filter { fs.metadata(it).isRegularFile && regex.matches(it.toString()) }
                     .forEach {
                         launch(Dispatchers.IO) {

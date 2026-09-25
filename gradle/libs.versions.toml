@@ -60,6 +60,7 @@ jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
 kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
 kiteimage = { module = "io.github.yuroyami:kiteimage", version.ref = "kiteimage" }
+kiteimage-compose = { module = "io.github.yuroyami:kiteimage-compose", version.ref = "kiteimage" }
 kmpzip-core = { module = "no.synth:kmp-zip", version.ref = "kmp-zip" }
 kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }

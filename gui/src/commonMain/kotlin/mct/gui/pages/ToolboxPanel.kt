@@ -19,7 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.absolutePath
@@ -27,8 +29,12 @@ import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.yuroyami.kiteimage.compose.KiteImage
 import mct.gui.components.*
 import mct.gui.model.*
+import mct.gui.services.mapBitmap
+import mct.gui.services.mapSummary
+import mct.gui.state.MapToolController
 
 private data class ToolboxAction(
     val title: String,
@@ -71,6 +77,15 @@ private val ToolboxSections = listOf(
             ToolboxAction("Command Pattern 测试", "用样例输入验证命令提取模式。", Icons.Outlined.Terminal, ToolboxOperation.CommandTest),
             ToolboxAction("导出 Schema", "导出规则配置使用的 JSON Schema。", Icons.Outlined.Schema, ToolboxOperation.ExportSchema),
             ToolboxAction("导出 Region SNBT", "把 Region NBT 导出为可读 SNBT。", Icons.Outlined.DataObject, ToolboxOperation.ExportSnbt),
+        ),
+    ),
+    ToolboxSectionSpec(
+        title = "格式与地图",
+        description = "在 NBT、SNBT、JSON 之间互转数据，并预览、导出或复写地图文件。",
+        icon = Icons.Outlined.Map,
+        tools = listOf(
+            ToolboxAction("格式转换", "在 NBT、SNBT、JSON 之间互转，可批量处理。", Icons.Outlined.SwapHoriz, ToolboxOperation.Convert),
+            ToolboxAction("地图查看与编辑", "由地图数据渲染预览，导出为图片或复写为地图。", Icons.Outlined.Map, ToolboxOperation.MapFile),
         ),
     ),
     ToolboxSectionSpec(
@@ -210,6 +225,11 @@ fun ToolboxPanel(
     onStateChange: (ToolboxState) -> Unit,
     isRunning: Boolean,
     onRunOperation: (ToolboxOperation) -> Unit,
+    /**
+     * The map tool's decoded map. Held by the view model rather than this panel: the preview has to
+     * survive the dialog being closed, and it is drawn from that map's colors.
+     */
+    mapController: MapToolController,
     modifier: Modifier = Modifier,
 ) {
     // Every keystroke in the dialog changes `state`, so the callback reads the latest value
@@ -232,6 +252,7 @@ fun ToolboxPanel(
             state = state,
             isRunning = isRunning,
             onStateChange = onStateChange,
+            mapController = mapController,
             onDismiss = { onStateChange(state.copy(activeOperation = null)) },
             onConfirm = { onRunOperation(operation) },
         )
@@ -262,6 +283,7 @@ private fun ToolboxOperationDialog(
     state: ToolboxState,
     isRunning: Boolean,
     onStateChange: (ToolboxState) -> Unit,
+    mapController: MapToolController,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -284,6 +306,25 @@ private fun ToolboxOperationDialog(
     }
     val exportOutputPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
         file?.let { onStateChange(state.copy(exportOutput = it.absolutePath())) }
+    }
+    val convertInputPicker = rememberFilePickerLauncher(type = FileKitType.File(), mode = FileKitMode.Single) { file: PlatformFile? ->
+        file?.let { onStateChange(state.copy(convert = state.convert.copy(input = it.absolutePath()))) }
+    }
+    val convertDirectoryPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
+        file?.let { onStateChange(state.copy(convert = state.convert.copy(currentDirectory = it.absolutePath()))) }
+    }
+    // Only the formats `mct kit map` decodes are offered: anything else fails in the decoder.
+    val mapFilePicker = rememberFilePickerLauncher(
+        type = FileKitType.File(listOf("dat")),
+        mode = FileKitMode.Single,
+    ) { file: PlatformFile? ->
+        file?.let { onStateChange(state.copy(map = state.map.copy(input = it.absolutePath()))) }
+    }
+    val mapImagePicker = rememberFilePickerLauncher(
+        type = FileKitType.Image,
+        mode = FileKitMode.Single,
+    ) { file: PlatformFile? ->
+        file?.let { mapController.overwriteImage(it.absolutePath()) }
     }
 
     AlertDialog(
@@ -459,6 +500,229 @@ private fun ToolboxOperationDialog(
                             }
                         }
                     }
+                    ToolboxOperation.Convert -> {
+                        Text(
+                            "在 NBT、SNBT、JSON 之间互转；转换与压缩由 CLI 执行，日志会显示实际命令行。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextSwitch(
+                            checked = state.convert.batch,
+                            onCheckedChange = { onStateChange(state.copy(convert = state.convert.copy(batch = it))) },
+                            text = "批量模式（输入按正则匹配多个文件）",
+                        )
+                        if (state.convert.batch) {
+                            ConfigTextField(
+                                value = state.convert.input,
+                                onValueChange = { onStateChange(state.copy(convert = state.convert.copy(input = it))) },
+                                label = { Text("文件路径正则") },
+                                placeholder = { Text("例如 .*map_.*\\.dat") },
+                                singleLine = true,
+                            )
+                            PathRow(
+                                label = "工作目录",
+                                placeholder = "从该目录递归匹配",
+                                value = state.convert.currentDirectory,
+                                onValueChange = {
+                                    onStateChange(state.copy(convert = state.convert.copy(currentDirectory = it)))
+                                },
+                                onBrowse = { convertDirectoryPicker.launch() },
+                            )
+                        } else {
+                            PathRow(
+                                label = "输入文件",
+                                placeholder = "要转换的文件",
+                                value = state.convert.input,
+                                onValueChange = { onStateChange(state.copy(convert = state.convert.copy(input = it))) },
+                                onBrowse = { convertInputPicker.launch() },
+                            )
+                        }
+                        Text(
+                            "输入格式",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        EnumButtonGroup(
+                            entries = ConvertFormat.entries,
+                            selected = state.convert.inputFormat,
+                            label = { it.label },
+                            onSelected = { onStateChange(state.copy(convert = state.convert.copy(inputFormat = it))) },
+                        )
+                        if (!state.convert.batch) {
+                            PathField("输出文件", state.convert.output, mustExist = false) {
+                                onStateChange(state.copy(convert = state.convert.copy(output = it)))
+                            }
+                        }
+                        Text(
+                            "输出格式",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        EnumButtonGroup(
+                            entries = ConvertFormat.entries,
+                            selected = state.convert.outputFormat,
+                            label = { it.label },
+                            onSelected = { onStateChange(state.copy(convert = state.convert.copy(outputFormat = it))) },
+                        )
+                        if (state.convert.batch && state.convert.outputFormat == ConvertFormat.Auto) {
+                            Text(
+                                "批量模式必须指定输出格式：每个匹配文件没有单独的扩展名可以推断。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        Text(
+                            "压缩",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        EnumButtonGroup(
+                            entries = ConvertCompression.entries,
+                            selected = state.convert.compression,
+                            label = { it.label },
+                            onSelected = { onStateChange(state.copy(convert = state.convert.copy(compression = it))) },
+                        )
+                        if (state.convert.compression != ConvertCompression.None) {
+                            ConfigTextField(
+                                value = state.convert.compressionLevel,
+                                onValueChange = {
+                                    onStateChange(state.copy(convert = state.convert.copy(compressionLevel = it)))
+                                },
+                                label = { Text("压缩级别（1-9）") },
+                                placeholder = { Text("留空使用默认级别") },
+                                singleLine = true,
+                            )
+                        }
+                        TextSwitch(
+                            checked = state.convert.pretty,
+                            onCheckedChange = { onStateChange(state.copy(convert = state.convert.copy(pretty = it))) },
+                            text = "美化输出（缩进）",
+                        )
+                    }
+
+                    ToolboxOperation.MapFile -> {
+                        Text(
+                            "预览由地图数据（colors）渲染：复写图像后显示的是量化后的颜色，" +
+                                "而不是所选图片本身。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        PathRow(
+                            label = "地图文件（data/map_*.dat）",
+                            placeholder = "选择要预览或复写的地图文件",
+                            value = state.map.input,
+                            onValueChange = { onStateChange(state.copy(map = state.map.copy(input = it))) },
+                            onBrowse = { mapFilePicker.launch() },
+                        )
+                        // The outcome of the last action, reported here because a snackbar would be
+                        // covered by this dialog.
+                        mapController.status?.let { status ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                color = if (status.error) {
+                                    MaterialTheme.colorScheme.errorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                },
+                            ) {
+                                Text(
+                                    status.text,
+                                    modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (status.error) {
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    },
+                                )
+                            }
+                        }
+
+                        val map = mapController.mapFile
+                        if (map == null) {
+                            Text(
+                                "加载后这里显示预览，可导出为图片或由图片复写。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            // Keyed on the map instance: an overwrite replaces it, so the bitmap is
+                            // rebuilt from the new colors instead of showing the previous image.
+                            val preview = remember(map) { mapBitmap(map) }
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    KiteImage(
+                                        bitmap = preview,
+                                        contentDescription = "地图预览",
+                                        modifier = Modifier.size(224.dp),
+                                        contentScale = ContentScale.Fit,
+                                        // Nearest neighbour: a 128×128 map scaled up must stay crisp.
+                                        filterQuality = FilterQuality.None,
+                                    )
+                                    Text(
+                                        mapSummary(map),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            Text(
+                                "导出格式",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            EnumButtonGroup(
+                                entries = MapImageFormat.entries,
+                                selected = state.map.imageFormat,
+                                label = { it.label },
+                                onSelected = { onStateChange(state.copy(map = state.map.copy(imageFormat = it))) },
+                            )
+                            PathField("图片输出文件", state.map.imageOutput, mustExist = false) {
+                                onStateChange(state.copy(map = state.map.copy(imageOutput = it)))
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                FilledTonalButton(
+                                    onClick = { mapController.saveImage(state.map.imageOutput, state.map.imageFormat) },
+                                    enabled = !isRunning && state.map.imageOutput.isNotBlank(),
+                                    shapes = ButtonDefaults.shapes(),
+                                    // Both actions share the row exactly, so they line up with the
+                                    // full-width controls above instead of trailing off at the left.
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("保存图片")
+                                }
+                                OutlinedButton(
+                                    onClick = { mapImagePicker.launch() },
+                                    enabled = !isRunning,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(Icons.Outlined.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("复写图像")
+                                }
+                            }
+                            Text(
+                                "复写图像会校验所选图片为 128×128，按地图颜色量化后写回地图文件。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
                     ToolboxOperation.DownloadOfficialLanguage -> {
                         ConfigTextField(
                             value = state.officialMinecraftVersion,
@@ -562,6 +826,8 @@ private fun ToolboxOperation.icon(): ImageVector = when (this) {
     ToolboxOperation.CommandTest -> Icons.Outlined.Terminal
     ToolboxOperation.DownloadOfficialLanguage -> Icons.Outlined.Download
     ToolboxOperation.CombineOfficialLanguage -> Icons.AutoMirrored.Outlined.CompareArrows
+    ToolboxOperation.Convert -> Icons.Outlined.SwapHoriz
+    ToolboxOperation.MapFile -> Icons.Outlined.Map
 }
 
 private fun ToolboxOperation.isReady(state: ToolboxState): Boolean = when (this) {
@@ -579,4 +845,20 @@ private fun ToolboxOperation.isReady(state: ToolboxState): Boolean = when (this)
 
     ToolboxOperation.CombineOfficialLanguage -> state.officialSourceLanguage.isNotBlank() &&
             state.officialTargetLanguage.isNotBlank() && state.poolOutput.isNotBlank()
+
+    // The level is optional; a non-blank one has to be something the CLI's `1..9` restriction accepts.
+    ToolboxOperation.Convert -> state.convert.let { convert ->
+        val level = convert.compressionLevel.toIntOrNull()
+        val levelValid = convert.compressionLevel.isBlank() || (level != null && level in 1..9)
+        val pathsValid = if (convert.batch) {
+            // `--regex` needs a directory to walk, and there is no output path to infer the format from.
+            convert.currentDirectory.isNotBlank() && convert.outputFormat != ConvertFormat.Auto
+        } else {
+            convert.output.isNotBlank()
+        }
+        convert.input.isNotBlank() && levelValid && pathsValid
+    }
+
+    // Only the load is a form submission; export and overwrite act on the map held by the controller.
+    ToolboxOperation.MapFile -> state.map.input.isNotBlank()
 }
