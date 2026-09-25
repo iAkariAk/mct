@@ -17,7 +17,8 @@ class KitCommands : SuspendingCliktCommand(name = "kit") {
             MTLXKitCommands(),
             OfficialLangCommands(),
             DisplayCommand(),
-            ConvertCommand()
+            ConvertCommand(),
+            MapCommands()
         )
     }
 

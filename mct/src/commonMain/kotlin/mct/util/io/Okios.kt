@@ -25,6 +25,7 @@ fun Path.startsWith(prefix: String) = name.endsWith(prefix)
 fun Path.endsWith(suffix: String) = name.endsWith(suffix)
 
 inline fun Path.readText(fs: FileSystem) = fs.read(this, BufferedSource::readUtf8)
+inline fun Path.readBytes(fs: FileSystem) = fs.read(this, BufferedSource::readByteArray)
 
 context(fs: FileSystem)
 inline fun Path.readText() = readText(fs)
@@ -33,8 +34,15 @@ inline fun Path.writeText(content: String, fs: FileSystem) = fs.write(this) {
     writeUtf8(content)
 }
 
+inline fun Path.writeBytes(bytes: ByteArray, fs: FileSystem) = fs.write(this) {
+    write(bytes)
+}
+
 context(fs: FileSystem)
 inline fun Path.writeText(content: String) = writeText(content, fs)
+
+context(fs: FileSystem)
+inline fun Path.writeBytes(bytes: ByteArray) = writeBytes(bytes, fs)
 
 context(fs: FileSystem)
 fun Path.copyToRecursively(target: Path) {

@@ -59,6 +59,7 @@ kotlin {
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.io.okio)
             implementation(libs.ktoml.core)
+            implementation(libs.kiteimage)
             implementation(project(":mct"))
             implementation(project(":extra"))
         }

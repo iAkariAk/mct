@@ -10,6 +10,7 @@ filekit = "0.14.2"
 graalvm-native = "1.1.7"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
+kiteimage = "0.1.0"
 kmp-zip = "0.13.0"
 kmpalette = "4.0.0-beta02"
 knbt = "0.11.10-SNAPSHOT"
@@ -58,6 +59,7 @@ jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "j
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
 kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
+kiteimage = { module = "io.github.yuroyami:kiteimage", version.ref = "kiteimage" }
 kmpzip-core = { module = "no.synth:kmp-zip", version.ref = "kmp-zip" }
 kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }

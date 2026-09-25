@@ -37,5 +37,11 @@ context(fs: FSHolder)
 inline fun Path.readText() = readText(fs.fs)
 
 context(fs: FSHolder)
+inline fun Path.readBytes() = readBytes(fs.fs)
+
+context(fs: FSHolder)
 inline fun Path.writeText(content: String) = writeText(content, fs.fs)
+
+context(fs: FSHolder)
+inline fun Path.writeBytes(bytes: ByteArray) = writeBytes(bytes, fs.fs)
 

@@ -84,6 +84,7 @@ fun TextComponent<*>.flatten() = when (this) {
 
 inline fun IRElement.decodeToCompound(): TextComponent<*> = TextComponent.fromIR(this)
 
+@Serializable(TextComponentSerializer::class)
 sealed class TextComponent<out IR : IRElement> {
     abstract val raw: IR
     protected val rawAsObj: IRObject? get() = raw as? IRObject

@@ -152,6 +152,7 @@ inline fun <reified P : Any, reified C1 : P, reified C2 : P, reified C3 : P> Ite
 inline fun Boolean.ifTrue(block: () -> Unit) = also { if (this) block() }
 inline fun Boolean.ifFalse(block: () -> Unit) = also { if (!this) block() }
 
+inline fun square(n: Int) = n * n
 
 @DslMarker
 annotation class BuilderMaker
