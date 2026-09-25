@@ -48,6 +48,10 @@ enum class FormatKind {
     Nbt // displayed as snbt
 }
 
+inline fun FormatKind.isJson() = this == JsonStr || this == JsonObj
+inline fun FormatKind.isNbt() = this == SnbtStr || this == Nbt
+
+
 // Used to distinguish what type the extracted part is
 @Serializable
 enum class SnbtSyntaxKind {
@@ -82,7 +86,7 @@ fun String.quoted(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) { // FIXME: quoting content is dangerous when the string wrapped by other quote
+fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
     SingleQuoteString -> doubleQuoted()
     DoubleQuoteString -> doubleQuoted()
     LiteralString -> doubleQuoted()
