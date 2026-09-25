@@ -9,25 +9,35 @@ import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.restrictTo
 import io.ktor.utils.io.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.okio.decodeFromBufferedSource
 import kotlinx.serialization.json.okio.encodeToBufferedSink
+import mct.FSHolder
 import mct.MCTError
 import mct.cli.BaseCommand
+import mct.cli.enforceNot
 import mct.cli.panic
 import mct.cli.path
+import mct.cli.util.CURRENT_PATH
 import mct.serializer.MCTJson
 import mct.serializer.NbtCommon
+import mct.util.IO
 import mct.util.formatir.IRElement
 import mct.util.io.extension
+import mct.util.io.stem
+import mct.util.toRegex2
 import mct.util.unreachable
 import net.benwoodworth.knbt.*
 import okio.BufferedSink
 import okio.BufferedSource
 import okio.Path
+import okio.Path.Companion.toPath
 import okio.use
 import mct.serializer.Snbt as MCTSnbt
 
@@ -97,8 +107,10 @@ private enum class ConvertableFormat(val display: String) {
 }
 
 class ConvertCommand : BaseCommand("convert", "Convert different formats") {
-    private val input by option("--input", "-i", help = "Path to input file").path().required()
-    private val output by option("--output", "-o", help = "Path to output file").path().required()
+    private val input by option("--input", "-i", help = "Path to input file").required()
+    private val regex by option("--regex", "-r", help = "Use regex to match input files").flag()
+
+    private val output by option("--output", "-o", help = "Path to output file").path()
     private val inputFormat by option(
         "--input-format", "-if", help = "Input file format"
     ).enum<ConvertableFormat> { it.display }.default(Auto)
@@ -124,18 +136,50 @@ class ConvertCommand : BaseCommand("convert", "Convert different formats") {
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
+        enforceNot(outputFormat == Auto && output == null) {
+            "Cannot infer the output format when missing the output path"
+        }
+
+        enforceNot((regex && output != null)) {
+            "Not allow to specify the output when using `--regex`"
+        }
+
+        if (!regex) convert(input.toPath()) else {
+            val regex = input.toRegex2()
+            coroutineScope {
+                fs.listRecursively(Path.CURRENT_PATH)
+                    .filter { fs.metadata(it).isRegularFile && regex.matches(it.toString()) }
+                    .forEach {
+                        launch(Dispatchers.IO) {
+                            convert(it)
+                        }
+                    }
+            }
+        }
+
+    }
+
+    private fun convert(inputPath: Path) {
         nbtCompression = compression
         nbtCompressionLevel = compressionLevel
         prettyOutput = pretty
 
-        val inputFormat = inputFormat.inferAuto(input)
-        val outputFormat = outputFormat.inferAuto(output)
+        val inputFormat = inputFormat.inferAuto(inputPath)
+        val outputFormat = if (outputFormat == Auto) outputFormat.inferAuto(output!!) else outputFormat
 
-        val ir = fs.read(input) {
+        val ir = fs.read(inputPath) {
             inputFormat.decodeToIR(this)
         }
-        fs.write(output) {
+
+        fs.write(output ?: inferOutput(inputPath, outputFormat)) {
             outputFormat.encodeFromIR(this, ir)
         }
     }
+}
+
+context(_: FSHolder)
+private fun inferOutput(input: Path, format: ConvertableFormat): Path {
+    check(format != Auto)
+    val filename = input.stem
+    return "$filename.${format.display}".toPath()
 }

@@ -54,6 +54,10 @@ inline fun enforce(value: Boolean, message: () -> String) {
     if (!value) panic(message())
 }
 
+inline fun enforceNot(value: Boolean, message: () -> String) {
+    if (value) panic(message())
+}
+
 inline fun enforceNotNull(value: Any?, message: () -> String) {
     if (value == null) panic(message())
 }
