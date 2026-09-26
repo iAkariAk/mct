@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -24,6 +23,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import mct.gui.components.*
 import mct.gui.model.TermExtractState
+import mct.gui.platform.platformPathOf
 import mct.gui.util.ensureJsonExt
 
 @Composable
@@ -38,15 +38,15 @@ fun TermExtractPanel(
     val currentState by rememberUpdatedState(state)
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(input = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(input = platformPathOf(it))) } }
 
     val outputSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(currentState.copy(output = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(output = ensureJsonExt(platformPathOf(it)))) }
     }
 
     val termPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(existingTermPath = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(existingTermPath = platformPathOf(it))) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ── Header ───────────────────────────────────────────────

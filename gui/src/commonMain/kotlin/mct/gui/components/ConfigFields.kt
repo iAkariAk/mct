@@ -15,10 +15,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import mct.gui.platform.platformPathOf
 import mct.gui.state.ProjectPatternSlotEditor
+import mct.gui.util.oneDecimal
 
 /**
  * Show [hint] as a plain tooltip while the pointer hovers the wrapped content.
@@ -261,7 +262,7 @@ fun ConfigSliderField(
                 )
             }
             Text(
-                current?.let { "%.1f".format(it) } ?: "默认",
+                current?.let { oneDecimal(it) } ?: "默认",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -346,7 +347,7 @@ fun ConfigPatternSlotField(
 ) {
     val paths = slot.paths.value
     val picker = rememberFilePickerLauncher(type = FileKitType.File(listOf("json"))) { file: PlatformFile? ->
-        file?.let { slot.addPath(it.absolutePath().replace('\\', '/')) }
+        file?.let { slot.addPath(platformPathOf(it).replace('\\', '/')) }
     }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

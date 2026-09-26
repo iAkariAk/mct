@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
@@ -24,6 +23,7 @@ import mct.gui.components.PanelSection
 import mct.gui.components.PathRow
 import mct.gui.model.BackfillState
 import mct.gui.model.RunMode
+import mct.gui.platform.platformPathOf
 
 @Composable
 fun BackfillPanel(
@@ -35,28 +35,28 @@ fun BackfillPanel(
     // Latest state at invocation time keeps every field callback's identity stable.
     val currentState by rememberUpdatedState(state)
     val dirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(currentState.copy(input = it.absolutePath())) }
+        file?.let { onStateChange(currentState.copy(input = platformPathOf(it))) }
     }
     val filePicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(replacements = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(replacements = platformPathOf(it))) } }
 
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PanelSection("输入 / 输出", Icons.Outlined.FolderOpen) {
             PathRow(
-                "Minecraft 存档目录",
-                "选择包含 level.dat 的文件夹...",
-                state.input,
-                { onStateChange(currentState.copy(input = it)) }) {
+                    label = "Minecraft 存档目录",
+                    placeholder = "选择包含 level.dat 的文件夹...",
+                    value = state.input,
+                    onValueChange = { onStateChange(currentState.copy(input = it)) }) {
                 dirPicker.launch()
             }
             PathRow(
-                "替换文件 JSON（来自步骤②）",
-                "选择 replacements.json...",
-                state.replacements,
-                { onStateChange(currentState.copy(replacements = it)) }) {
-                filePicker.launch()
-            }
+                label = "替换文件 JSON（来自步骤②）",
+                placeholder = "选择 replacements.json...",
+                value = state.replacements,
+                onValueChange = { onStateChange(currentState.copy(replacements = it)) },
+                onBrowse = { filePicker.launch() },
+            )
         }
 
         PanelSection("回填模式", Icons.Outlined.Tune) {

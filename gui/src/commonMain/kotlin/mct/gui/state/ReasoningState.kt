@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import mct.extra.ai.AiSign
 import mct.gui.model.GuiSettings
+import mct.gui.util.nowMillis
 
 private const val BATCH_WINDOW_MILLIS = 32L
 private const val MAX_BATCH_SIZE = 512
@@ -114,14 +115,14 @@ class ReasoningState {
             if (!finished && !opened) return
             if (!finished) {
                 val grewBy = length - (publishedLength[id] ?: 0)
-                val elapsed = System.currentTimeMillis() - (publishedAt[id] ?: 0L)
+                val elapsed = nowMillis() - (publishedAt[id] ?: 0L)
                 if (grewBy < PUBLISH_CHAR_THRESHOLD && elapsed < PUBLISH_INTERVAL_MILLIS) return
             }
         }
         contents[id] = builders[id]?.toString().orEmpty()
         active[id] = !finished
         publishedLength[id] = length
-        publishedAt[id] = System.currentTimeMillis()
+        publishedAt[id] = nowMillis()
     }
 
     private fun publishAll() {

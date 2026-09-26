@@ -1,12 +1,12 @@
 package mct.gui.services
 
 import arrow.core.raise.either
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mct.Env
 import mct.MCTError
 import mct.MCTWorkspace
 import mct.gui.model.*
+import mct.gui.platform.ioDispatcher
 import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.model.patch.Patch
@@ -36,7 +36,7 @@ suspend fun createPatchFile(
     format: PatchFormat,
     validation: Boolean,
     patterns: MCTPatternState,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     env.logger.info { "正在打开存档: $input" }
     either<MCTError, Unit> {
         val workspace = MCTWorkspace(input.toPath(), env)
@@ -71,7 +71,7 @@ suspend fun applyPatchFile(
     patchPath: String,
     format: PatchFormat,
     strategy: PatchStrategy,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     env.logger.info { "正在打开存档: $input" }
     either<MCTError, Unit> {
         val workspace = MCTWorkspace(input.toPath(), env)

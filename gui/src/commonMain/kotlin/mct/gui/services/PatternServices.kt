@@ -13,10 +13,17 @@ import mct.pointer.DataPointerPattern
 import mct.serializer.MCTJson
 import okio.Path.Companion.toPath
 
-private inline fun <reified T> readPatternJson(env: Env, path: String): T? =
+inline fun <reified T> readPatternJson(env: Env, path: String): T? =
     path.takeIf(String::isNotBlank)
         ?.let { env.fs.read(it.toPath()) { readUtf8() } }
         ?.let { MCTJson.decodeFromString<T>(it) }
+
+/** The built-in data-pointer rules a `kind` key selects (`region` / `mcjson`). */
+fun builtinPointers(kind: String): List<DataPointerPattern> = when (kind) {
+    "mcjson" -> BuiltinMCJsonPatterns
+    "region" -> BuiltinNbtPatterns.toList()
+    else -> error("未知 kind: $kind")
+}
 
 /**
  * Assemble every configured rule category into an [MCTPattern]; the single construction

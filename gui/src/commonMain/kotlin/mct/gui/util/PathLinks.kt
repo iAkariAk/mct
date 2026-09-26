@@ -1,7 +1,7 @@
 package mct.gui.util
 
-import java.awt.Desktop
-import java.io.File
+import mct.gui.platform.appWorkingDirectory
+import okio.Path.Companion.toPath
 
 /** A filesystem path mentioned by a console line, resolved to an absolute path that exists. */
 data class PathLink(
@@ -33,11 +33,11 @@ private const val MAX_EXTRA_WORDS = 3
  * A token only counts as a path when it has a separator, a drive prefix or a file extension *and*
  * resolves to an existing file, so prose that happens to contain dots stays plain text and a
  * missing path is not turned into a link that would do nothing. Relative paths resolve against
- * [workingDirectory], the directory the application runs in.
+ * [workingDirectory], the directory the application's relative paths are based on.
  */
 fun findPathLinks(
     message: String,
-    workingDirectory: File = File(System.getProperty("user.dir")),
+    workingDirectory: String = appWorkingDirectory,
 ): List<PathLink> {
     val links = ArrayList<PathLink>(2)
     var searchFrom = 0
@@ -49,9 +49,9 @@ fun findPathLinks(
             val token = message.substring(match.range.first, end)
                 .trimEnd('.', ',', ';', ':', '，', '。', '、', '；', '：', ')', '）', ']', '】', '」')
             if (!looksLikePath(token)) break
-            val file = File(token).let { if (it.isAbsolute) it else File(workingDirectory, token) }
-            if (file.exists()) {
-                links += PathLink(match.range.first until (match.range.first + token.length), file.path)
+            val path = if (token.toPath().isAbsolute) token else joinPath(workingDirectory, token)
+            if (pathExists(path)) {
+                links += PathLink(match.range.first until (match.range.first + token.length), absolutePathOf(path))
                 searchFrom = end
                 break
             }
@@ -77,22 +77,3 @@ private fun looksLikePath(token: String): Boolean =
     token.any { it == '/' || it == '\\' } ||
         DrivePrefix.containsMatchIn(token) ||
         FileExtension.containsMatchIn(token)
-
-/**
- * Reveal [path] in the platform file manager, selecting the file itself where the platform
- * supports it. Returns `false` when no file manager could be started, so the caller can report it.
- */
-fun revealInFileExplorer(path: String): Boolean = runCatching {
-    val file = File(path)
-    if (isWindows) {
-        val argument = if (file.isDirectory) file.path else "/select,${file.path}"
-        ProcessBuilder("explorer.exe", argument)
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-    } else {
-        Desktop.getDesktop().open(if (file.isDirectory) file else file.parentFile ?: file)
-    }
-}.isSuccess
-
-private val isWindows = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)

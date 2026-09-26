@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package mct.gui.state
 
 import androidx.compose.runtime.*
@@ -6,7 +8,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import mct.LoggerLevel
 import mct.gui.model.LogEntry
-import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 
 private const val BATCH_WINDOW_MILLIS = 40L
 private const val MAX_ENTRIES = 5_000
@@ -116,12 +120,12 @@ class LogConsoleState {
 
     /** Queue [entry]; the sequence number is assigned when the entry is drained, in arrival order. */
     fun add(entry: LogEntry) {
-        queue.trySend(QueuedLog(generation.get(), entry))
+        queue.trySend(QueuedLog(generation.load(), entry))
     }
 
     /** Drop visible and queued entries, e.g. before a new operation. */
     fun clear() {
-        generation.incrementAndGet()
+        generation.incrementAndFetch()
         while (queue.tryReceive().isSuccess) {
             // Drain entries left over by the previous operation.
         }
@@ -185,7 +189,7 @@ class LogConsoleState {
 
             // Filtering and materialising the batch is pure CPU work; only the observable
             // list mutations hop onto the UI thread.
-            val current = generation.get()
+            val current = generation.load()
             val entries = batch.asSequence()
                 .filter { it.generation == current }
                 .map { queued ->
@@ -201,7 +205,7 @@ class LogConsoleState {
                 // A `clear()` may have run while the batch was being filtered off the UI thread (a
                 // new operation clears the console before it starts); those entries belong to the
                 // run that was just discarded.
-                if (generation.get() != current) return@withContext
+                if (generation.load() != current) return@withContext
                 lines.appendTrimming(entries, MAX_ENTRIES)
                 val added = entries.filter(::shows)
                 // A trim drops hits whose entries left the list, so the index is rebuilt rather

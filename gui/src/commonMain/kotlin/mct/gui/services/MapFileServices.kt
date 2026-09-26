@@ -2,10 +2,10 @@ package mct.gui.services
 
 import io.github.yuroyami.kiteimage.KiteBitmap
 import io.github.yuroyami.kiteimage.KiteImage
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mct.Env
 import mct.gui.model.MapImageFormat
+import mct.gui.platform.ioDispatcher
 import mct.gui.util.writeAtomically
 import mct.map.MapColors
 import mct.map.MapFile
@@ -22,7 +22,7 @@ import okio.Path.Companion.toPath
 
 /** Decode a Minecraft map file (`data/map_<n>.dat`, NBT gzip). */
 context(env: Env)
-suspend fun readMapFile(path: String): MapFile = withContext(Dispatchers.IO) {
+suspend fun readMapFile(path: String): MapFile = withContext(ioDispatcher) {
     with(env) { MapFile.decodeFromFile(path.toPath()) }
 }
 
@@ -33,7 +33,7 @@ suspend fun readMapFile(path: String): MapFile = withContext(Dispatchers.IO) {
  * other file this app replaces uses.
  */
 context(env: Env)
-suspend fun writeMapFile(path: String, mapFile: MapFile) = withContext(Dispatchers.IO) {
+suspend fun writeMapFile(path: String, mapFile: MapFile) = withContext(ioDispatcher) {
     writeAtomically(env.fs, path.toPath()) { temp ->
         with(env) { mapFile.encodeToFile(temp) }
     }
@@ -41,7 +41,7 @@ suspend fun writeMapFile(path: String, mapFile: MapFile) = withContext(Dispatche
 
 /** Write an exported preview to [path], likewise through a temp file. */
 context(env: Env)
-suspend fun writeMapImage(path: String, bytes: ByteArray) = withContext(Dispatchers.IO) {
+suspend fun writeMapImage(path: String, bytes: ByteArray) = withContext(ioDispatcher) {
     writeAtomically(env.fs, path.toPath()) { temp ->
         env.fs.write(temp) { write(bytes) }
     }

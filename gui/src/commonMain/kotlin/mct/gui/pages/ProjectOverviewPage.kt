@@ -16,15 +16,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
 import mct.gui.components.SectionTitle
 import mct.gui.components.rememberMissingPath
 import mct.gui.model.ProjectHistoryEntry
+import mct.gui.platform.platformPathOf
 import mct.gui.services.PROJECT_FILE
 import mct.gui.state.ProjectController
 import mct.gui.util.formatElapsed
-import java.io.File
+import mct.gui.util.joinPath
 
 /**
  * Project overview: the projects opened before, most recent first, and the FAB menu that either
@@ -39,9 +39,14 @@ fun ProjectOverviewPage(
     val history = controller.history
     var fabExpanded by remember { mutableStateOf(false) }
     val importPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { picked -> controller.importProject(picked.absolutePath()) }
+        // `platformPathOf`, not `absolutePath`: on Android the picker returns a `content://` URI, and
+        // every read in `importProject` treats the value as a real path — a URI would never resolve,
+        // so a directory holding `mct.toml` reported that it had none.
+        file?.let { picked -> controller.importProject(platformPathOf(picked)) }
     }
 
+    // The dialog is not part of the page's layout: it floats over the shell, so it is rendered by
+    // the navigation host rather than inside this page. This page only opens it.
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -268,7 +273,7 @@ private fun ProjectHistoryCard(
 ) {
     // A project whose directory moved or lost its mct.toml can no longer be opened by the CLI, so
     // it is flagged here instead of failing on the first command.
-    val unreachable = rememberMissingPath(File(entry.directory, PROJECT_FILE).path, mustExist = true)
+    val unreachable = rememberMissingPath(joinPath(entry.directory, PROJECT_FILE), mustExist = true)
     Card(
         onClick = onOpen,
         modifier = modifier.fillMaxWidth(),

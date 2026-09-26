@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package mct.gui.state
 
 import androidx.compose.material3.SnackbarHostState
@@ -14,9 +16,11 @@ import mct.extra.ai.translator.optimizePrompt
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
 import mct.gui.model.TranslateState
+import mct.gui.platform.ioDispatcher
 import mct.gui.services.ClientManager
 import mct.gui.services.listModels
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Observable state of the translate panel plus the OpenAI client behind it.
@@ -107,7 +111,7 @@ class TranslationController(
         var candidate: OpenAI? = null
         var installed = false
         try {
-            val probedClient = withContext(Dispatchers.IO) {
+            val probedClient = withContext(ioDispatcher) {
                 with(env) { createOpenAIClient(url, token) }.also { candidate = it }
             }
             // A missing model list is not a missing connection: several OpenAI-compatible gateways do
@@ -115,7 +119,7 @@ class TranslationController(
             // AI engine unusable with no way back. The failure is reported, `availableModels` stays
             // empty — which is also what makes the model field editable — and a wrong credential
             // still surfaces as an error when a translation is actually requested.
-            val models = withContext(Dispatchers.IO) {
+            val models = withContext(ioDispatcher) {
                 runCatching { probedClient.listModels() }
                     .onFailure { error ->
                         logs.add(
@@ -132,7 +136,7 @@ class TranslationController(
             val previous = withContext(NonCancellable + Dispatchers.Main) {
                 val credentialsStillCurrent =
                     state.apiUrl.ifBlank { null } == url && state.apiToken == token
-                if (disposed.get() || !credentialsStillCurrent) {
+                if (disposed.load() || !credentialsStillCurrent) {
                     null
                 } else {
                     val old = clientManager.openAIClient
@@ -230,14 +234,14 @@ class TranslationController(
 
     private suspend fun closeClient(client: OpenAI?) {
         if (client == null) return
-        withContext(NonCancellable + Dispatchers.IO) {
+        withContext(NonCancellable + ioDispatcher) {
             runCatching { client.close() }
         }
     }
 
     /** Release the OpenAI clients and refuse further installs. */
     fun close() {
-        disposed.set(true)
+        disposed.store(true)
         runCatching { clientManager.openAIClient?.close() }
         clientManager.openAIClient = null
         clientManager.chatCompletionCall = null

@@ -45,6 +45,29 @@ jobs:
           name: mct-gui-shadow
           path: gui/build/libs/gui-*-all.jar
 
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build release APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :gui-android:assembleRelease
+
+      - name: Upload GUI for Android
+        uses: actions/upload-artifact@v4
+        with:
+          name: mct-gui-android
+          path: gui-android/build/outputs/apk/release/*.apk
+
   native:
     strategy:
       matrix:

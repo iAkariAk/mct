@@ -186,7 +186,7 @@ sealed interface ArgSelection {
     @Serializable
     @SerialName("item_stack")
     data object ItemStack : ArgSelection {
-        private val ITEM_STACK_REGX = Regex2("""^(?<id>[\w:.]+)(?:\[(?<new>.*)]|(?<old>\{.*}))?$""")
+        private val ITEM_STACK_REGX = Regex2("""^(?<id>[\w:.]+)(?:\[(?<new>.*)]|(?<old>\{.*\}))?$""")
 
         context(_: Raise<IndexSelectError>)
         override fun select(

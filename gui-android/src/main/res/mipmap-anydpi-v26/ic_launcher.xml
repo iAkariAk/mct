@@ -1,0 +1,9 @@
+<!--
+  The adaptive icon: two independent layers that the launcher composes, scales and masks itself.
+  Only the inner 72dp of each 108dp layer is visible, which is why the foreground's artwork is scaled
+  about the centre and the background is a full-bleed field.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

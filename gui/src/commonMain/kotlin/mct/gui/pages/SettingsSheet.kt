@@ -23,16 +23,16 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import mct.gui.components.TextSwitch
 import mct.gui.model.GuiSettings
-import mct.gui.util.getWallpaperPath
+import mct.gui.platform.platformPathOf
+import mct.gui.platform.supportsWallpaperTheme
+import mct.gui.util.hexColor
+import mct.gui.util.oneDecimal
 import mct.gui.util.rememberImageThemeState
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -50,7 +50,7 @@ fun SettingsSheet(
         mode = FileKitMode.Single,
     ) { file: PlatformFile? ->
         if (file != null) {
-            scope.launch { imageThemeState.loadFromPath(file.absolutePath()) }
+            scope.launch { imageThemeState.loadFromPath(platformPathOf(file)) }
         }
     }
 
@@ -85,7 +85,7 @@ fun SettingsSheet(
                             targetOffsetX = { it },
                         ),
                     )
-                    .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                    .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(20.dp)
             ) {
@@ -179,7 +179,7 @@ fun SettingsSheet(
                         steps = 19,
                     )
                     Text(
-                        "%.1f".format(sliderTemp),
+                        oneDecimal(sliderTemp.toDouble()),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -225,10 +225,7 @@ fun SettingsSheet(
                         steps = 18,
                     )
                     Text(
-                        "%d  —  %s".format(
-                            sliderConc.toInt(),
-                            if (sliderConc.toInt() <= 1) "串行" else "并发"
-                        ),
+                        "${sliderConc.toInt()}  —  ${if (sliderConc.toInt() <= 1) "串行" else "并发"}",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -316,23 +313,20 @@ fun SettingsSheet(
                     }
                     Spacer(Modifier.height(8.dp))
 
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch {
-                                val path = withContext(Dispatchers.IO) { getWallpaperPath() }
-                                if (path != null) imageThemeState.loadFromPath(path)
+                    if (supportsWallpaperTheme) {
+                        OutlinedButton(
+                            onClick = { scope.launch { imageThemeState.loadFromWallpaper() } },
+                            shapes = ButtonDefaults.shapes(),
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            enabled = !imageThemeState.isProcessing,
+                        ) {
+                            if (imageThemeState.isProcessing) {
+                                LoadingIndicator(modifier = Modifier.size(18.dp))
+                            } else {
+                                Icon(Icons.Outlined.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("从壁纸获取")
                             }
-                        },
-                        shapes = ButtonDefaults.shapes(),
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                        enabled = !imageThemeState.isProcessing,
-                    ) {
-                        if (imageThemeState.isProcessing) {
-                            LoadingIndicator(modifier = Modifier.size(18.dp))
-                        } else {
-                            Icon(Icons.Outlined.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("从壁纸获取")
                         }
                     }
 
@@ -373,7 +367,7 @@ fun SettingsSheet(
                                             color = MaterialTheme.colorScheme.onSurface,
                                         )
                                         Text(
-                                            "#%08X".format(activeColor.toArgb()),
+                                            hexColor(activeColor.toArgb()),
                                             style = MaterialTheme.typography.bodySmall,
                                             fontFamily = FontFamily.Monospace,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,

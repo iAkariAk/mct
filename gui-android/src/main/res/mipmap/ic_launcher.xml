@@ -1,0 +1,9 @@
+<!--
+  Launcher icon for API 24-25, which do not support adaptive icons: the same two layers drawn on top
+  of each other. The background is the *rounded* variant because no mask is applied on those
+  releases, unlike the adaptive path which is masked by the launcher.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_background_rounded" />
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+</layer-list>

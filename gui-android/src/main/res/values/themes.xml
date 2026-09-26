@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.Mct" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+</resources>

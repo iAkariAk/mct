@@ -2,133 +2,32 @@ package mct.gui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPlacement
-import androidx.compose.ui.window.application
-import androidx.compose.ui.window.rememberWindowState
 import arrow.core.raise.either
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import mct.gui.components.AppShell
 import mct.gui.components.LogConsole
-import mct.gui.components.WindowTitleBar
 import mct.gui.model.*
 import mct.gui.pages.*
+import mct.gui.platform.revealInFileExplorer
 import mct.gui.services.*
-import mct.gui.util.ThemeState
-import mct.gui.util.revealInFileExplorer
-import mct.gui.window.applyNativeWindowFrame
-import org.koin.compose.koinInject
-import org.koin.core.context.startKoin
-import java.awt.Dimension
 
-/** Ctrl+F (Cmd+F on macOS) opens the console find bar, as it does in a browser. */
-private fun KeyEvent.isFindShortcut(): Boolean =
-    type == KeyEventType.KeyDown && key == Key.F && (isCtrlPressed || isMetaPressed)
-
-fun main() {
-    startKoin { modules(apiModule) }
-
-    application {
-        val clientManager = koinInject<ClientManager>()
-        // Hoisted out of App() so the window can route title-level shortcuts (Ctrl+F) to the model.
-        val vm = remember { AppViewModel(clientManager) }
-        val state = rememberWindowState(size = DpSize(820.dp, 760.dp))
-        val exitScope = rememberCoroutineScope()
-
-        // Closing writes the settings that are still inside the auto-save debounce window; without
-        // it, anything edited in the last few seconds before closing is silently dropped.
-        val requestClose: () -> Unit = remember(vm, exitScope) {
-            {
-                exitScope.launch {
-                    try {
-                        vm.settings.flush()
-                    } finally {
-                        exitApplication()
-                    }
-                }
-            }
-        }
-
-        Window(
-            onCloseRequest = requestClose,
-            state = state,
-            undecorated = true,
-            transparent = true,
-            onPreviewKeyEvent = { event ->
-                if (event.isFindShortcut()) {
-                    vm.logs.openSearch()
-                    true
-                } else {
-                    false
-                }
-            },
-        ) {
-            val isDark = isSystemInDarkTheme()
-
-            // Restores a real native frame under Compose's own chrome, so the window manager
-            // animates maximize/restore/minimize again. Windows only; a no-op elsewhere.
-            DisposableEffect(window) {
-                applyNativeWindowFrame(window)
-                onDispose { }
-            }
-
-            LaunchedEffect(isDark, GuiSettings.seedColorArgb) {
-                window.minimumSize = Dimension(400, 300)
-                ThemeState.restoreFromSettings(isDark)
-            }
-
-            // The persisted dynamic seed only applies while the user has the dynamic theme on.
-            val dynamicScheme = if (GuiSettings.isDynamicThemeEnabled) ThemeState.colorScheme else null
-            val colorScheme = dynamicScheme ?: if (isDark) darkColorScheme() else lightColorScheme()
-            val appModifier = remember { Modifier.fillMaxSize() }
-            // Maximized the window covers the work area edge to edge, so the corner radius would
-            // only carve transparent notches out of the desktop. Floating keeps it.
-            val windowShape =
-                if (state.placement == WindowPlacement.Maximized) RectangleShape else MaterialTheme.shapes.medium
-            MaterialTheme(
-                colorScheme = colorScheme,
-                motionScheme = MotionScheme.expressive(),
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize().clip(windowShape),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Column(Modifier.fillMaxSize()) {
-                        WindowTitleBar(
-                            state,
-                            onCloseRequest = requestClose,
-                            onOpenSettings = { vm.settingsVisible = !vm.settingsVisible },
-                            onToggleConsole = { vm.consoleVisible = !vm.consoleVisible },
-                            consoleVisible = vm.consoleVisible,
-                            rainbowAccent = GuiSettings.isRainbowTheme,
-                        )
-                        Box(Modifier.weight(1f)) {
-                            App(vm, appModifier)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// `App` and `AppContent`: the whole application shell, shared by the desktop window and the Android activity.
+// The platform entry points that host it live in `desktopMain/Main.kt` and `androidMain/GuiAndroidApp.kt`.
 
 // ── Application shell ─────────────────────────────────────────
 
@@ -181,9 +80,6 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
             onTabSelected = { tab ->
                 if (tab != vm.selectedTab) vm.selectedTab = tab
             },
-            totalTokenConsume = { vm.translation.totalTokenConsume },
-            lastTokenConsume = { vm.translation.lastTokenConsume },
-            uriHandler = LocalUriHandler.current,
             consoleVisible = vm.consoleVisible,
             consolePanel = { consoleModifier ->
                 LogConsole(

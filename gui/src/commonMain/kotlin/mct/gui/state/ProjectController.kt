@@ -9,9 +9,10 @@ import mct.Env
 import mct.cli.cmd.project.AIConfig
 import mct.cli.cmd.project.ProjectConfig
 import mct.gui.model.*
+import mct.gui.platform.ioDispatcher
+import mct.gui.platform.revealInFileExplorer
 import mct.gui.services.*
-import mct.gui.util.revealInFileExplorer
-import java.io.File
+import mct.gui.util.*
 
 /**
  * The project workflow as a state holder: which projects were opened before, which one is open now,
@@ -90,13 +91,13 @@ class ProjectController(
 
     // ── history ─────────────────────────────────────────────────
     private suspend fun loadHistory() {
-        val stored = withContext(Dispatchers.IO) { projectHistorySetting.load() }
+        val stored = withContext(ioDispatcher) { projectHistorySetting.load() }
         history = stored.entries.sortedByDescending { it.lastOpenedAt }
     }
 
     private fun persistHistory() {
         val snapshot = ProjectHistory(history)
-        scope.launch(Dispatchers.IO) { projectHistorySetting.save(snapshot) }
+        scope.launch(ioDispatcher) { projectHistorySetting.save(snapshot) }
     }
 
     /** Move [entry] to the front of the history under its current timestamp. */
@@ -113,7 +114,7 @@ class ProjectController(
         // A running command belongs to the project it was started for, so switching projects ends it
         // instead of leaving its cancel button on another project's bar.
         stopRunningAction()
-        val target = entry.copy(lastOpenedAt = System.currentTimeMillis())
+        val target = entry.copy(lastOpenedAt = nowMillis())
         opened = target
         section = ProjectSection.Dashboard
         editor = ProjectConfigEditor(env, target.directory)
@@ -163,7 +164,7 @@ class ProjectController(
             if (config == null) {
                 val reason = read.exceptionOrNull()?.message.orEmpty()
                 snackbar.showSnackbar(
-                    if (File(directory, PROJECT_FILE).isFile) {
+                    if (isRegularFile(joinPath(directory, PROJECT_FILE))) {
                         "无法导入：$PROJECT_FILE 解析失败（$reason）"
                     } else {
                         "无法导入：所选目录下没有 $PROJECT_FILE"
@@ -171,10 +172,10 @@ class ProjectController(
                 )
                 return@launch
             }
-            val root = File(directory).absoluteFile
+            val root = absolutePathOf(directory)
             val entry = ProjectHistoryEntry(
-                name = config.name.ifBlank { root.name },
-                directory = root.path,
+                name = config.name.ifBlank { fileNameOf(root) },
+                directory = root,
             )
             open(entry, knownConfig = config)
             snackbar.showSnackbar("已导入项目「${entry.name}」")
@@ -462,8 +463,8 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
     }
 
     /** Extraction caches the CLI writes; without one, its commands abort immediately. */
-    private fun cachedExtractions(directory: String): List<File> =
-        File(directory, "cache").listFiles()?.filter { it.isFile && it.extension == "json" }.orEmpty()
+    private fun cachedExtractions(directory: String): List<String> =
+        listJsonFiles(joinPath(directory, "cache"))
 
     // ── new project ─────────────────────────────────────────────
     fun showInitDialog() {
@@ -514,22 +515,18 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
      */
     fun revealPath(path: String) {
         if (path.isBlank()) return
-        val target = File(path)
-        val existing = existingAncestor(path)
+        val target = absolutePathOf(path)
+        val existing = existingAncestorOrNull(path)
         when {
             existing == null -> scope.launch { snackbar.showSnackbar("无法在资源管理器中打开: $path") }
-            existing.path != target.path -> {
-                reveal(existing.path)
-                scope.launch { snackbar.showSnackbar("${target.name} 还不存在，已打开 ${existing.name}") }
+            existing != target -> {
+                reveal(existing)
+                scope.launch { snackbar.showSnackbar("${fileNameOf(target)} 还不存在，已打开 ${fileNameOf(existing)}") }
             }
 
-            else -> reveal(existing.path)
+            else -> reveal(existing)
         }
     }
-
-    /** The path itself, or its closest existing ancestor; `null` when nothing on the chain exists. */
-    private fun existingAncestor(path: String): File? =
-        generateSequence(File(path)) { it.parentFile }.firstOrNull { it.exists() }
 
     private fun reveal(path: String) {
         if (!revealInFileExplorer(path)) {
@@ -541,6 +538,6 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
     fun revealProjectFile(path: String) {
         val directory = opened?.directory ?: return
         if (path.isBlank()) return
-        revealPath(resolveProjectPath(directory, path).path)
+        revealPath(resolveProjectPath(directory, path))
     }
 }

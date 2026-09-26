@@ -74,4 +74,15 @@ fun ProjectNavigationHost(
             }
         },
     )
+
+    // Rendered by the host rather than inside the overview page, so the dialog floats over the whole
+    // tab instead of being clipped to the page's padded column. It is a sibling of the `NavDisplay`
+    // because a dialog is not a destination.
+    if (controller.isInitDialogVisible) {
+        ProjectInitDialog(
+            controller = controller,
+            isRunning = isRunning,
+            onDismiss = controller::hideInitDialog,
+        )
+    }
 }

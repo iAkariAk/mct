@@ -23,11 +23,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import mct.extra.ai.translator.MapInfo
-import java.io.File
+import mct.gui.platform.ioDispatcher
+import mct.gui.util.pathExists
 
 private enum class ActionButtonVisualState {
     Idle,
@@ -76,10 +76,13 @@ fun SectionTitle(text: String, icon: ImageVector? = null) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PathRow(
-    label: String, placeholder: String,
-    value: String, onValueChange: (String) -> Unit,
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "",
     mustExist: Boolean = true,
-    onBrowse: () -> Unit,
+    /** `null` for a field that is typed rather than picked, e.g. a project name. */
+    onBrowse: (() -> Unit)? = null,
 ) {
     val missing = rememberMissingPath(value, mustExist)
     val supporting: (@Composable () -> Unit)? = if (missing) {
@@ -108,13 +111,15 @@ fun PathRow(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
-            FilledTonalButton(
-                onClick = onBrowse,
-                shapes = ButtonDefaults.shapes(),
-            ) {
-                Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("浏览")
+            if (onBrowse != null) {
+                FilledTonalButton(
+                    onClick = onBrowse,
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("浏览")
+                }
             }
         }
     }
@@ -135,7 +140,7 @@ internal fun rememberMissingPath(value: String, mustExist: Boolean): Boolean {
         missing = false
         if (!mustExist || value.isBlank()) return@LaunchedEffect
         delay(PATH_CHECK_DEBOUNCE_MILLIS)
-        missing = withContext(Dispatchers.IO) { !File(value).exists() }
+        missing = withContext(ioDispatcher) { !pathExists(value) }
     }
     return missing
 }

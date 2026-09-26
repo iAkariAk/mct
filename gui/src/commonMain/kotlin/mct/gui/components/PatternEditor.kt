@@ -12,13 +12,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import mct.gui.model.MCTPatternEntry
 import mct.gui.model.MCTPatternSlot
 import mct.gui.model.MCTPatternState
+import mct.gui.platform.platformPathOf
 
 /**
  * The single editor for `MCTPattern` rules.
@@ -198,9 +198,15 @@ private fun PatternFileRow(
     val picker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single,
     ) { file: PlatformFile? ->
-        file?.let { onValueChange(it.absolutePath()) }
+        file?.let { onValueChange(platformPathOf(it)) }
     }
-    PathRow(label, placeholder, value, onValueChange) { picker.launch() }
+    PathRow(
+        label = label,
+        placeholder = placeholder,
+        value = value,
+        onValueChange = onValueChange,
+        onBrowse = { picker.launch() },
+    )
 }
 
 /** Small status pill marking a category as customized. */

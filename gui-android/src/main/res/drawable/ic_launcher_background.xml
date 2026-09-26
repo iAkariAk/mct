@@ -1,0 +1,14 @@
+<!--
+  The icon's background layer: the brand's dark green field.
+
+  A drawable rather than a bare colour so the adaptive icon and the legacy launcher icon share one
+  definition of "the background" — a colour resource cannot be written into `mipmap/ic_launcher.xml`,
+  which needs a single self-contained drawable on API 24-25.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#14532D" android:pathData="M0,0h108v108h-108z" />
+</vector>

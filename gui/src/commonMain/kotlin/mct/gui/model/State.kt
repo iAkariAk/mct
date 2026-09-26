@@ -11,6 +11,19 @@ import mct.model.patch.PatchValidationFailureStrategy
 import mct.model.patch.PathKind
 
 /**
+ * A default destination under the app's own working directory.
+ *
+ * A bare file name is resolved *by each command* against its own idea of the current directory —
+ * `/` on Android, the checkout on desktop — so a first run that keeps the defaults would fail with a
+ * read-only filesystem instead of writing somewhere the user can find. An absolute path under
+ * `appWorkingDirectory` is writable on both platforms.
+ *
+ * The user is expected to replace it with a picked path; this only makes the untouched default work.
+ */
+internal fun defaultOutputPath(fileName: String): String =
+    mct.gui.util.joinPath(mct.gui.platform.appWorkingDirectory, fileName)
+
+/**
  * Where text is extracted from.
  *
  * [label] is kept short because it is rendered inside the equal-width mode selector; the
@@ -219,7 +232,7 @@ data class MCTPatternState(
 @Immutable
 data class ExtractState(
     val input: String = "",
-    val output: String = "extractions.json",
+    val output: String = defaultOutputPath("extractions.json"),
     val mode: RunMode = RunMode.Region,
     val patterns: MCTPatternState = MCTPatternState(),
 )
@@ -228,7 +241,7 @@ data class ExtractState(
 data class PatchCreateState(
     val input: String = "",
     val mapping: String = "mappings.json",
-    val output: String = "patch.json",
+    val output: String = defaultOutputPath("patch.json"),
     val kind: PatchKind = PatchKind.Immediate,
     val format: PatchFormat = PatchFormat.Json,
     val validation: Boolean = true,
@@ -253,7 +266,7 @@ data class PatchState(
 @Immutable
 data class TranslateState(
     val input: String = "extractions.json",
-    val output: String = "replacements.json",
+    val output: String = defaultOutputPath("replacements.json"),
     val mappingOutput: String = "mappings.json",
     val termOutput: String = "terms.json",
     val cachesPath: String = "",
@@ -285,7 +298,7 @@ data class BackfillState(
 @Immutable
 data class TermExtractState(
     val input: String = "extractions.json",
-    val output: String = "terms.json",
+    val output: String = defaultOutputPath("terms.json"),
     val existingTermPath: String = "",
     val targetLanguage: String = LLMTranslationPrompts.targetLanguage,
     val literatureStyle: String = LLMTranslationPrompts.literatureStyle,
@@ -303,7 +316,7 @@ data class TermExtractState(
 @Immutable
 data class ConvertToolState(
     val input: String = "",
-    val output: String = "converted.json",
+    val output: String = defaultOutputPath("converted.json"),
     val inputFormat: ConvertFormat = ConvertFormat.Auto,
     val outputFormat: ConvertFormat = ConvertFormat.Auto,
     val compression: ConvertCompression = ConvertCompression.None,

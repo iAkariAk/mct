@@ -1,0 +1,16 @@
+<!--
+  The legacy launcher icon's background: the same field with its corners rounded by hand.
+
+  API 24-25 apply no mask of their own, so a square drawable would show as a hard square beside the
+  round icons of other apps. The adaptive path uses `ic_launcher_background` instead, because the
+  launcher masks that one.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#14532D"
+        android:pathData="M20,0h68a20,20 0 0 1 20,20v68a20,20 0 0 1 -20,20h-68a20,20 0 0 1 -20,-20v-68a20,20 0 0 1 20,-20z" />
+</vector>

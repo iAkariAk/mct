@@ -2,6 +2,7 @@ package mct.gui.util
 
 import okio.FileSystem
 import okio.Path
+import kotlin.time.Clock
 
 fun Int.renderWithUnit(): String = toLong().renderWithUnit()
 
@@ -31,9 +32,34 @@ fun writeAtomically(fs: FileSystem, target: Path, write: (Path) -> Unit) {
 
 fun Long.renderWithUnit(): String = when {
     this <= 1000 -> "$this"
-    this < 1_000_000 -> "%.2fk".format(this / 1000.0)
-    else -> "%.2fM".format(this / 1_000_000.0)
+    this < 1_000_000 -> "${twoDecimals(this / 1000.0)}k"
+    else -> "${twoDecimals(this / 1_000_000.0)}M"
 }
+
+/**
+ * Round to two decimals, i.e. what `"%.2f".format(v)` produced.
+ *
+ * `String.format` is JVM-only, and the decimal separator it used was locale-dependent anyway; this
+ * keeps the digits without pulling a formatter into common code.
+ */
+fun twoDecimals(value: Double): String = fixedDecimals(value, 2)
+
+/** Round to one decimal, i.e. what `"%.1f".format(v)` produced. */
+fun oneDecimal(value: Double): String = fixedDecimals(value, 1)
+
+private fun fixedDecimals(value: Double, digits: Int): String {
+    val factor = if (digits == 1) 10L else 100L
+    val scaled = kotlin.math.round(value * factor).toLong()
+    val whole = scaled / factor
+    val fraction = kotlin.math.abs(scaled % factor).toString().padStart(digits, '0')
+    return "$whole.$fraction"
+}
+
+/** `#RRGGBBAA`, i.e. what `"#%08X".format(argb)` produced. */
+fun hexColor(argb: Int): String = "#" + argb.toUInt().toString(16).padStart(8, '0').uppercase()
+
+/** Wall-clock milliseconds; `System.currentTimeMillis` is JVM-only. */
+fun nowMillis(): Long = Clock.System.now().toEpochMilliseconds()
 
 fun ensureExtension(path: String, extension: String): String =
     if (path.endsWith(".$extension", ignoreCase = true)) path else "$path.$extension"
@@ -41,7 +67,7 @@ fun ensureExtension(path: String, extension: String): String =
 fun ensureJsonExt(path: String): String = ensureExtension(path, "json")
 
 /** "刚刚" / "N 分钟前" / "N 小时前" / "N 天前" / date, for the project history entries. */
-fun formatElapsed(sinceEpochMillis: Long, now: Long = System.currentTimeMillis()): String {
+fun formatElapsed(sinceEpochMillis: Long, now: Long = nowMillis()): String {
     val seconds = ((now - sinceEpochMillis) / 1000).coerceAtLeast(0)
     return when {
         sinceEpochMillis <= 0 -> "从未打开"
@@ -49,9 +75,6 @@ fun formatElapsed(sinceEpochMillis: Long, now: Long = System.currentTimeMillis()
         seconds < 3_600 -> "${seconds / 60} 分钟前"
         seconds < 86_400 -> "${seconds / 3_600} 小时前"
         seconds < 2_592_000 -> "${seconds / 86_400} 天前"
-        else -> java.time.Instant.ofEpochMilli(sinceEpochMillis)
-            .atZone(java.time.ZoneId.systemDefault())
-            .toLocalDate()
-            .toString()
+        else -> mct.gui.platform.formatEpochDate(sinceEpochMillis)
     }
 }

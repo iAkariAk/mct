@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -27,6 +26,7 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import mct.gui.components.*
 import mct.gui.model.*
+import mct.gui.platform.platformPathOf
 import mct.gui.util.ensureExtension
 
 /**
@@ -57,7 +57,7 @@ fun PatchPanel(
     val createDirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
         file?.let {
             val s = currentState
-            onStateChange(s.copy(create = s.create.copy(input = it.absolutePath())))
+            onStateChange(s.copy(create = s.create.copy(input = platformPathOf(it))))
         }
     }
     val mappingPicker = rememberFilePickerLauncher(
@@ -65,21 +65,21 @@ fun PatchPanel(
     ) { file: PlatformFile? ->
         file?.let {
             val s = currentState
-            onStateChange(s.copy(create = s.create.copy(mapping = it.absolutePath())))
+            onStateChange(s.copy(create = s.create.copy(mapping = platformPathOf(it))))
         }
     }
     val patchSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
         file?.let {
             val s = currentState
             onStateChange(
-                s.copy(create = s.create.copy(output = ensureExtension(it.absolutePath(), s.create.format.extension)))
+                s.copy(create = s.create.copy(output = ensureExtension(platformPathOf(it), s.create.format.extension)))
             )
         }
     }
     val applyDirPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
         file?.let {
             val s = currentState
-            onStateChange(s.copy(apply = s.apply.copy(input = it.absolutePath())))
+            onStateChange(s.copy(apply = s.apply.copy(input = platformPathOf(it))))
         }
     }
     val patchPicker = rememberFilePickerLauncher(
@@ -87,7 +87,7 @@ fun PatchPanel(
     ) { file: PlatformFile? ->
         file?.let {
             val s = currentState
-            onStateChange(s.copy(apply = s.apply.copy(patch = it.absolutePath())))
+            onStateChange(s.copy(apply = s.apply.copy(patch = platformPathOf(it))))
         }
     }
 
@@ -158,24 +158,24 @@ private fun PatchCreateSection(
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
         PathRow(
-            "Minecraft 存档目录",
-            "选择包含 level.dat 的文件夹...",
-            state.input,
-            { onStateChange(state.copy(input = it)) },
+                    label = "Minecraft 存档目录",
+                    placeholder = "选择包含 level.dat 的文件夹...",
+                    value = state.input,
+                    onValueChange = { onStateChange(state.copy(input = it)) },
             onBrowse = onBrowseInput,
         )
         PathRow(
-            "翻译映射 JSON",
-            "选择 mappings.json...",
-            state.mapping,
-            { onStateChange(state.copy(mapping = it)) },
+                    label = "翻译映射 JSON",
+                    placeholder = "选择 mappings.json...",
+                    value = state.mapping,
+                    onValueChange = { onStateChange(state.copy(mapping = it)) },
             onBrowse = onBrowseMapping,
         )
         PathRow(
-            "补丁输出文件",
-            "选择保存位置...",
-            state.output,
-            { onStateChange(state.copy(output = it)) },
+                    label = "补丁输出文件",
+                    placeholder = "选择保存位置...",
+                    value = state.output,
+                    onValueChange = { onStateChange(state.copy(output = it)) },
             mustExist = false,
             onBrowse = onBrowseOutput,
         )
@@ -252,17 +252,17 @@ private fun PatchApplySection(
         SectionTitle("输入", Icons.Outlined.FolderOpen)
 
         PathRow(
-            "Minecraft 存档目录",
-            "选择包含 level.dat 的文件夹...",
-            state.input,
-            { onStateChange(state.copy(input = it)) },
+                    label = "Minecraft 存档目录",
+                    placeholder = "选择包含 level.dat 的文件夹...",
+                    value = state.input,
+                    onValueChange = { onStateChange(state.copy(input = it)) },
             onBrowse = onBrowseInput,
         )
         PathRow(
-            "补丁文件",
-            "选择 .json 或 .mctp 补丁...",
-            state.patch,
-            { onStateChange(state.copy(patch = it)) },
+                    label = "补丁文件",
+                    placeholder = "选择 .json 或 .mctp 补丁...",
+                    value = state.patch,
+                    onValueChange = { onStateChange(state.copy(patch = it)) },
             onBrowse = onBrowsePatch,
         )
 

@@ -14,7 +14,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -25,6 +24,7 @@ import mct.gui.model.ApiTranslateState
 import mct.gui.model.TranslateState
 import mct.gui.model.TranslationApiKind
 import mct.gui.model.TranslationEngine
+import mct.gui.platform.platformPathOf
 import mct.gui.util.ensureJsonExt
 
 @Composable
@@ -51,23 +51,23 @@ fun TranslatePanel(
 
     val inputPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(input = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(input = platformPathOf(it))) } }
 
     val mappingSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(currentState.copy(mappingOutput = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(mappingOutput = ensureJsonExt(platformPathOf(it)))) }
     }
     val outputSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(currentState.copy(output = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(output = ensureJsonExt(platformPathOf(it)))) }
     }
     val termSaver = rememberFileSaverLauncher(FileKitDialogSettings.createDefault()) { file: PlatformFile? ->
-        file?.let { onStateChange(currentState.copy(termOutput = ensureJsonExt(it.absolutePath()))) }
+        file?.let { onStateChange(currentState.copy(termOutput = ensureJsonExt(platformPathOf(it)))) }
     }
     val termPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(existingTermPath = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(existingTermPath = platformPathOf(it))) } }
     val cachesPicker = rememberFilePickerLauncher(
         type = FileKitType.File(), mode = FileKitMode.Single
-    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(cachesPath = it.absolutePath())) } }
+    ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(cachesPath = platformPathOf(it))) } }
 
     val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() &&
             state.mappingOutput.isNotBlank() &&
@@ -84,33 +84,34 @@ fun TranslatePanel(
         SectionTitle("输入 / 输出", Icons.Outlined.FolderOpen)
 
         PathRow(
-            "提取结果 JSON（来自步骤①）",
-            "选择 extractions.json...",
-            state.input,
-            { onStateChange(currentState.copy(input = it)) }) {
+                    label = "提取结果 JSON（来自步骤①）",
+                    placeholder = "选择 extractions.json...",
+                    value = state.input,
+                    onValueChange = { onStateChange(currentState.copy(input = it)) }) {
             inputPicker.launch()
         }
         PathRow(
-            "输出替换Mapping JSON",
-            "选择保存位置...",
-            state.mappingOutput,
-            { onStateChange(currentState.copy(mappingOutput = it)) },
+            label = "输出替换Mapping JSON",
+            placeholder = "选择保存位置...",
+            value = state.mappingOutput,
+            onValueChange = { onStateChange(currentState.copy(mappingOutput = it)) },
             mustExist = false,
-        ) {
-            mappingSaver.launch(suggestedName = "mappings", defaultExtension = "json")
-        }
+            onBrowse = { mappingSaver.launch(suggestedName = "mappings", defaultExtension = "json") },
+        )
         PathRow(
-            "输出替换文件 JSON", "选择保存位置...", state.output,
-            { onStateChange(currentState.copy(output = it)) },
+                    label = "输出替换文件 JSON",
+                    placeholder = "选择保存位置...",
+                    value = state.output,
+                    onValueChange = { onStateChange(currentState.copy(output = it)) },
             mustExist = false,
         ) {
             outputSaver.launch(suggestedName = "replacements", defaultExtension = "json")
         }
         PathRow(
-            "输出术语表 JSON",
-            "选择保存位置...",
-            state.termOutput,
-            { onStateChange(currentState.copy(termOutput = it)) },
+                    label = "输出术语表 JSON",
+                    placeholder = "选择保存位置...",
+                    value = state.termOutput,
+                    onValueChange = { onStateChange(currentState.copy(termOutput = it)) },
             mustExist = false,
         ) {
             termSaver.launch(suggestedName = "terms", defaultExtension = "json")
@@ -274,19 +275,19 @@ fun TranslatePanel(
         SectionTitle("可选设置", Icons.Outlined.MoreHoriz)
 
         PathRow(
-            "已有术语表 JSON（可选）",
-            "留空则从头翻译...",
-            state.existingTermPath,
-            { onStateChange(currentState.copy(existingTermPath = it)) }) {
+                    label = "已有术语表 JSON（可选）",
+                    placeholder = "留空则从头翻译...",
+                    value = state.existingTermPath,
+                    onValueChange = { onStateChange(currentState.copy(existingTermPath = it)) }) {
             termPicker.launch()
         }
         PathRow(
-            "翻译缓存 JSON（可选）",
-            "留空则无缓存...",
-            state.cachesPath,
-            { onStateChange(currentState.copy(cachesPath = it)) }) {
-            cachesPicker.launch()
-        }
+            label = "翻译缓存 JSON（可选）",
+            placeholder = "留空则无缓存...",
+            value = state.cachesPath,
+            onValueChange = { onStateChange(currentState.copy(cachesPath = it)) },
+            onBrowse = { cachesPicker.launch() },
+        )
 
         if (state.engine == TranslationEngine.Ai) {
             LiteratureStyleField(

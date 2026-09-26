@@ -2,6 +2,13 @@
 
 pluginManagement {
     repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         maven("https://raw.githubusercontent.com/graalvm/native-build-tools/snapshots")
         gradlePluginPortal()
     }
@@ -39,5 +46,6 @@ include(
     "cli",
     "cli-jvm",
     "gui",
+    "gui-android",
 //    "web"
 )

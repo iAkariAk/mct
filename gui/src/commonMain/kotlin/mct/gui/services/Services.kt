@@ -16,13 +16,13 @@ import mct.extra.ai.ChatCompletionCallError
 import mct.extra.ai.TOKEN_COUNT_THRESHOLD
 import mct.extra.ai.translator.*
 import mct.gui.model.*
+import mct.gui.platform.ioDispatcher
 import mct.gui.util.setting
 import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.kit.exportIntoPool
 import mct.kit.exportRegionSnbt
 import mct.model.patch.*
-import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointer
 import mct.pointer.DataPointerPattern
 import mct.pointer.matches
@@ -31,7 +31,6 @@ import mct.region.extractFromRegion
 import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import okio.Path.Companion.toPath
-import mct.dp.mcjson.BuiltinMCJsonPatterns as MCJBuiltinPatterns
 
 
 @Serializable
@@ -90,7 +89,7 @@ suspend fun runExtraction(
     mode: String,
     patterns: MCTPatternState,
 ) {
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
         env.logger.info { "正在打开: $input" }
         val inputPath = input.toPath()
 
@@ -155,7 +154,7 @@ suspend fun runTranslation(
         return
     }
 
-    val (extractionGroups, existingTerms, caches) = withContext(Dispatchers.IO) {
+    val (extractionGroups, existingTerms, caches) = withContext(ioDispatcher) {
         val json = env.fs.read(input.toPath()) { readUtf8() }
         val groups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
         env.logger.info { "已加载 ${groups.size} 个提取分组" }
@@ -242,7 +241,7 @@ suspend fun runTranslation(
         if (written.isSuccess) onCancel(terms, salvaged)
     }
 
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
         try {
             val mapping = caches + translator.translate(
                 extractionGroups,
@@ -299,7 +298,7 @@ suspend fun runBackfill(
     replacementsFile: String,
     mode: String,
 ) {
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
         env.logger.info { "正在打开存档: $input" }
         env.logger.info { "正在加载替换文件: $replacementsFile" }
 
@@ -416,7 +415,7 @@ suspend fun runTermExtraction(
 ) {
     env.logger.info { "正在加载提取结果: $input" }
 
-    val (extractionGroups, existingTerms) = withContext(Dispatchers.IO) {
+    val (extractionGroups, existingTerms) = withContext(ioDispatcher) {
         val json = env.fs.read(input.toPath()) { readUtf8() }
         val groups = MCTJson.decodeFromString<List<ExtractionGroup>>(json)
         env.logger.info { "已加载 ${groups.size} 个提取分组" }
@@ -458,7 +457,7 @@ suspend fun runTermExtraction(
         defaultTerms = existingTerms,
     )
 
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
         try {
             val result = either {
                 extractor.extract(textPool) { partialTerms ->
@@ -497,18 +496,11 @@ suspend fun runPointerTest(
     patternPath: String?,
     noBuiltin: Boolean,
     pointerStr: String,
-): Boolean = withContext(Dispatchers.IO) {
-    val extra = if (patternPath != null) {
-        env.fs.read(patternPath.toPath()) { readUtf8() }
-            .let { MCTJson.decodeFromString<List<DataPointerPattern>>(it) }
-    } else emptyList()
-
-    val builtin: List<DataPointerPattern> = when (kind) {
-        "mcjson" -> MCJBuiltinPatterns
-        "region" -> BuiltinNbtPatterns.toList()
-        else -> error("未知 kind: $kind")
-    }
-    val patterns = if (noBuiltin) extra else builtin + extra
+): Boolean = withContext(ioDispatcher) {
+    // The same merge as every other entry point (`composePattern`): builtin first, then the custom
+    // file, unless the built-in set is switched off.
+    val extra = readPatternJson<List<DataPointerPattern>>(env, patternPath.orEmpty()).orEmpty()
+    val patterns = if (noBuiltin) extra else builtinPointers(kind) + extra
 
     val result = decodePointerSafely(pointerStr, patterns)
     env.logger.info { "Pointer 测试: $pointerStr → $result (kind=$kind, patterns=${patterns.size})" }
@@ -530,7 +522,7 @@ suspend fun runExportSnbt(
     input: String,
     output: String,
 ) {
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
         env.logger.info { "正在打开存档: $input" }
         val inputPath = input.toPath()
         val outputPath = output.toPath()

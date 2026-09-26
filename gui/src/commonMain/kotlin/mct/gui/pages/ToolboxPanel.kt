@@ -25,7 +25,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.absolutePath
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
@@ -33,9 +32,12 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.yuroyami.kiteimage.compose.KiteImage
 import mct.gui.components.*
 import mct.gui.model.*
+import mct.gui.platform.platformPathOf
 import mct.gui.services.mapBitmap
 import mct.gui.services.mapSummary
 import mct.gui.state.MapToolController
+import mct.gui.util.fileNameOf
+import mct.gui.util.joinPath
 
 private data class ToolboxAction(
     val title: String,
@@ -296,36 +298,41 @@ private fun ToolboxOperationDialog(
         // change would show the previous run's matches as if they were the current ones.
         { updated -> onStateChange(currentState.copy(commandPatterns = updated, commandResult = "")) }
     }
-    val pointerPatternPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(),
-        mode = FileKitMode.Single,
-    ) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(pointerPatternPath = it.absolutePath())) }
+    // Two factories cover every field: [filePicker] reads a file the run consumes, [directoryPicker]
+    // chooses a directory. A destination takes the directory picker because the system picker cannot
+    // create a file the way the run will, so the folder is chosen and the file name is typed;
+    // [outputPicker] is the same thing for a field that already holds a file name to keep.
+    // Each field gets its own launcher: a launcher's result belongs to the field that opened it.
+    val pointerPatternPicker = filePicker { onStateChange(state.copy(pointerPatternPath = it)) }
+    val exportInputPicker = directoryPicker { onStateChange(state.copy(exportInput = it)) }
+    val exportOutputPicker = directoryPicker { onStateChange(state.copy(exportOutput = it)) }
+    val convertInputPicker = filePicker { onStateChange(state.copy(convert = state.convert.copy(input = it))) }
+    val convertDirectoryPicker = directoryPicker { onStateChange(state.copy(convert = state.convert.copy(currentDirectory = it))) }
+    val convertOutputPicker = outputPicker(state.convert.output) {
+        onStateChange(state.copy(convert = state.convert.copy(output = it)))
     }
-    val exportInputPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(exportInput = it.absolutePath())) }
+    val poolInputPicker = filePicker { onStateChange(state.copy(poolInput = it)) }
+    val poolOutputPicker = outputPicker(state.poolOutput) { onStateChange(state.copy(poolOutput = it)) }
+    val mtlxInputPicker = filePicker { onStateChange(state.copy(mtlxInput = it)) }
+    val commandInputPicker = filePicker { onStateChange(state.copy(commandInput = it)) }
+    val mapImageOutputPicker = outputPicker(state.map.imageOutput) {
+        onStateChange(state.copy(map = state.map.copy(imageOutput = it)))
     }
-    val exportOutputPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(exportOutput = it.absolutePath())) }
-    }
-    val convertInputPicker = rememberFilePickerLauncher(type = FileKitType.File(), mode = FileKitMode.Single) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(convert = state.convert.copy(input = it.absolutePath()))) }
-    }
-    val convertDirectoryPicker = rememberDirectoryPickerLauncher { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(convert = state.convert.copy(currentDirectory = it.absolutePath()))) }
-    }
+    val officialOutputPicker = directoryPicker { onStateChange(state.copy(officialOutput = it)) }
+    val officialSourcePicker = filePicker { onStateChange(state.copy(officialSourceLanguage = it)) }
+    val officialTargetPicker = filePicker { onStateChange(state.copy(officialTargetLanguage = it)) }
     // Only the formats `mct kit map` decodes are offered: anything else fails in the decoder.
     val mapFilePicker = rememberFilePickerLauncher(
         type = FileKitType.File(listOf("dat")),
         mode = FileKitMode.Single,
     ) { file: PlatformFile? ->
-        file?.let { onStateChange(state.copy(map = state.map.copy(input = it.absolutePath()))) }
+        file?.let { onStateChange(state.copy(map = state.map.copy(input = platformPathOf(it)))) }
     }
     val mapImagePicker = rememberFilePickerLauncher(
         type = FileKitType.Image,
         mode = FileKitMode.Single,
     ) { file: PlatformFile? ->
-        file?.let { mapController.overwriteImage(it.absolutePath()) }
+        file?.let { mapController.overwriteImage(platformPathOf(it)) }
     }
 
     AlertDialog(
@@ -430,23 +437,61 @@ private fun ToolboxOperationDialog(
                     ToolboxOperation.FlattenPool -> PoolFields(state, onStateChange, showMapping = false)
                     ToolboxOperation.UnflattenPool -> PoolFields(state, onStateChange, showMapping = true)
                     ToolboxOperation.GenerateMtlx -> {
-                        PathField("输入 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
+                        PathRow(
+                                label = "输入 JSON",
+                                value = state.poolInput,
+                                onValueChange = { onStateChange(state.copy(poolInput = it)) },
+                                onBrowse = { poolInputPicker.launch() },
+                            )
                         EnumButtonGroup(
                             entries = MtlxSource.entries,
                             selected = state.mtlxSource,
                             label = { it.label },
                             onSelected = { onStateChange(state.copy(mtlxSource = it)) },
                         )
-                        PathField("MTLX 输出文件", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
+                        PathRow(
+                                label = "MTLX 输出文件",
+                                value = state.poolOutput,
+                                onValueChange = { onStateChange(state.copy(poolOutput = it)) },
+                                mustExist = false,
+                                onBrowse = { poolOutputPicker.launch() },
+                            )
                     }
                     ToolboxOperation.TranslateMtlx -> {
-                        PathField("MTLX 文件", state.mtlxInput) { onStateChange(state.copy(mtlxInput = it)) }
-                        PathField("文本池 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
-                        PathField("映射输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
+                        PathRow(
+                                label = "MTLX 文件",
+                                value = state.mtlxInput,
+                                onValueChange = { onStateChange(state.copy(mtlxInput = it)) },
+                                onBrowse = { mtlxInputPicker.launch() },
+                            )
+                        PathRow(
+                                label = "文本池 JSON",
+                                value = state.poolInput,
+                                onValueChange = { onStateChange(state.copy(poolInput = it)) },
+                                onBrowse = { poolInputPicker.launch() },
+                            )
+                        PathRow(
+                                label = "映射输出 JSON",
+                                value = state.poolOutput,
+                                onValueChange = { onStateChange(state.copy(poolOutput = it)) },
+                                mustExist = false,
+                                onBrowse = { poolOutputPicker.launch() },
+                            )
                     }
                     ToolboxOperation.ReplaceAll -> {
-                        PathField("提取结果 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
-                        PathField("替换输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
+                        PathRow(
+                                label = "提取结果 JSON",
+                                value = state.poolInput,
+                                onValueChange = { onStateChange(state.copy(poolInput = it)) },
+                                onBrowse = { poolInputPicker.launch() },
+                            )
+                        PathRow(
+                                label = "替换输出 JSON",
+                                value = state.poolOutput,
+                                onValueChange = { onStateChange(state.copy(poolOutput = it)) },
+                                mustExist = false,
+                                onBrowse = { poolOutputPicker.launch() },
+                            )
                         ConfigTextField(
                             value = state.replacement,
                             onValueChange = { onStateChange(state.copy(replacement = it)) },
@@ -466,12 +511,20 @@ private fun ToolboxOperationDialog(
                             label = { it.label },
                             onSelected = { onStateChange(state.copy(schemaKind = it)) },
                         )
-                        PathField("Schema 输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
+                        PathRow(
+                                label = "Schema 输出 JSON",
+                                value = state.poolOutput,
+                                onValueChange = { onStateChange(state.copy(poolOutput = it)) },
+                                mustExist = false,
+                                onBrowse = { poolOutputPicker.launch() },
+                            )
                     }
                     ToolboxOperation.CommandTest -> {
-                        PathField("命令样例文件", state.commandInput) {
-                            onStateChange(state.copy(commandInput = it, commandResult = ""))
-                        }
+                        PathRow(
+                                label = "命令样例文件",
+                                value = state.commandInput,
+                                onValueChange = { onStateChange(state.copy(commandInput = it, commandResult = "")) },
+                            )
                         MCTPatternEditor(
                             patterns = state.commandPatterns,
                             onPatternsChange = onPatternsChange,
@@ -550,9 +603,13 @@ private fun ToolboxOperationDialog(
                             onSelected = { onStateChange(state.copy(convert = state.convert.copy(inputFormat = it))) },
                         )
                         if (!state.convert.batch) {
-                            PathField("输出文件", state.convert.output, mustExist = false) {
-                                onStateChange(state.copy(convert = state.convert.copy(output = it)))
-                            }
+                            PathRow(
+                                label = "输出文件",
+                                value = state.convert.output,
+                                onValueChange = { onStateChange(state.copy(convert = state.convert.copy(output = it))) },
+                                mustExist = false,
+                                onBrowse = { convertOutputPicker.launch() },
+                            )
                         }
                         Text(
                             "输出格式",
@@ -687,9 +744,13 @@ private fun ToolboxOperationDialog(
                                 label = { it.label },
                                 onSelected = { onStateChange(state.copy(map = state.map.copy(imageFormat = it))) },
                             )
-                            PathField("图片输出文件", state.map.imageOutput, mustExist = false) {
-                                onStateChange(state.copy(map = state.map.copy(imageOutput = it)))
-                            }
+                            PathRow(
+                                label = "图片输出文件",
+                                value = state.map.imageOutput,
+                                onValueChange = { onStateChange(state.copy(map = state.map.copy(imageOutput = it))) },
+                                mustExist = false,
+                                onBrowse = { mapImageOutputPicker.launch() },
+                            )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -732,7 +793,13 @@ private fun ToolboxOperationDialog(
                             placeholder = { Text("latest 或具体版本，如 1.21.5") },
                             singleLine = true,
                         )
-                        PathField("语言包输出目录", state.officialOutput, mustExist = false) { onStateChange(state.copy(officialOutput = it)) }
+                        PathRow(
+                                label = "语言包输出目录",
+                                value = state.officialOutput,
+                                onValueChange = { onStateChange(state.copy(officialOutput = it)) },
+                                mustExist = false,
+                                onBrowse = { officialOutputPicker.launch() },
+                            )
                         ConfigTextField(
                             value = state.officialConcurrency,
                             onValueChange = { onStateChange(state.copy(officialConcurrency = it)) },
@@ -741,9 +808,25 @@ private fun ToolboxOperationDialog(
                         )
                     }
                     ToolboxOperation.CombineOfficialLanguage -> {
-                        PathField("源语言 JSON", state.officialSourceLanguage) { onStateChange(state.copy(officialSourceLanguage = it)) }
-                        PathField("目标语言 JSON", state.officialTargetLanguage) { onStateChange(state.copy(officialTargetLanguage = it)) }
-                        PathField("术语表输出 JSON", state.poolOutput, mustExist = false) { onStateChange(state.copy(poolOutput = it)) }
+                        PathRow(
+                                label = "源语言 JSON",
+                                value = state.officialSourceLanguage,
+                                onValueChange = { onStateChange(state.copy(officialSourceLanguage = it)) },
+                                onBrowse = { officialSourcePicker.launch() },
+                            )
+                        PathRow(
+                                label = "目标语言 JSON",
+                                value = state.officialTargetLanguage,
+                                onValueChange = { onStateChange(state.copy(officialTargetLanguage = it)) },
+                                onBrowse = { officialTargetPicker.launch() },
+                            )
+                        PathRow(
+                                label = "术语表输出 JSON",
+                                value = state.poolOutput,
+                                onValueChange = { onStateChange(state.copy(poolOutput = it)) },
+                                mustExist = false,
+                                onBrowse = { poolOutputPicker.launch() },
+                            )
                     }
                 }
             }
@@ -778,11 +861,26 @@ private fun PoolFields(
     onStateChange: (ToolboxState) -> Unit,
     showMapping: Boolean,
 ) {
-    PathField("提取结果 JSON", state.poolInput) { onStateChange(state.copy(poolInput = it)) }
-    if (showMapping) PathField("映射 JSON", state.mappingInput) { onStateChange(state.copy(mappingInput = it)) }
-    PathField(if (showMapping) "替换输出 JSON" else "文本池输出 JSON", state.poolOutput, mustExist = false) {
-        onStateChange(state.copy(poolOutput = it))
-    }
+    val inputPicker = filePicker { onStateChange(state.copy(poolInput = it)) }
+    val mappingPicker = filePicker { onStateChange(state.copy(mappingInput = it)) }
+    PathRow(
+                                label = "提取结果 JSON",
+                                value = state.poolInput,
+                                onValueChange = { onStateChange(state.copy(poolInput = it)) },
+                                onBrowse = { inputPicker.launch() },
+                            )
+    if (showMapping) PathRow(
+                                label = "映射 JSON",
+                                value = state.mappingInput,
+                                onValueChange = { onStateChange(state.copy(mappingInput = it)) },
+                                onBrowse = { mappingPicker.launch() },
+                            )
+    PathRow(
+        label = if (showMapping) "替换输出 JSON" else "文本池输出 JSON",
+        value = state.poolOutput,
+        onValueChange = { onStateChange(state.copy(poolOutput = it)) },
+        mustExist = false,
+    )
     if (!showMapping) {
         EnumButtonGroup(
             entries = PoolModes,
@@ -794,26 +892,52 @@ private fun PoolFields(
     }
 }
 
+
 /**
- * Path field without a browse button. Read paths ([mustExist]) mark themselves in the label when
- * they do not resolve; destinations the run creates are left alone.
+ * A picker that reads a file the run consumes.
+ *
+ * A plain function rather than a shared launcher: a launcher's result belongs to the field that
+ * opened it, so each field needs its own; these only remove the boilerplate.
  */
 @Composable
-private fun PathField(
-    label: String,
-    value: String,
-    mustExist: Boolean = true,
-    onValueChange: (String) -> Unit,
-) {
-    val missing = rememberMissingPath(value, mustExist)
-    ConfigTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(if (missing) "$label（路径不存在）" else label) },
-        isError = missing,
-        singleLine = true,
-    )
+private fun filePicker(onPicked: (String) -> Unit) =
+    rememberFilePickerLauncher(type = FileKitType.File(), mode = FileKitMode.Single) { file: PlatformFile? ->
+        file?.let { onPicked(platformPathOf(it)) }
+    }
+
+/** A picker for a directory the run reads from or writes into. */
+@Composable
+private fun directoryPicker(onPicked: (String) -> Unit) =
+    rememberDirectoryPickerLauncher { file: PlatformFile? ->
+        file?.let { onPicked(platformPathOf(it)) }
+    }
+
+/**
+ * A picker for a destination the run creates.
+ *
+ * It selects a *directory* and keeps [keepNameFrom]'s file name: the system picker creates files
+ * only through its own UI, so the folder is what the user can choose, and the name already typed
+ * into the field is what the run will write.
+ */
+@Composable
+private fun outputPicker(keepNameFrom: String, onPicked: (String) -> Unit) =
+    rememberDirectoryPickerLauncher { file: PlatformFile? ->
+        file?.let { onPicked(joinPath(platformPathOf(it), outputFileName(keepNameFrom))) }
+    }
+
+/**
+ * The file name to keep when the user picks an output directory.
+ *
+ * [value] is whatever is in the field, which is not always a path this app wrote: an older build
+ * could leave a `content://` URI there, and taking its last segment would carry that whole URI into
+ * the new destination as if it were a file name. Anything that is not a plain file name is therefore
+ * discarded, and the caller's own default is used instead.
+ */
+private fun outputFileName(value: String): String {
+    val name = fileNameOf(value)
+    return if (name.isBlank() || name.contains(':') || name.contains('/')) "output.json" else name
 }
+
 
 private fun ToolboxOperation.icon(): ImageVector = when (this) {
     ToolboxOperation.PointerTest -> Icons.Outlined.GpsFixed

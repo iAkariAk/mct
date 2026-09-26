@@ -1,13 +1,7 @@
 package mct.gui.services
 
-import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,6 +19,9 @@ import mct.command.extractTextFromCommands
 import mct.gui.model.GuiSettings
 import mct.gui.model.MCTPatternState
 import mct.gui.model.MtlxSource
+import mct.gui.platform.copyZipEntry
+import mct.gui.platform.createDownloadClient
+import mct.gui.platform.ioDispatcher
 import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
@@ -38,9 +35,6 @@ import mct.serializer.MCTJson
 import mct.util.io.writeJson
 import mct.util.io.writeText
 import okio.Path.Companion.toPath
-import okio.buffer
-import okio.openZip
-import okio.use
 
 /**
  * Write a tool's output through [writeAtomically], which keeps the previous output intact when the
@@ -63,7 +57,7 @@ suspend fun flattenTextPool(
     output: String,
     kind: String,
     simply: Boolean,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val content = env.fs.read(input.toPath()) { readUtf8() }
     val groups = when (kind) {
         "region" -> MCTJson.decodeFromString<List<RegionExtractionGroup>>(content)
@@ -81,7 +75,7 @@ suspend fun unflattenTextPool(
     input: String,
     mapping: String,
     output: String,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val groups = env.fs.read(input.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<List<ExtractionGroup>>(it) }
     val translations = env.fs.read(mapping.toPath()) { readUtf8() }
@@ -96,7 +90,7 @@ suspend fun generateMtlxTemplate(
     input: String,
     output: String,
     source: MtlxSource,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val raw = env.fs.read(input.toPath()) { readUtf8() }
     val (template, count) = when (source) {
         MtlxSource.Pool -> {
@@ -118,7 +112,7 @@ suspend fun translateByMtlx(
     mtlxPath: String,
     poolPath: String,
     output: String,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val mtlx = env.fs.read(mtlxPath.toPath()) { readUtf8() }.let(MTLX::fromString)
     val pool = env.fs.read(poolPath.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<TranslationPool>(it) }
@@ -133,7 +127,7 @@ suspend fun replaceAllExtractions(
     input: String,
     output: String,
     replacement: String,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val groups = env.fs.read(input.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<List<ExtractionGroup>>(it) }
     val replacements = groups.replaceSimply { replacement }
@@ -151,7 +145,7 @@ context(env: Env)
 suspend fun exportPatternSchema(
     kind: PatternSchemaKind,
     output: String,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val descriptor = when (kind) {
         PatternSchemaKind.Command -> ListSerializer(CommandExtractPattern.serializer()).descriptor
         PatternSchemaKind.DataPointer -> ListSerializer(DataPointerPattern.serializer()).descriptor
@@ -172,7 +166,7 @@ context(env: Env)
 suspend fun testCommandPatterns(
     input: String,
     patterns: MCTPatternState,
-): List<CommandTestResult> = withContext(Dispatchers.IO) {
+): List<CommandTestResult> = withContext(ioDispatcher) {
     val text = env.fs.read(input.toPath()) { readUtf8() }
     val matches = extractTextFromCommands(text, composePattern(patterns))
         .sortedBy { it.indices.first }
@@ -186,7 +180,7 @@ suspend fun combineOfficialLanguages(
     sourceLanguage: String,
     targetLanguage: String,
     output: String,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     val source = env.fs.read(sourceLanguage.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<JsonObject>(it) }
     val target = env.fs.read(targetLanguage.toPath()) { readUtf8() }
@@ -202,20 +196,9 @@ suspend fun downloadOfficialLanguages(
     minecraftVersion: String,
     output: String,
     concurrency: Int,
-) = withContext(Dispatchers.IO) {
+) = withContext(ioDispatcher) {
     require(concurrency in 1..64) { "下载并发数应在 1 到 64 之间" }
-    HttpClient(CIO) {
-        install(ContentNegotiation) { json() }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 60_000
-            connectTimeoutMillis = 60_000
-            socketTimeoutMillis = 60_000
-        }
-        install(HttpRequestRetry) {
-            maxRetries = 3
-            exponentialDelay()
-        }
-    }.use { client ->
+    createDownloadClient().use { client ->
         val versionManifest = client.get("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
             .body<JsonObject>()
         val versionId = if (minecraftVersion == "latest") {
@@ -240,14 +223,10 @@ suspend fun downloadOfficialLanguages(
         check(clientJarActual == clientJarSha1) {
             "client.jar 校验失败：期望 sha1 $clientJarSha1，实际 $clientJarActual"
         }
-        env.fs.openZip(clientJarPath).use { zip ->
-            zip.source("/assets/minecraft/lang/en_us.json".toPath()).buffer().use { source ->
-                env.fs.sink(root / "en_us.json").use(source::readAll)
-            }
-        }
+        copyZipEntry(clientJarPath, "/assets/minecraft/lang/en_us.json", root / "en_us.json")
 
         val assetIndex = client.get(details["assetIndex"]!!.jsonObject["url"]!!.jsonPrimitive.content).body<JsonObject>()
-        val dispatcher = Dispatchers.IO.limitedParallelism(concurrency)
+        val dispatcher = ioDispatcher.limitedParallelism(concurrency)
         coroutineScope {
             assetIndex["objects"]!!.jsonObject.forEach { (name, entry) ->
                 val prefix = "minecraft/lang/"

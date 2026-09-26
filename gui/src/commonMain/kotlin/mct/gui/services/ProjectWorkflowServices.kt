@@ -1,63 +1,15 @@
 package mct.gui.services
 
-import com.github.ajalt.clikt.command.main
-import com.github.ajalt.clikt.core.terminal
-import com.github.ajalt.mordant.rendering.AnsiLevel
-import com.github.ajalt.mordant.terminal.Terminal
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import mct.Env
-import mct.LoggerLevel
-import mct.cli.MCT
 import mct.cli.cmd.project.MCTToml
 import mct.cli.cmd.project.ProjectConfig
-import mct.extra.ai.translator.TermTable
-import mct.gui.model.ProjectTextEntry
 import mct.gui.model.ProjectTranslationEngine
-import mct.gui.util.writeAtomically
-import mct.kit.TranslationMapping
-import mct.serializer.MCTJson
-import mct.serializer.PrettyJson
+import mct.gui.platform.ioDispatcher
+import mct.gui.util.*
 import okio.Path.Companion.toPath
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.OutputStream
-import java.io.PrintStream
-import java.nio.charset.Charset
-
-/** File that identifies a project root; the CLI (`ProjectCommands`) requires it in the project dir. */
-const val PROJECT_FILE = "mct.toml"
-
-/** Pool of texts that still have no mapping, written by `mct project update` (`ProjectCommands.MISSING`). */
-const val PROJECT_MISSING_FILE = "missing.json"
-
-/**
- * Validate a project name before it becomes a directory under the working directory.
- *
- * Returns an error message, or `null` when the name is usable. Rejecting `.`/`..` and path
- * separators is what keeps the CLI from resolving the project directory outside the working
- * directory (and from deleting or overwriting files there).
- */
-fun projectNameError(name: String): String? {
-    val trimmed = name.trim()
-    return when {
-        trimmed.isEmpty() -> "请输入项目名称"
-        trimmed == "." || trimmed == ".." -> "项目名称不能是 . 或 .."
-        trimmed.any { it == '/' || it == '\\' } -> "项目名称不能包含路径分隔符"
-        trimmed.endsWith(":") -> "项目名称不能以冒号结尾"
-        // The name is a positional argument, so a leading dash makes Clikt read it as options and
-        // the whole run fails with a usage error instead of creating anything.
-        trimmed.startsWith("-") -> "项目名称不能以 - 开头"
-        trimmed != name -> "项目名称首尾不能有空白字符"
-        else -> null
-    }
-}
 
 /**
  * Create a project by delegating to the CLI implementation.
@@ -79,24 +31,24 @@ suspend fun initialiseProject(
     require(nameError == null) { nameError.orEmpty() }
     require(source.isNotBlank()) { "请选择源存档目录" }
 
-    val workingDirectory = File(projectDirectory).absoluteFile
-    require(workingDirectory.isDirectory) { "CLI 工作目录不存在: $workingDirectory" }
+    val workingDirectory = absolutePathOf(projectDirectory).toPath().normalized()
+    require(isDirectory(workingDirectory.toString())) { "CLI 工作目录不存在: $workingDirectory" }
 
     val projectName = name.trim()
-    val projectRoot = File(workingDirectory, projectName).canonicalFile
-    require(projectRoot.parentFile == workingDirectory.canonicalFile) {
+    val projectRoot = (workingDirectory / projectName).normalized()
+    require(projectRoot.parent == workingDirectory) {
         "项目名称解析后不在工作目录内: $projectRoot"
     }
 
     // The CLI creates `projectRoot/src` before walking the source tree; if the source contains
     // that directory, the copy recurses into itself.
-    val sourceRoot = File(source).canonicalFile
-    val sourcePrefix = sourceRoot.path + File.separator
-    val projectPrefix = projectRoot.path + File.separator
-    require(!(projectRoot.path + File.separator + "src").startsWith(sourcePrefix)) {
+    val sourceRoot = absolutePathOf(source).toPath().normalized()
+    val sourcePrefix = "$sourceRoot${okio.Path.DIRECTORY_SEPARATOR}"
+    val projectPrefix = "$projectRoot${okio.Path.DIRECTORY_SEPARATOR}"
+    require(!"$projectRoot${okio.Path.DIRECTORY_SEPARATOR}src".startsWith(sourcePrefix)) {
         "源存档不能是项目目录或其上级目录（会产生自我拷贝）"
     }
-    require(!sourceRoot.path.startsWith(projectPrefix)) {
+    require(!sourceRoot.toString().startsWith(projectPrefix)) {
         "源存档不能位于项目目录内"
     }
 
@@ -107,16 +59,16 @@ suspend fun initialiseProject(
             // the working directory is what the CLI must be told, not the project root it derives
             // from it. Spelled out here rather than appended by the runner: the console line below
             // is the only record of the directory a run used.
-            "--project-dir", workingDirectory.absolutePath,
-            "--from", sourceRoot.absolutePath,
+            "--project-dir", workingDirectory.toString(),
+            "--from", sourceRoot.toString(),
             "--translation-engine", engine.key,
         ),
     )
 
-    require(File(projectRoot, PROJECT_FILE).isFile) {
+    require(isRegularFile(joinPath(projectRoot.toString(), PROJECT_FILE))) {
         "CLI 未创建 $PROJECT_FILE，请检查上方输出"
     }
-    return projectRoot.path
+    return projectRoot.toString()
 }
 
 context(env: Env)
@@ -142,7 +94,7 @@ suspend fun assembleProjectPatch(projectDirectory: String) =
 context(env: Env)
 private suspend fun runProjectCommand(projectDirectory: String, command: String) {
     val root = requireProjectRoot(projectDirectory)
-    runCliCommand(listOf("project", command, "--project-dir", root.absolutePath))
+    runCliCommand(listOf("project", command, "--project-dir", root))
 }
 
 /**
@@ -150,176 +102,12 @@ private suspend fun runProjectCommand(projectDirectory: String, command: String)
  *
  * The caller spells out every path the command needs, `--project-dir` included; nothing is appended
  * behind its back, so what the console reports as `CLI > mct …` is exactly what ran.
+ *
+ * An expect because the implementation has to swap the process's `System.out` to capture what the
+ * CLI prints; both JVM targets do that identically, so the actual lives in `jvmSharedMain`.
  */
 context(env: Env)
-internal suspend fun runCliCommand(arguments: List<String>) {
-    val cliArguments = arguments + listOf(
-        // The CLI is silent by default (`ColorTerminalLogger(emptyList())` drops everything); its
-        // info and warning lines are the progress detail this console exists for.
-        "-l", "Info", "-l", "Warning", "-l", "Error",
-    )
-    env.logger.info { "CLI > mct ${cliArguments.joinToString(" ")}" }
-    withContext(Dispatchers.IO) {
-        // The CLI prints through its own terminal, which writes to `System.out`; in process that is
-        // the GUI's stdout, so everything the command reports (progress, counts, errors) would be
-        // invisible. Its output is routed into the GUI console for the duration of the run.
-        //
-        // `System.out` is global, so the swap is serialized: a cancelled command's teardown must not
-        // run between a successor's swap in and its own, which would either route the second run's
-        // output nowhere or leave stdout bound to a dead capture stream.
-        cliRunLock.withLock {
-            val originalOut = System.out
-            val originalErr = System.err
-            val console = PrintStream(LineCollectingStream { line -> logCliLine(env, line) }, true)
-            System.setOut(console)
-            System.setErr(console)
-            try {
-                // ANSI is forced on: a colour is the only signal that a line the CLI printed
-                // through `Terminal.println` is an error or a warning, and the capture turns it
-                // into a level.
-                MCT()
-                    .apply { configureContext { terminal = Terminal(ansiLevel = AnsiLevel.ANSI16) } }
-                    .main(cliArguments.toTypedArray())
-                // The CLI's own logger prints from its own single-thread dispatcher, so its last
-                // lines can arrive after the command returns; without this pause they would go to
-                // the real stdout and never reach the console.
-                delay(150)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: RuntimeException) {
-                // Clikt reports a usage error by "exiting"; in process that surfaces as an exception
-                // whose type is private to the CLI module and whose message is only the status code
-                // (`Exit with status 1`). The parse error itself has already been written to the
-                // captured console above, so the useless wording and a stack trace must not become
-                // the message the operator sees.
-                throw if (e::class.simpleName == "CliExit") {
-                    IllegalStateException("CLI 参数错误（${e.message}），详见上方控制台输出", e)
-                } else {
-                    e
-                }
-            } finally {
-                System.out.flush()
-                System.err.flush()
-                System.setOut(originalOut)
-                System.setErr(originalErr)
-            }
-        }
-    }
-}
-
-/**
- * Serializes the `System.out` swap around a CLI run.
- *
- * A [Mutex] rather than a JVM lock on purpose: the run suspends, so it can resume on another
- * thread, and a thread-affine lock could not be released by that thread.
- */
-private val cliRunLock = Mutex()
-
-/** SGR escape sequences; stripped for display, read to recover the level. */
-private val AnsiEscape = Regex("\u001B\\[[0-9;]*[A-Za-z]")
-
-/** The level prefixes the CLI's `ColorTerminalLogger` writes (`LoggerLevel.prefix`). */
-private val LevelPrefixes = listOf(
-    "[INFO]" to LoggerLevel.Info,
-    "[DEBUG]" to LoggerLevel.Debug,
-    "[WARN]" to LoggerLevel.Warning,
-    "[ERROR]" to LoggerLevel.Error,
-)
-
-/**
- * Route one captured CLI line to the console at the level it reports.
- *
- * The CLI states a level in one of two ways: its logger prefixes `[INFO]`/`[WARN]`/…, and its plain
- * `Terminal.println` calls colour the whole line (red for an error, yellow for a warning, green and
- * blue for progress). The prefix wins when both are present; anything else is informational.
- *
- * The prefix itself is stripped: the console renders the level as its own badge, so keeping the text
- * would print it twice.
- */
-private fun logCliLine(env: Env, raw: String) {
-    val text = raw.replace(AnsiEscape, "").trimEnd()
-    if (text.isBlank()) return
-    val prefixed = LevelPrefixes.firstOrNull { text.startsWith(it.first) }
-    val level = prefixed?.second ?: levelFromAnsi(raw) ?: LoggerLevel.Info
-    val message = prefixed?.let { text.removePrefix(it.first).trimStart() } ?: text
-    env.logger.log(level, message)
-}
-
-/**
- * The level behind the colours in [raw], most severe first so a line that highlights a number in
- * red still reads as an error.
- */
-private fun levelFromAnsi(raw: String): LoggerLevel? {
-    val codes = AnsiEscape.findAll(raw)
-        .flatMap { match ->
-            match.value.removePrefix("\u001B[").removeSuffix("m")
-                .split(';')
-                .mapNotNull(String::toIntOrNull)
-        }
-        .toList()
-    return when {
-        codes.any { it == 31 || it == 91 } -> LoggerLevel.Error
-        codes.any { it == 33 || it == 93 } -> LoggerLevel.Warning
-        codes.any { it == 90 } -> LoggerLevel.Debug
-        codes.any { it in setOf(32, 34, 35, 36, 92, 94, 95, 96) } -> LoggerLevel.Info
-        else -> null
-    }
-}
-
-/**
- * An [OutputStream] that hands over complete lines. Mordant renders one line per write, but nothing
- * guarantees that, so the tail of a partial line is kept until its newline arrives.
- *
- * Collected as bytes, not chars: the `PrintStream` in front encodes text with the platform charset
- * and hands over the encoded bytes, so a byte-to-char conversion would split every multi-byte
- * character (Chinese paths and reasoning text would reach the console as mojibake). Each line is
- * decoded with that same charset.
- */
-private class LineCollectingStream(private val onLine: (String) -> Unit) : OutputStream() {
-    private val buffer = ByteArrayOutputStream()
-
-    // The CLI writes from its own threads (its logger has a dispatcher of its own), so writes are
-    // serialized to keep lines whole.
-    @Synchronized
-    override fun write(b: Int) {
-        if (b == NEWLINE) {
-            onLine(buffer.toString(Charset.defaultCharset()))
-            buffer.reset()
-        } else if (b != CARRIAGE_RETURN) {
-            buffer.write(b)
-        }
-    }
-
-    @Synchronized
-    override fun write(bytes: ByteArray, offset: Int, length: Int) {
-        for (i in offset until offset + length) write(bytes[i].toInt())
-    }
-
-    private companion object {
-        const val NEWLINE = '\n'.code
-        const val CARRIAGE_RETURN = '\r'.code
-    }
-}
-
-/**
- * The project root behind [projectDirectory], which is the directory holding [PROJECT_FILE].
- *
- * `project init` is given the *parent* directory and creates the project inside it, so both the
- * parent and the root itself are accepted; anything else is rejected here instead of surfacing as
- * a confusing failure later.
- */
-fun requireProjectRoot(projectDirectory: String): File {
-    require(projectDirectory.isNotBlank()) { "请选择项目目录" }
-    val root = File(projectDirectory).absoluteFile
-    require(File(root, PROJECT_FILE).isFile) { "未找到 $PROJECT_FILE: $root" }
-    return root
-}
-
-/** Resolve a path stored in `mct.toml`: relative paths hang off the project root, like the CLI. */
-fun resolveProjectPath(projectDirectory: String, path: String): File {
-    val file = File(path)
-    return if (file.isAbsolute) file else File(projectDirectory, path)
-}
+internal expect suspend fun runCliCommand(arguments: List<String>)
 
 /**
  * Read `mct.toml` into the CLI's own [ProjectConfig].
@@ -330,10 +118,10 @@ fun resolveProjectPath(projectDirectory: String, path: String): File {
  * the GUI.
  */
 context(env: Env)
-suspend fun readProjectConfig(projectDirectory: String): ProjectConfig = withContext(Dispatchers.IO) {
-    val file = File(requireProjectRoot(projectDirectory), PROJECT_FILE)
-    env.logger.info { "读取项目配置: ${file.path}" }
-    MCTToml.decodeFromString<ProjectConfig>(file.readText())
+suspend fun readProjectConfig(projectDirectory: String): ProjectConfig = withContext(ioDispatcher) {
+    val path = joinPath(requireProjectRoot(projectDirectory), PROJECT_FILE)
+    env.logger.info { "读取项目配置: $path" }
+    MCTToml.decodeFromString<ProjectConfig>(env.fs.read(path.toPath()) { readUtf8() })
 }
 
 /**
@@ -349,8 +137,8 @@ suspend fun readProjectConfig(projectDirectory: String): ProjectConfig = withCon
  * to read the project at all. Refusing the write keeps the previous file intact instead.
  */
 context(env: Env)
-suspend fun writeProjectConfig(projectDirectory: String, config: ProjectConfig) = withContext(Dispatchers.IO) {
-    val file = File(requireProjectRoot(projectDirectory), PROJECT_FILE)
+suspend fun writeProjectConfig(projectDirectory: String, config: ProjectConfig) = withContext(ioDispatcher) {
+    val path = joinPath(requireProjectRoot(projectDirectory), PROJECT_FILE)
     val encoded = config.copy(
         ai = config.ai.copy(literatureStyle = config.ai.literatureStyle.removeSuffix("\n")),
     )
@@ -362,93 +150,8 @@ suspend fun writeProjectConfig(projectDirectory: String, config: ProjectConfig) 
             cause,
         )
     }
-    writeAtomically(env.fs, file.path.toPath()) { temp ->
+    writeAtomically(env.fs, path.toPath()) { temp ->
         env.fs.write(temp) { writeUtf8(text) }
     }
-    env.logger.info { "已写入项目配置: ${file.path}" }
-}
-
-/**
- * The mapping file (`config.mappings`) as display entries, in file order.
- *
- * A missing file is an empty mapping rather than an error: a project that has not been translated
- * yet legitimately has none.
- */
-context(env: Env)
-suspend fun readProjectMappings(projectDirectory: String, mappingsPath: String): List<ProjectTextEntry> =
-    withContext(Dispatchers.IO) {
-        val file = resolveProjectPath(projectDirectory, mappingsPath)
-        if (!file.isFile) return@withContext emptyList()
-        val mapping = MCTJson.decodeFromString<TranslationMapping>(file.readText())
-        env.logger.info { "已加载 ${mapping.size} 条映射: ${file.path}" }
-        mapping.entries.map { ProjectTextEntry(it.key, it.value) }
-    }
-
-/** Unmapped texts (`missing.json`) as entries without a target, in file order. */
-context(env: Env)
-suspend fun readProjectMissing(projectDirectory: String): List<ProjectTextEntry> =
-    withContext(Dispatchers.IO) {
-        val file = File(requireProjectRoot(projectDirectory), PROJECT_MISSING_FILE)
-        if (!file.isFile) return@withContext emptyList()
-        // The CLI's pool is a `Set` (`TranslationPool`), so duplicates are not a thing it can write;
-        // decoding as a `Set` keeps a hand-edited file with repeated texts from producing two rows
-        // with the same list key.
-        val pool = MCTJson.decodeFromString<Set<String>>(file.readText())
-        env.logger.info { "已加载 ${pool.size} 条未映射文本: ${file.path}" }
-        pool.map { ProjectTextEntry(it, null) }
-    }
-
-/** The term table (`config.terms`) as display entries, in file order. */
-context(env: Env)
-suspend fun readProjectTerms(projectDirectory: String, termsPath: String): List<ProjectTextEntry> =
-    withContext(Dispatchers.IO) {
-        val file = resolveProjectPath(projectDirectory, termsPath)
-        if (!file.isFile) return@withContext emptyList()
-        val terms = MCTJson.decodeFromString<TermTable>(file.readText())
-        env.logger.info { "已加载 ${terms.size} 条术语: ${file.path}" }
-        terms.entries.map { ProjectTextEntry(it.key, it.value) }
-    }
-
-/**
- * Write the mapping table back to `config.mappings`.
- *
- * Shape and pretty-printing are the CLI's own (`TranslationMapping`, `pretty_json`), so a file the
- * GUI writes is what `mct project translate` would have written for the same table.
- */
-context(env: Env)
-suspend fun writeProjectMappings(
-    projectDirectory: String,
-    mappingsPath: String,
-    entries: List<ProjectTextEntry>,
-    pretty: Boolean,
-) = withContext(Dispatchers.IO) {
-    val mapping: TranslationMapping = LinkedHashMap<String, String?>(entries.size).apply {
-        entries.forEach { entry -> put(entry.source, entry.target) }
-    }
-    writeProjectJson(projectDirectory, mappingsPath, encodeTable(mapping, pretty))
-}
-
-/** Write the term table back to `config.terms`; a term without a translation is dropped. */
-context(env: Env)
-suspend fun writeProjectTerms(
-    projectDirectory: String,
-    termsPath: String,
-    entries: List<ProjectTextEntry>,
-    pretty: Boolean,
-) = withContext(Dispatchers.IO) {
-    val terms: TermTable = LinkedHashMap<String, String>(entries.size).apply {
-        entries.forEach { entry -> entry.target?.let { target -> put(entry.source, target) } }
-    }
-    writeProjectJson(projectDirectory, termsPath, encodeTable(terms, pretty))
-}
-
-/** Encode with the same format the CLI uses for the file, honouring `pretty_json`. */
-private inline fun <reified T> encodeTable(value: T, pretty: Boolean): String =
-    if (pretty) PrettyJson.encodeToString(value) else MCTJson.encodeToString(value)
-
-context(env: Env)
-private fun writeProjectJson(projectDirectory: String, path: String, text: String) {
-    writeAtomically(env.fs, resolveProjectPath(projectDirectory, path).path.toPath()) { temp ->
-        env.fs.write(temp) { writeUtf8(text) }
-    }
+    env.logger.info { "已写入项目配置: $path" }
 }

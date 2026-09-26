@@ -11,11 +11,11 @@ import mct.cli.NotifierHooks
 import mct.extra.ai.AiSign
 import mct.extra.ai.translator.TranslateSign
 import mct.gui.model.*
+import mct.gui.platform.platformFileSystem
 import mct.gui.services.ClientManager
 import mct.gui.services.GuiLogger
 import mct.gui.state.*
 import mct.on
-import okio.FileSystem
 
 /**
  * Application state container.
@@ -40,7 +40,7 @@ class AppViewModel(clientManager: ClientManager) {
         on<TranslateSign> { onTranslateSign(it) }
         on<AiSign> { onAiSign(it) }
     }
-    val env = Env(fs = FileSystem.SYSTEM, logger = GuiLogger(logs::add), notifier = notifier)
+    val env = Env(fs = platformFileSystem, logger = GuiLogger(logs::add), notifier = notifier)
 
     val translation = TranslationController(clientManager, env, logs, snackbarHostState, scope)
     val operations = OperationRunner(scope, logs, snackbarHostState)
@@ -50,7 +50,9 @@ class AppViewModel(clientManager: ClientManager) {
     val mapTool = MapToolController(env, operations)
 
     // ── Panel data states ───────────────────────────────────────
-    var selectedTab by mutableStateOf(Tab.Project)
+
+    /** Extraction is the pipeline's first step, so it is what the app opens on. */
+    var selectedTab by mutableStateOf(Tab.Extract)
 
     /** Chrome state: the settings sheet floats above the shell, so the shell cannot own it. */
     var settingsVisible by mutableStateOf(false)

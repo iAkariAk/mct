@@ -5,10 +5,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +39,13 @@ fun DraggableSplitPane(
     bottom: @Composable () -> Unit,
 ) {
     val ratio = remember { mutableFloatStateOf(initialRatio.coerceIn(minRatio, maxRatio)) }
+    /**
+     * Whether the user has moved the handle.
+     *
+     * The shape-derived ratio below only applies while this is false: a drag is a deliberate choice,
+     * and re-deriving the split on the next measure would undo it.
+     */
+    var dragged by remember { mutableStateOf(false) }
     val availableHeight = remember { mutableIntStateOf(1) }
     val handleHeight = 10.dp
     val bottomSpacing = 12.dp
@@ -62,9 +66,15 @@ fun DraggableSplitPane(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(handleHeight)
+                    // The strip floats over the rounded panes, so it is rounded and inset a little
+                    // rather than a square band spanning the window edge to edge.
+                    .padding(horizontal = 12.dp)
+                    .clip(RoundedCornerShape(handleHeight / 2))
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                     .pointerInput(minTopPx, minBottomPx) {
-                        detectVerticalDragGestures { _, dragAmount ->
+                        detectVerticalDragGestures(
+                            onDragStart = { dragged = true },
+                        ) { _, dragAmount ->
                             // Only write when the rounded pane height actually changes:
                             // every write re-measures both panes, and the top pane holds
                             // the whole scrollable page.
@@ -90,6 +100,16 @@ fun DraggableSplitPane(
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
+        // A window wider than it is tall has room to show both panes as equals, and halving it is
+        // what a landscape screen asks for. A portrait window keeps the caller's ratio, which gives
+        // the page the larger share its height needs. The user's own drag always wins, so this only
+        // applies while nothing has been dragged.
+        if (!dragged && width > height) {
+            val half = ((height - handleHeightPx - bottomSpacingPx).coerceAtLeast(1)).let { pane ->
+                (pane / 2).toFloat() / pane
+            }
+            ratio.floatValue = half.coerceIn(minRatio, maxRatio)
+        }
         val paneHeight = (height - handleHeightPx - bottomSpacingPx).coerceAtLeast(0)
         // Each pane is clamped on its own, then the top one gives up whatever the two minimums
         // together exceed: `coerceIn` would throw on a window whose minimums cannot both be met

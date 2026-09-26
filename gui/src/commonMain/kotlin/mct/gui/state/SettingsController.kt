@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import mct.LoggerLevel
 import mct.gui.model.GuiSettings
 import mct.gui.model.LogEntry
+import mct.gui.platform.ioDispatcher
 import mct.gui.services.ApiSettings
 import mct.gui.services.ThemeSettings
 import mct.gui.services.apiSetting
@@ -70,7 +71,7 @@ class SettingsController(
     )
 
     /** Load settings from disk and apply them to UI state. */
-    suspend fun load() = withContext(Dispatchers.IO) {
+    suspend fun load() = withContext(ioDispatcher) {
         val saved = apiSetting.loadOrNull()
         if (saved == null && apiSetting.exists()) {
             logs.add(LogEntry(LoggerLevel.Warning, "无法读取 ${apiSetting.path}，已使用默认 API 设置"))
@@ -153,14 +154,14 @@ class SettingsController(
     /** Write [settings], skipping when it equals the last successfully written snapshot. */
     private suspend fun save(settings: ApiSettings): Boolean = writeLock.withLock {
         if (settings == lastSaved) return@withLock true
-        val saved = withContext(Dispatchers.IO) { apiSetting.save(settings) }
+        val saved = withContext(ioDispatcher) { apiSetting.save(settings) }
         if (saved) lastSaved = settings
         saved
     }
 
     private suspend fun saveTheme(settings: ThemeSettings): Boolean = writeLock.withLock {
         if (settings == lastSavedTheme) return@withLock true
-        val saved = withContext(Dispatchers.IO) { themeSetting.save(settings) }
+        val saved = withContext(ioDispatcher) { themeSetting.save(settings) }
         if (saved) lastSavedTheme = settings
         saved
     }

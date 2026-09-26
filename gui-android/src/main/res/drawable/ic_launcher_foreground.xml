@@ -1,0 +1,41 @@
+<!--
+  MCT's mark: a Minecraft block (the source world) with translatable text leaving it and the
+  translation returning.
+
+  Placement: an adaptive icon shows only the inner 72dp of its 108dp layers, and the launcher may
+  mask that to a circle. The artwork's own bounding box is therefore scaled to fit *inside* the 72dp
+  circle — the scale is set by the box's diagonal, not its width — and translated so the box's centre
+  lands on the canvas centre. Sizing by width alone leaves the corners outside the circle, which is
+  what clipped them before.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group
+        android:pivotX="56.01"
+        android:pivotY="61.04"
+        android:scaleX="0.668"
+        android:scaleY="0.668">
+
+        <!-- The block: isometric top, left and right faces. -->
+        <path android:fillColor="#7DD3A0" android:pathData="M32,18 L54,29 L32,40 L10,29 Z" />
+        <path android:fillColor="#4CAF87" android:pathData="M10,29 L32,40 L32,62 L10,51 Z" />
+        <path android:fillColor="#2E8B62" android:pathData="M54,29 L54,51 L32,62 L32,40 Z" />
+
+        <!-- Extracted text lines. -->
+        <path android:fillColor="#FFFFFF" android:pathData="M66,20 h30 v8 h-30 z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M66,34 h21 v8 h-21 z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M66,48 h30 v8 h-30 z" />
+
+        <!-- Out: text leaves the world. -->
+        <path android:fillColor="#FCD34D" android:pathData="M36,56 h12 v5 h-12 z" />
+        <path android:fillColor="#FCD34D" android:pathData="M48,52 L57,58.5 L48,65 Z" />
+
+        <!-- In: the translation returns. -->
+        <path android:fillColor="#7DD3A0" android:pathData="M66,74 h-14 v5 h14 z" />
+        <path android:fillColor="#7DD3A0" android:pathData="M52,70 L43,76.5 L52,83 Z" />
+    </group>
+</vector>

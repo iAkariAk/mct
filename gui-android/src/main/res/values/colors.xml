@@ -1,0 +1,4 @@
+<resources>
+    <!-- The dark green the icon's block sits on; also the adaptive icon's background layer. -->
+    <color name="ic_launcher_background">#14532D</color>
+</resources>
