@@ -50,7 +50,13 @@ class AppViewModel(clientManager: ClientManager) {
     val mapTool = MapToolController(env, operations)
 
     // ── Panel data states ───────────────────────────────────────
-    var selectedTab by mutableStateOf(Tab.Extract)
+    var selectedTab by mutableStateOf(Tab.Project)
+
+    /** Chrome state: the settings sheet floats above the shell, so the shell cannot own it. */
+    var settingsVisible by mutableStateOf(false)
+
+    /** Whether the user wants the log console; the shell still hides it if the window is too short. */
+    var consoleVisible by mutableStateOf(true)
     var extractState by mutableStateOf(ExtractState())
     var termExtractState by mutableStateOf(TermExtractState())
     var backfillState by mutableStateOf(BackfillState())

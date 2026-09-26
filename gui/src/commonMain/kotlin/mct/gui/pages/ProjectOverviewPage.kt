@@ -58,6 +58,9 @@ fun ProjectOverviewPage(
             } else {
                 SectionTitle("打开过的项目", Icons.Outlined.History)
                 LazyColumn(
+                    // Full-width rows rather than a grid: a project is identified by its directory,
+                    // which is the widest thing on the card, so a fixed-width cell would either
+                    // ellipsise it or leave the rest of the window empty.
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     // Room for the FAB menu, so it never covers the last card.
@@ -130,8 +133,13 @@ private fun ProjectHero(projectCount: Int, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.primaryContainer,
         tonalElevation = 2.dp,
     ) {
+        // A narrow card cannot hold the icon, the copy and the count chip side by side: the text
+        // wraps one character per line. The chip drops below the copy once the card is narrower
+        // than a readable line.
+        BoxWithConstraints(Modifier.padding(20.dp)) {
+        val stacked = maxWidth < 420.dp
         Row(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -148,6 +156,8 @@ private fun ProjectHero(projectCount: Int, modifier: Modifier = Modifier) {
                     )
                 }
             }
+            // The icon tile also drops below the copy on a narrow card: at 52dp plus the chip it
+            // leaves the headline about two characters of width.
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     "项目工作流",
@@ -159,29 +169,44 @@ private fun ProjectHero(projectCount: Int, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-            }
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.primary,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.History,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                    )
-                    Text(
-                        "$projectCount 个项目",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
+                if (stacked) {
+                    Spacer(Modifier.height(4.dp))
+                    ProjectCountChip(projectCount)
                 }
             }
+            if (!stacked) {
+                ProjectCountChip(projectCount)
+            }
+        }
+        }
+    }
+}
+
+/** "N 个项目" badge of the overview hero. */
+@Composable
+private fun ProjectCountChip(projectCount: Int) {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primary,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                Icons.Outlined.History,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
+            Text(
+                "$projectCount 个项目",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -268,6 +293,9 @@ private fun ProjectHistoryCard(
                     )
                 }
             }
+            // The elapsed time sits under the directory rather than beside the actions: as a
+            // trailing item it took width the name and directory need, and on a 500dp window it
+            // squeezed both to an ellipsis.
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     entry.name,
@@ -282,19 +310,19 @@ private fun ProjectHistoryCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (unreachable) {
-                    Text(
-                        "目录不存在或缺少 mct.toml",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
+                Text(
+                    "${formatElapsed(entry.lastOpenedAt)}" +
+                        if (unreachable) " · 目录不存在或缺少 mct.toml" else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (unreachable) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            Text(
-                formatElapsed(entry.lastOpenedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             IconButton(onClick = onReveal) {
                 Icon(
                     Icons.Outlined.FolderOpen,

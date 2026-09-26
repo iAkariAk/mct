@@ -16,6 +16,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -23,7 +24,11 @@ import kotlin.math.roundToInt
  * Vertical split with a draggable handle between [top] and [bottom].
  *
  * Both panes get a hard pixel height so the top pane's scrollable content never forces the
- * split ratio to change.
+ * split ratio to change. [minTopHeight] / [minBottomHeight] bound the split in absolute terms: a
+ * ratio that leaves the console a sliver of a short window is still "25% of the window", which is
+ * what made the log unreadable at small sizes. When the two minimums cannot both be satisfied the
+ * bottom pane keeps its height and the top one takes the rest; on a window this short the caller
+ * is expected to hide the bottom pane instead.
  */
 @Composable
 fun DraggableSplitPane(
@@ -31,6 +36,8 @@ fun DraggableSplitPane(
     initialRatio: Float = 0.7f,
     minRatio: Float = 0.25f,
     maxRatio: Float = 0.85f,
+    minTopHeight: Dp = 0.dp,
+    minBottomHeight: Dp = 0.dp,
     top: @Composable () -> Unit,
     bottom: @Composable () -> Unit,
 ) {
@@ -41,6 +48,8 @@ fun DraggableSplitPane(
     val density = LocalDensity.current
     val handleHeightPx = with(density) { handleHeight.roundToPx() }
     val bottomSpacingPx = with(density) { bottomSpacing.roundToPx() }
+    val minTopPx = with(density) { minTopHeight.roundToPx() }
+    val minBottomPx = with(density) { minBottomHeight.roundToPx() }
 
     Layout(
         modifier = modifier.onSizeChanged { size ->
@@ -54,17 +63,15 @@ fun DraggableSplitPane(
                     .fillMaxWidth()
                     .height(handleHeight)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                    .pointerInput(Unit) {
+                    .pointerInput(minTopPx, minBottomPx) {
                         detectVerticalDragGestures { _, dragAmount ->
                             // Only write when the rounded pane height actually changes:
                             // every write re-measures both panes, and the top pane holds
                             // the whole scrollable page.
                             val pane = availableHeight.intValue
+                            if (pane <= 0) return@detectVerticalDragGestures
                             val current = (pane * ratio.floatValue).roundToInt()
-                            val next = (current + dragAmount.roundToInt()).coerceIn(
-                                (pane * minRatio).roundToInt(),
-                                (pane * maxRatio).roundToInt(),
-                            )
+                            val next = (current + dragAmount.roundToInt()).coerceIn(0, pane)
                             if (next != current) ratio.floatValue = next.toFloat() / pane
                         }
                     },
@@ -84,9 +91,20 @@ fun DraggableSplitPane(
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val paneHeight = (height - handleHeightPx - bottomSpacingPx).coerceAtLeast(0)
-        val topHeight = (paneHeight * ratio.floatValue)
-            .roundToInt()
-            .coerceIn(0, paneHeight)
+        // Each pane is clamped on its own, then the top one gives up whatever the two minimums
+        // together exceed: `coerceIn` would throw on a window whose minimums cannot both be met
+        // (a short pane plus a tall minimum is a normal phone-height window, not a bug).
+        var topHeight = (paneHeight * ratio.floatValue).roundToInt().coerceIn(0, paneHeight)
+        if (topHeight < minTopPx) topHeight = minTopPx
+        val bottomFloor = (paneHeight - minBottomPx).coerceAtLeast(0)
+        if (topHeight > bottomFloor) {
+            topHeight = if (paneHeight >= minTopPx + minBottomPx) {
+                // Both minimums fit, so honour them and split the surplus by the ratio.
+                (paneHeight - minBottomPx).coerceAtLeast(minTopPx)
+            } else {
+                bottomFloor
+            }
+        }
         val bottomHeight = paneHeight - topHeight
 
         fun fixedConstraints(childHeight: Int) = constraints.copy(

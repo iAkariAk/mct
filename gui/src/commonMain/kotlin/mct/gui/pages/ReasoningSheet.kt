@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -97,13 +98,13 @@ fun ReasoningSheet(
                 TextButton(
                     onClick = onClear,
                     enabled = entries.isNotEmpty(),
-                    modifier = Modifier.heightIn(min = 48.dp),
+                    modifier = Modifier.heightIn(min = 44.dp),
                 ) {
                     Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("清空")
+                    Text("清空", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
                     Icon(Icons.Outlined.Close, contentDescription = "关闭推理过程")
                 }
             }
@@ -112,8 +113,12 @@ fun ReasoningSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 260.dp, max = 540.dp)
-                    .padding(horizontal = 24.dp)
+                    // `heightIn` first, then the fraction: the cap has to bound the incoming
+                    // constraints before 0.8 of them is taken. A fixed 540dp clamp is taller than a
+                    // phone-height window, where the sheet would push its own header off screen.
+                    .heightIn(min = 160.dp, max = 540.dp)
+                    .fillMaxHeight(0.8f)
+                    .padding(horizontal = 16.dp)
                     .padding(top = 16.dp, bottom = 28.dp),
             ) {
                 LazyVerticalGrid(
@@ -156,7 +161,7 @@ fun ReasoningSheet(
                     ) {
                         FilledTonalButton(
                             onClick = { followLatest = true },
-                            modifier = Modifier.heightIn(min = 48.dp),
+                            modifier = Modifier.heightIn(min = 44.dp),
                             shape = MaterialTheme.shapes.extraLarge,
                         ) {
                             Icon(Icons.Outlined.ArrowDownward, contentDescription = null)
@@ -169,6 +174,9 @@ fun ReasoningSheet(
         }
     }
 }
+
+/** Height of one reasoning card: tall enough for its header and a few lines of output. */
+private val ReasoningCardHeight = 252.dp
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -223,7 +231,9 @@ private fun ReasoningCard(
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .height(252.dp)
+            // A fixed height, not a minimum: these cards follow their own scroll, and a card that
+            // grew with the window would scroll its own content out of view.
+            .height(ReasoningCardHeight)
             .semantics {
                 stateDescription = if (active) "正在推理" else "推理已完成"
             },

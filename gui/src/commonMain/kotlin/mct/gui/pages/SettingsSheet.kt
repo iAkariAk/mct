@@ -59,7 +59,7 @@ fun SettingsSheet(
         enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()),
         exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()),
     ) {
-        Box(Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             Box(
                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f))
                     .clickable(
@@ -68,10 +68,13 @@ fun SettingsSheet(
                         onClick = onDismiss
                     )
             )
+            val drawerWidth = if (maxWidth < 360.dp) maxWidth else 300.dp
             Box(
                 Modifier.align(Alignment.CenterEnd)
+                    // A fixed 300dp drawer covers three quarters of a phone-width window, so it
+                    // gives way below 360dp and keeps a strip of the page visible instead.
                     .fillMaxHeight()
-                    .width(300.dp)
+                    .width(drawerWidth)
                     .animateEnterExit(
                         enter = slideInHorizontally(
                             animationSpec = motionScheme.defaultSpatialSpec(),

@@ -475,7 +475,9 @@ fun ActionButton(
         enabled = buttonEnabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
+            // A minimum rather than a fixed height: the label ellipsises on a narrow window, but a
+            // wrapped one must be allowed to grow instead of being clipped to 44dp.
+            .heightIn(min = 44.dp)
             .hoverable(interactionSource, enabled = buttonEnabled)
             .graphicsLayer {
                 // This block re-runs on every frame of the hover animation, so nothing
@@ -512,7 +514,7 @@ fun ActionButton(
                             modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("取消翻译")
+                        Text("取消翻译", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     ActionButtonVisualState.Running -> {
@@ -521,13 +523,13 @@ fun ActionButton(
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("运行中...")
+                        Text("运行中...", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     ActionButtonVisualState.Idle -> {
                         Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(label)
+                        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

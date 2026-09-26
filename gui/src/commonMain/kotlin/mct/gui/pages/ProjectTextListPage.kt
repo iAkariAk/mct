@@ -25,6 +25,7 @@ import mct.gui.model.ProjectSection
 import mct.gui.model.ProjectTextEntry
 import mct.gui.model.ProjectTextFile
 import mct.gui.state.ProjectController
+import mct.gui.state.ProjectTableEditor
 
 /**
  * One text file of the project as a list: `mappings.json`, `missing.json` or `terms.json`.
@@ -75,8 +76,11 @@ fun ProjectTextListSection(
                 }
 
                 else -> LazyColumn(
+                    // Rows, not cards: each entry is a source line and its translation, and the
+                    // source text is what sets the row's natural width.
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 96.dp),
                 ) {
                     itemsIndexed(
                         items = filtered,
@@ -150,6 +154,52 @@ private fun TextListHeader(
         modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        TextListHeaderTitle(controller, file, path, total, shown, query, table)
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("搜索原文或译文") },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+            trailingIcon = if (query.isNotEmpty()) {
+                {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Outlined.Close, contentDescription = "清除搜索", modifier = Modifier.size(18.dp))
+                    }
+                }
+            } else {
+                null
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            ),
+        )
+    }
+}
+
+/**
+ * Title, counters and the file's actions.
+ *
+ * A [FlowRow]: the title block keeps the row's remaining width, and the counters and buttons wrap
+ * onto a second line when the window is too narrow for all of them instead of squeezing the title
+ * into an ellipsis.
+ */
+@Composable
+private fun TextListHeaderTitle(
+    controller: ProjectController,
+    file: ProjectTextFile,
+    path: String,
+    total: Int,
+    shown: Int,
+    query: String,
+    table: ProjectTableEditor?,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Title on its own line: it names the file, it is the widest text on the page, and sharing
+        // a row with the counters squeezed it to an ellipsis on a narrow window.
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -162,7 +212,12 @@ private fun TextListHeader(
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(file.title, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        file.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     if (table?.isDirty == true) {
                         UnsavedChip()
                     }
@@ -171,8 +226,19 @@ private fun TextListHeader(
                     "$path — ${file.producer}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        // Counters and actions on their own line, pinned to the trailing edge and wrapping there:
+        // four actions plus the count chip never fit beside the title at 500dp, and a wrapped action
+        // is still reachable while a clipped one is not.
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             CountChip(if (query.isBlank()) "$total 条" else "$shown / $total 条")
             // Only the read-only page needs a reload button: on the editable ones the workspace
             // header reloads without discarding edits, and the undo button below discards them.
@@ -215,28 +281,6 @@ private fun TextListHeader(
                 }
             }
         }
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            placeholder = { Text("搜索原文或译文") },
-            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-            trailingIcon = if (query.isNotEmpty()) {
-                {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "清除搜索", modifier = Modifier.size(18.dp))
-                    }
-                }
-            } else {
-                null
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            ),
-        )
     }
 }
 

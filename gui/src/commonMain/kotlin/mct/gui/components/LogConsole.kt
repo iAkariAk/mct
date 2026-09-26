@@ -17,6 +17,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -25,6 +27,9 @@ import mct.LoggerLevel
 import mct.gui.model.LogEntry
 import mct.gui.state.LogConsoleState
 import mct.gui.util.findPathLinks
+
+/** Pane height below which the console header gives way to [CompactConsoleControls]. */
+private val CompactHeaderHeight = 140.dp
 
 /**
  * Console log panel with filter controls, a find bar and reasoning viewer access.
@@ -99,7 +104,23 @@ fun LogConsole(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    // The pane height comes from the layout rather than from `BoxWithConstraints`: constraining
+    // this column's children to the pane's maximum height would clip the log filter's own popup.
+    val density = LocalDensity.current
+    var paneHeight by remember { mutableStateOf(0.dp) }
+    val measureModifier = remember(density) {
+        Modifier.onSizeChanged { size -> paneHeight = with(density) { size.height.toDp() } }
+    }
+    // Below this the header would be most of the pane, so it collapses and its buttons move into
+    // the log surface's own top-right corner.
+    val compact = paneHeight in 1.dp..<CompactHeaderHeight
+
+    Column(modifier = modifier.fillMaxSize().then(measureModifier)) {
+        AnimatedVisibility(
+            visible = !compact,
+            enter = expandVertically(animationSpec = motionScheme.fastSpatialSpec()),
+            exit = shrinkVertically(animationSpec = motionScheme.fastSpatialSpec()),
+        ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -151,6 +172,7 @@ fun LogConsole(
                 )
             }
         }
+        }
         Spacer(Modifier.height(4.dp))
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -159,6 +181,17 @@ fun LogConsole(
             tonalElevation = 2.dp
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                if (compact) {
+                    // The header is gone, so its controls move over the log surface.
+                    Box(Modifier.align(Alignment.TopEnd)) {
+                        CompactConsoleControls(
+                            logs = logs,
+                            onShowReasoning = onShowReasoning,
+                            showLogSettings = showLogSettings,
+                            onShowLogSettings = { showLogSettings = it },
+                        )
+                    }
+                }
                 if (visibleLogLines.isEmpty()) {
                     Text(
                         text = "暂无日志",
@@ -228,6 +261,47 @@ fun LogConsole(
 }
 
 /**
+ * The console header's controls, for panes too short to hold the header itself.
+ *
+ * A separate row rather than the same one shrunk: on a 96dp pane the header is two thirds of the
+ * visible lines, so the title is dropped and only the buttons stay, over the log surface.
+ */
+@Composable
+private fun CompactConsoleControls(
+    logs: LogConsoleState,
+    onShowReasoning: () -> Unit,
+    showLogSettings: Boolean,
+    onShowLogSettings: (Boolean) -> Unit,
+) {
+    val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    Surface(shape = MaterialTheme.shapes.medium, color = surface, tonalElevation = 2.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { logs.openSearch() }) {
+                Icon(
+                    Icons.Outlined.Search,
+                    contentDescription = "查找日志 (Ctrl+F)",
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            IconButton(onClick = onShowReasoning) {
+                Icon(Icons.Outlined.Psychology, contentDescription = "推理过程", modifier = Modifier.size(18.dp))
+            }
+            Box {
+                IconButton(onClick = { onShowLogSettings(true) }) {
+                    Icon(Icons.Outlined.Settings, contentDescription = "日志过滤", modifier = Modifier.size(18.dp))
+                }
+                LogFilterMenu(
+                    expanded = showLogSettings,
+                    onDismissRequest = { onShowLogSettings(false) },
+                    logLevelFilter = logs.levelFilter,
+                    onFilterChange = { logs.levelFilter = it },
+                )
+            }
+        }
+    }
+}
+
+/**
  * Browser-style find bar: a query field, the focused hit counter and up/down/close buttons.
  *
  * The query lives in [LogConsoleState], so the bar itself holds no state beyond focus.
@@ -266,6 +340,10 @@ private fun ConsoleFindBar(
             ) {
                 Box(
                     modifier = Modifier
+                        // The query field and the buttons share the bar, so the field takes what is
+                        // left instead of a fixed 160dp that overflows a narrow console.
+                        .weight(1f, fill = false)
+                        .widthIn(min = 72.dp, max = 240.dp)
                         .onPreviewKeyEvent { event -> onFindBarKey(logs, event) }
                 ) {
                     BasicTextField(
@@ -274,7 +352,7 @@ private fun ConsoleFindBar(
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodySmall.copy(color = scheme.onSurface),
                         cursorBrush = SolidColor(scheme.primary),
-                        modifier = Modifier.width(160.dp).focusRequester(focusRequester),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                         decorationBox = { field ->
                             Box(contentAlignment = Alignment.CenterStart) {
                                 if (logs.searchQuery.isEmpty()) {

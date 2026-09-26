@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.absolutePath
@@ -133,6 +134,8 @@ private fun ToolboxHero(modifier: Modifier = Modifier) {
                     "MCT 工具箱",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -151,11 +154,9 @@ private fun ToolboxSection(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle(title, icon)
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val columns = when {
-                maxWidth >= 720.dp -> 3
-                maxWidth >= 420.dp -> 2
-                else -> 1
-            }
+            // Two at most: these cards carry a title, a description and a trailing arrow, and a
+            // third column wraps every one of them.
+            val columns = if (maxWidth >= 420.dp) 2 else 1
             val spacing = 12.dp
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),

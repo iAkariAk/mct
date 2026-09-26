@@ -8,9 +8,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +23,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.WindowPlacement
@@ -44,6 +43,8 @@ fun FrameWindowScope.WindowTitleBar(
     windowState: WindowState,
     onCloseRequest: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onToggleConsole: () -> Unit = {},
+    consoleVisible: Boolean = false,
     rainbowAccent: Boolean = false,
 ) {
     val isMax = windowState.placement == WindowPlacement.Maximized
@@ -79,10 +80,23 @@ fun FrameWindowScope.WindowTitleBar(
                     Text(
                         "MCT - Minecraft 翻译工具",
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        // The window controls are fixed-width and 40dp tall, so a wrapped title
+                        // would draw a second line clipped by the bar instead of growing it.
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
+                // The console is chrome rather than a destination, so its toggle belongs with the
+                // other window controls instead of in the navigation area.
+                WinCtlBtn(onClick = onToggleConsole) {
+                    Icon(
+                        if (consoleVisible) Icons.Outlined.Terminal else Icons.Outlined.SmartDisplay,
+                        contentDescription = if (consoleVisible) "隐藏运行日志" else "显示运行日志",
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
                 WinCtlBtn(onClick = onOpenSettings) {
                     Icon(Icons.Outlined.Settings, contentDescription = "设置", modifier = Modifier.size(16.dp))
                 }

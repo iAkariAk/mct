@@ -54,45 +54,56 @@ fun ProjectWorkspacePage(
 
 @Composable
 private fun WorkspaceHeader(controller: ProjectController, project: ProjectHistoryEntry) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        HoverHint("返回项目列表") {
-            IconButton(onClick = controller::close) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "返回项目列表",
+    // Two rows: the project's name and directory, then its actions. Sharing one row let the
+    // weighted text column take the whole width, which at 500dp pushed the action icons out of the
+    // header entirely.
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            HoverHint("返回项目列表") {
+                IconButton(onClick = controller::close) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = "返回项目列表",
+                    )
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    project.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    project.directory,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Column(Modifier.weight(1f)) {
-            Text(
-                project.name,
-                style = MaterialTheme.typography.headlineSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                project.directory,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (controller.isDataLoading) {
-            LoadingIndicator(modifier = Modifier.size(20.dp))
-        }
-        HoverHint("重新读取 mct.toml、映射与缺失列表") {
-            IconButton(onClick = controller::refreshData, enabled = !controller.isDataLoading) {
-                Icon(Icons.Outlined.Refresh, contentDescription = "刷新项目数据", modifier = Modifier.size(20.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        ) {
+            if (controller.isDataLoading) {
+                LoadingIndicator(modifier = Modifier.size(20.dp))
             }
-        }
-        HoverHint("在资源管理器中打开 $PROJECT_FILE") {
-            IconButton(onClick = { controller.revealProjectFile(PROJECT_FILE) }) {
-                Icon(Icons.Outlined.Description, contentDescription = "打开 $PROJECT_FILE", modifier = Modifier.size(20.dp))
+            HoverHint("重新读取 mct.toml、映射与缺失列表") {
+                IconButton(onClick = controller::refreshData, enabled = !controller.isDataLoading) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新项目数据", modifier = Modifier.size(20.dp))
+                }
+            }
+            HoverHint("在资源管理器中打开 $PROJECT_FILE") {
+                IconButton(onClick = { controller.revealProjectFile(PROJECT_FILE) }) {
+                    Icon(Icons.Outlined.Description, contentDescription = "打开 $PROJECT_FILE", modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
@@ -166,7 +177,10 @@ private fun ProjectDashboardSection(controller: ProjectController) {
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val columns = if (maxWidth >= 720.dp) 2 else 1
+        // One column until a card can hold its title, its path and its trailing count without
+        // ellipsising the path, two once there is room — and never more: these cards carry a
+        // description and a file path, and a third column makes every one of them cramped.
+        val columns = if (maxWidth >= 560.dp) 2 else 1
         val spacing = 12.dp
         val rows = (cards.size + columns - 1) / columns
         // The rows share whatever height the function area has, but never drop below a comfortable
@@ -279,12 +293,37 @@ private fun ProjectFunctionCard(card: ProjectFunctionCardData, modifier: Modifie
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    card.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // The trailing count shares the title line instead of holding a column of its own:
+                // as a sibling of the text block it cost ~64dp on every card, which is what left the
+                // description wrapping mid-word on a narrow window.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        card.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (card.trailing != null) {
+                        Surface(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        ) {
+                            Text(
+                                card.trailing,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
                 Text(
                     card.supporting,
                     style = MaterialTheme.typography.bodyMedium,
@@ -299,21 +338,6 @@ private fun ProjectFunctionCard(card: ProjectFunctionCardData, modifier: Modifie
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-            if (card.trailing != null) {
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                ) {
-                    Text(
-                        card.trailing,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,

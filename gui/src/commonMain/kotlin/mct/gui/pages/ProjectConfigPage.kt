@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import mct.gui.components.*
 import mct.gui.model.ProjectSection
@@ -61,58 +62,79 @@ fun ProjectConfigSection(controller: ProjectController, modifier: Modifier = Mod
 
 @Composable
 private fun ConfigSectionHeader(controller: ProjectController, editor: ProjectConfigEditor) {
-    Row(
+    // Two rows: the title block, then the actions. A shared row let the weighted title consume the
+    // whole width, which wrapped and clipped the actions — and on a 500dp window it squeezed the
+    // title too.
+    Column(
         modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        HoverHint("返回功能区") {
-            IconButton(onClick = { controller.showSection(ProjectSection.Dashboard) }) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回功能区")
-            }
-        }
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("项目配置", style = MaterialTheme.typography.titleLarge)
-                if (editor.isDirty) {
-                    UnsavedChip()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            HoverHint("返回功能区") {
+                IconButton(onClick = { controller.showSection(ProjectSection.Dashboard) }) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回功能区")
                 }
             }
-            Text(
-                "$PROJECT_FILE — 注释以字段下方的提示显示",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        HoverHint("放弃未保存的修改，重新读取文件") {
-            IconButton(
-                onClick = { controller.refreshData(preserveEdits = false) },
-                enabled = editor.isDirty && !editor.isSaving && !controller.isCommandRunning,
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "放弃修改", modifier = Modifier.size(20.dp))
-            }
-        }
-        HoverHint("在资源管理器中打开 $PROJECT_FILE") {
-            IconButton(onClick = { controller.revealProjectFile(PROJECT_FILE) }) {
-                Icon(
-                    Icons.Outlined.Description,
-                    contentDescription = "打开 $PROJECT_FILE",
-                    modifier = Modifier.size(20.dp)
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "项目配置",
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (editor.isDirty) {
+                        UnsavedChip()
+                    }
+                }
+                Text(
+                    "$PROJECT_FILE — 注释以字段下方的提示显示",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Button(
-            onClick = controller::saveConfig,
-            enabled = editor.isDirty && !editor.isSaving && !controller.isCommandRunning,
-            shapes = ButtonDefaults.shapes(),
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            if (editor.isSaving) {
-                LoadingIndicator(modifier = Modifier.size(18.dp), color = LocalContentColor.current)
-            } else {
-                Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+            HoverHint("放弃未保存的修改，重新读取文件") {
+                IconButton(
+                    onClick = { controller.refreshData(preserveEdits = false) },
+                    enabled = editor.isDirty && !editor.isSaving && !controller.isCommandRunning,
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "放弃修改", modifier = Modifier.size(20.dp))
+                }
             }
-            Spacer(Modifier.width(8.dp))
-            Text("保存")
+            HoverHint("在资源管理器中打开 $PROJECT_FILE") {
+                IconButton(onClick = { controller.revealProjectFile(PROJECT_FILE) }) {
+                    Icon(
+                        Icons.Outlined.Description,
+                        contentDescription = "打开 $PROJECT_FILE",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Button(
+                onClick = controller::saveConfig,
+                enabled = editor.isDirty && !editor.isSaving && !controller.isCommandRunning,
+                shapes = ButtonDefaults.shapes(),
+            ) {
+                if (editor.isSaving) {
+                    LoadingIndicator(modifier = Modifier.size(18.dp), color = LocalContentColor.current)
+                } else {
+                    Icon(Icons.Outlined.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("保存")
+            }
         }
     }
 }
