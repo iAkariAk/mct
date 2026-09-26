@@ -205,6 +205,7 @@ sealed class ContentKind {
     ): ExtractionContent?
 
     @Serializable
+    @SerialName("text")
     data object Text : ContentKind() {
         context(_: LoggerHolder)
         override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent =
@@ -212,6 +213,7 @@ sealed class ContentKind {
     }
 
     @Serializable
+    @SerialName("command")
     data object Command : ContentKind() {
         context(_: LoggerHolder)
         override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? {
@@ -227,6 +229,7 @@ sealed class ContentKind {
     }
 
     @Serializable
+    @SerialName("structure")
     data class Structure(val format: FormatKind, val patterns: DataPointerPatternKind) : ContentKind() {
         context(_: LoggerHolder)
         override fun parse(raw: String, format: FormatKind, pattern: MCTPattern): ExtractionContent? = runCatching {
