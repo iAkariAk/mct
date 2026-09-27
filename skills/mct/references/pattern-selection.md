@@ -80,8 +80,10 @@ DataPointer 路径编码**，所以同一段文本在不同文件里可能需要
 `opt_in` 是可选的 **内置 cext 预设**列表，元素写成 `{"type": "<预设名>"}`。目前只有一个预设 `level_dat`（匹配 `level\\.dat`
 ，gzip NBT，抽取 `>#>#Data>#LevelName`）。只写 `customs` 也可以，仓库里的 `example/cext.json` 就是纯 `customs` 的形式。
 
-三个 `kind` 的 `patterns` 默认都继承同名层，所以写 `{"type":"mcjson"}` 就够了；要改就用
-`{"type":"custom","patterns":[…],"inherit_from":"mcjson"}` 这种形式（单独的 `{"type":"inherit_from"}` 无法解码）。
+三个 `kind` 的 `patterns` 默认都继承同名层，所以写 `{"type":"mcjson"}` 就够了。要改用组合形式：
+
+- 叠加：`{"type":"custom","patterns":[…],"inherit_from":"mcjson"}`
+- 只继承整层：`{"type":"inherit_from","inherit":"mcjson"}`
 
 ## 第四步：验证
 

@@ -335,9 +335,19 @@ panic，但不给路径时内置被清空，该层实际上变成不过滤。
 | `kit official download -mv <版本> -o <目录>`                                   | 下载 Mojang 官方语言文件                              |
 | `kit official combine -f <源语言> -t <目标语言> -o <术语表>`                   | 合并出 MCT 术语表（**零 token**）                     |
 | `kit replace-all -i <抽取> -o <输出> -r <文本>`                                | 把所有抽取结果替换成同一文本（调试用）                |
-| `kit display <text-component> [-f (json\|snbt\|auto)]`                         | 渲染文本组件                                          |
+| `kit display text <text-component> [-f (json\|snbt\|auto)]`                   | 渲染并高亮一个文本组件                                |
+| `kit display file mappings -i <mappings.json>`                                 | 逐行高亮渲染译文；`null` 显示为 `keep the original`   |
+| `kit display file missing -i <missing.json>`                                   | 逐行高亮渲染待译项                                    |
 | `kit convert`                                                                  | NBT ↔ SNBT ↔ JSON 互转                                |
 | `kit map view\|edit`                                                           | 地图文件 ↔ 图片                                       |
+
+`kit display` 是**高亮渲染**工具：它把文本组件或译文按颜色渲染出来，比读原始 JSON 直观得多，校对时用得上。
+
+```bash
+mct kit display text '{"text":"Hello","color":"gold"}'      # 渲染单个文本组件，-f 可指定 json/snbt/auto
+mct kit display file mappings -i <项目>/mappings.json       # 逐条渲染译文
+mct kit display file missing  -i <项目>/missing.json        # 逐条渲染待译项
+```
 
 `kit official download` 加 `combine` 是零 token 拿到官方术语表的路径。只在用户要求 100% 遵循 Minecraft 官方译名时使用；你也可以把它当作
 agent 自翻时的可选术语来源。
