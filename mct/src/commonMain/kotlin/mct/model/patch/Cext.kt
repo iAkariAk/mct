@@ -1,5 +1,6 @@
 package mct.model.patch
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.cext.CextFormatKind
 
@@ -7,6 +8,7 @@ import mct.cext.CextFormatKind
  *  @property path The path to the file relating to the workspace dir
  */
 @Serializable
+@SerialName("cext")
 data class CextExtractionGroup(
     val path: String,
     val kind: CextFormatKind,
@@ -20,6 +22,7 @@ data class CextExtractionGroup(
  *  @property path The path to the file relating to the workspace dir
  */
 @Serializable
+@SerialName("cext")
 data class CextReplacementGroup(
     val path: String,
     val kind: CextFormatKind,
