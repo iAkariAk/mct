@@ -88,24 +88,28 @@ internal fun extractTextFromCommand(
 
     if (command.name == "execute" || command.name == "return") { // handle nested subcommand after `run`
         val index = command.args.indexOfFirst { it.content == "run" }
-        val subBeginPos = index + 1
-        if (subBeginPos == command.args.size) return emptyList()
-        val rawSubcommand = command.args.subList(subBeginPos, command.args.size)
-        val subName = rawSubcommand.first()
-        val subBeginIndexRel = subName.relativeIndices.first
-        val subBeginIndexAbs = command.indices.first + subBeginIndexRel
-        val subIndicesAbs = subBeginIndexAbs..command.indices.last
-        val subRaw = command.raw.substring(subBeginIndexRel - command.trimOffset)
-        val subArgs = rawSubcommand.subList(1, rawSubcommand.size).map { arg ->
-            MCCommand.Arg(
-                relativeIndices = (arg.relativeIndices.first - subBeginIndexRel)..(arg.relativeIndices.last - subBeginIndexRel),
-                indices = arg.indices,
-                content = arg.content
-            )
+        // legacy: https://zh.minecraft.wiki/w/%E5%91%BD%E4%BB%A4/execute/%E6%97%A7%E7%89%88
+        val isLegacy = index == -1
+        val subBeginPos = if (isLegacy) getLegacyExecuteSubBeginPos(command)  else index + 1
+
+        if (subBeginPos > 0 && subBeginPos < command.args.size) {
+            val rawSubcommand = command.args.subList(subBeginPos, command.args.size)
+            val subName = rawSubcommand.first()
+            val subBeginIndexRel = subName.relativeIndices.first
+            val subBeginIndexAbs = command.indices.first + subBeginIndexRel
+            val subIndicesAbs = subBeginIndexAbs..command.indices.last
+            val subRaw = command.raw.substring(subBeginIndexRel - command.trimOffset)
+            val subArgs = rawSubcommand.subList(1, rawSubcommand.size).map { arg ->
+                MCCommand.Arg(
+                    relativeIndices = (arg.relativeIndices.first - subBeginIndexRel)..(arg.relativeIndices.last - subBeginIndexRel),
+                    indices = arg.indices,
+                    content = arg.content
+                )
+            }
+            val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs, false)
+            val fromPattern = extractTextFromCommand(subCommand, patterns, false)
+            return mergeResult(fromPattern)
         }
-        val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs, false)
-        val fromPattern = extractTextFromCommand(subCommand, patterns, false)
-        return mergeResult(fromPattern)
     }
     val fromPattern = (patterns.command[command.name]?.asSequence() ?: emptySequence())
         .filter { it.preCondition.matches(command) }
@@ -218,6 +222,13 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
 
         else -> emptySequence()
     }
+
+private fun getLegacyExecuteSubBeginPos(command: MCCommand): Int =
+    // execute <entity> <x> <y> <z> <command>
+    if (command.args.size >= 5) {
+        // execute <entity> <x> <y> <z> detect <x2> <y2> <z2> <block> <data|state> <command>
+        if (command.args.size >= 11 && command.args[4].content == "detect") 11 else 5
+    } else -1
 
 private fun computeGreedyRange(
     command: MCCommand,
