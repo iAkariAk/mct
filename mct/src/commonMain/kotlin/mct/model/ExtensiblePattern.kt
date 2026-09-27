@@ -57,9 +57,7 @@ sealed interface DataPointerPatternKind {
 
     fun patternsFrom(pattern: MCTPattern): List<DataPointerPattern>?
 
-    @Serializable
-    @SerialName("inherit_from")
-    enum class InheritFrom : DataPointerPatternKind {
+    enum class InheritSource {
         @SerialName("nbt")
         Nbt,
 
@@ -69,7 +67,7 @@ sealed interface DataPointerPatternKind {
         @SerialName("command_data")
         CommandData;
 
-        override fun patternsFrom(pattern: MCTPattern) = when (this) {
+        fun patternsFrom(pattern: MCTPattern) = when (this) {
             Nbt -> pattern.nbt
             MCJson -> pattern.mcjson
             CommandData -> pattern.commandData
@@ -77,10 +75,22 @@ sealed interface DataPointerPatternKind {
     }
 
     @Serializable
+    @SerialName("inherit_from")
+    data class InheritFrom(val inherit: InheritSource) : DataPointerPatternKind {
+        companion object {
+            val Nbt = InheritFrom(InheritSource.Nbt)
+            val MCJson = InheritFrom(InheritSource.MCJson)
+            val CommandData = InheritFrom(InheritSource.CommandData)
+        }
+
+        override fun patternsFrom(pattern: MCTPattern) = inherit.patternsFrom(pattern)
+    }
+
+    @Serializable
     @SerialName("custom")
     data class Custom(
         val patterns: List<DataPointerPattern>?,
-        @SerialName("inherit_from") val inheritFrom: InheritFrom? = null
+        @SerialName("inherit_from") val inheritFrom: InheritSource? = null
     ) : DataPointerPatternKind {
         override fun patternsFrom(pattern: MCTPattern): List<DataPointerPattern>? {
             val inheritFrom = inheritFrom?.patternsFrom(pattern)

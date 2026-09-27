@@ -61,7 +61,7 @@ private const val CEXT_REPLACEMENTS = "cext_replacements.json"
 
 class ProjectCommands : SuspendingCliktCommand(name = "project") {
     init {
-        subcommands(Init(), Update(), TermExtract(), Translate(), Build(), AssemblePatch())
+        subcommands(Init(), Update(), Check(), TermExtract(), Translate(), Build(), AssemblePatch())
     }
 
     override fun help(context: Context) = "Project manager"
@@ -268,6 +268,23 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
         }
     }
 }
+
+private class Check : ProjectCommand("check", "Check and update `missing.json`") {
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        ensureExtracted()
+        val allTexts = cache(POOL_CACHE).readJson<TranslationPool>()
+        val translated = mappingFile.readJson<TranslationMapping>()
+        val missings = allTexts.filterNot { it in translated }
+        if (missings.isEmpty()) {
+            printlnGreen("All texts were translated; no texts miss")
+        } else {
+            printlnYellow("Missing " + bold("${missings.size}") + " items (${allTexts.size} total extracted)")
+        }
+        missingFile.writeJson(missings)
+    }
+}
+
 
 private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
     context(_: Raise<MCTError>)
