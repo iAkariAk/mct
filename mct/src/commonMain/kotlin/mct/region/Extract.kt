@@ -38,8 +38,7 @@ fun MCTWorkspace.extractFromRegion(
                                 dimension = dimension.id,
                                 kind = kind,
                                 coord = Coord(region.regionX, region.regionZ),
-                                extractions = extractions.toList().takeIf { it.isNotEmpty() }
-                                    ?: return@flow
+                                extractions = extractions.toList().takeIf { it.isNotEmpty() } ?: return@flow
                             )
                         )
                     }.flowOn(Dispatchers.Default)

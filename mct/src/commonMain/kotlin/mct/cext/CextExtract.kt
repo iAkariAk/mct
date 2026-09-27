@@ -64,7 +64,7 @@ fun MCTWorkspace.extractByCext(pattern: MCTPattern): Flow<CextExtractionGroup> {
                     val tag = Snbt.decodeFromString<NbtTag>(snbt)
                     tag.extractText(cextKind.attachTo(pattern)).map(::SnbtExtraction).toList()
                 }
-            }
+            }.ifEmpty { return@parMapNotNullUnordered null }
             CextExtractionGroup(pathStr, cextKind, extractions)
         }
 }
