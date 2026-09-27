@@ -9,6 +9,7 @@ import mct.extractAll
 import mct.kit.TranslationMapping
 import mct.model.patch.*
 import mct.util.io.computeHashTree
+import mct.util.io.unixString
 
 suspend fun MCTWorkspace.createPatch(
     pattern: MCTPattern,
@@ -25,8 +26,9 @@ suspend fun MCTWorkspace.createPatch(
     }
 
     val validation = if (!validation) null else {
-        val hashTree =
-            fs.computeHashTree(rootDir, SHA1).associate { (path, hash) -> path.relativeTo(rootDir).normalized().toString() to hash }
+        val hashTree = fs.computeHashTree(rootDir, SHA1).associate { (path, hash) ->
+            path.relativeTo(rootDir).unixString() to hash
+        }
         PatchValidation(hashTree)
     }
 

@@ -127,7 +127,7 @@ private fun Extractor.extractAsGroup(
     logger.debug { "Extracted ${extractions.size} texts from ${reading.file.path}" }
     return DatapackExtractionGroup(
         source = sourcePath.name,
-        path = reading.file.path.toString(),
+        path = reading.file.path.unixString(),
         extractions
     )
 }

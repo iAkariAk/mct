@@ -15,6 +15,8 @@ val Path.Companion.ROOT: Path
     get() = _ROOT
 
 fun List<String>.toPath(): Path = joinToString(DIRECTORY_SEPARATOR).toPath()
+
+fun Path.unixString() = segments.joinToString("/")
 fun Path.appendAfterName(suffix: String): Path = (segments.subList(0, segments.size - 1) + (filename + suffix)).toPath()
 
 // aka. nameWithoutExtension

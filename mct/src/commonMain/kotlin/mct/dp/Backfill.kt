@@ -20,6 +20,7 @@ import mct.util.io.walkZip
 import net.benwoodworth.knbt.NbtTag
 import net.benwoodworth.knbt.decodeFromSource
 import net.benwoodworth.knbt.encodeToSink
+import okio.Path.Companion.toPath
 
 
 suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackReplacementGroup>) = coroutineScope {
@@ -34,15 +35,15 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
         launch(Dispatchers.IO) {
             val m = fs.metadata(datapackPath)
             val walk = if (m.isDirectory) fs.walkDirectory(datapackPath) else fs.walkZip(datapackPath)
-            val replacementGroups = replacementGroups.associateBy { it.path }
+            val replacementGroups = replacementGroups.associateBy { it.path.toPath() }
             val writing = walk.write {
-                !replacementGroups[it.path.toString()]?.replacements.isNullOrEmpty()
+                !replacementGroups[it.path]?.replacements.isNullOrEmpty()
             }
             writing.forEach handleFile@{ (file, tmp1, tmp2, onNotChanged, onFailure) ->
                 val (getSource, closeSource) = tmp1
                 val (getSink, closeSink) = tmp2
                 val path = file.path
-                val replacementGroup = replacementGroups[path.toString()]!!
+                val replacementGroup = replacementGroups[path]!!
                 val source = getSource()
                 try {
                     @Suppress("UNCHECKED_CAST")
