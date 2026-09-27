@@ -90,10 +90,10 @@ internal fun extractTextFromCommand(
         val index = command.args.indexOfFirst { it.content == "run" }
         // legacy: https://zh.minecraft.wiki/w/%E5%91%BD%E4%BB%A4/execute/%E6%97%A7%E7%89%88
         val isLegacy = index == -1
-        val subBeginPos = if (isLegacy) getLegacyExecuteSubBeginPos(command)  else index + 1
+        val subBeginIndex = if (isLegacy) getLegacyExecuteSubBeginIndex(command) else index + 1
 
-        if (subBeginPos > 0 && subBeginPos < command.args.size) {
-            val rawSubcommand = command.args.subList(subBeginPos, command.args.size)
+        if (subBeginIndex >= 0 && subBeginIndex < command.args.size) {
+            val rawSubcommand = command.args.subList(subBeginIndex, command.args.size)
             val subName = rawSubcommand.first()
             val subBeginIndexRel = subName.relativeIndices.first
             val subBeginIndexAbs = command.indices.first + subBeginIndexRel
@@ -223,11 +223,11 @@ internal fun SnbtTag.extractTextsByPointer(snbt: String, snbtOffset: Int = 0): S
         else -> emptySequence()
     }
 
-private fun getLegacyExecuteSubBeginPos(command: MCCommand): Int =
+private fun getLegacyExecuteSubBeginIndex(command: MCCommand): Int =
     // execute <entity> <x> <y> <z> <command>
     if (command.args.size >= 5) {
         // execute <entity> <x> <y> <z> detect <x2> <y2> <z2> <block> <data|state> <command>
-        if (command.args.size >= 11 && command.args[4].content == "detect") 11 else 5
+        if (command.args.size >= 11 && command.args[5].content == "detect") 10 else 4
     } else -1
 
 private fun computeGreedyRange(
