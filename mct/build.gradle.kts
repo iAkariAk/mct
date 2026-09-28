@@ -2,6 +2,7 @@
 
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.powerassert.gradle.PowerAssertCompilationFilter
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -71,6 +72,6 @@ kotlin {
 
     powerAssert {
         functions = listOf("kotlin.assert", "kotlin.require", "kotlin.check")
-        includedSourceSets = listOf("commonMain", "commonTest")
+        compilationFilter = PowerAssertCompilationFilter.ALL
     }
 }

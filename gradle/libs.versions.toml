@@ -1,52 +1,48 @@
 [versions]
-adaptive-navigation-suite = "1.12.0-alpha03"
+adaptive-navigation-suite = "1.13.0-alpha01"
 agp = "9.4.1"
-navigation3 = "1.2.0-beta01"
 androidx-activity = "1.13.0"
 androidx-lifecycle = "2.11.0"
-desugar-jdk-libs = "2.1.5"
 arrow = "2.2.3"
+beryx-runtime = "2.0.1"
 catelog-update = "1.1.1"
 clikt = "5.1.0"
-collections-immutable = "0.5.1"
-compose = "1.11.1"
+collections-immutable = "0.5.2"
+compose = "1.12.1"
 coroutines = "1.11.0"
-filekit = "0.14.2"
-graalvm-native = "1.1.7"
+desugar-jdk-libs = "2.1.5"
+filekit = "0.16.0"
+graalvm-native = "1.1.14"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
 kiteimage = "0.1.0"
-kmp-zip = "0.13.0"
-kmpalette = "4.0.0-beta02"
+kmp-zip = "1.0.0"
+kmpalette = "4.0.0"
 knbt = "0.11.10-SNAPSHOT"
 koin = "4.2.2"
-kotest = "6.2.3"
-kotlin = "2.4.10"
+kotest = "6.2.5"
+kotlin = "2.4.20"
 kotlinx-io = "0.9.1"
 kotlinx-schema-generator-json = "0.6.0"
-ksp = "2.3.11"
+ksp = "2.3.12"
 ktoml = "0.7.1"
-ktor = "3.5.2"
+ktor = "3.6.0"
 material-icons-extended = "1.7.3"
-material-kolor = "5.0.0"
-material3 = "1.12.0-alpha03"
-mordant = "3.0.2"
-okio = "3.18.1"
+material-kolor = "5.0.1"
+material3 = "1.13.0-alpha01"
+mordant = "3.1.0"
+navigation3 = "1.3.0-alpha01"
+okio = "3.18.2"
 openai-client = "4.1.0"
-proguard = "7.9.1"
-resources = "0.15.0"
+proguard = "7.10.0"
+resources = "0.16.2"
 serialization = "1.11.0"
 shadow = "9.6.1"
-slf4j = "2.0.18"
-beryx-runtime = "2.0.1"
+slf4j = "2.0.20"
 
 [libraries]
-androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
-com-android-desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
-kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 adaptive-navigation-suite = { module = "org.jetbrains.compose.material3:material3-adaptive-navigation-suite", version.ref = "adaptive-navigation-suite" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
 arrow-core = { module = "io.arrow-kt:arrow-core" }
@@ -57,6 +53,7 @@ arrow-optics-ksp = { module = "io.arrow-kt:arrow-optics-ksp-plugin", version.ref
 arrow-stack = { module = "io.arrow-kt:arrow-stack", version.ref = "arrow" }
 arrow-suspendapp = { module = "io.arrow-kt:suspendapp", version.ref = "arrow" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+com-android-desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
 compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
@@ -68,10 +65,10 @@ filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose
 goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
-kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
-kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
 kiteimage = { module = "io.github.yuroyami:kiteimage", version.ref = "kiteimage" }
 kiteimage-compose = { module = "io.github.yuroyami:kiteimage-compose", version.ref = "kiteimage" }
+kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
+kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
 kmpzip-core = { module = "no.synth:kmp-zip", version.ref = "kmp-zip" }
 kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
@@ -83,14 +80,15 @@ kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", versio
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "collections-immutable" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-okio = { module = "org.jetbrains.kotlinx:kotlinx-io-okio", version.ref = "kotlinx-io" }
 kotlinx-schema-generator-json = { module = "org.jetbrains.kotlinx:kotlinx-schema-generator-json", version.ref = "kotlinx-schema-generator-json" }
+kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
-kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "serialization" }
 ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
 ktoml-file = { module = "com.akuleshov7:ktoml-file", version.ref = "ktoml" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
@@ -102,6 +100,8 @@ material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "m
 mordant = { module = "com.github.ajalt.mordant:mordant", version.ref = "mordant" }
 mordant-coroutines = { module = "com.github.ajalt.mordant:mordant-coroutines", version.ref = "mordant" }
 mordant-markdown = { module = "com.github.ajalt.mordant:mordant-markdown", version.ref = "mordant" }
+navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+navigation3-ui = "org.jetbrains.androidx.navigation3:navigation3-ui:1.2.0-beta01"
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
 openai-client = { module = "com.aallam.openai:openai-client", version.ref = "openai-client" }
