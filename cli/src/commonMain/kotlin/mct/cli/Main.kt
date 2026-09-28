@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.command.main
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.mordant.platform.MultiplatformSystem.exitProcess
+import mct.MCTBuildInfo
 import mct.cli.cmd.cext.CextCommands
 import mct.cli.cmd.datapack.DatapackCommands
 import mct.cli.cmd.kits.KitCommands
@@ -13,6 +14,7 @@ import mct.cli.cmd.kits.PatchCommands
 import mct.cli.cmd.project.ProjectCommands
 import mct.cli.cmd.region.RegionCommands
 import mct.cli.cmd.test.TestCommands
+import kotlin.time.Instant
 
 // calling `exitProcess` in CoroutineScope will cause deadlock
 fun main(args: Array<String>) = SuspendApp(uncaught = ::handleUncaught) {
@@ -29,7 +31,11 @@ class MCT : SuspendingCliktCommand("MCT") {
         configureContext {
             exitProcess = { statusCode -> throw CliExit(statusCode) }
         }
-        versionOption("SNAPSHOT")
+        versionOption("SNAPSHOT") {
+            val version = MCTBuildInfo.VERSION
+            val builtTime = Instant.fromEpochMilliseconds(MCTBuildInfo.BUILD_TIME)
+            "$version built on $builtTime"
+        }
         subcommands(
             DatapackCommands(),
             RegionCommands(),

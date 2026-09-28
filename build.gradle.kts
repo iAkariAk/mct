@@ -1,11 +1,10 @@
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi
 
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.kmp.library) apply false
     alias(libs.plugins.beryx.runtime) apply false
+    alias(libs.plugins.buildkonfig) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.kotlin.powerassert) apply false
     alias(libs.plugins.kotlin.serialization) apply false
@@ -24,7 +23,6 @@ subprojects {
     plugins.withId("org.jetbrains.kotlin.multiplatform") {
         val kotlin = extensions.getByType<KotlinMultiplatformExtension>()
         kotlin.jvmToolchain(25)
-        @OptIn(ExperimentalKotlinGradlePluginApi::class, KotlinNativeCacheApi::class)
         kotlin.compilerOptions {
             freeCompilerArgs.addAll(
                 "-Xcontext-parameters",
@@ -34,6 +32,7 @@ subprojects {
                 "-Xwarning-level=NOTHING_TO_INLINE:disabled,EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING:disabled"
             )
             optIn.addAll(
+                "kotlinx.coroutines.FlowPreview",
                 "kotlinx.coroutines.ExperimentalCoroutinesApi",
                 "arrow.core.raise.ExperimentalRaiseAccumulateApi",
                 "kotlin.contracts.ExperimentalContracts",

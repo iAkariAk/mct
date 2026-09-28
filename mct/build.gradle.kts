@@ -1,10 +1,14 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalWasmDsl::class)
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalWasmDsl::class, ExperimentalTime::class)
+@file:Suppress("UnstableApiUsage")
 
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.powerassert.gradle.PowerAssertCompilationFilter
+import kotlin.time.ExperimentalTime
+import com.codingfeline.buildkonfig.compiler.FieldSpec.Type as BKType
 
 plugins {
+    alias(libs.plugins.buildkonfig)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.powerassert)
@@ -73,5 +77,15 @@ kotlin {
     powerAssert {
         functions = listOf("kotlin.assert", "kotlin.require", "kotlin.check")
         compilationFilter = PowerAssertCompilationFilter.ALL
+    }
+}
+
+buildkonfig {
+    packageName = "mct"
+    exposeObjectWithName = "MCTBuildInfo"
+
+    defaultConfigs {
+        buildConfigField(BKType.STRING, "VERSION", version.toString(), const = true)
+        buildConfigField(BKType.LONG, "BUILD_TIME", System.currentTimeMillis().toString(), const = true)
     }
 }

@@ -5,6 +5,7 @@ androidx-activity = "1.13.0"
 androidx-lifecycle = "2.11.0"
 arrow = "2.2.3"
 beryx-runtime = "2.0.1"
+buildkonfig = "0.23.0"
 catelog-update = "1.1.1"
 clikt = "5.1.0"
 collections-immutable = "0.5.2"
@@ -133,6 +134,7 @@ okio = [
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 beryx-runtime = { id = "org.beryx.runtime", version.ref = "beryx-runtime" }
+buildkonfig = { id = "com.codingfeline.buildkonfig", version.ref = "buildkonfig"}
 catelog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "catelog-update" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
