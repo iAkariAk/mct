@@ -65,6 +65,7 @@ fun parseCommands(content: String): List<MCCommand> {
 
         var lineBeginMode = true
         var isMarco = false
+        var isBeginWithSlash = false
         var commandName: String? = null
         val args = mutableListOf<MCCommand.Arg>()
         val stateStack = ArrayDeque<State>().apply { push(RootState) }
@@ -86,7 +87,8 @@ fun parseCommands(content: String): List<MCCommand> {
             )
         }
 
-        for ((col, c) in line.withIndex()) {
+        for (col in line.indices) {
+            val c = line[col]
             val peekedState = stateStack.peek()
             check(stateStack.bottom() == RootState) {
                 "Fatal error due to the RootState being replaced."
@@ -115,7 +117,13 @@ fun parseCommands(content: String): List<MCCommand> {
                     }
 
                     '/' -> {
-                        lineBeginMode = false
+                        if (isBeginWithSlash) {
+                            logger.error {
+                                "Invali command began with double slashes // at $line"
+                            }
+                            return
+                        }
+                        isBeginWithSlash = true
                         continue
                     }
                 }
@@ -205,7 +213,8 @@ fun parseCommands(content: String): List<MCCommand> {
     val line = StringBuilder()
     var lastC: Char? = null
     var lineStart = 0
-    for ((charOffset, c) in content.withIndex()) {
+    for (charOffset in content.indices) {
+        val c = content[charOffset]
         if (c == '\n') {
             handleLine(lineStart, line.toString())
             line.clear()

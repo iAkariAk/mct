@@ -94,8 +94,10 @@ internal fun extractTextFromCommand(
 
         if (subBeginIndex >= 0 && subBeginIndex < command.args.size) {
             val rawSubcommand = command.args.subList(subBeginIndex, command.args.size)
-            val subName = rawSubcommand.first()
-            val subBeginIndexRel = subName.relativeIndices.first
+            val subNameArg = rawSubcommand.first()
+            val subBeginIndexRel = subNameArg.relativeIndices.first
+            val subName =
+                subNameArg.content.removePrefix("/") // legacy execute allow subcommand to begin with the slash
             val subBeginIndexAbs = command.indices.first + subBeginIndexRel
             val subIndicesAbs = subBeginIndexAbs..command.indices.last
             val subRaw = command.raw.substring(subBeginIndexRel - command.trimOffset)
@@ -106,7 +108,7 @@ internal fun extractTextFromCommand(
                     content = arg.content
                 )
             }
-            val subCommand = MCCommand(subRaw, subName.content, subIndicesAbs, subArgs, false)
+            val subCommand = MCCommand(subRaw, subName, subIndicesAbs, subArgs, false)
             val fromPattern = extractTextFromCommand(subCommand, patterns, false)
             return mergeResult(fromPattern)
         }

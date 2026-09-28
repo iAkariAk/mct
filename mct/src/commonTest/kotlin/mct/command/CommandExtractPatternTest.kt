@@ -722,6 +722,11 @@ class CommandExtractPatternTest : FreeSpec({
             }
         }
 
+        "legacy execute as @p run say" { // before 1.12.2 (inclusive)
+            shouldMatches("execute @p ~ ~ ~ say Hello world", "Hello world")
+            shouldMatches("execute @p ~ ~ ~ /say Hello world", "Hello world")
+        }
+
         "execute as @p run say" {
             shouldMatches("execute as @p run say Hello world", "Hello world")
         }
