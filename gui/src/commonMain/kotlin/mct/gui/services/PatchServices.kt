@@ -95,6 +95,11 @@ suspend fun applyPatchFile(
                 env.logger.error { "补丁校验失败，共 ${result.errors.size} 处与创建补丁时不一致，补丁未应用：" }
                 result.errors.forEach { env.logger.error { it.describe() } }
             }
+
+            is PatchResult.PreprocessFailure -> {
+                env.logger.error { "预处理失败，共 ${result.errors.size} 条原因，补丁未应用：" }
+                result.errors.forEach { env.logger.error { "${it.path}: ${it.reason.message}" } }
+            }
         }
     }.onLeft { env.logger.error { it.message } }
 }

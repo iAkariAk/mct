@@ -7,6 +7,9 @@ import arrow.core.raise.either
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.associate
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import mct.MCTWorkspace
 import mct.cext.backfillCext
@@ -17,10 +20,12 @@ import mct.region.backfillRegion
 import mct.util.IO
 import mct.util.io.HashKind.SHA1
 import mct.util.io.computeHashTree
+import mct.util.io.unixString
 
 sealed interface PatchResult {
     data class Success(val warnings: List<HashValidatingFailure>) : PatchResult
     data class ValidationFailure(val errors: List<HashValidatingFailure>) : PatchResult
+    data class PreprocessFailure(val errors: List<PreprocessingOperationResult.Failure>) : PatchResult
 }
 
 sealed interface HashValidatingFailure {
@@ -50,13 +55,21 @@ suspend fun MCTWorkspace.applyPatch(
     val validation = patch.validation
     val needValidating = validation != null && strategy != Ignore
     val validatingFailures = if (needValidating) {
-        val actual =
-            fs.computeHashTree(rootDir, SHA1).associate { (path, hash) -> path.relativeTo(rootDir).toString() to hash }
+        val actual = fs.computeHashTree(rootDir, SHA1).associate { (path, hash) ->
+            path.relativeTo(rootDir).unixString() to hash
+        }
         actual.validate(validation.hashTree)
     } else null
 
     if (validation != null && strategy == Failure && validatingFailures?.isNotEmpty() == true) {
         return PatchResult.ValidationFailure(validatingFailures)
+    }
+
+    val (ordered, unordered) = applyPreprocessing(patch.preprocessing)
+    val operationResults = merge(ordered, unordered).flowOn(Dispatchers.IO).toList()
+    val operationErrors = operationResults.filterIsInstance<PreprocessingOperationResult.Failure>()
+    if (operationErrors.isNotEmpty()) {
+        return PatchResult.PreprocessFailure(operationErrors)
     }
 
     val replacementGroups = when (patch) {

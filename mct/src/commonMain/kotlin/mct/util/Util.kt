@@ -72,44 +72,10 @@ inline fun String.findAll(str: String): Sequence<IntRange> = sequence {
     }
 }
 
-interface StringIndices {
-    val indices: IntRange
-    val content: String
-
-    operator fun component1() = indices
-    operator fun component2() = content
-}
-
-fun StringIndices(indices: IntRange, content: String): StringIndices = StringIndicesImpl(indices, content)
-
-private class StringIndicesImpl(
-    override val indices: IntRange,
-    override val content: String
-) : StringIndices {
-    override fun toString(): String {
-        return "StringIndices(indices=$indices, content='$content')"
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || this::class != other::class) return false
-
-        other as StringIndicesImpl
-
-        if (indices != other.indices) return false
-        if (content != other.content) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = indices.hashCode()
-        result = 31 * result + content.hashCode()
-        return result
-    }
-}
-
 inline fun IntRange.offset(offset: Int) = if (offset != 0) (first + offset)..(last + offset) else this
+
+inline val IntRange.size
+    get() = last - first + 1
 
 @JvmName("partition$1")
 inline fun <reified P, reified C : P> Iterable<P>.partition(): Pair<List<C>, List<P>> {

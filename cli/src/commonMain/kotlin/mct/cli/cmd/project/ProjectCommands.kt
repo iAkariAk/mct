@@ -18,6 +18,8 @@ import com.github.ajalt.mordant.widgets.Panel
 import com.github.ajalt.mordant.widgets.Text
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.toList
 import mct.MCTError
 import mct.MCTWorkspace
@@ -40,7 +42,7 @@ import mct.kit.exportIntoPool
 import mct.model.patch.*
 import mct.mtl.MTLX
 import mct.mtl.translateByMTLX
-import mct.patch.createPatch
+import mct.patch.*
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
 import mct.util.io.copyToRecursively
@@ -50,6 +52,7 @@ import mct.util.io.writeJson
 import mct.util.unreachable
 import okio.Path
 
+private const val PREPROCESSING = "preprocessing.json"
 private const val POOL_CACHE = "all_texts.json"
 private const val REGION_EXTRACTION_CACHE = "region_extractions.json"
 private const val DATAPACK_EXTRACTION_CACHE = "datapack_extractions.json"
@@ -61,7 +64,7 @@ private const val CEXT_REPLACEMENTS = "cext_replacements.json"
 
 class ProjectCommands : SuspendingCliktCommand(name = "project") {
     init {
-        subcommands(Init(), Update(), Check(), TermExtract(), Translate(), Build(), AssemblePatch())
+        subcommands(Init(), Update(), Check(), Preprocessing(), TermExtract(), Translate(), Build(), AssemblePatch())
     }
 
     override fun help(context: Context) = "Project manager"
@@ -130,9 +133,12 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     }
 
     val patch by lazy { projectConfig.patch }
+    val preprocessingDir by lazy { projectDir / "preprocessing" }
     val srcDir by lazy { projectDir / "src" }
+    val buildDir by lazy { projectDir / "build" }
     val missingFile by lazy { projectDir / MISSING }
     val poolFile by lazy { cache(POOL_CACHE) }
+    val preprocessingFile by lazy { cache(PREPROCESSING) }
     val regionExtractionFile by lazy { cache(REGION_EXTRACTION_CACHE) }
     val datapackExtractionFile by lazy { cache(DATAPACK_EXTRACTION_CACHE) }
     val cextExtractionFile by lazy { cache(CEXT_EXTRACTION_CACHE) }
@@ -266,6 +272,13 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
         } else {
             printlnGreen("No new items found (${pool.size} total extracted, all mapped)")
         }
+
+        if (!fs.exists(preprocessingDir)) {
+            printlnBlue("Preprocessing directory don't exist; skip to generate preprocessing.")
+        } else {
+            val preprocessing = w.createPreprocessing(preprocessingDir)
+            preprocessingFile.writeJson(preprocessing, projectConfig.prettyJson)
+        }
     }
 }
 
@@ -285,6 +298,19 @@ private class Check : ProjectCommand("check", "Check and update `missing.json`")
     }
 }
 
+private class Preprocessing : ProjectCommand("preprocessing", "Generate preprocessing file") {
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        val w = workspace()
+        if (!fs.exists(preprocessingDir)) {
+            printlnBlue("Preprocessing directory don't exist; skip to generate preprocessing.")
+        } else {
+            val preprocessing = w.createPreprocessing(preprocessingDir)
+            preprocessingFile.writeJson(preprocessing, projectConfig.prettyJson)
+            printlnGreen("Generated preprocessing file at $preprocessingFile")
+        }
+    }
+}
 
 private class TermExtract : ProjectCommand("term", "Extract terms via AI") {
     context(_: Raise<MCTError>)
@@ -495,23 +521,39 @@ private class Build : ProjectCommand("build", "Build translated world") {
             }
         } else emptyList()
 
-        val targetDir = projectDir / "build"
         if (!fs.exists(srcDir)) {
             panic("Source world directory not found: $srcDir")
         }
-        terminal.println(cyan("Copying world to $targetDir ..."))
-        if (fs.exists(targetDir)) {
-            fs.deleteRecursively(targetDir)
+        terminal.println(cyan("Copying world to $buildDir ..."))
+        if (fs.exists(buildDir)) {
+            fs.deleteRecursively(buildDir)
         }
         try {
-            context(fs) { srcDir.copyToRecursively(targetDir) }
+            context(fs) { srcDir.copyToRecursively(buildDir) }
         } catch (e: Exception) {
             printlnRed("Failed to copy world: ${e.message ?: "unknown error"}")
             panic("Failed to copy world: ${e.message ?: "unknown error"}")
         }
         printlnGreen("World copied.")
 
-        val buildWorkspace = workspace(targetDir)
+        val buildWorkspace = workspace(buildDir)
+
+        if (!fs.exists(preprocessingFile)) {
+            printlnBlue("Preprocessing file don't exist; skip to preprocessing world.")
+        } else {
+            val preprocessing = preprocessingFile.readJson<PatchPreprocessing>()
+            val (ordered, unordered) = buildWorkspace.applyPreprocessing(preprocessing)
+            val failures = merge(ordered, unordered)
+                .flowOn(Dispatchers.IO)
+                .toList()
+                .filterIsInstance<PreprocessingOperationResult.Failure>()
+            if (failures.isEmpty()) {
+                printlnGreen("Preprocessed world.")
+            } else {
+                failures.forEach { printlnRed("Preprocessing failed for ${it.path}: ${it.reason.message}") }
+                panic("Preprocessing failed; aborting build.")
+            }
+        }
 
         var hasBackfillErrors = false
         coroutineScope {
@@ -568,7 +610,7 @@ private class Build : ProjectCommand("build", "Build translated world") {
         if (hasBackfillErrors) {
             printlnYellow("Build completed with errors. Check logs above.")
         } else {
-            printlnGreen("Build complete. Translated world at " + bold("$targetDir"))
+            printlnGreen("Build complete. Translated world at " + bold("$buildDir"))
         }
     }
 }
@@ -579,6 +621,12 @@ private class AssemblePatch : ProjectCommand("patch", "create a patch file") {
     override suspend fun App() {
         ensureExtracted()
         val w = workspace(srcDir)
+
+        val preprocessing = if (!fs.exists(preprocessingFile)) {
+            printlnBlue("Preprocessing file don't exist.")
+            PatchPreprocessing.None
+        } else preprocessingFile.readJson()
+
         val pattern = patterns.evaluate()
         val regionGroups = if (fs.exists(regionExtractionFile)) {
             regionExtractionFile.readJson<List<ExtractionGroup>>() as List<RegionExtractionGroup>
@@ -592,10 +640,10 @@ private class AssemblePatch : ProjectCommand("patch", "create a patch file") {
         } else emptyList()
 
         val patchFile = projectDir / ("${patch.name ?: projectConfig.name}.mctp")
-        val patch = w.createPatch(pattern, mappingFile.readJson(), patch.kind) {
+        val patch = w.createPatch(pattern, mappingFile.readJson(), patch.kind, preprocessing = preprocessing) {
             Triple(regionGroups.asFlow(), datapackGroups.asFlow(), cextGroups.asFlow())
         }
-        patchFile.writeJson(patch, false)
+        MCTPFile.encodeToFile(patchFile, patch)
         printlnGreen("Created patch at $patchFile.")
     }
 }

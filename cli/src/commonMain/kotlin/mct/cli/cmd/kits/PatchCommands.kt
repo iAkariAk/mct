@@ -18,9 +18,7 @@ import mct.kit.TranslationMapping
 import mct.model.patch.Patch
 import mct.model.patch.PatchValidationFailureStrategy
 import mct.model.patch.PathKind
-import mct.patch.HashValidatingFailure
-import mct.patch.applyPatch
-import mct.patch.createPatch
+import mct.patch.*
 import mct.util.io.readCbor
 import mct.util.io.readJson
 import mct.util.io.writeCbor
@@ -40,8 +38,8 @@ private class CreatePatch : WorkspaceCommand(name = "create", help = "Creates a 
     val mappingFile by option("-m", "--mapping", help = "Path to mapping json file").path().required()
     val kind by option("-k", "--kind", help = "Kind of patches").enum<PathKind>(ignoreCase = true).default(Immediate)
 
-    val patchFormat by option("-f", "--patch-format", help = "Format of patches").choice("json", "cbor")
-        .default("json")
+    val patchFormat by option("-f", "--patch-format", help = "Format of patches").choice("mctp", "json", "cbor")
+        .default("mctp")
 
     val validation by option(
         "--validation", help = "whether to include the validation information"
@@ -54,6 +52,7 @@ private class CreatePatch : WorkspaceCommand(name = "create", help = "Creates a 
         val mapping = mappingFile.readJson<TranslationMapping>()
         val patch = workspace.createPatch(pattern, mapping, kind, validation)
         when (patchFormat) {
+            "mctp" -> MCTPFile.encodeToFile(output, patch)
             "json" -> output.writeJson(patch, false)
             "cbor" -> output.writeCbor(patch)
             else -> unreachable
@@ -65,8 +64,8 @@ private class CreatePatch : WorkspaceCommand(name = "create", help = "Creates a 
 private class ApplyPatch : WorkspaceCommand(name = "apply", help = "Apply a patch") {
     val patchFile by option("--patch", "-p", help = "Path to patch file").path().required()
 
-    val patchFormat by option("-f", "--patch-format", help = "Format of patches").choice("json", "cbor")
-        .default("json")
+    val patchFormat by option("-f", "--patch-format", help = "Format of patches").choice("mctp", "json", "cbor")
+        .default("mctp")
     val validationStrategy by option(
         "--validation-strategy", help = "The strategy when the validation of the path fails"
     ).enum<PatchValidationFailureStrategy>(ignoreCase = true).default(Failure)
@@ -74,6 +73,7 @@ private class ApplyPatch : WorkspaceCommand(name = "apply", help = "Apply a patc
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val patch = when (patchFormat) {
+            "mctp" -> MCTPFile.decodeFromFile(patchFile)
             "json" -> patchFile.readJson<Patch>()
             "cbor" -> patchFile.readCbor<Patch>()
             else -> unreachable
@@ -92,6 +92,13 @@ private class ApplyPatch : WorkspaceCommand(name = "apply", help = "Apply a patc
                 printlnRed("The patch has been failed to apply due to the following errors:")
                 result.errors.display(terminal, false)
             }
+
+            is PatchResult.PreprocessFailure -> {
+                printlnRed("Applying terminals because preprocessing fails:")
+                result.errors.forEach { failure ->
+                    printlnRed("${bold(failure.path.toString())}: ${failure.reason.message}")
+                }
+            }
         }
     }
 }
@@ -107,3 +114,4 @@ private fun List<HashValidatingFailure>.display(terminal: Terminal, isWarning: B
     val color = if (isWarning) TextColors.yellow else TextColors.red
     terminal.println(color(message))
 }
+

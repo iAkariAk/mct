@@ -49,14 +49,19 @@ kotlin {
             api(libs.kotlinx.serialization.json)
             api(libs.kotlinx.serialization.json.okio)
             api(libs.kotlinx.serialization.cbor)
+            api(libs.kotlinx.serialization.protobuf)
             api(libs.kotlinx.coroutines.core)
             api(project.dependencies.platform((libs.arrow.stack)))
             api(libs.bundles.arrow)
             api(libs.knbt)
             api(libs.bundles.okio)
-            api(libs.jetbrains.annotations)
+            api(libs.bundles.kotlinx.io)
             api(libs.kmpzip.core)
             api(libs.kmpzip.okio)
+            api(libs.kmpdiff)
+            api(libs.kompress.core)
+            api(libs.kompress.zlib)
+            api(libs.jetbrains.annotations)
             api(libs.kotlinx.schema.generator.json)
         }
 
@@ -86,6 +91,7 @@ buildkonfig {
 
     defaultConfigs {
         buildConfigField(BKType.STRING, "VERSION", version.toString(), const = true)
+        buildConfigField(BKType.INT, "VERSION_CODE", "1", const = true)
         buildConfigField(BKType.LONG, "BUILD_TIME", System.currentTimeMillis().toString(), const = true)
     }
 }

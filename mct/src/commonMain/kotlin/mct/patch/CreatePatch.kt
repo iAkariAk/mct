@@ -16,6 +16,7 @@ suspend fun MCTWorkspace.createPatch(
     mapping: TranslationMapping,
     kind: PathKind,
     validation: Boolean = true,
+    preprocessing: PatchPreprocessing = PatchPreprocessing.None,
     extractionGroups: suspend () -> Triple<Flow<RegionExtractionGroup>, Flow<DatapackExtractionGroup>, Flow<CextExtractionGroup>> = {
         extractAll(pattern)
     }
@@ -33,10 +34,10 @@ suspend fun MCTWorkspace.createPatch(
     }
 
     when (kind) {
-        Deferred -> Patch.Deferred(metadata, validation, pattern, mapping)
+        Deferred -> Patch.Deferred(metadata, validation, preprocessing, pattern, mapping)
         Immediate -> {
             val replacementGroups = evaluateReplacementGroups(pattern, mapping, extractionGroups)
-            Patch.Immediate(metadata, validation, replacementGroups)
+            Patch.Immediate(metadata, validation, preprocessing, replacementGroups)
         }
     }
 }

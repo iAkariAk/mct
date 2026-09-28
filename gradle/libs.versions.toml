@@ -17,7 +17,9 @@ graalvm-native = "1.1.14"
 jetbrains-annotations = "26.1.0"
 jtokkit = "1.1.0"
 kiteimage = "0.1.0"
+kmp-diff = "1.4.0"
 kmp-zip = "1.0.0"
+kompress = "2.3.1"
 kmpalette = "4.0.0"
 knbt = "0.11.10-SNAPSHOT"
 koin = "4.2.2"
@@ -70,8 +72,11 @@ kiteimage = { module = "io.github.yuroyami:kiteimage", version.ref = "kiteimage"
 kiteimage-compose = { module = "io.github.yuroyami:kiteimage-compose", version.ref = "kiteimage" }
 kmpalette-core = { module = "com.materialkolor.palette:core", version.ref = "kmpalette" }
 kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-file", version.ref = "kmpalette" }
+kmpdiff = { module = "io.github.petertrr:kotlin-multiplatform-diff", version.ref = "kmp-diff" }
 kmpzip-core = { module = "no.synth:kmp-zip", version.ref = "kmp-zip" }
 kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
+kompress-core = { module = "dev.karmakrafts.kompress:kompress-core", version.ref = "kompress" }
+kompress-zlib = { module = "dev.karmakrafts.kompress:kompress-zlib", version.ref = "kompress" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
@@ -90,6 +95,7 @@ kotlinx-schema-generator-json = { module = "org.jetbrains.kotlinx:kotlinx-schema
 kotlinx-serialization-cbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-serialization-json-okio = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-okio", version.ref = "serialization" }
+kotlinx-serialization-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization" }
 ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
 ktoml-file = { module = "com.akuleshov7:ktoml-file", version.ref = "ktoml" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
@@ -129,12 +135,16 @@ okio = [
     "okio",
     "okio-fakefilesystem",
 ]
+kotlinx-io = [
+    "kotlinx-io-core",
+    "kotlinx-io-okio"
+]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 beryx-runtime = { id = "org.beryx.runtime", version.ref = "beryx-runtime" }
-buildkonfig = { id = "com.codingfeline.buildkonfig", version.ref = "buildkonfig"}
+buildkonfig = { id = "com.codingfeline.buildkonfig", version.ref = "buildkonfig" }
 catelog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "catelog-update" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }

@@ -56,8 +56,6 @@ kotlin {
             api(libs.mordant.markdown)
             api(libs.kotlinx.serialization.json.okio)
             api(libs.kotlinx.schema.generator.json)
-            api(libs.kotlinx.io.core)
-            api(libs.kotlinx.io.okio)
             api(libs.ktoml.core)
             api(libs.kiteimage)
             implementation(project(":mct"))
