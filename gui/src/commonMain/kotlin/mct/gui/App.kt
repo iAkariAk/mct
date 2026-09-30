@@ -24,6 +24,7 @@ import mct.gui.components.LogConsole
 import mct.gui.model.*
 import mct.gui.pages.*
 import mct.gui.platform.revealInFileExplorer
+import mct.gui.platform.shellBottomInsetPadding
 import mct.gui.services.*
 
 // `App` and `AppContent`: the whole application shell, shared by the desktop window and the Android activity.
@@ -33,6 +34,9 @@ import mct.gui.services.*
 
 @Composable
 fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
+    // The padding goes inside the shell's own box, not on the host's container: the navigation area
+    // is part of the shell, so the platform's bottom inset has to be reserved within it — see
+    // `shellBottomInsetPadding`.
     val rootModifier = remember { Modifier.fillMaxSize().padding(16.dp) }
 
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
@@ -75,27 +79,29 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
     Box(modifier = modifier.then(rootModifier)) {
         // The shell lays out the page and the console, so this is the only split pane in the tree;
         // wrapping it in a second one here would show the page twice.
-        AppShell(
-            selectedTab = vm.selectedTab,
-            onTabSelected = { tab ->
-                if (tab != vm.selectedTab) vm.selectedTab = tab
-            },
-            consoleVisible = vm.consoleVisible,
-            consolePanel = { consoleModifier ->
-                LogConsole(
-                    logs = vm.logs,
-                    onShowReasoning = showReasoning,
-                    onOpenPath = openPath,
-                    modifier = consoleModifier,
-                )
-            },
-        ) { contentModifier ->
-            Box(contentModifier) {
-                AppContent(vm)
-                SnackbarHost(
-                    hostState = vm.snackbarHostState,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
+        Box(Modifier.padding(shellBottomInsetPadding())) {
+            AppShell(
+                selectedTab = vm.selectedTab,
+                onTabSelected = { tab ->
+                    if (tab != vm.selectedTab) vm.selectedTab = tab
+                },
+                consoleVisible = vm.consoleVisible,
+                consolePanel = { consoleModifier ->
+                    LogConsole(
+                        logs = vm.logs,
+                        onShowReasoning = showReasoning,
+                        onOpenPath = openPath,
+                        modifier = consoleModifier,
+                    )
+                },
+            ) { contentModifier ->
+                Box(contentModifier) {
+                    AppContent(vm)
+                    SnackbarHost(
+                        hostState = vm.snackbarHostState,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
             }
         }
         // The overlays sit above the shell so they cover the navigation suite as well.
