@@ -237,6 +237,7 @@ val extractPatternModule = SerializersModule {
         subclass(PreCondition.Companion.Or::class)
         subclass(PreCondition.Companion.None::class)
         subclass(PreCondition.Companion.WithSize::class)
+        subclass(PreCondition.Companion.WithSizeIn::class)
         subclass(PreCondition.Companion.Regex::class)
     }
 

@@ -1,11 +1,11 @@
 # MCT 工作流与 CLI 参考
 
-本文是 `mct` CLI 与 `mct project` 汉化流程的权威参考. 
+本文是 `mct` CLI 与 `mct project` 汉化流程的权威参考.
 
-请以源码与真实 CLI 输出为准：文中每一条都可以复现验证. 若本文与 `mct <命令> --help` 冲突, 以 CLI 为准. 
+请以源码与真实 CLI 输出为准：文中每一条都可以复现验证. 若本文与 `mct <命令> --help` 冲突, 以 CLI 为准.
 
 相关文件：翻译与校对规则见 `translation.md`；pattern 怎么写见 `pattern-selection.md`(先选层）与 `data_pointer.md`、
-`mcfunction.md`、`mcjson.md`. 
+`mcfunction.md`、`mcjson.md`.
 
 ## 一、调用 CLI
 
@@ -15,6 +15,8 @@
 mct --version
 ```
 
+输出是 `版本 built on 构建时间`, 例如 `0.0-SNAPSHOT built on 2026-09-30T06:19:29.084Z`.
+
 探测不到就问用户别名或 jar 路径. 两者都没有, 才从本仓库构建：
 
 ```bash
@@ -22,20 +24,21 @@ mct --version
 java -jar cli/build/libs/cli-0.0-SNAPSHOT-all.jar --version
 ```
 
-若构建因 Gradle 缓存目录的权限失败, 不要改项目文件, 重跑同一条命令即可. 确定可用形式后, 全程复用. 
+若构建因 Gradle 缓存目录的权限失败, 不要改项目文件, 重跑同一条命令即可. 确定可用形式后, 全程复用.
 
-`java -jar` 会打印 jna 的 `WARNING: ... restricted method ...`, 这是正常噪声, 用 `2>/dev/null` 过滤即可. 
+`java -jar` 会打印 jna 的 `WARNING: ... restricted method ...`, 这是正常噪声, 用 `2>/dev/null` 过滤即可.
 
-构建产物是整包 fat jar, 启动较慢(约 1–3 秒）, 批处理时不要在循环里反复启动. 
+构建产物是整包 fat jar, 启动较慢 (约 1–3 秒）, 批处理时不要在循环里反复启动.
 
 ## 二、`mct project` 全流程
 
-`project` 面向「同一个地图反复翻译、反复重建」的场景：它把抽取、术语、翻译、回填串成一组可以断点续跑的步骤. 
+`project` 面向「同一个地图反复翻译、反复重建」的场景：它把抽取、术语、翻译、回填串成一组可以断点续跑的步骤.
 
 ```text
 project init <名称> --from <地图目录> [-D <父目录, 可选>] [--translation-engine=(ai|api)]
 project update        抽取, 产出缓存与 missing.json
 project check         检测缺失翻译项并更新missing.json
+project preprocessing (可选）由 preprocessing/ 生成 cache/preprocessing.json, 供图像等资源预处理
 project term          (可选）用 AI 从 missing.json 抽术语写回 terms.json
 project translate     (可选）用 AI 翻译, 产出 mappings.json
 project build         生成成品世界(src → build 副本 + 回填）
@@ -51,11 +54,14 @@ project patch         生成 .mctp 补丁文件
   mappings.json                {源串: 译串或 null}, 源串为 IR 编码串；null＝决定保留原文
   terms.json                   {原文术语: 译名}
   missing.json                 未译池. 需要手动update/check更新 
+  preprocessing/               (可选）预处理 manifest 与素材, 见第七节
+    preprocessing.json
   cache/
     all_texts.json             全量文本池(Set<String>）
     region_extractions.json    region 抽取组
     datapack_extractions.json  datapack 抽取组
     cext_extractions.json      cext 抽取组
+    preprocessing.json         解析后的预处理操作, build/patch 自动读取
     build_mappings.json        build 时合并 MTLX 后的最终映射
     region_replacements.json   生成的 region 替换组
     datapack_replacements.json
@@ -64,45 +70,48 @@ project patch         生成 .mctp 补丁文件
   <patch.name>.mctp            project patch 的产物
 ```
 
-`-D/--project-dir` 是所有 `project` 子命令的公共选项,  **默认就是当前目录**, 而且 **不是必需的**. 它的含义随子命令而变, 这是最容易搞错的一点：
+`-D/--project-dir` 是所有 `project` 子命令的公共选项, **默认就是当前目录**, 而且 **不是必需的**. 它的含义随子命令而变,
+这是最容易搞错的一点：
 
-| 子命令                                                      | `-D` 指向                                       |
-|-------------------------------------------------------------|-------------------------------------------------|
-| `init`                                                      | **父目录**；`init` 用项目名在它下面创建项目目录 |
-| 其余(`update` / `term` / `translate` / `build` / `patch`） | **项目目录本身**(即含 `mct.toml` 的那一层）    |
+| 子命令                                                     | `-D` 指向                                       |
+|------------------------------------------------------------|-------------------------------------------------|
+| `init`                                                     | **父目录**；`init` 用项目名在它下面创建项目目录 |
+| 其余(`update` / `term` / `translate` / `build` / `patch`） | **项目目录本身**(即含 `mct.toml` 的那一层）     |
 
-最省事的用法是 **`cd` 进项目目录后直接跑, 省略 `-D`**. 除 `init` 外, 子命令都在项目目录里找 `mct.toml`, 找不到就 panic「Not a
-project directory」；把父目录误传给它, 会得到「Source directory is not a valid Minecraft world: <父目录>/src」. 
+最省事的用法是 **`cd` 进项目目录后直接跑, 省略 `-D`**. 除 `init` 外, 子命令都在项目目录里找 `mct.toml`, 找不到就
+panic「Not a
+project directory」；把父目录误传给它, 会得到「Source directory is not a valid Minecraft world: <父目录>/src」.
 
 ### 各步骤的输入输出
 
-| 步骤        | 读                                                     | 写                                                                       |
-|-------------|--------------------------------------------------------|--------------------------------------------------------------------------|
-| `init`      | 源地图目录                                             | `mct.toml`、`src/`                                                       |
-| `update`    | `src/`、`mct.toml`、已存在的 `mappings.json`           | 三份抽取缓存、`cache/all_texts.json`、`missing.json`(**仅在有新项时**） |
-| `check`     | `cache/all_texts.json`、`mappings.json`                | `missing.json`(**每次无条件覆写**）                                     |
-| `term`      | `missing.json`、已存在的 `terms.json`                  | `terms.json`                                                             |
-| `translate` | 三份抽取缓存、`mappings.json`、`terms.json`            | `mappings.json`、`terms.json`                                            |
-| `build`     | `mappings.json`、三份抽取缓存、`mct.toml`(含 `mtlx`） | `build/`、`cache/*_replacements.json`、`cache/build_mappings.json`       |
-| `patch`     | `mappings.json`、三份抽取缓存                          | `<name>.mctp`                                                            |
+| 步骤            | 读                                                                                | 写                                                                      |
+|-----------------|-----------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `init`          | 源地图目录                                                                        | `mct.toml`、`src/`                                                      |
+| `update`        | `src/`、`mct.toml`、已存在的 `mappings.json`                                      | 三份抽取缓存、`cache/all_texts.json`、`missing.json`(**仅在有新项时**） |
+| `check`         | `cache/all_texts.json`、`mappings.json`                                           | `missing.json`(**每次无条件覆写**）                                     |
+| `preprocessing` | `preprocessing/`                                                                  | `cache/preprocessing.json`                                              |
+| `term`          | `missing.json`、已存在的 `terms.json`                                             | `terms.json`                                                            |
+| `translate`     | 三份抽取缓存、`mappings.json`、`terms.json`                                       | `mappings.json`、`terms.json`                                           |
+| `build`         | `mappings.json`、三份抽取缓存、`mct.toml`(含 `mtlx`）、`cache/preprocessing.json` | `build/`、`cache/*_replacements.json`、`cache/build_mappings.json`      |
+| `patch`         | `mappings.json`、三份抽取缓存                                                     | `<name>.mctp`                                                           |
 
 `update` 并发跑 region / datapack / cext 三路抽取, 并覆写全部缓存. 想确认当前还有哪些没译, 用 `check` 更可靠：它每次都重算并刷新
 `missing.json`, 而 `update` 只在发现新项时才写. `translate`、`build`、`patch` 会先检查缓存是否存在, 没有就
-panic「No extractions found in cache. Run `project update` first.」. 
+panic「No extractions found in cache. Run `project update` first.」.
 
 ### `--translation-engine` 与 `[translation.engine]`
 
 `init --translation-engine=(ai|api)` 决定 `mct.toml` 里 `[translation.engine].type`：
 
-- `ai`：`project translate` 与 `project term` 走 `[ai]` 的 OpenAI 兼容接口, 需要有效 token. 
-- `api`：走 `[translation.engine.value]` 配置的本地翻译服务(默认 MTranServer `http://127.0.0.1:8989/`）, 不需要 token. 
+- `ai`：`project translate` 与 `project term` 走 `[ai]` 的 OpenAI 兼容接口, 需要有效 token.
+- `api`：走 `[translation.engine.value]` 配置的本地翻译服务 (默认 MTranServer `http://127.0.0.1:8989/`）, 不需要 token.
 
-`api` 引擎没有术语能力, 而且 `project term` 仍然要求 token. 用 `api` 引擎时, 术语只能靠 `mct kit official` 或自己维护术语表. 
+`api` 引擎没有术语能力, 而且 `project term` 仍然要求 token. 用 `api` 引擎时, 术语只能靠 `mct kit official` 或自己维护术语表.
 
 ## 三、`mct.toml` 字段
 
-`project init` 生成的配置(实测）只写入 **非默认值、非 null 的字段**. 因此看不到 `version`、`description`、`mtlx`、
-`extra_prompts` 是正常的：它们默认 null, 需要时手动加. 
+`project init` 生成的配置 (实测）只写入 **非默认值、非 null 的字段**. 因此看不到 `version`、`description`、`mtlx`、
+`extra_prompts` 是正常的：它们默认 null, 需要时手动加.
 
 ```toml
 name = "demo"
@@ -156,25 +165,25 @@ kind = "immediate"         # immediate | deferred
 
 ### `[patterns]` 每层的 `patterns` 与 `has_builtin`
 
-- `has_builtin = true`(默认）：内置集在 **前**, 配置的文件追加在 **后**. 
-- `has_builtin = false`：只用配置的文件, 等价于 CLI 的 `--disable-builtin-<层>`. 
+- `has_builtin = true`(默认）：内置集在 **前**, 配置的文件追加在 **后**.
+- `has_builtin = false`：只用配置的文件, 等价于 CLI 的 `--disable-builtin-<层>`.
 
-这与 CLI 的默认方向一致(都是 builtin + custom）. 区别在于 `has_builtin = false` 时配置文件 **替掉**内置集, 所以「内置 +
-自定义」和「只用自定义」两种意图都能表达, 也不会出现 CLI 那种「没传 pattern 路径却传了 `--disable-builtin` 就 panic」的组合. 
+这与 CLI 的默认方向一致 (都是 builtin + custom）. 区别在于 `has_builtin = false` 时配置文件 **替掉**内置集, 所以「内置 +
+自定义」和「只用自定义」两种意图都能表达, 也不会出现 CLI 那种「没传 pattern 路径却传了 `--disable-builtin` 就 panic」的组合.
 
 `command` 与 `command_component` 两层的模式是 `List`/`Set`, `cext` 也是列表且多个文件会 **合并**(`optIn` 与 `customs`
-各自拼接）. 
+各自拼接）.
 
-## 四、配置翻译引擎(AI 与 API）
+## 四、配置翻译引擎 (AI 与 API）
 
 `project translate` 与 `project term` 走哪条链路, 由 `mct.toml` 的 `[translation.engine].type`
-决定. 两条链路的配置方式完全不同：先问清用户手里有什么, 再动手配. 
+决定. 两条链路的配置方式完全不同：先问清用户手里有什么, 再动手配.
 
-| 链路                    | 需要 token | 术语能力                            | 适用                                         |
-|-------------------------|------------|-------------------------------------|----------------------------------------------|
+| 链路                   | 需要 token | 术语能力                           | 适用                                         |
+|------------------------|------------|------------------------------------|----------------------------------------------|
 | `ai`(OpenAI 兼容接口） | 是         | 有(`project term` + `terms.json`） | 用户有可用 API；术语一致性重要               |
-| `api`(本地翻译服务）   | 否         | **无**                              | 用户没有 token；量大；要离线、免费或本地可控 |
-| 不配(agent 自翻）      | 否         | 靠 `terms.json` 手动维护            | **默认路径**, 见 `SKILL.md` 第 1 步          |
+| `api`(本地翻译服务）   | 否         | **无**                             | 用户没有 token；量大；要离线、免费或本地可控 |
+| 不配(agent 自翻）      | 否         | 靠 `terms.json` 手动维护           | **默认路径**, 见 `SKILL.md` 第 1 步          |
 
 ### 4.1 配置 `ai` 链路
 
@@ -197,20 +206,20 @@ extra_prompts = "..."                    # 追加到所有提示词末尾；填�
 
 配置步骤：
 
-1. 向用户要齐 **base URL、模型名、token** 三项；不要猜测或编造模型名. 
-2. token 优先写成 `@环境变量名`, 让密钥留在环境里. 用户坚持明文写进文件也可以. 
-3. 让用户确认模型是否支持流式；不确定就保持 `use_stream_api = true`. 
-4. 先用最小代价验证：对很小的抽取池跑一次 `project translate`, 确认能出译文且没有 401/404, 再对全量跑. 
+1. 向用户要齐 **base URL、模型名、token** 三项；不要猜测或编造模型名.
+2. token 优先写成 `@环境变量名`, 让密钥留在环境里. 用户坚持明文写进文件也可以.
+3. 让用户确认模型是否支持流式；不确定就保持 `use_stream_api = true`.
+4. 先用最小代价验证：对很小的抽取池跑一次 `project translate`, 确认能出译文且没有 401/404, 再对全量跑.
 
-token 未配置(空或仍是模板默认值）时, `project translate` / `project term` 会直接 panic「AI token not configured.
-Set [ai.token] in mct.toml」. 
+token 未配置 (空或仍是模板默认值）时, `project translate` / `project term` 会直接 panic「AI token not configured.
+Set [ai.token] in mct.toml」.
 
-### 4.2 配置 `api` 链路(MTranServer）
+### 4.2 配置 `api` 链路 (MTranServer）
 
 这是本地翻译服务, 源码与部署方式见 <https://github.com/xxnuo/MTranServer>(Docker 或直接运行二进制）. 它默认监听 `8989`
-；可用环境变量改端口与访问控制：`MT_PORT` 改端口、`MT_API_TOKEN` 设访问令牌、`MT_OFFLINE` 限制模型下载. 
+；可用环境变量改端口与访问控制：`MT_PORT` 改端口、`MT_API_TOKEN` 设访问令牌、`MT_OFFLINE` 限制模型下载.
 
-`project init --translation-engine=api` 会生成这样一段(实测）：
+`project init --translation-engine=api` 会生成这样一段 (实测）：
 
 ```toml
 [translation.engine]
@@ -227,15 +236,15 @@ config = { max_retry = 20, target = "zh_cn" }
 | `type`             | `"MTranServer"`. 这是 `[translation.engine.value]` 的**判别名**, 不是 `init --translation-engine` 那个 `api` 值 |
 | `api_url`          | 服务地址, 末尾带 `/`                                                                                            |
 | `token`            | 可选. 填了会带 `Authorization: Bearer <token>`；服务端设了 `MT_API_TOKEN` 就必须填                              |
-| `config.max_retry` | 失败重试次数(默认 20）                                                                                         |
+| `config.max_retry` | 失败重试次数(默认 20）                                                                                          |
 | `config.source`    | 源语言；留空即请求里的 `from: auto`                                                                             |
 | `config.target`    | 目标语言, 默认 `zh_cn`                                                                                          |
 
-对接细节(`extra/src/commonMain/kotlin/mct/extra/ai/translator/ApiTranslator.kt`）：MCT 向 `$api_url/translate/batch` POST
-`{"from": <source 或 "auto">, "to": <target>, "texts": [...], "html": false}`, 再从响应的 `results` 数组取值. 
+对接细节 (`extra/src/commonMain/kotlin/mct/extra/ai/translator/ApiTranslator.kt`）：MCT 向 `$api_url/translate/batch` POST
+`{"from": <source 或 "auto">, "to": <target>, "texts": [...], "html": false}`, 再从响应的 `results` 数组取值.
 
 **语言代码对不上, 是这类配置最常见的失败**：MCT 默认写 `target = "zh_cn"`, 而 MTranServer 的文档用 `zh-Hans` 这类写法. 先
-`curl $api_url/languages` 看服务实际接受什么, 再把 `target` 改成服务认的代码. 
+`curl $api_url/languages` 看服务实际接受什么, 再把 `target` 改成服务认的代码.
 
 验证与排障：
 
@@ -245,20 +254,21 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 ```
 
 连不上时依次确认四件事：服务是否已启动；端口是否被 `MT_PORT` 改过；`api_url` 末尾有没有 `/`；`MT_API_TOKEN` 与 toml 里的
-`token` 是否一致. 
+`token` 是否一致.
 
 **术语限制**：`api` 链路的 `ApiTranslator.terms` 是一张未使用的空表, 术语一致性完全靠手工维护 `terms.json`；`project term`
-也仍然要求 AI token, 用 `api` 链路时不要指望它. 
+也仍然要求 AI token, 用 `api` 链路时不要指望它.
 
 ### 4.3 `terms.json`：手动翻译时的术语持久化
 
 `terms.json` 是 `Map<String, String>`(原文 → 译名, 与 `mappings.json` 同构）, 也是 **跨批次、跨引擎共享的术语真相**：
 
 - 作为 `project translate` / `project term` 的 `defaultTerms` 输入, 提示词里要求 LLM 优先采用；
-- `project translate` 结束后会把本轮新增术语回写进来. 
+- `project translate` 结束后会把本轮新增术语回写进来.
 
 所以 **手动翻译时遇到稳定术语, 要写进 `terms.json`, 而不是只写进 `mappings.json`**. 只写 mapping
-的话, 该术语就只是一条普通译文：等到下一批文本里再出现同一个词, 或者日后改用 `project translate`, 它会被译成别的, 全文一致性随之断掉. 
+的话, 该术语就只是一条普通译文：等到下一批文本里再出现同一个词, 或者日后改用 `project translate`, 它会被译成别的,
+全文一致性随之断掉.
 
 写法：直接编辑 `<项目>/terms.json`：
 
@@ -270,23 +280,23 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 ```
 
 - 键取原文的 **最小完整语义核心**：不含外围装饰符号、引号与列表标记, 也不是整句；`名称：描述` 只取冒号前的名称. 判定规则见
-  `translation.md`. 
-- 值只译该核心, 不加装饰. 
-- 已经翻好、当时却漏记的术语, 在校对阶段补记回来(见 `SKILL.md` 第 6 步）. 
-- 文件名由 `[translation].terms` 决定(默认 `terms.json`）；改了这项配置, 要同步改文件名. 
+  `translation.md`.
+- 值只译该核心, 不加装饰.
+- 已经翻好、当时却漏记的术语, 在校对阶段补记回来 (见 `SKILL.md` 第 6 步）.
+- 文件名由 `[translation].terms` 决定 (默认 `terms.json`）；改了这项配置, 要同步改文件名.
 
 ## 五、抽取 / 回填命令组
 
 除 `project` 之外, 还有几组直接面向地图的命令, 适合单次操作或调试：
 
-| 命令组                | 作用                   |
-|-----------------------|------------------------|
-| `mct datapack extract | backfill`              | 数据包(`.json`、`.mcfunction`、`.nbt`） |
-| `mct region extract   | backfill`              | `.mca` 区域文件 |
-| `mct cext extract     | backfill`              | 按路径正则自定义抽取 |
+| 命令组                | 作用                  |
+|-----------------------|-----------------------|
+| `mct datapack extract | backfill`             | 数据包(`.json`、`.mcfunction`、`.nbt`） |
+| `mct region extract   | backfill`             | `.mca` 区域文件 |
+| `mct cext extract     | backfill`             | 按路径正则自定义抽取 |
 | `mct kit ...`         | 数据与文本工具(见下） |
-| `mct patch create     | apply`                 | 补丁 |
-| `mct test pointer     | command                |pattern` | 验证 pattern |
+| `mct patch create     | apply`                | 补丁 |
+| `mct test pointer     | command               |pattern` | 验证 pattern |
 
 `datapack` / `region` / `cext` 的 `extract`、`patch create`、`test command|pattern` 共用同一套 pattern 选项：
 
@@ -298,27 +308,27 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 | `--pattern-command-data`      | 命令内 SNBT 数据  | `BuiltinCommandDataPatterns`        | `--disable-builtin-command-data`      | `--disable-filter-command-data` |
 | `--pattern-command-component` | 命令内物品组件    | `BuiltinMinecraftComponentPatterns` | `--disable-builtin-command-component` | —                               |
 | `--pattern-command-regex`     | 命令裸正则        | 无                                  | —                                     | —                               |
-| `--pattern-cext`              | 按路径自定义      | 无(文件内可 opt-in 预设）          | —                                     | —                               |
+| `--pattern-cext`              | 按路径自定义      | 无(文件内可 opt-in 预设）           | —                                     | —                               |
 
-合并语义(`CommonCommand.kt` 的 `gatherPattern`）：
+合并语义 (`CommonCommand.kt` 的 `gatherPattern`）：
 
-| 情况                              | 结果                                                                                       |
-|-----------------------------------|--------------------------------------------------------------------------------------------|
+| 情况                              | 结果                                                                                      |
+|-----------------------------------|-------------------------------------------------------------------------------------------|
 | 给了 `--disable-filter-*`         | 该层**不过滤**(全部候选通过）, 内置与自定义都被忽略                                       |
 | 没给 pattern 路径                 | 只用内置；若同时给了 `--disable-builtin-*`, 该层的内置被清空, 结果等同于**不过滤**(全通） |
-| 给了 `--disable-builtin-*` + 路径 | 只用自定义文件                                                                             |
+| 给了 `--disable-builtin-*` + 路径 | 只用自定义文件                                                                            |
 | 给了路径                          | 内置 + 自定义(列表层内置在前；`command` 层自定义在前）                                    |
 
 `command` 与 `command_component` 两层没有「关闭过滤器」选项, 且只给 `--disable-builtin-*` 而不给 pattern 路径会直接
-panic(源码里这两层是 `?: panic(...)`）. 其余层(`nbt` / `mcjson` / `command_data` / `command_regex` / `cext`）不会
-panic, 但不给路径时内置被清空, 该层实际上变成不过滤. 
+panic (源码里这两层是 `?: panic(...)`）. 其余层 (`nbt` / `mcjson` / `command_data` / `command_regex` / `cext`）不会
+panic, 但不给路径时内置被清空, 该层实际上变成不过滤.
 
 **要「输出所有候选」用于诊断时, 用 `--disable-filter-*`**, 它的语义明确就是不过滤；靠 `--disable-builtin-*`
 不带路径来达到同样效果只是副作用, 不要依赖. 实测同一张地图：默认过滤得 20 条抽取, `--disable-filter-nbt` 与
-`--disable-builtin-nbt`(不带路径）都得 158601 条；而 `--disable-builtin-nbt` 配上自定义 pattern 时得 0 条(内置确实被关掉了）. 
+`--disable-builtin-nbt`(不带路径）都得 158601 条；而 `--disable-builtin-nbt` 配上自定义 pattern 时得 0 条 (内置确实被关掉了）.
 
 `--disable-filter-mcjson` 会把该层置为 null, 并打印一条警告；`--disable-filter-nbt` 与 `--disable-filter-command-data`
-同理, 各自作用于对应的层. 
+同理, 各自作用于对应的层.
 
 ## 六、`mct kit` 工具
 
@@ -328,20 +338,20 @@ panic, 但不给路径时内置被清空, 该层实际上变成不过滤.
 | `kit export-scheme -K (command\|data_pointer\|command_regex) -o <文件>`        | 导出 pattern 的 JSON Schema                           |
 | `kit text-pool flatten -i <抽取> -o <池> --kind (datapack\|region) [--simply]` | 抽取组扁平化为文本池                                  |
 | `kit text-pool unflatten -i <抽取> -m <映射> -o <替换组>`                      | 映射回填为替换组                                      |
-| `kit translate`                                                                | 单次 AI 翻译(不走 project 的缓存结构）               |
+| `kit translate`                                                                | 单次 AI 翻译(不走 project 的缓存结构）                |
 | `kit term-extract`                                                             | 单次术语抽取                                          |
 | `kit mtlx translate -m <mtlx> -p <池> -o <映射>`                               | 用 MTLX 映射文本池                                    |
 | `kit mtlx generate -i <池或映射> -s (pool\|mapping) -o <mtlx>`                 | 生成 MTLX 模板                                        |
 | `kit official download -mv <版本> -o <目录>`                                   | 下载 Mojang 官方语言文件                              |
-| `kit official combine -f <源语言> -t <目标语言> -o <术语表>`                   | 合并出 MCT 术语表(**零 token**）                     |
-| `kit replace-all -i <抽取> -o <输出> -r <文本>`                                | 把所有抽取结果替换成同一文本(调试用）                |
-| `kit display text <text-component> [-f (json\|snbt\|auto)]`                   | 渲染并高亮一个文本组件                                |
+| `kit official combine -f <源语言> -t <目标语言> -o <术语表>`                   | 合并出 MCT 术语表(**零 token**）                      |
+| `kit replace-all -i <抽取> -o <输出> -r <文本>`                                | 把所有抽取结果替换成同一文本(调试用）                 |
+| `kit display text <text-component> [-f (json\|snbt\|auto)]`                    | 渲染并高亮一个文本组件                                |
 | `kit display file mappings -i <mappings.json>`                                 | 逐行高亮渲染译文；`null` 显示为 `keep the original`   |
 | `kit display file missing -i <missing.json>`                                   | 逐行高亮渲染待译项                                    |
 | `kit convert`                                                                  | NBT ↔ SNBT ↔ JSON 互转                                |
 | `kit map view\|edit`                                                           | 地图文件 ↔ 图片                                       |
 
-`kit display` 是**高亮渲染**工具：它把文本组件或译文按颜色渲染出来, 比读原始 JSON 直观得多, 校对时用得上. 
+`kit display` 是 **高亮渲染**工具：它把文本组件或译文按颜色渲染出来, 比读原始 JSON 直观得多, 校对时用得上.
 
 ```bash
 mct kit display text '{"text":"Hello","color":"gold"}'      # 渲染单个文本组件, -f 可指定 json/snbt/auto
@@ -350,88 +360,205 @@ mct kit display file missing  -i <项目>/missing.json        # 逐条渲染待�
 ```
 
 `kit official download` 加 `combine` 是零 token 拿到官方术语表的路径. 只在用户要求 100% 遵循 Minecraft 官方译名时使用；你也可以把它当作
-agent 自翻时的可选术语来源. 
+agent 自翻时的可选术语来源.
 
-## 七、用补丁分发译文(`project patch` / `mct patch`）
+## 七、预处理资源 (`project preprocessing`）
+
+预处理用来在回填译文之前, 对地图里的 **二进制资源 (主要是图像）做增删改**。它跑在 `build` 与补丁应用时,
+因此这两条路径都会带上同样的资源改动。
+
+### 7.1 只能用于图像等资源, **绝不能碰 MCT 处理的文本**
+
+**这是硬性边界**：预处理改的是 `mca` / `json` / `mcfunction` 这类 **承载文本**的文件时, 你改的内容会在随后被回填覆盖,
+或者反过来把回填结果弄坏,
+两种顺序都是错的.
+
+| 可以用预处理                    | 绝对不要用预处理                            |
+|---------------------------------|---------------------------------------------|
+| 贴图、地图缩略图等 `png` 等图像 | `region/*.mca`、`entities/*.mca` 等区域文件 |
+| 封面、图标、字体等纯资源        | `level.dat`、`data/*.dat` 等 NBT 文本载体   |
+| 与文本无关的附加文件            | `*.json`、`*.mcfunction` 等数据包文本       |
+
+一句话:**凡是 MCT 会抽取/回填文本的文件, 都不归预处理管**。文本交给 `mappings.json`, 资源才交给预处理。
+
+### 7.2 目录与 manifest
+
+在项目根建一个 `preprocessing/` 目录, 里面放一个 `preprocessing.json`：
+
+```text
+<projectDir>/
+  preprocessing/
+    preprocessing.json      操作清单
+    assets/pic.png          你准备好的替换素材
+```
+
+```json
+{
+  "ordered": [
+    {
+      "type": "add_file",
+      "target": "build/assets/pic.png",
+      "source": "preprocessing/assets/pic.png"
+    },
+    {
+      "type": "patch_text",
+      "target": "build/assets/note.txt",
+      "source": "preprocessing/assets/note.txt"
+    },
+    {
+      "type": "remove_file",
+      "target": "build/assets/junk.txt"
+    }
+  ],
+  "unordered": [
+    {
+      "type": "patch_binary",
+      "target": "build/assets/pic.png",
+      "source": "preprocessing/assets/pic.png"
+    }
+  ]
+}
+```
+
+例子里 `target` 写成 `build/...`, 是因为 `target` 相对**进程工作目录**(项目根）解析, 而 `build/` 是成品世界所在.
+若你的目标是应用补丁的对方世界, `target` 要相应写成**对方运行 `patch apply` 时所在目录**下的相对路径.
+
+| 字段        | 含义                                       |
+|-------------|--------------------------------------------|
+| `ordered`   | **按书写顺序串行**执行. 有先后依赖的写这里 |
+| `unordered` | 并发执行, 互不影响的操作放这里能更快       |
+
+| `type`         | 作用                                                    |
+|----------------|---------------------------------------------------------|
+| `add_file`     | 把 `source` 的内容写成 `target`                         |
+| `remove_file`  | 删除 `target`(只需 `target`）                           |
+| `patch_text`   | 把 `target` 改成 `source` 的样子(文本差分, 精确到字符） |
+| `patch_binary` | 同上, 二进制差分                                        |
+
+**关键路径语义**: `target` 与 `source` 都相对 **运行命令时的进程工作目录**解析 (即项目根）, **不是**世界根目录.
+`mct project preprocessing` / `build` / `patch` 都在项目根下运行, 所以：
+
+- `source: "preprocessing/assets/pic.png"` 指 `<项目根>/preprocessing/assets/pic.png`——素材写在 `preprocessing/` 下最自然.
+- `target` 同样相对项目根. **想改世界里的文件就必须把世界目录写进去**, 例如 `target: "build/assets/pic.png"`
+  (build 阶段）或 `target: "src/assets/pic.png"`.
+
+**这里有个真实陷阱**：`project build` 的工作目录是**项目根**, 不是 `build/`. 所以把 `target` 写成 `assets/pic.png` 时, 它指向的是
+`<项目根>/assets/pic.png`, 与 `build/assets/pic.png` 无关. 实测: 项目里 `target: "src/assets_x.txt"` 跑 `build` 之后,
+改动落在了 **`src/assets_x.txt`**(`build/` 里那份仍是最初内容), 而 `target: "assets_x.txt"`(只有 `src/assets_x.txt` 存在）
+会在生成预处理时报 `File assets_x.txt not found`.
+
+路径写错在**生成阶段**就会报 `File <路径> not found`, 不会静默跳过.
+
+### 7.3 生成与生效时机
+
+```bash
+mct project preprocessing     # 解析 manifest, 产出 cache/preprocessing.json
+```
+
+`update` 也会顺带做这一步. 之后：
+
+- `project build`: 先把 `src/` 复制成 `build/`, 再应用预处理, 最后回填译文.
+- `project patch`: 把预处理操作一并打进补丁；对方 `patch apply` 时先应用预处理, 再回填.
+
+目录不存在时这两步都只是打印一行蓝字跳过, 不报错. 若某条操作失败, `build` 会明确报出`Preprocessing failed for <路径>: ...`
+并中止, 不会静默产出半成品.
+
+### 7.4 注意事项
+
+- **`patch_text` / `patch_binary` 的 `target` 必须是已存在的文件**：它们做的是"把原文件改成 `source` 的样子".
+  文件必须存在且足够相似, 否则差分退化成整文件替换.
+- 图像建议用 `patch_binary`(精确到字节, 含长度变化）；`patch_text` 只用于确属文本、且 **不归 MCT 管的**文件.
+- `remove_file` 删除 `target`(用 `deleteRecursively`, 对目录也生效）, 适合替换掉被重命名的贴图.
+- 因为 `target` 是进程 CWD 相对路径, 它**不会**自动跟着"复制世界"走. 想让改动落在 `build/` 里面, `target` 要显式写成
+  `build/...`；写成裸相对路径时改的是项目根下的同名文件(常见后果是改到 `src/`, 而 `build/` 里那份没变）.
+
+## 八、用补丁分发译文 (`project patch` / `mct patch`）
 
 `project build` 是把译文回填到 **你自己**项目里的 `build/`. 要把译文本地交付给别人用, 走补丁：`.mctp`
-是一个自包含文件, 对方拿同一张地图自己应用即可, 不必拿到你的整个项目目录. 
+是一个自包含文件, 对方拿同一张地图自己应用即可, 不必拿到你的整个项目目录.
 
-### 7.1 生成补丁
+### 8.1 生成补丁
 
-在项目里(`project patch` 读 `mappings.json` 与三份抽取缓存）：
+在项目里 (`project patch` 读 `mappings.json` 与三份抽取缓存）：
 
 ```bash
 mct project patch
 ```
 
-产物是 `<项目>/<名称>.mctp`, 名称取 `[patch].name`, 未配则取项目名. `[patch].kind` 决定补丁形态(默认 `immediate`）. 
+产物是 `<项目>/<名称>.mctp`, 名称取 `[patch].name`, 未配则取项目名. `[patch].kind` 决定补丁形态 (默认 `immediate`）.
 
 脱离项目、直接对地图生成：
 
 ```bash
 mct patch create -i <地图目录> -m <mapping.json> -o <补丁.mctp> \
-    [-k (immediate|deferred)] [-f (json|cbor)] [--validation/--no-validation]
+    [-k (immediate|deferred)] [-f (mctp|json|cbor)] [--validation/--no-validation]
 ```
 
-`patch create` 需要 pattern 与 mapping：pattern 用同一套 `--pattern-*` 选项给(默认内置集）, 所以它与 `datapack extract`
-一样接受 `--pattern-mcjson-pattern` 等参数. 
+`patch create` 需要 pattern 与 mapping：pattern 用同一套 `--pattern-*` 选项给 (默认内置集）, 所以它与 `datapack extract`
+一样接受 `--pattern-mcjson-pattern` 等参数.
 
-### 7.2 `immediate` 与 `deferred`
+### 8.2 `immediate` 与 `deferred`
 
-| 形态                | 内容                                 | 体积 | 适用                                              |
-|---------------------|--------------------------------------|------|---------------------------------------------------|
+| 形态               | 内容                                 | 体积 | 适用                                              |
+|--------------------|--------------------------------------|------|---------------------------------------------------|
 | `immediate`(默认） | 创建时就把替换组求值好, 直接存替换组 | 大   | 对方机器上一应用就完事, 最省事                    |
-| `deferred`          | 存 pattern 与 mapping, 应用时才求值  | 小   | 体积敏感、或希望对方按自己的 pattern 配置重新求值 |
+| `deferred`         | 存 pattern 与 mapping, 应用时才求值  | 小   | 体积敏感、或希望对方按自己的 pattern 配置重新求值 |
 
-实测同一张测试地图：`immediate` 7666 字节, `deferred` 4196 字节. 两者应用后都能正确回填. 
+实测同一张测试地图 (json 格式）：`immediate` 7666 字节, `deferred` 4196 字节. 两者应用后都能正确回填.
 
-`deferred` 的代价是 **应用环境必须能复现抽取**, 所以地图必须先构建过、pattern 要能给对；`immediate` 把这一步固化在补丁里, 更不容易出错. 
+`deferred` 的代价是 **应用环境必须能复现抽取**, 所以地图必须先构建过、pattern 要能给对；`immediate` 把这一步固化在补丁里,
+更不容易出错.
 **不确定时用默认的 `immediate`. **
 
-### 7.3 `json` 与 `cbor`
+### 8.3 `mctp`、`json` 与 `cbor`
 
-`-f json`(默认）产出可读、可手改、可进版本库的 JSON；`-f cbor` 是二进制, 体积略小(实测 6835 字节对 7666 字节, 收益不大）. 创建与应用的
-`-f` 必须一致. 除非有明确理由, 用默认的 `json`. 
+| 格式          | 特点                                                                                                     |
+|---------------|----------------------------------------------------------------------------------------------------------|
+| `mctp`(默认） | 自带魔数与版本号的二进制容器(魔数 `MCTP`, 内层 zlib+ProtoBuf）. 体积最小、自包含, 是分发给别人的默认选择 |
+| `json`        | 可读、可手改、可进版本库, 便于自己检查内容                                                               |
+| `cbor`        | 二进制, 介于两者之间                                                                                     |
 
-### 7.4 验证与三种策略
+创建与应用的 `-f` 必须一致. 分发用默认的 `mctp`; 需要人工审阅补丁内容时再生成一份 `json`.
+
+### 8.4 验证与三种策略
 
 `--validation`(默认开）会在补丁里写入 **整张地图的文件 SHA1 哈希树**. 应用时按 `--validation-strategy` 决定遇到不匹配怎么办：
 
-| 策略                    | 行为                                               |
-|-------------------------|----------------------------------------------------|
+| 策略                   | 行为                                               |
+|------------------------|----------------------------------------------------|
 | `Failure`(应用时默认） | 只要有文件哈希不匹配就**拒绝应用**, 并逐条列出差异 |
-| `Warning`               | 照常应用, 但把差异作为告警打印                     |
-| `Ignore`                | 完全跳过校验                                       |
+| `Warning`              | 照常应用, 但把差异作为告警打印                     |
+| `Ignore`               | 完全跳过校验                                       |
 
 实测：故意改动 `level.dat` 后, 默认策略直接拒绝并报
-`Unmatched file: level.dat, expected: 5899f8eb..., but got c3c8de98...`；`Warning` 会应用并告警；`Ignore` 直接应用. 
+`Unmatched file: level.dat, expected: 5899f8eb..., but got c3c8de98...`；`Warning` 会应用并告警；`Ignore` 直接应用.
 
-差异只有三种：`Missing`(补丁要求存在但实际没有）、`Redundant`(实际多出来的文件）、`Unmatched`(存在但内容不同）. 
-**这正是补丁只对同一张地图有效的原因**：对方必须用同一版本的地图, 改动过就会被拦下. 
+差异只有三种：`Missing`(补丁要求存在但实际没有）、`Redundant`(实际多出来的文件）、`Unmatched`(存在但内容不同）.
+**这正是补丁只对同一张地图有效的原因**：对方必须用同一版本的地图, 改动过就会被拦下.
 
-`--no-validation` 创建出的补丁不带哈希, 应用时不做任何检查. 只有当你明确希望「不问地图版本、硬套」时才这么做. 
+`--no-validation` 创建出的补丁不带哈希, 应用时不做任何检查. 只有当你明确希望「不问地图版本、硬套」时才这么做.
 
-### 7.5 对方如何应用
+### 8.5 对方如何应用
 
 ```bash
-mct patch apply -i <地图目录> -p <补丁.mctp> [-f (json|cbor)] [--validation-strategy=(Failure|Warning|Ignore)]
+mct patch apply -i <地图目录> -p <补丁.mctp> [-f (mctp|json|cbor)] [--validation-strategy=(Failure|Warning|Ignore)]
 ```
 
-- `-i` 指向 **要应用补丁的那份地图目录**(含 `level.dat`）. 补丁是就地修改,  **建议对方先备份**. 
-- 应用后没有单独的成品目录；要核对结果就 `mct kit export-snbt -i <地图目录> -o <目录>` 再检索译文. 
+- `-i` 指向 **要应用补丁的那份地图目录**(含 `level.dat`）. 补丁是就地修改, **建议对方先备份**.
+- 应用后没有单独的成品目录；要核对结果就 `mct kit export-snbt -i <地图目录> -o <目录>` 再检索译文.
 - 输出 `Patch was successfully applied` 表示成功；带告警时会是 `... with some warnings as the following` 并列出差异；被拒时是
-  `The patch has been failed to apply due to the following errors:`. 
-- 缺文件、多文件、内容不同都会被报出来, 所以对方能从输出里直接看出地图版本对不对. 
+  `The patch has been failed to apply due to the following errors:`.
+- 缺文件、多文件、内容不同都会被报出来, 所以对方能从输出里直接看出地图版本对不对.
 
-### 7.6 交付建议
+### 8.6 交付建议
 
-- 发布时把 `.mctp`、目标地图版本、以及「用 `--validation-strategy Failure` 应用」这条写进说明；对方地图不对时会明确失败, 而不是静默半套用. 
+- 发布时把 `.mctp`、目标地图版本、以及「用 `--validation-strategy Failure` 应用」这条写进说明；对方地图不对时会明确失败,
+  而不是静默半套用.
 - 想让对方只拿一个文件的 **把 `.mctp` 附在发布物里**；想让对方能改译文的, 给 `json` 格式；只想省体积又不在意可读性的, 给
-  `cbor`. 
-- 你自己要重新生成成品世界, 仍然用 `project build`, 不必绕道补丁. 
+  `cbor`.
+- 你自己要重新生成成品世界, 仍然用 `project build`, 不必绕道补丁.
 
-## 八、`mct test`
+## 九、`mct test`
 
 ```bash
 mct test pattern [--pattern-* ...] [-c]                    # 打印最终组装出的 pattern 集合
@@ -439,50 +566,62 @@ mct test pointer -k (mcjson|region) [-p <pattern>] [--no-builtin] '<指针>'
 mct test command -i <mcfunction 文件> [--pattern-* ...]     # 高亮命中范围
 ```
 
-`test pointer` 输出 `true`/`false`, 是验证单条路径最快的办法. `test command` 用颜色高亮打印命中的文本, 用来确认抽取边界. 
+`test pointer` 输出 `true`/`false`, 是验证单条路径最快的办法. `test command` 用颜色高亮打印命中的文本, 用来确认抽取边界.
 
-写 pattern 时先按 `pattern-selection.md` 选层, 再按对应参考修改；改完必须用 `mct test` 验证, 然后重跑 `project update`. 
+写 pattern 时先按 `pattern-selection.md` 选层, 再按对应参考修改；改完必须用 `mct test` 验证, 然后重跑 `project update`.
 
-## 九、常见问题
+## 十、常见问题
 
 1. **键写错会静默产出 0 组替换**. `project build` 只认 `mappings.json` 里与文本池 **逐字相同**的键. 键写错时输出
-   `Generated 0 region replacement groups`, 但照样打印 `Build complete` 并给出成品目录, 而那个世界是未翻译的. 构建后必须核对替换组数量, 或者直接在成品世界里检索原文. 
+   `Generated 0 region replacement groups`, 但照样打印 `Build complete` 并给出成品目录, 而那个世界是未翻译的.
+   构建后必须核对替换组数量, 或者直接在成品世界里检索原文.
 
-2. **value 写 `null` 是「保留原文」的正规手段**. `mappings.json` 的值类型是 `String?`：`null` 表示这一项决定不翻译. 
-   `project update` 用 **键是否存在**判断是否已处理, 所以写了 `null` 的条目不会再出现在 `missing.json`, 但 `project build`
+2. **value 写 `null` 是「保留原文」的正规手段**. `mappings.json` 的值类型是 `String?`：`null` 表示这一项决定不翻译.
+   `project update` 用 **键是否存在**判断是否已处理, 所以写了 `null` 的条目不会再出现在 `missing.json`, 但
+   `project build`
    不会为它生成替换, 成品世界里原文照旧. 判定不该翻译时就用 `null` 固化决定, 不要留空让它反复出现在 `missing.json`. 注意
-   `null` 与空串 `""` 不同, 后者会把原文替换为空. 
+   `null` 与空串 `""` 不同, 后者会把原文替换为空.
 
-3. **文本池的键是 IR 编码串, 不是裸文本**. `missing.json` / `all_texts.json` 里是 `"\"八千代\""`、`["\"Some texts\"",...]`
-   这类形式, 外层引号、转义、数组结构都是键的一部分. 写 `mappings.json` 时 **键与值都要保持同一套编码**, 只改其中的可见文字. 取值不要手写编码：从
-   `missing.json` 复制键, 再就地替换文字. 
+3. **文本池的键是 IR 编码串, 不是裸文本**. `missing.json` / `all_texts.json` 里是 `"\"八千代\""`、
+   `["\"Some texts\"",...]`
+   这类形式, 外层引号、转义、数组结构都是键的一部分. 写 `mappings.json` 时 **键与值都要保持同一套编码**, 只改其中的可见文字.
+   取值不要手写编码：从
+   `missing.json` 复制键, 再就地替换文字.
 
-4. **`missing.json` 可能陈旧：`update` 与 `check` 的写入条件不同**. 
+4. **补丁格式默认是 `mctp`, 不是 `json`**. `project patch` 与 `patch create` 都产出二进制 `mctp` 容器; 需要人读/手改补丁时才加
+   `-f json`. 创建与应用的 `-f` 必须一致, 否则解码失败.
 
-    - `update` **只在发现新的未译项时才覆写** `missing.json`；全部已译时只打印 `No new items found`,  **旧文件原样保留**
-      . 所以「`missing.json` 存在」不等于「还有未译项」. 
-    - `check` **无条件写回**：有缺失就写缺失列表, 没有就写空数组 `[]` 并打印 `All texts were translated; no texts miss`. 
+5. **`missing.json` 可能陈旧：`update` 与 `check` 的写入条件不同**.
+
+    - `update` **只在发现新的未译项时才覆写** `missing.json`；全部已译时只打印 `No new items found`, **旧文件原样保留**
+      . 所以「`missing.json` 存在」不等于「还有未译项」.
+    - `check` **无条件写回**：有缺失就写缺失列表, 没有就写空数组 `[]` 并打印 `All texts were translated; no texts miss`.
       **要刷新或确认 `missing.json` 的当前状态, 用 `check`. **
 
-   实测：全部译完后 `update` 让 `missing.json` 保持 10 条陈旧数据, `check` 把它写成 `[]`；用 `null` 标记保留原文的做法两者同样视为已处理. 
+   实测：全部译完后 `update` 让 `missing.json` 保持 10 条陈旧数据, `check` 把它写成 `[]`；用 `null` 标记保留原文的做法两者同样视为已处理.
 
-5. **`project build` 整体重建 `build/`**. 它会先 `deleteRecursively` 再复制 `src/`, 所以手动改过 `build/` 里的文件一定会丢. 手工修改要落在
-   `src/` 或 `mappings.json` 上. 
+6. **`project build` 整体重建 `build/`**. 它会先 `deleteRecursively` 再复制 `src/`, 所以手动改过 `build/` 里的文件一定会丢.
+   手工修改要落在
+   `src/` 或 `mappings.json` 上.
 
-6. **`project build` 里 MTLX 结果会覆盖 AI 译文**. 设了 `mtlx` 时, `build` 先跑 `translateByMTLX`, 再把结果 `+=` 到 mapping
-   上. 同一文本在两处给出不同译法时, MTLX 赢. 
+7. **`project build` 里 MTLX 结果会覆盖 AI 译文**. 设了 `mtlx` 时, `build` 先跑 `translateByMTLX`, 再把结果 `+=` 到
+   mapping
+   上. 同一文本在两处给出不同译法时, MTLX 赢.
 
-7. **`project init` 会整份复制地图**. 地图几十 GB 时明显占盘, 而且此后每次 `build` 还会再复制一份. 项目目录不要放在待翻译的地图内部, 否则复制会递归. 
+8. **`project init` 会整份复制地图**. 地图几十 GB 时明显占盘, 而且此后每次 `build` 还会再复制一份. 项目目录不要放在待翻译的地图内部,
+   否则复制会递归.
 
-8. **报「Source directory is not a valid Minecraft world」时, 先怀疑 `-D` 用错了**, 而不是路径里的字符. `init` 的 `-D`
-   是父目录, 其余子命令的 `-D` 是项目目录本身；少了或多了这一层, 就会去一个没有 `src/level.dat` 的地方找世界. 
+9. **报「Source directory is not a valid Minecraft world」时, 先怀疑 `-D` 用错了**, 而不是路径里的字符. `init` 的 `-D`
+   是父目录, 其余子命令的 `-D` 是项目目录本身；少了或多了这一层, 就会去一个没有 `src/level.dat` 的地方找世界.
 
    含中文、空格、方括号的路径本身可以用：实测非 ASCII 的源路径、项目父目录与项目名都能正常 `init` / `update`. 真遇到读不到
-   `level.dat` 的情况, 优先核对 `-D` 指向与 `level.dat` 是否真的存在于该目录；确需改动时也应把项目放在一个稳定的位置, 而不是临时目录. 
+   `level.dat` 的情况, 优先核对 `-D` 指向与 `level.dat` 是否真的存在于该目录；确需改动时也应把项目放在一个稳定的位置,
+   而不是临时目录.
 
-9. **CLI 与 `mct.toml` 的 pattern 语义方向不同**. CLI 的 `--disable-builtin-*` 表示「关掉内置、只用自定义」, 且需要路径；
-   `mct.toml` 的 `has_builtin = false` 同义, 但不需要额外路径. 不要把 CLI 的心智模型直接套到 toml 上, 也不要指望 toml 支持
-   `--disable-filter-*` 那种「全部通过」的调试模式；需要全量抽取时用 CLI. 
+10. **CLI 与 `mct.toml` 的 pattern 语义方向不同**. CLI 的 `--disable-builtin-*` 表示「关掉内置、只用自定义」, 且需要路径；
+    `mct.toml` 的 `has_builtin = false` 同义, 但不需要额外路径. 不要把 CLI 的心智模型直接套到 toml 上, 也不要指望 toml
+    支持
+    `--disable-filter-*` 那种「全部通过」的调试模式；需要全量抽取时用 CLI.
 
-10. **`--cache-dir` 默认是当前目录**. project 流程不读它(缓存固定在项目内的 `cache/`）, 但直接跑 `datapack` / `region` /
+11. **`--cache-dir` 默认是当前目录**. project 流程不读它 (缓存固定在项目内的 `cache/`）, 但直接跑 `datapack` / `region` /
     `cext` 子命令时会在当前目录留下缓存. 批处理前先确认工作目录. 

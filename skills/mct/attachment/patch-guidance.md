@@ -21,7 +21,7 @@ MCT版本: &&`mct --version`的调用返回值&&
 请从<https://github.com/iAkariAk/mct>的action获取最新构建的`mct`, 在命令行中调用:
 
 ```bash
-mct patch apply -i <地图目录> -p <补丁目录>
+mct patch apply -i <地图目录> -p <补丁文件.mctp>
 ```
 
 这将直接对原地图进行修改，请注意备份。
