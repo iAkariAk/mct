@@ -426,6 +426,16 @@ class CommandExtractPatternTest : FreeSpec({
                         """team modify myteam suffix {text:"!"}""",
                         """{text:"!"}""" withFormat FormatKind.SnbtStr,
                     ),
+                    commandContentCase(
+                        "blockdata",
+                        """blockdata -80 50 -82 {"CustomName": "Never don't believe your inconvenient friend can help you"}""",
+                        """"Never don't believe your inconvenient friend can help you""""
+                    ),
+                    commandContentCase(
+                        "entitydata",
+                        """blockdata -80 50 -82 {"CustomName": "They always delay what you want they to do"}""",
+                        """"They always delay what you want they to do""""
+                    ),
                     commandCase(
                         "data modify entity set value",
                         """data modify entity @s CustomName set value {"text":"Named Entity"}""",
@@ -440,6 +450,11 @@ class CommandExtractPatternTest : FreeSpec({
                         "data modify block set value",
                         """data modify block ~ ~ ~ CustomName set value {"text":"Named Block"}""",
                         """{"text":"Named Block"}""" withFormat FormatKind.JsonStr,
+                    ),
+                    commandContentCase(
+                        "legacy fill",
+                        "fill 0 0 0 0 0 0 grass{CustomName: 'And these messages should no any one especial the above who even not pay a little attention to me can see'} destroy",
+                        "'And these messages should no any one especial the above who even not pay a little attention to me can see'"
                     ),
                     commandContentCase(
                         "give (old)",
@@ -587,12 +602,17 @@ class CommandExtractPatternTest : FreeSpec({
                         """{"text":"My Team"}""" withFormat FormatKind.JsonStr,
                     ),
                     commandContentCase(
-                        "setblock with NBT data",
+                        "setblock with NBT data (legacy)",
+                        """setblock ~ ~1 ~ chest 0 replace {Items:[{id:"book",tag:{display:{Name:"§c§lMETA_REPLACE"}}}]}""",
+                        """"§c§lMETA_REPLACE""""
+                    ),
+                    commandContentCase(
+                        "setblock with NBT data (old)",
                         """setblock ~ ~ ~ minecraft:chest {CustomName:'{"text":"Treasure","color":"gold"}'}""",
                         """'{"text":"Treasure","color":"gold"}'"""
                     ),
                     commandContentCase(
-                        "setblock with NBT data",
+                        "setblock with NBT data (new)",
                         """setblock -244 88 610 minecraft:spruce_wall_sign[facing=north]{Text1:'"A"'}""",
                         """'"A"'"""
                     ),

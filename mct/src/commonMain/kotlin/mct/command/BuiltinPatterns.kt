@@ -184,6 +184,32 @@ val BuiltinCommandPatterns = PatternSet {
         }
     }
 
+    // blockdata (legacy)
+    // https://minecraft.wiki/w/Commands/blockdata
+    // blockdata <x> <y> <z> <dataTag> <UserCreator>
+    command("blockdata") {
+        WithSize(4) then {
+            Positions(4 to ArgSelection.SnbtEntire) then {
+                Matches { _, arg ->
+                    arg.content.startsWith('{')
+                }
+            }
+        }
+    }
+
+
+    // entitydata (legacy)
+    // https://minecraft.wiki/w/Commands/entitydata
+    // entitydata <entity> <dataTag>
+    command("entitydata") {
+        WithSize(2) then {
+            Positions(2 to ArgSelection.SnbtEntire) then {
+                Matches { _, arg ->
+                    arg.content.startsWith('{')
+                }
+            }
+        }
+    }
 
     // ── data ─────────────────────────────────────────────────────
     // data modify (entity|storage) <target> <path> set value <component>
@@ -388,6 +414,40 @@ val BuiltinCommandPatterns = PatternSet {
         // as the above old
     }
 
+    // https://minecraft.wiki/w/Commands/fill
+    command("fill") {
+        // fill <from> <to> <block> [outline|hollow|destroy|strict|replace|keep]
+        WithSizeIn(7..8) then {
+            Positions(7 to ArgSelection.BlockState) then {
+                val fillModes = setOf("outline", "hollow", "destroy", "strict", "replace", "keep")
+                Matches("arg8 check fillModes") { cmd, _ ->
+                    cmd.args.size == 7 || cmd[8].content in fillModes
+                }
+            }
+        }
+        // fill <from> <to> <block> replace <filter> [outline|hollow|destroy|strict]
+        WithSizeIn(9..10) then {
+            Positions(7 to ArgSelection.BlockState) then { // TODO: add BlockPredicate
+                val fillModes = setOf("outline", "hollow", "destroy", "strict")
+
+                Matches("arg 8 & arg10 check") { cmd, _ ->
+                    cmd[8].content == "replace" && (cmd.args.size == 9 || cmd[10].content in fillModes)
+                }
+            }
+        }
+
+        // legacy: https://minecraft.wiki/w/Commands/fill?oldid=1352716
+        // fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [oldBlockHandling] [dataTag]
+        WithSizeIn(8..9) then {
+            Positions(-1 to ArgSelection.SnbtEntire) then {
+                Matches("latest arg check") { cmd, _ ->
+                    cmd.args.last().content.startsWith('{')
+                }
+            }
+        }
+        // ignore: fill <x1> <y1> <z1> <x2> <y2> <z2> <block> replace [replaceTileName]
+    }
+
     // https://zh.minecraft.wiki/w/%E5%91%BD%E4%BB%A4/replaceitem
     command("replaceitem") {
         // replaceitem block <position: x y z> slot.container <slotId: int> <itemName: Item> [amount: int] [data: int] [components: json]
@@ -452,21 +512,21 @@ val BuiltinCommandPatterns = PatternSet {
 
     // ── setblock (NBT data with text components) ─────────────────
     command("setblock") {
-        // setblock <pos> <block> [destroy|keep|replace|strict]
-        WithSize(4) then {
+        // setblock <pos...> <block> [destroy|keep|replace|strict]
+        WithSizeIn(4..5) then {
             Positions(4 to ArgSelection.BlockState) then {
-                Matches("setblock 5th arg") { command, arg ->
-                    command.args.size == 4 || (command.args.size == 5 && (arg.content == "destroy"
-                            || arg.content == "keep"
-                            || arg.content == "replace"
-                            || arg.content == "strict"))
+                val modes = setOf("destroy", "keep", "replace", "strict")
+                Matches("setblock 5th arg check") { cmd, _ ->
+                    cmd.args.size == 4 || (cmd.args.size == 5 && (cmd[5].content in modes))
                 }
             }
         }
 
-        // setblock <pos> <block> {snbt}
-        WithSize(5) then {
-            Positions(5 to ArgSelection.SnbtEntire) then {
+        // setblock <pos...> <block> {snbt}
+        // legacy (https://minecraft.wiki/w/Commands/setblock?oldid=1246732)
+        // setblock <x> <y> <z> <block> [dataValue|state] [oldBlockHandling] [dataTag]
+        WithSizeIn(4..7) then {
+            Positions(-1 to ArgSelection.SnbtEntire) then {
                 Matches("setblock nbt") { _, arg ->
                     arg.content.startsWith("{")
                 }
