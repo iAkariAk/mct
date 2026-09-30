@@ -11,6 +11,7 @@ import mct.MCTError
 import mct.MCTPattern
 import mct.model.patch.FormatKind
 import mct.model.patch.SnbtSyntaxKind
+import mct.serializer.IntRangeSerializable
 import mct.util.toRegex2
 import org.intellij.lang.annotations.Language
 
@@ -68,6 +69,12 @@ fun interface PreCondition {
         data class WithSize(val size: Int, val strict: Boolean = false) : PreCondition {
             override fun matches(command: MCCommand) =
                 if (strict) size == command.args.size else size <= command.args.size
+        }
+
+        @Serializable
+        @SerialName("with_size_in")
+        data class WithSizeIn(val range: IntRangeSerializable) : PreCondition {
+            override fun matches(command: MCCommand) = command.args.size in range
         }
 
         @Serializable

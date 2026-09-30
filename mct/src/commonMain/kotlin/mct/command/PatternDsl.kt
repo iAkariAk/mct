@@ -20,6 +20,7 @@ class CommandBuilderPreConditionScope(val command: String) {
 
     fun Regex(@Language("RegExp") regex: String): PreCondition = PreCondition.Companion.Regex(regex)
     fun WithSize(size: Int, strict: Boolean = false): PreCondition = PreCondition.Companion.WithSize(size, strict)
+    fun WithSizeIn(range: IntRange): PreCondition = PreCondition.Companion.WithSizeIn(range)
 
     fun Any(): PreCondition = PreCondition.Companion.Any
     fun And(vararg conditions: PreCondition): PreCondition = PreCondition.Companion.And(conditions.asList())

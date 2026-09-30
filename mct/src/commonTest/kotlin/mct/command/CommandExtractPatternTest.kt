@@ -164,6 +164,13 @@ class CommandExtractPatternTest : FreeSpec({
             cond.matches(cmd("say", "hello")) shouldBe false
         }
 
+        "WithSizeIn" {
+            val cond = PreCondition.Companion.WithSizeIn(1..3)
+            cond.matches(cmd("tell", "@p", "hi")) shouldBe true
+            cond.matches(cmd("tell", "@p", "hi", "extra")) shouldBe true
+            cond.matches(cmd("say", "hello")) shouldBe true
+        }
+
         "Regex matches raw command" {
             val cond = PreCondition.Companion.Regex("""\{.*text.*}""")
             cond.matches(cmd("tellraw", "@a", """{"text":"hello"}""")) shouldBe true
@@ -722,7 +729,7 @@ class CommandExtractPatternTest : FreeSpec({
             }
         }
 
-        "legacy execute as @p run say" { // before 1.12.2 (inclusive)
+        "legacy execute" { // before 1.12.2 (inclusive)
             shouldMatches("execute @p ~ ~ ~ say Hello world", "Hello world")
             shouldMatches("execute @p ~ ~ ~ /say Hello world", "Hello world")
         }
