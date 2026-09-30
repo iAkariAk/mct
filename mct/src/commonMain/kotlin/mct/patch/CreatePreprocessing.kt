@@ -17,6 +17,7 @@ import mct.util.divCeil
 import mct.util.io.readBytes
 import mct.util.io.readJson
 import mct.util.io.readText
+import mct.util.size
 import mct.serializer.PathSerializable as Path
 
 @Serializable
@@ -50,7 +51,7 @@ sealed interface CreatePreprocessingError : MCTError {
     }
 
     data class ManifestParseFailure(val reason: Throwable) : CreatePreprocessingError {
-        override val message = reason.message!!
+        override val message = reason.message ?: "<null>"
     }
 
     data class FileNotFound(val path: Path) : CreatePreprocessingError {
@@ -99,85 +100,83 @@ private fun MCTWorkspace.evaluatePreprocessingOperation(
         ensureExist(manifest.target)
         val source = manifest.source.readText()
         val target = manifest.target.readText()
-        val patches = diff(target, source).deltas.mapNotNull {
+        val patches = diff(target.toList(), source.toList()).deltas.mapNotNull {
             when (it.type) {
-                DeltaType.CHANGE -> PatchPreprocessingOperation.TextPatch(it.source.range(), it.target.content())
+                DeltaType.CHANGE -> PatchPreprocessingOperation.TextPatch(
+                    it.source.range(),
+                    it.target.lines.concatToString()
+                )
+
                 DeltaType.DELETE -> PatchPreprocessingOperation.TextPatch(it.source.range(), "")
-                DeltaType.INSERT -> PatchPreprocessingOperation.TextPatch(it.source.range(), it.target.content())
+                DeltaType.INSERT -> PatchPreprocessingOperation.TextPatch(
+                    it.source.range(),
+                    it.target.lines.concatToString()
+                )
+
                 DeltaType.EQUAL -> null
             }
         }
-        PatchPreprocessingOperation.PatchTextFile(manifest.source, patches)
+        PatchPreprocessingOperation.PatchTextFile(manifest.target, patches)
     }
 
     is PatchBinaryFile -> {
         ensureExist(manifest.source)
         ensureExist(manifest.target)
-        val source = manifest.source.readBytes().chunk(1024)
-        val target = manifest.target.readBytes().chunk(1024)
-        val patches = diff(target, source).deltas.mapNotNull {
-            when (it.type) {
-                DeltaType.CHANGE -> PatchPreprocessingOperation.BinaryPatch(
-                    it.source.range(),
-                    it.target.lines.flatten()
-                )
-
-                DeltaType.DELETE -> PatchPreprocessingOperation.BinaryPatch(it.source.range(), EMPTY_BYTES)
-                DeltaType.INSERT -> PatchPreprocessingOperation.BinaryPatch(
-                    it.source.range(),
-                    it.target.lines.flatten()
-                )
-
+        val source = manifest.source.readBytes().chunk(CHUNK_SIZE)
+        val target = manifest.target.readBytes().chunk(CHUNK_SIZE)
+        val latestTargetChunkSize = target.lastOrNull()?.value?.size ?: 0
+        val patches = diff(target, source).deltas.mapNotNull { delta ->
+            val chunkRange = delta.source.range()
+            val endsWithNonFullChunk = chunkRange.last == target.lastIndex
+            val fullChunkCount = chunkRange.size - if (endsWithNonFullChunk) 1 else 0
+            val indicesSize = if (chunkRange.isEmpty()) 0 else
+                fullChunkCount * CHUNK_SIZE + if (endsWithNonFullChunk) latestTargetChunkSize else 0
+            val beginIndex = target.take(chunkRange.first).sumOf { it.value.size }
+            val indices = beginIndex..<(beginIndex + indicesSize)
+            when (delta.type) {
+                DeltaType.CHANGE -> PatchPreprocessingOperation.BinaryPatch(indices, delta.target.lines.flatten())
+                DeltaType.DELETE -> PatchPreprocessingOperation.BinaryPatch(indices, EMPTY_BYTES)
+                DeltaType.INSERT -> PatchPreprocessingOperation.BinaryPatch(indices, delta.target.lines.flatten())
                 DeltaType.EQUAL -> null
             }
         }
-        PatchPreprocessingOperation.PatchBinaryFile(manifest.source, patches)
+        PatchPreprocessingOperation.PatchBinaryFile(manifest.target, patches)
     }
 }
 
+private const val CHUNK_SIZE = 1024
 private val EMPTY_BYTES = ByteArray(0)
-private fun ByteArray.chunk(atMost: Int): List<ByteArray> {
-    val bytes = this
-    val least = size % atMost
-    val chunkCount = size divCeil atMost
-    val delegated = Array(chunkCount) { i ->
-        bytes.copyOfRange(i, i + if (i == chunkCount) least else atMost)
-    }.asList()
-    return object : List<ByteArray> by delegated {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other !is List<*>) return false
-            if (size != other.size) return false
-            for (i in indices) {
-                val self = this[i]
-                val other = other[i] as ByteArray
-                if (!self.contentEquals(other)) return false
-            }
-            return true
-        }
 
-        override fun hashCode(): Int {
-            var result = 1
-            for (element in this) {
-                result = 31 * result + element.contentHashCode()
-            }
-            return result
-        }
-    }
+private class ByteArrayWrapper(
+    val value: ByteArray
+) {
+    override fun equals(other: Any?): Boolean = other is ByteArrayWrapper && other.value.contentEquals(value)
+    override fun hashCode(): Int = value.contentHashCode()
 }
 
-private inline fun List<ByteArray>.flatten(): ByteArray {
+private fun ByteArray.chunk(atMost: Int): List<ByteArrayWrapper> {
+    val bytes = this
+    val latest = size % atMost
+    val chunkCount = size divCeil atMost
+    return Array(chunkCount) { i ->
+        val chunkSize = if (i != chunkCount - 1) atMost else if (latest > 0) latest else atMost
+        val beginIndex = i * atMost
+        bytes.copyOfRange(beginIndex, beginIndex + chunkSize)
+    }.map(::ByteArrayWrapper)
+}
+
+private inline fun List<ByteArrayWrapper>.flatten(): ByteArray {
     ifEmpty { return EMPTY_BYTES }
     var size = 0
-    forEach { size += it.size }
+    forEach { size += it.value.size }
     val result = ByteArray(size)
     var i = 0
     forEach {
-        it.copyInto(result, i)
-        i += it.size
+        it.value.copyInto(result, i)
+        i += it.value.size
     }
     return result
 }
 
 private inline fun <T> Chunk<T>.range() = position..last()
-private inline fun Chunk<String>.content() = lines.joinToString("\n")
+private fun List<Char>.concatToString(): String = toCharArray().concatToString()
