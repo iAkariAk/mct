@@ -219,6 +219,12 @@ class CommandExtractPatternTest : FreeSpec({
             selector.position shouldBe 2
         }
 
+        "Greedy constructs with reversed position" {
+            val selector = IndexSelector.Greedy(-2)
+            selector.normalizePosition(10) shouldBe 9
+            selector.normalizePosition(100) shouldBe 99
+        }
+
         "Greedy is not NonGreedy" {
             val selector: IndexSelector = IndexSelector.Greedy(0)
             (selector !is IndexSelector.NonGreedy) shouldBe true
@@ -226,10 +232,18 @@ class CommandExtractPatternTest : FreeSpec({
 
         "NonGreedy Special matches specific indices" {
             val selector = IndexSelector.NonGreedy(mapOf(1 to null, 3 to null))
-            selector.matches(1) shouldBe true
-            selector.matches(2) shouldBe false
-            selector.matches(3) shouldBe true
+            selector.matches(3, 1) shouldBe true
+            selector.matches(3, 2) shouldBe false
+            selector.matches(3, 3) shouldBe true
         }
+
+        "NonGreedy Special matches specific reversed indices" {
+            val selector = IndexSelector.NonGreedy(mapOf(-1 to null, -3 to null))
+            selector.matches(3, 1) shouldBe true
+            selector.matches(3, 2) shouldBe false
+            selector.matches(3, 3) shouldBe true
+        }
+
 
         "PostCondition" - {
             fun mockCmd() = cmd(
@@ -337,8 +351,8 @@ class CommandExtractPatternTest : FreeSpec({
                 pattern.preCondition.matches(extraArgsCmd) shouldBe true  // 4 args >= WithSize(2)
 
                 val selector = pattern.selector as IndexSelector.NonGreedy
-                selector.matches(2) shouldBe true
-                selector.matches(1) shouldBe false
+                selector.matches(2, 2) shouldBe true
+                selector.matches(2, 1) shouldBe false
 
                 pattern.postCondition.matches(validCmd, validCmd.args[1]) shouldBe true
                 pattern.postCondition.matches(wrongContentCmd, wrongContentCmd.args[1]) shouldBe false

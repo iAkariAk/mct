@@ -131,12 +131,13 @@ internal fun extractTextFromCommand(
                     command.args.asSequence()
                         .withIndex()
                         .filter { (index, arg) ->
-                            selector.matches(index + 1) && pattern.postCondition.matches(command, arg)
+                            selector.matches(command.args.size, index + 1)
+                                    && pattern.postCondition.matches(command, arg)
                         }
                         .flatMap { (index, arg) ->
                             recover(
                                 block = {
-                                    when (val results = selector.select(index + 1, patterns, arg)) {
+                                    when (val results = selector.select(command.args.size, index + 1, patterns, arg)) {
                                         is SelectResult.Entire -> ExtractedCommandSlice(
                                             arg.indices,
                                             arg.content,
@@ -237,11 +238,12 @@ private fun computeGreedyRange(
     selector: IndexSelector.Greedy,
 ): Pair<IntRange, IntRange> {
     val commandBeginIndex = command.indices.first
-    val beginIndexRelative = if (selector.position == 0) {
+    val position = selector.normalizePosition(command.args.size)
+    val beginIndexRelative = if (position == 0) {
         if (command.name.length == command.raw.length) command.name.length
         else command.args.firstOrNull()?.relativeIndices?.first?.minus(command.trimOffset)
             ?: (command.name.length + command.raw.indexOfFirst { it != ' ' })
-    } else command[selector.position].relativeIndices.first - command.trimOffset
+    } else command[position].relativeIndices.first - command.trimOffset
     val endIndexRelative = command.raw.length - 1
     val relRange = beginIndexRelative..endIndexRelative
     val absRange = (commandBeginIndex + command.trimOffset + beginIndexRelative)..

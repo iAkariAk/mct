@@ -121,27 +121,53 @@ sealed interface SelectResult {
     data object None : SelectResult
 }
 
+private inline fun revPos(argsSize: Int, pos: Int) = -(argsSize - pos + 1)
+
 @Serializable
 sealed interface IndexSelector {
+
+    /**
+     * when [position] is 0, select all args;
+     * using negative -n represents the nth from the end;
+     */
     @Serializable
     @SerialName("greedy")
-    data class Greedy(val position: Int) : IndexSelector // when position is 0, select all args
+    data class Greedy(val position: Int) : IndexSelector {
+        fun normalizePosition(argsSize: Int) = if (position >= 0) position else argsSize + position + 1
+    }
 
+    /**
+     * [positions] key: using negative -n represents the nth from the end; value: `null` is to select the entire
+     */
     @Serializable
     @SerialName("non_greedy")
     data class NonGreedy(
-        val indexes: Map<Int, ArgSelection?>, // NOTE: `null` is to select the entire
+        val positions: Map<Int, ArgSelection?>,
     ) : IndexSelector {
         // 1-based index
-        fun matches(pos: Int) = pos in indexes
+        fun matches(argsSize: Int, pos: Int): Boolean {
+            check(pos != 0) {
+                "Should use 1-based instead of 0-based"
+            }
+
+            return argsSize >= pos && (pos in positions || revPos(argsSize, pos) in positions)
+        }
 
         // select parts of the entire arg, and extract field if selection is as to snbt
         context(_: Raise<IndexSelectError>)
         fun select(
+            argsSize: Int,
             pos: Int,
             pattern: MCTPattern?,
             arg: MCCommand.Arg,
-        ): SelectResult = indexes[pos]?.select(pattern, arg) ?: SelectResult.Entire.EntirePlainString
+        ): SelectResult {
+            check(pos != 0) {
+                "Should use 1-based instead of 0-based"
+            }
+
+            val selection = positions[pos] ?: positions[revPos(argsSize, pos)]
+            return selection?.select(pattern, arg) ?: SelectResult.Entire.EntirePlainString
+        }
     }
 }
 
