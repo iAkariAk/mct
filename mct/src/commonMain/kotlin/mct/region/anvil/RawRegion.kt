@@ -100,11 +100,14 @@ class RawRegion internal constructor(
         val newTimestamps = timestamps.raw.copyOf()
         val currentTimestamps = Clock.System.now().epochSeconds.toUInt()
         val newOffsets = UIntArray(CHUNK_COUNT) { index ->
-            val chunk = modified[index] ?: return@UIntArray ChunkOffset.EMPTY_RAW
+            val modifiedChunk = modified[index] ?: return@UIntArray ChunkOffset.EMPTY_RAW
+            val currentChunk = chunks[index]
 
-            newTimestamps[index] = currentTimestamps
+            if (modifiedChunk !== currentChunk) {
+                newTimestamps[index] = currentTimestamps
+            }
 
-            val sectorCount = calculateSectorCountForChunk(chunk.size)
+            val sectorCount = calculateSectorCountForChunk(modifiedChunk.size)
 
             ChunkOffset(currentSector, sectorCount).also {
                 currentSector += sectorCount
