@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.fus.internal.isCiBuild
 
 plugins {
     alias(libs.plugins.android.application) apply false
@@ -14,6 +15,14 @@ plugins {
     alias(libs.plugins.goncalossilva.resources) apply false
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.catelog.update)
+}
+
+if (isCiBuild()) {
+    allprojects {
+        configurations.all {
+            resolutionStrategy.cacheDynamicVersionsFor(0, "minutes")
+        }
+    }
 }
 
 subprojects {
@@ -56,3 +65,4 @@ subprojects {
         }
     }
 }
+
