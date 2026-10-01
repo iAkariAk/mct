@@ -3,6 +3,7 @@ package mct.model.patch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.serializer.IntRangeSerializable
+import mct.util.StringIndices
 
 /**
  * Data extracted from a Minecraft Datapack (zip or folder).
@@ -104,9 +105,11 @@ sealed interface DatapackReplacement : Replacement {
     @Serializable
     @SerialName("mcfunction")
     data class MCFunction(
-        val indices: IntRangeSerializable,
+        override val indices: IntRangeSerializable,
         val replacement: String,
-    ) : DatapackReplacement
+    ) : DatapackReplacement, StringIndices {
+        override val content get() = replacement
+    }
 
     /**
      * A text replacement for a datapack file.

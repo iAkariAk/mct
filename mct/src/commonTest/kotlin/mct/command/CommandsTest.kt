@@ -157,7 +157,7 @@ class CommandsTest : StringSpec({
                     MCFunction(5..7, "X"),
                 )
             )
-        }.message shouldStartWith "Replacements cannot overlap with each other"
+        }.message shouldStartWith "Not allow to overlap range between"
 
         shouldNotThrowAny {
             raw.backfillMCFunction(
@@ -266,7 +266,7 @@ class CommandsTest : StringSpec({
 
         shouldThrowAny {
             command.replace { listOf("@p[name=foo]", "名字") }
-        }.message shouldStartWith "Replacements cannot overlap with each other"
+        }.message shouldStartWith "Not allow to overlap range between"
     }
 
     "test snbt extraction via SnbtEntire carries SnbtSyntaxKind.Compound" {

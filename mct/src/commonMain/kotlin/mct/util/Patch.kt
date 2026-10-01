@@ -16,16 +16,26 @@ private data class StringIndicesImpl(
     override val content: String
 ) : StringIndices
 
-fun String.patch(patches: List<StringIndices>): String {
+fun String.patch(patches: Iterable<StringIndices>): String {
     val original = this
+    val patchChunks = patches.sortedBy { it.indices.first }
+    var lastPatch: StringIndices? = null
+    for (patch in patchChunks) {
+        require(lastPatch == null || !patch.indices.overlapsWith(lastPatch.indices)) {
+            "Not allow to overlap range between ${lastPatch!!.indices} and ${patch.indices}"
+        }
+        require(maxOf(patch.indices.first, patch.indices.last) <= original.length) {
+            "Range ${patch.indices} out of bounds ${original.indices}"
+        }
+        lastPatch = patch
+    }
     val finalSize = length + patches.sumOf { it.content.length - it.indices.size }
     val result = CharArray(finalSize)
-    val patchChunks = patches.sortedBy { it.indices.first }
     var originalIndex = 0
     var newIndex = 0
+    val singleOrNull = patchChunks.singleOrNull()
+    if (singleOrNull?.indices == original.indices) return singleOrNull.content
     for ((indices, str) in patchChunks) {
-        if (indices == original.indices) return str
-
         val originalChunkSize = indices.first - originalIndex
         if (originalChunkSize > 0) {
             original.toCharArray(result, newIndex, originalIndex, indices.first)
@@ -33,7 +43,7 @@ fun String.patch(patches: List<StringIndices>): String {
         }
         str.toCharArray(result, newIndex)
         newIndex += str.length
-        originalIndex = indices.last + 1
+        if (!indices.isEmpty()) originalIndex = indices.last + 1
     }
     if (originalIndex < original.length) {
         original.toCharArray(result, newIndex, originalIndex, original.length)
@@ -74,16 +84,26 @@ private class BytesIndicesImpl(
     }
 }
 
-fun ByteArray.patch(patches: List<BytesIndices>): ByteArray {
+fun ByteArray.patch(patches: Iterable<BytesIndices>): ByteArray {
     val original = this
-    val finalSize = size + patches.sumOf { it.bytes.size - it.indices.size }
-    val result = ByteArray(finalSize)
     val patchChunks = patches.sortedBy { it.indices.first }
+    var lastPatch: BytesIndices? = null
+    for (patch in patchChunks) {
+        require(lastPatch == null || !patch.indices.overlapsWith(lastPatch.indices)) {
+            "Not allow to overlap range between ${lastPatch!!.indices} and ${patch.indices}"
+        }
+        require(maxOf(patch.indices.first, patch.indices.last) <= original.size) {
+            "Range ${patch.indices} out of bounds ${original.indices}"
+        }
+        lastPatch = patch
+    }
+    val finalSize = original.size + patches.sumOf { it.bytes.size - it.indices.size }
+    val result = ByteArray(finalSize)
     var originalIndex = 0
     var newIndex = 0
+    val singleOrNull = patchChunks.singleOrNull()
+    if (singleOrNull?.indices == original.indices) return singleOrNull.bytes
     for ((indices, bytes) in patchChunks) {
-        if (indices == original.indices) return bytes
-
         val originalChunkSize = indices.first - originalIndex
         if (originalChunkSize > 0) {
             original.copyInto(result, newIndex, originalIndex, indices.first)
@@ -91,7 +111,7 @@ fun ByteArray.patch(patches: List<BytesIndices>): ByteArray {
         }
         bytes.copyInto(result, newIndex)
         newIndex += bytes.size
-        originalIndex = indices.last + 1
+        if (!indices.isEmpty()) originalIndex = indices.last + 1
     }
     if (originalIndex < original.size) {
         original.copyInto(result, newIndex, originalIndex, original.size)

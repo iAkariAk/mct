@@ -14,6 +14,7 @@ import mct.nbt.extractTextFromSnbt
 import mct.pointer.DataPointer
 import mct.serializer.IntRangeSerializable
 import mct.util.StringIndices
+import mct.util.patch
 
 context(_: LoggerHolder)
 inline fun ExtractionContent.replace(
@@ -119,19 +120,12 @@ sealed interface ExtractionContent {
         inline fun replace(replace: (List<String>) -> List<String?>): ReplacementContent.Command {
             val replacements = replace(locations.map { it.unquoted() })
             require(locations.size == replacements.size) { "locations.size should equal replacements.size" }
-            var lastLoc: Location? = null
             return ReplacementContent.Command(
-                locations.asSequence()
-                    .zip(replacements.asSequence())
-                    .sortedByDescending { (loc, _) -> loc.indices.first }
-                    .fold(StringBuilder(raw)) { acc, (loc, r) ->
-                        require(lastLoc == null || lastLoc.indices.first > loc.indices.last) {
-                            "Replacements cannot overlap with each other ($lastLoc and $loc)"
-                        }
-                        lastLoc = loc
-                        val rr = r?.doubleQuotedIfString(loc.syntax)
-                        acc.setRange(loc.indices.first, loc.indices.last + 1, rr ?: return@fold acc)
-                    }.toString()
+                raw.patch(replacements.mapIndexedNotNull { index, replacement ->
+                    val location = locations[index]
+                    val quoted = replacement?.doubleQuotedIfString(location.syntax) ?: return@mapIndexedNotNull null
+                    StringIndices(location.indices, quoted)
+                })
             )
         }
     }
