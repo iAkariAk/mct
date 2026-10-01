@@ -33,7 +33,6 @@ sealed interface MCTPFileError : MCTError {
 
 private val MctpNbt = Nbt(NbtZlib) {
     compressionLevel = 9
-    nameRootClasses = false
 }
 
 object MCTPFile {
