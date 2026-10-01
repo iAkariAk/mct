@@ -13,7 +13,11 @@ import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.mordant.rendering.TextColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import mct.*
+import mct.cli.util.CURRENT_PATH
 import mct.command.BuiltinCommandDataPatterns
 import mct.command.BuiltinCommandPatterns
 import mct.command.BuiltinMinecraftComponentPatterns
@@ -21,8 +25,11 @@ import mct.command.CommandExtractPattern
 import mct.dp.compileWith
 import mct.dp.mcjson.BuiltinMCJsonPatterns
 import mct.nbt.BuiltinNbtPatterns
+import mct.util.IO
 import mct.util.SystemFileSystem
 import mct.util.io.readJson
+import mct.util.io.relativeToIfRelative
+import mct.util.toRegex2
 import okio.Path
 import okio.Path.Companion.toPath
 
@@ -157,6 +164,47 @@ fun BaseCliktCommand<*>.withPattern(): Lazy<MCTPattern> {
         )
     }
 
+}
+
+abstract class RegexMultiInputCommand(name: String, help: String) : BaseCommand(name, help) {
+    abstract fun Path.correspondToOutput(outputDir: Path): Path?
+
+    val input by option("--input", "-i", help = "Path to input file(s)").required()
+    val regex by option("--regex", "-r", help = "Use regex to match input files").flag()
+    val inputDir by option("--input-dir", "-id", help = "Path to input dir").path().default(Path.CURRENT_PATH)
+    val outputFileOrDir by option("--output", "-o", help = "Path to output file or directory").path()
+        .default(Path.CURRENT_PATH)
+
+    context(_: Raise<MCTError>)
+    override suspend fun App() {
+        if (!regex) {
+            val inputFile = input.toPath().relativeToIfRelative(inputDir)
+            val outputFile = outputFileOrDir.takeUnless { fs.metadataOrNull(it)?.isDirectory == true }
+                ?: inputFile.correspondToOutput(outputFileOrDir)
+                ?: panic("Cannot infer the output path")
+            output(inputFile, outputFile)
+        } else {
+            val regex = input.toRegex2()
+            enforce(fs.metadata(outputFileOrDir).isDirectory) {
+                "When using `--regex` to match file, your output must be a directory instead of file."
+            }
+            coroutineScope {
+                fs.listRecursively(inputDir)
+                    .filter { fs.metadata(it).isRegularFile && regex.matches(it.toString()) }
+                    .forEach { file ->
+                        launch(Dispatchers.IO) {
+                            val inputFile = file.relativeToIfRelative(inputDir)
+                            val outputFile = inputFile.correspondToOutput(
+                                outputFileOrDir
+                            ) ?: panic("Cannot infer the output file")
+                            output(inputFile, outputFile)
+                        }
+                    }
+            }
+        }
+    }
+
+    abstract fun output(inputFile: Path, outputFile: Path)
 }
 
 fun BaseCommand.printlnGreen(message: Any?) = terminal.println(TextColors.green(message.toString()))

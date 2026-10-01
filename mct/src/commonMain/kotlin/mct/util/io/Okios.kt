@@ -26,6 +26,11 @@ val Path.extension get() = name.substringAfterLast(".")
 fun Path.startsWith(prefix: String) = name.endsWith(prefix)
 fun Path.endsWith(suffix: String) = name.endsWith(suffix)
 
+fun Path.relativeToIfRelative(parent: Path): Path = when {
+    isAbsolute || parent.isRelative -> this
+    else -> relativeTo(parent)
+}
+
 inline fun Path.readText(fs: FileSystem) = fs.read(this, BufferedSource::readUtf8)
 inline fun Path.readBytes(fs: FileSystem) = fs.read(this, BufferedSource::readByteArray)
 
