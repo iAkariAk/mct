@@ -68,7 +68,6 @@ kotlin {
             implementation(libs.kmpalette.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json.okio)
-            implementation(libs.bundles.jna)
         }
 
         getByName("desktopMain").dependencies {
@@ -89,6 +88,7 @@ kotlin {
             implementation(libs.kiteimage.compose)
             // Supplies Dispatchers.Main on the desktop.
             implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.bundles.jna)
         }
 
         getByName("androidMain").dependencies {
