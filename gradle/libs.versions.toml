@@ -15,14 +15,15 @@ desugar-jdk-libs = "2.1.5"
 filekit = "0.16.0"
 graalvm-native = "1.1.14"
 jetbrains-annotations = "26.1.0"
+jna = "5.19.1"
 jtokkit = "1.1.0"
 kiteimage = "0.1.0"
 kmp-diff = "1.4.0"
 kmp-zip = "1.0.0"
-kompress = "2.3.1"
 kmpalette = "4.0.0"
 knbt = "0.11.10-SNAPSHOT"
 koin = "4.2.2"
+kompress = "2.3.1"
 kotest = "6.2.5"
 kotlin = "2.4.20"
 kotlinx-io = "0.9.1"
@@ -67,6 +68,8 @@ compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-previ
 filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
 goncalossilva-resources = { module = "com.goncalossilva:resources", version.ref = "resources" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 kiteimage = { module = "io.github.yuroyami:kiteimage", version.ref = "kiteimage" }
 kiteimage-compose = { module = "io.github.yuroyami:kiteimage-compose", version.ref = "kiteimage" }
@@ -75,11 +78,11 @@ kmpalette-extensions-file = { module = "com.materialkolor.palette:extensions-fil
 kmpdiff = { module = "io.github.petertrr:kotlin-multiplatform-diff", version.ref = "kmp-diff" }
 kmpzip-core = { module = "no.synth:kmp-zip", version.ref = "kmp-zip" }
 kmpzip-okio = { module = "no.synth:kmp-zip-okio", version.ref = "kmp-zip" }
-kompress-core = { module = "dev.karmakrafts.kompress:kompress-core", version.ref = "kompress" }
-kompress-zlib = { module = "dev.karmakrafts.kompress:kompress-zlib", version.ref = "kompress" }
 knbt = { module = "net.benwoodworth.knbt:knbt", version.ref = "knbt" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+kompress-core = { module = "dev.karmakrafts.kompress:kompress-core", version.ref = "kompress" }
+kompress-zlib = { module = "dev.karmakrafts.kompress:kompress-zlib", version.ref = "kompress" }
 kotest-asserter-arrow = { module = "io.kotest:kotest-assertions-arrow", version.ref = "kotest" }
 kotest-asserter-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
@@ -121,11 +124,19 @@ arrow = [
     "arrow-functions",
     "arrow-fx-coroutines",
 ]
+jna = [
+    "jna",
+    "jna-platform",
+]
 kotest = [
     "kotest-asserter-arrow",
     "kotest-asserter-core",
     "kotest-framework-engine",
     "kotest-property",
+]
+kotlinx-io = [
+    "kotlinx-io-core",
+    "kotlinx-io-okio",
 ]
 ktoml = [
     "ktoml-core",
@@ -134,10 +145,6 @@ ktoml = [
 okio = [
     "okio",
     "okio-fakefilesystem",
-]
-kotlinx-io = [
-    "kotlinx-io-core",
-    "kotlinx-io-okio"
 ]
 
 [plugins]

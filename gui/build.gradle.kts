@@ -68,6 +68,7 @@ kotlin {
             implementation(libs.kmpalette.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json.okio)
+            implementation(libs.bundles.jna)
         }
 
         getByName("desktopMain").dependencies {
