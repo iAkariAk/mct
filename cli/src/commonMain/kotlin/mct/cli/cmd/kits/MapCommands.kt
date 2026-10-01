@@ -8,16 +8,15 @@ import com.github.ajalt.clikt.parameters.types.enum
 import io.github.yuroyami.kiteimage.KiteBitmap
 import io.github.yuroyami.kiteimage.KiteImage
 import mct.MCTError
-import mct.cli.BaseCommand
-import mct.cli.enforce
-import mct.cli.panic
-import mct.cli.path
+import mct.cli.*
 import mct.map.MapColors
 import mct.map.MapFile
 import mct.map.MapFile.Companion.MAP_SIZE
 import mct.util.io.extension
 import mct.util.io.readBytes
+import mct.util.io.stem
 import mct.util.io.writeBytes
+import okio.Path
 
 class MapCommands : BaseCommand("map", "View or edit a map file") {
     init {
@@ -54,20 +53,21 @@ private enum class ImageFormat {
 }
 
 
-private class ViewCommand : BaseCommand("view", "View a map file") {
-    val input by option("--input", "-i", help = "The path to map file").path().required()
-    val output by option("--output", "-o", help = "The path to save map view").path().required()
+private class ViewCommand : RegexMultiInputCommand("view", "View a map file") {
     val format by option("--format", "-f").enum<ImageFormat> {
         it.name.lowercase()
     }.required()
 
-    context(_: Raise<MCTError>)
-    override suspend fun App() {
-        val mapFile = MapFile.decodeFromFile(input)
+    override fun Path.correspondToOutput(outputDir: Path): Path =
+        outputDir / "$stem.${format.name.lowercase()}"
+
+
+    override fun output(inputFile: Path, outputFile: Path) {
+        val mapFile = MapFile.decodeFromFile(inputFile)
         val argb = mapFile.data.colors.toRGBArray(0xFF.toByte())
         val bitmap = KiteBitmap(MAP_SIZE, MAP_SIZE, argb)
         val bytes = format.encode(bitmap)
-        output.writeBytes(bytes)
+        outputFile.writeBytes(bytes)
     }
 }
 

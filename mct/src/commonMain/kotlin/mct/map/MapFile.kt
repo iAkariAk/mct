@@ -5,10 +5,12 @@ import kotlinx.serialization.Serializable
 import mct.FSHolder
 import mct.fs
 import mct.model.DyeColor
+import mct.model.NbtRootWrapper
 import mct.model.text.TextComponent
 import mct.serializer.NbtGzip
 import mct.util.square
 import mct.util.unreachable
+import net.benwoodworth.knbt.NbtTag
 import net.benwoodworth.knbt.decodeFromSource
 import net.benwoodworth.knbt.encodeToSink
 import okio.BufferedSink
@@ -33,13 +35,13 @@ data class MapFile(
         context(_: FSHolder)
         fun decodeFromFile(path: Path) = fs.read(path, ::decodeFromSource)
         fun decodeFromFile(fs: FileSystem, path: Path) = fs.read(path, ::decodeFromSource)
-        fun decodeFromSource(source: BufferedSource): MapFile = NbtGzip.decodeFromSource(source)
+        fun decodeFromSource(source: BufferedSource): MapFile = NbtGzip.decodeFromSource<NbtRootWrapper<MapFile>>(source).value
     }
 
     context(_: FSHolder)
     fun encodeToFile(path: Path) = fs.write(path, false, ::encodeToSink)
     fun encodeToFile(fs: FileSystem, path: Path) = fs.write(path, false, ::encodeToSink)
-    fun encodeToSink(sink: BufferedSink) = NbtGzip.encodeToSink(this, sink)
+    fun encodeToSink(sink: BufferedSink) = NbtGzip.encodeToSink(NbtRootWrapper(this), sink)
 }
 
 @Serializable
@@ -51,13 +53,13 @@ data class MapData(
     val colors: MapColors,
 
     @SerialName("dimension")
-    val dimension: String,
+    val dimension: NbtTag,
 
     @SerialName("frames")
     val frames: List<Frame> = emptyList(),
 
     @SerialName("locked")
-    val locked: Boolean,
+    val locked: Boolean = false,
 
     @SerialName("scale")
     val scale: Byte,
