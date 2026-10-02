@@ -25,7 +25,7 @@ suspend fun convertFormats(state: ConvertToolState) {
             // Batch mode converts every file the pattern matches and has no single output path; the
             // CLI rejects `--output` together with `--regex`.
             add("--regex")
-            add("--current")
+            add("--input-dir")
             add(state.currentDirectory)
         } else {
             add("--output")

@@ -4,10 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import mct.Env
 import mct.LoggerLevel
 import mct.gui.model.MapImageFormat
 import mct.gui.model.MapToolStatus
+import mct.gui.platform.ioDispatcher
 import mct.gui.services.*
 import mct.map.MapFile
 import okio.Path.Companion.toPath
@@ -73,8 +75,13 @@ class MapToolController(
     fun overwriteImage(imagePath: String) = action {
         val map = requireMap()
         val path = loadedPath ?: error("请先加载地图文件")
-        val bytes = env.fs.read(imagePath.toPath()) { readByteArray() }
-        val updated = map.copy(data = map.data.copy(colors = mapColors(decodeMapImage(bytes))))
+        // Reading, decoding and quantizing a photo is heavy and must not run on the UI dispatcher:
+        // the size check inside `mapColors` only fires after the whole image has been decoded, so a
+        // wrongly sized pick would otherwise freeze the window for the length of the decode.
+        val updated = withContext(ioDispatcher) {
+            val bytes = env.fs.read(imagePath.toPath()) { readByteArray() }
+            map.copy(data = map.data.copy(colors = mapColors(decodeMapImage(bytes))))
+        }
         with(env) { writeMapFile(path, updated) }
         mapFile = updated
         env.logger.info { "已复写地图图像: $imagePath -> $path" }

@@ -461,8 +461,17 @@ suspend fun runTermExtraction(
         try {
             val result = either {
                 extractor.extract(textPool) { partialTerms ->
-                    env.logger.info { "提取被取消，已保存 ${partialTerms.size} 条术语" }
-                    runCatching { writeOutputJson(output, partialTerms) }
+                    // Report only what was actually written: the console line is the single place the
+                    // salvage is visible, and claiming success over a failed write sends the user away
+                    // believing terms they do not have on disk.
+                    runCatching { writeOutputJson(output, partialTerms) }.fold(
+                        onSuccess = {
+                            env.logger.info { "提取被取消，已保存 ${partialTerms.size} 条术语: $output" }
+                        },
+                        onFailure = { e ->
+                            env.logger.error { "提取被取消，但写入部分术语失败: ${e.message}" }
+                        },
+                    )
                     onCancel(partialTerms)
                 }
             }

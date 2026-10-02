@@ -98,6 +98,10 @@ class AppViewModel(clientManager: ClientManager) {
     fun dispose() {
         disposed = true
         translation.close()
+        // The desktop host flushes on window close; Android has no such hook and no lifecycle
+        // observer here, so a setting edited inside the auto-save debounce window would be dropped
+        // when the process goes away. The flush runs on a scope `scope.cancel()` cannot reach.
+        CoroutineScope(Dispatchers.Main.immediate + NonCancellable).launch { settings.flush() }
         scope.cancel()
     }
 }

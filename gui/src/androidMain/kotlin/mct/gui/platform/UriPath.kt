@@ -24,6 +24,25 @@ fun PlatformFile.uriToRealPath(): String? {
     if (!raw.startsWith("content://")) return raw
     val uri = Uri.parse(raw)
 
+    // Android 13+'s photo picker hands back `content://media/picker/<user>/<provider>/media/<id>`,
+    // which `getDocumentId` rejects. Its trailing segment is the MediaStore row of a local file, so
+    // it is resolved before the document-id path: otherwise it falls through to the raw `content://`
+    // string, which every path-based service then reports as missing.
+    if (uri.authority == "media") {
+        val id = uri.pathSegments.lastOrNull()?.toLongOrNull() ?: return null
+        return runCatching {
+            appContext.contentResolver
+                .query(
+                    MediaStore.Files.getContentUri("external"),
+                    arrayOf("_data"),
+                    "_id=?",
+                    arrayOf(id.toString()),
+                    null,
+                )
+                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        }.getOrNull()
+    }
+
     val documentId = runCatching {
         if (uri.pathSegments.firstOrNull() == "tree") DocumentsContract.getTreeDocumentId(uri)
         else DocumentsContract.getDocumentId(uri)
@@ -65,7 +84,8 @@ fun PlatformFile.uriToRealPath(): String? {
             }
         }
 
-        // Photos/videos/audio: the document id is `<kind>:<media id>`, so the path is one query away.
+        // Photos/videos/audio picked through a document provider: the document id is `<kind>:<media
+        // id>`, so the path is one query away.
         "com.android.providers.media.documents" -> runCatching {
             val parts = documentId.split(':', limit = 2)
             val collection = when (parts[0]) {

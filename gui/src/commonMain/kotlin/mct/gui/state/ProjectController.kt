@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mct.Env
 import mct.cli.cmd.project.AIConfig
 import mct.cli.cmd.project.ProjectConfig
@@ -95,9 +97,25 @@ class ProjectController(
         history = stored.entries.sortedByDescending { it.lastOpenedAt }
     }
 
+    /**
+     * Serialises history writes, and drops a snapshot that a newer one has already superseded: two
+     * `scope.launch`es can reach the mutex out of order, and an older snapshot landing last would
+     * reorder (or lose) the most recently opened project.
+     */
+    private val historyWrites = Mutex()
+    private var historyGeneration = 0L
+    private var historyWrittenGeneration = 0L
+
     private fun persistHistory() {
+        val generation = ++historyGeneration
         val snapshot = ProjectHistory(history)
-        scope.launch(ioDispatcher) { projectHistorySetting.save(snapshot) }
+        scope.launch(ioDispatcher) {
+            historyWrites.withLock {
+                if (generation <= historyWrittenGeneration) return@withLock
+                projectHistorySetting.save(snapshot)
+                historyWrittenGeneration = generation
+            }
+        }
     }
 
     /** Move [entry] to the front of the history under its current timestamp. */
