@@ -27,41 +27,37 @@ class RawRegion internal constructor(
             regionX: Int,
             regionZ: Int,
             handle: FileHandle
-        ): RawRegion {
-            val offsets: ChunkOffsetTable
-            val timestamps: TimestampTable
-            handle.source(0).buffer().use { source ->
-                offsets = ChunkOffsetTable.fromSource(source)
-                timestamps = TimestampTable.fromSource(source)
-            }
+        ): RawRegion = handle.source().buffer().use { source ->
+            val offsets = ChunkOffsetTable.fromSource(source)
+            val timestamps = TimestampTable.fromSource(source)
+            val fileSize = handle.size()
             val chunks = List(CHUNK_COUNT) { index ->
                 val offset = offsets[index]
                 if (offset.isEmpty()) return@List null
                 val fileOffset = offset.sectorOffset.toLong() * SECTOR_SIZE
-                if (fileOffset >= handle.size()) return@List null
+                if (fileOffset >= fileSize) return@List null
 
-                handle.source(fileOffset).buffer().use { source ->
-                    val size =
-                        source.readInt() // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
-                    require(size >= 0) { "Illegal negative chunk size $size" }
-                    val actualSectorByteCount = offset.sectorUsedCount.toLong() * SECTOR_SIZE
-                    val usedSize = 4 + size.toLong()
-                    require(usedSize <= actualSectorByteCount) {
-                        "Chunk size($usedSize) exceeds allocated sectors($actualSectorByteCount)"
-                    }
-
-                    val compressKind = source.readByte()
-
-                    val bytes = try {
-                        source.readByteArray(size.toLong() - 1)
-                    } catch (_: IOException) {
-                        return@List null
-                    }
-
-                    // padding: min(handle.size() - handle.position(source), actualSectorByteCount - usedSize)
-
-                    RawChunk(index, compressKind, bytes)
+                handle.reposition(source, fileOffset)
+                // beginning from the 5th byte of this chunk (i.e. compressKind), excludes self but includes compressKind
+                val size = source.readInt()
+                require(size >= 0) { "Illegal negative chunk size $size" }
+                val actualSectorByteCount = offset.sectorUsedCount.toLong() * SECTOR_SIZE
+                val usedSize = 4 + size.toLong()
+                require(usedSize <= actualSectorByteCount) {
+                    "Chunk size($usedSize) exceeds allocated sectors($actualSectorByteCount)"
                 }
+
+                val compressKind = source.readByte()
+
+                val bytes = try {
+                    source.readByteArray(size.toLong() - 1)
+                } catch (_: IOException) {
+                    return@List null
+                }
+
+                // padding: min(handle.size() - handle.position(source), actualSectorByteCount - usedSize)
+
+                RawChunk(index, compressKind, bytes)
             }
             return RawRegion(
                 regionX,
@@ -75,19 +71,17 @@ class RawRegion internal constructor(
 
     fun inferFilename() = "r.$regionX.$regionZ.mca"
 
-    fun writeTo(handle: FileHandle) {
-        handle.sink().buffer().use { sink ->
-            offsets.writeTo(sink)
-            timestamps.writeTo(sink)
-        }
+    fun writeTo(handle: FileHandle) = handle.sink().buffer().use { sink ->
+        offsets.writeTo(sink)
+        timestamps.writeTo(sink)
         val necessarySectorCount = offsets.necessarySectorCount().toLong()
         handle.resize(necessarySectorCount * SECTOR_SIZE)
 
         offsets.forEachIndexed { index, offset ->
             if (offset.isEmpty()) return@forEachIndexed
             val chunk = chunks[index] ?: return@forEachIndexed
-            handle.sink(offset.sectorOffset.toLong() * SECTOR_SIZE).buffer()
-                .use(chunk::writeTo)
+            handle.reposition(sink, offset.sectorOffset.toLong() * SECTOR_SIZE)
+            chunk.writeTo(sink)
         }
     }
 
