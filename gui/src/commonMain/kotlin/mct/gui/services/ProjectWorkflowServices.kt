@@ -76,6 +76,14 @@ suspend fun updateProject(projectDirectory: String) =
     runProjectCommand(projectDirectory, "update")
 
 context(env: Env)
+suspend fun checkProject(projectDirectory: String) =
+    runProjectCommand(projectDirectory, "check")
+
+context(env: Env)
+suspend fun preprocessProject(projectDirectory: String) =
+    runProjectCommand(projectDirectory, "preprocessing")
+
+context(env: Env)
 suspend fun extractProjectTerms(projectDirectory: String) =
     runProjectCommand(projectDirectory, "term")
 

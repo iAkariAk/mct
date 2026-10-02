@@ -2,24 +2,21 @@
 
 package mct.gui.pages
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import mct.gui.components.CollapsibleActionButtonGroup
-import mct.gui.components.HoverHint
+import mct.gui.components.*
 import mct.gui.model.ProjectAction
 import mct.gui.model.ProjectHistoryEntry
 import mct.gui.model.ProjectSection
@@ -31,9 +28,9 @@ import mct.gui.state.ProjectController
  * An open project: its name top-left, the function area in the middle and the project actions
  * pinned underneath.
  *
- * The function area is the large card that morphs between the three function cards and the page
- * behind each of them; the action bar stays put, because `update` / `build` / `patch` act on the
- * whole project rather than on one page of it.
+ * The function area is the shared one: the dashboard of function cards morphs into the page behind
+ * whichever card was chosen. The action bar stays put, because `update` / `build` / `patch` act on
+ * the whole project rather than on one page of it.
  */
 @Composable
 fun ProjectWorkspacePage(
@@ -47,7 +44,15 @@ fun ProjectWorkspacePage(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         WorkspaceHeader(controller, project)
-        FunctionArea(controller, modifier = Modifier.fillMaxWidth().weight(1f))
+        FunctionArea(
+            selected = controller.section.takeUnless { it == ProjectSection.Dashboard },
+            onBack = { controller.showSection(ProjectSection.Dashboard) },
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            catalogue = { ProjectDashboardSection(controller) },
+            // The section pages carry a header of their own — search, counts, the save button — so
+            // the area's back affordance is not the one they use.
+            page = { section, _ -> ProjectSectionPage(controller, section) },
+        )
         ProjectActionBar(controller, isRunning)
     }
 }
@@ -109,38 +114,14 @@ private fun WorkspaceHeader(controller: ProjectController, project: ProjectHisto
     }
 }
 
-/** The large content card: the three function cards, or the page one of them switches to. */
+/** The page behind one function card. */
 @Composable
-private fun FunctionArea(controller: ProjectController, modifier: Modifier = Modifier) {
-    val motionScheme = MaterialTheme.motionScheme
-    Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-    ) {
-        AnimatedContent(
-            targetState = controller.section,
-            transitionSpec = {
-                // Material's "fade through": the two pages are not spatially related, so nothing
-                // slides. A slide inside this card would spend most of the animation clipped by the
-                // card's own rounded edge and read as a jump.
-                val enter = fadeIn(animationSpec = motionScheme.defaultEffectsSpec()) +
-                    scaleIn(animationSpec = motionScheme.defaultSpatialSpec(), initialScale = 0.94f)
-                val exit = fadeOut(animationSpec = motionScheme.fastEffectsSpec()) +
-                    scaleOut(animationSpec = motionScheme.fastSpatialSpec(), targetScale = 0.98f)
-                enter togetherWith exit
-            },
-            modifier = Modifier.fillMaxSize(),
-            label = "project-section",
-        ) { section ->
-            val textFile = section.textFile
-            when {
-                section == ProjectSection.Dashboard -> ProjectDashboardSection(controller)
-                section == ProjectSection.Config -> ProjectConfigSection(controller)
-                textFile != null -> ProjectTextListSection(controller, textFile)
-                else -> Unit
-            }
-        }
+private fun ProjectSectionPage(controller: ProjectController, section: ProjectSection) {
+    val textFile = section.textFile
+    when {
+        section == ProjectSection.Config -> ProjectConfigSection(controller)
+        textFile != null -> ProjectTextListSection(controller, textFile)
+        else -> Unit
     }
 }
 
@@ -148,29 +129,27 @@ private fun FunctionArea(controller: ProjectController, modifier: Modifier = Mod
 private fun ProjectDashboardSection(controller: ProjectController) {
     val cards = buildList {
         add(
-            ProjectFunctionCardData(
+            FunctionCardSpec(
+                key = ProjectSection.Config,
                 title = "编辑项目配置",
                 supporting = "查看并修改 mct.toml 的每一项，字段下方就是文件里的注释",
-                file = PROJECT_FILE,
-                trailing = controller.editor?.engineKind?.value?.label,
                 icon = Icons.Outlined.Tune,
-                container = MaterialTheme.colorScheme.primaryContainer,
-                onContent = MaterialTheme.colorScheme.onPrimaryContainer,
-                onClick = { controller.showSection(ProjectSection.Config) },
+                detail = PROJECT_FILE,
+                badge = controller.editor?.engineKind?.value?.label,
+                accent = FunctionAccent.Primary,
             )
         )
         ProjectTextFile.entries.forEach { textFile ->
             val empty = controller.entriesOf(textFile).isEmpty()
             add(
-                ProjectFunctionCardData(
+                FunctionCardSpec(
+                    key = textFile.section,
                     title = textFile.title,
                     supporting = textFile.description,
-                    file = controller.pathOf(textFile),
-                    trailing = "${controller.entriesOf(textFile).size} 条",
                     icon = textFile.icon,
-                    container = textFile.containerColor(empty),
-                    onContent = textFile.contentColor(empty),
-                    onClick = { controller.showSection(textFile.section) },
+                    detail = controller.pathOf(textFile),
+                    badge = "${controller.entriesOf(textFile).size} 条",
+                    accent = textFile.accent(empty),
                 )
             )
         }
@@ -202,18 +181,12 @@ private fun ProjectDashboardSection(controller: ProjectController) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            cards.chunked(columns).forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing),
-                ) {
-                    row.forEach { card ->
-                        ProjectFunctionCard(card, Modifier.weight(1f).height(perRow))
-                    }
-                    // Keep the cards in a short row at their column width instead of stretching them.
-                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
+            FunctionGrid(
+                cards = cards,
+                onSelect = controller::showSection,
+                columns = columns,
+                rowHeight = perRow,
+            )
         }
     }
 }
@@ -240,112 +213,11 @@ private val ProjectTextFile.icon: ImageVector
         ProjectTextFile.Terms -> Icons.Outlined.Bookmark
     }
 
-@Composable
-private fun ProjectTextFile.containerColor(empty: Boolean): Color = when (this) {
-    ProjectTextFile.Mappings -> MaterialTheme.colorScheme.secondaryContainer
-    ProjectTextFile.Terms -> MaterialTheme.colorScheme.primaryContainer
-    ProjectTextFile.Missing -> if (empty) {
-        MaterialTheme.colorScheme.surfaceVariant
-    } else {
-        MaterialTheme.colorScheme.tertiaryContainer
-    }
-}
-
-@Composable
-private fun ProjectTextFile.contentColor(empty: Boolean): Color = when (this) {
-    ProjectTextFile.Mappings -> MaterialTheme.colorScheme.onSecondaryContainer
-    ProjectTextFile.Terms -> MaterialTheme.colorScheme.onPrimaryContainer
-    ProjectTextFile.Missing -> if (empty) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onTertiaryContainer
-    }
-}
-
-/** Everything one function card shows; the layout decides how much room it gets. */
-private data class ProjectFunctionCardData(
-    val title: String,
-    val supporting: String,
-    val file: String,
-    val trailing: String?,
-    val icon: ImageVector,
-    val container: Color,
-    val onContent: Color,
-    val onClick: () -> Unit,
-)
-
-@Composable
-private fun ProjectFunctionCard(card: ProjectFunctionCardData, modifier: Modifier = Modifier) {
-    Card(
-        onClick = card.onClick,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Surface(modifier = Modifier.size(52.dp), shape = MaterialTheme.shapes.large, color = card.container) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(card.icon, contentDescription = null, tint = card.onContent)
-                }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                // The trailing count shares the title line instead of holding a column of its own:
-                // as a sibling of the text block it cost ~64dp on every card, which is what left the
-                // description wrapping mid-word on a narrow window.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        card.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f, fill = false),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (card.trailing != null) {
-                        Surface(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        ) {
-                            Text(
-                                card.trailing,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-                Text(
-                    card.supporting,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    card.file,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+/** A file with nothing in it reads as neutral rather than as a problem to fix. */
+private fun ProjectTextFile.accent(empty: Boolean): FunctionAccent = when (this) {
+    ProjectTextFile.Mappings -> FunctionAccent.Secondary
+    ProjectTextFile.Terms -> FunctionAccent.Primary
+    ProjectTextFile.Missing -> if (empty) FunctionAccent.Neutral else FunctionAccent.Tertiary
 }
 
 @Composable
@@ -366,8 +238,10 @@ private fun ProjectActionBar(controller: ProjectController, isRunning: Boolean) 
 private val ProjectAction.icon: ImageVector
     get() = when (this) {
         ProjectAction.Update -> Icons.Outlined.Update
+        ProjectAction.Check -> Icons.AutoMirrored.Outlined.FactCheck
         ProjectAction.Term -> Icons.Outlined.Bookmark
         ProjectAction.Translate -> Icons.Outlined.Translate
+        ProjectAction.Preprocessing -> Icons.Outlined.Handyman
         ProjectAction.Build -> Icons.Outlined.Build
         ProjectAction.Patch -> Icons.Outlined.Difference
     }

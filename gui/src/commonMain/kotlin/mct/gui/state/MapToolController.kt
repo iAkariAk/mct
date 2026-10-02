@@ -16,7 +16,7 @@ import okio.Path.Companion.toPath
 
 /**
  * The map tool as a state holder: the decoded [MapFile] its preview is drawn from, the path it was
- * loaded from, the last action's outcome, and the three actions the dialog raises.
+ * loaded from, the last action's outcome, and the three actions the page raises.
  *
  * The decoded map is what is held, rather than the file an edit was imported from, because the
  * preview is rendered from the map's own colors: an imported image is quantized into `MapColors`
@@ -24,9 +24,9 @@ import okio.Path.Companion.toPath
  * anything is written.
  *
  * Every action runs on [OperationRunner] like the rest of the toolbox, so the console records it and
- * the dialog's buttons disable while it lasts. Its outcome is reported through [status] rather than a
- * snackbar: the dialog covers the snackbar, so a confirmation or a failure raised that way would
- * never be seen.
+ * the page's buttons disable while it lasts. Its outcome is reported through [status] rather than a
+ * snackbar: the page is a function area of its own, so a message raised elsewhere would be easy to
+ * miss.
  */
 class MapToolController(
     private val env: Env,
@@ -38,13 +38,13 @@ class MapToolController(
 
     /**
      * The file [mapFile] came from. An overwrite is written back to exactly this path, not to
-     * whatever the dialog's path field currently holds: the field can be edited to point elsewhere
+     * whatever the page's path field currently holds: the field can be edited to point elsewhere
      * while the preview still shows this map.
      */
     var loadedPath by mutableStateOf<String?>(null)
         private set
 
-    /** Outcome of the last action, shown inside the dialog. */
+    /** Outcome of the last action, shown inside the map tool's page. */
     var status by mutableStateOf<MapToolStatus?>(null)
         private set
 
@@ -92,9 +92,9 @@ class MapToolController(
      * Run one action, reporting its outcome through [status].
      *
      * The failure is handled here rather than left to [OperationRunner]: the runner reports failures
-     * with a snackbar, which this dialog covers. It is still logged with its trace, so nothing is
-     * lost for diagnosis, and the message the user needs (a wrong image size, an undecodable map)
-     * lands in the dialog they are looking at.
+     * with a snackbar, which the tool's page would hide behind its own scroll. It is still logged
+     * with its trace, so nothing is lost for diagnosis, and the message the user needs (a wrong
+     * image size, an undecodable map) lands in the page they are looking at.
      */
     private fun action(block: suspend () -> MapToolStatus) = operations.launch {
         try {

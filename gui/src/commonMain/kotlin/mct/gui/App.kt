@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.*
@@ -20,6 +18,7 @@ import arrow.core.raise.either
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import mct.gui.components.AppShell
+import mct.gui.components.FunctionSurface
 import mct.gui.components.LogConsole
 import mct.gui.model.*
 import mct.gui.pages.*
@@ -130,7 +129,7 @@ fun App(vm: AppViewModel, modifier: Modifier = Modifier) {
 @Composable
 private fun AppContent(vm: AppViewModel) {
     val tabScrollStates = remember {
-        Tab.entries.filterNot { it == Tab.Project }.associateWith { ScrollState(initial = 0) }
+        Tab.entries.filterNot { it == Tab.Project || it == Tab.Toolbox }.associateWith { ScrollState(initial = 0) }
     }
     val pageTravelPx = with(LocalDensity.current) { 24.dp.roundToPx() }
     val paneModifier = remember { Modifier.fillMaxSize() }
@@ -159,21 +158,117 @@ private fun AppContent(vm: AppViewModel) {
         },
         label = "tab-content",
     ) { tab ->
+        // The project workflow and the toolbox bring their own function area: both carry large cards
+        // and their own scrolling, so they sit outside the shared surface and scroll column.
         if (tab == Tab.Project) {
-            // The project workflow renders its own large cards and scrolling
-            // lists, so it sits outside the shared card and outer scroll column.
             ProjectNavigationHost(
                 controller = vm.project,
                 isRunning = vm.operations.isRunning,
             )
+        } else if (tab == Tab.Toolbox) {
+            ToolboxPanel(
+                state = vm.toolboxState,
+                onStateChange = setToolboxState,
+                isRunning = vm.operations.isRunning,
+                onRunOperation = { operation ->
+                    vm.operations.launch {
+                        val state = vm.toolboxState
+                        with(vm.env) {
+                            when (operation) {
+                                ToolboxOperation.PointerTest -> {
+                                    val result = runPointerTest(
+                                        state.pointerKind.key,
+                                        state.pointerPatternPath.takeIf { it.isNotBlank() },
+                                        state.noBuiltin,
+                                        state.pointerInput,
+                                    )
+                                    // Read the state at write time: the panel stays usable while the
+                                    // run lasts, so writing the pre-run snapshot back would revert
+                                    // edits the user has made since.
+                                    vm.toolboxState = vm.toolboxState.copy(pointerResult = result.toString())
+                                }
+
+                                ToolboxOperation.PatternInspect -> {
+                                    val dump = inspectPattern(state.patternPatterns)
+                                    vm.toolboxState = vm.toolboxState.copy(patternResult = dump)
+                                }
+
+                                // The preview's page derives its content from the field, so the run
+                                // button is not offered for it at all.
+                                ToolboxOperation.ComponentPreview -> Unit
+
+                                // The conversion is the CLI's; the GUI only collects its options and
+                                // runs it in process.
+                                ToolboxOperation.Convert -> convertFormats(state.convert)
+                                // Only the load goes through this dispatch; the page's export and
+                                // overwrite buttons belong to the held map, not to a one-shot form.
+                                ToolboxOperation.MapFile -> vm.mapTool.load(state.map.input)
+                                ToolboxOperation.ExportSnbt -> runExportSnbt(
+                                    state.exportInput,
+                                    state.exportOutput,
+                                )
+
+                                ToolboxOperation.FlattenPool -> flattenTextPool(
+                                    state.poolInput, state.poolOutput, state.poolKind.key, state.poolSimply
+                                )
+
+                                ToolboxOperation.UnflattenPool -> unflattenTextPool(
+                                    state.poolInput, state.mappingInput, state.poolOutput
+                                )
+
+                                ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
+                                    state.poolInput, state.poolOutput, state.mtlxSource
+                                )
+
+                                ToolboxOperation.TranslateMtlx -> translateByMtlx(
+                                    state.mtlxInput, state.poolInput, state.poolOutput
+                                )
+
+                                ToolboxOperation.ReplaceAll -> replaceAllExtractions(
+                                    state.poolInput, state.poolOutput, state.replacement
+                                )
+
+                                ToolboxOperation.ExportSchema -> exportPatternSchema(
+                                    when (state.schemaKind) {
+                                        SchemaKind.Command -> PatternSchemaKind.Command
+                                        SchemaKind.DataPointer -> PatternSchemaKind.DataPointer
+                                        SchemaKind.CommandRegex -> PatternSchemaKind.CommandRegex
+                                    },
+                                    state.poolOutput,
+                                )
+
+                                ToolboxOperation.CommandTest -> {
+                                    val matches = testCommandPatterns(
+                                        state.commandInput,
+                                        state.commandPatterns,
+                                    )
+                                    vm.toolboxState = vm.toolboxState.copy(
+                                        commandResult = matches.joinToString("\n") {
+                                            "[${it.start}, ${it.endExclusive}) ${it.content}"
+                                        }.ifBlank { "未匹配到可提取文本。" },
+                                    )
+                                }
+
+                                ToolboxOperation.DownloadOfficialLanguage -> downloadOfficialLanguages(
+                                    state.officialMinecraftVersion,
+                                    state.officialOutput,
+                                    state.officialConcurrency.toInt(),
+                                )
+
+                                ToolboxOperation.CombineOfficialLanguage -> combineOfficialLanguages(
+                                    state.officialSourceLanguage,
+                                    state.officialTargetLanguage,
+                                    state.poolOutput,
+                                )
+                            }
+                        }
+                    }
+                },
+                onCancelOperation = vm.operations::cancel,
+                mapController = vm.mapTool,
+            )
         } else {
-            Card(
-                modifier = Modifier.fillMaxSize(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ),
-                shape = MaterialTheme.shapes.large,
-            ) {
+            FunctionSurface(Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier.fillMaxSize()
                         .verticalScroll(tabScrollStates.getValue(tab)),
@@ -322,92 +417,6 @@ private fun AppContent(vm: AppViewModel) {
                                 }
                             },
                         )
-
-                        Tab.Toolbox -> ToolboxPanel(
-                            state = vm.toolboxState,
-                            onStateChange = setToolboxState,
-                            isRunning = vm.operations.isRunning,
-                            mapController = vm.mapTool,
-                            onRunOperation = { operation ->
-                                vm.operations.launch {
-                                    val state = vm.toolboxState
-                                    with(vm.env) {
-                                        when (operation) {
-                                            ToolboxOperation.PointerTest -> {
-                                                val result = runPointerTest(
-                                                    state.pointerKind.key,
-                                                    state.pointerPatternPath.takeIf { it.isNotBlank() },
-                                                    state.noBuiltin,
-                                                    state.pointerInput,
-                                                )
-                                                // Read the state at write time: the panel stays
-                                                // usable while the run lasts, so writing the pre-run
-                                                // snapshot back would revert edits and re-open a
-                                                // dialog the user dismissed.
-                                                vm.toolboxState = vm.toolboxState.copy(pointerResult = result.toString())
-                                            }
-
-                                            ToolboxOperation.ExportSnbt -> runExportSnbt(
-                                                state.exportInput,
-                                                state.exportOutput,
-                                            )
-                                            ToolboxOperation.FlattenPool -> flattenTextPool(
-                                                state.poolInput, state.poolOutput, state.poolKind.key, state.poolSimply
-                                            )
-                                            ToolboxOperation.UnflattenPool -> unflattenTextPool(
-                                                state.poolInput, state.mappingInput, state.poolOutput
-                                            )
-                                            ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
-                                                state.poolInput, state.poolOutput, state.mtlxSource
-                                            )
-                                            ToolboxOperation.TranslateMtlx -> translateByMtlx(
-                                                state.mtlxInput, state.poolInput, state.poolOutput
-                                            )
-                                            ToolboxOperation.ReplaceAll -> replaceAllExtractions(
-                                                state.poolInput, state.poolOutput, state.replacement
-                                            )
-                                            ToolboxOperation.ExportSchema -> exportPatternSchema(
-                                                when (state.schemaKind) {
-                                                    SchemaKind.Command -> PatternSchemaKind.Command
-                                                    SchemaKind.DataPointer -> PatternSchemaKind.DataPointer
-                                                    SchemaKind.CommandRegex -> PatternSchemaKind.CommandRegex
-                                                },
-                                                state.poolOutput,
-                                            )
-                                            ToolboxOperation.CommandTest -> {
-                                                val matches = testCommandPatterns(
-                                                    state.commandInput,
-                                                    state.commandPatterns,
-                                                )
-                                                vm.toolboxState = vm.toolboxState.copy(
-                                                    commandResult = matches.joinToString("\n") {
-                                                        "[${it.start}, ${it.endExclusive}) ${it.content}"
-                                                    }.ifBlank { "未匹配到可提取文本。" },
-                                                )
-                                            }
-                                            ToolboxOperation.DownloadOfficialLanguage -> downloadOfficialLanguages(
-                                                state.officialMinecraftVersion,
-                                                state.officialOutput,
-                                                state.officialConcurrency.toInt(),
-                                            )
-                                            ToolboxOperation.CombineOfficialLanguage -> combineOfficialLanguages(
-                                                state.officialSourceLanguage,
-                                                state.officialTargetLanguage,
-                                                state.poolOutput,
-                                            )
-                                            // The conversion is the CLI's; the GUI only
-                                            // collects its options and runs it in process.
-                                            ToolboxOperation.Convert -> convertFormats(state.convert)
-                                            // Only the load goes through this dispatch;
-                                            // the dialog's export and overwrite buttons
-                                            // belong to the held map, not to a one-shot form.
-                                            ToolboxOperation.MapFile -> vm.mapTool.load(state.map.input)
-                                        }
-                                    }
-                                }
-                            })
-                        // Handled above; the enum is exhaustive, so the branch stays for the compiler.
-                        Tab.Project -> Unit
                     }
                 }
             }

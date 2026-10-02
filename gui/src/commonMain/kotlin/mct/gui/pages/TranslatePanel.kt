@@ -345,6 +345,7 @@ fun TranslatePanel(
             onRun,
             enabled = readyToRun,
             onCancel = onCancel,
+            cancelLabel = "取消翻译",
         )
     }
 }

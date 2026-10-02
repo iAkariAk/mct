@@ -89,12 +89,24 @@ enum class ToolboxOperation(val title: String, val actionLabel: String) {
     Convert("格式转换", "转换"),
 
     /**
-     * `mct kit map`: the map file is decoded into a [mct.map.MapFile] the dialog previews and edits.
-     * Loading is submitted like any other tool's action; the dialog's export and overwrite buttons
-     * act on the held map through [mct.gui.state.MapToolController] instead, because they are not a
+     * `mct kit map`: the map file is decoded into a [mct.map.MapFile] the page previews and edits.
+     * Loading is submitted like any other tool's action; the page's export and overwrite buttons act
+     * on the held map through [mct.gui.state.MapToolController] instead, because they are not a
      * single form submission.
      */
     MapFile("地图查看与编辑", "加载地图"),
+
+    /**
+     * `mct kit display text`: render a text component (JSON or SNBT) the way the game would show it,
+     * which is how a translated sign or item name can be checked before it reaches a world.
+     */
+    ComponentPreview("文本组件预览", "预览"),
+
+    /**
+     * `mct test pattern`: assemble the rule set the extraction entry points would use from the
+     * configured files and the built-in switches, and dump the merged result.
+     */
+    PatternInspect("生效规则查看", "查看规则"),
 }
 
 /** Container formats `mct kit convert` moves data between; [key] is its `--*-format` value. */
@@ -124,6 +136,17 @@ enum class SchemaKind(val key: String, val label: String) {
     Command("command", "Command Pattern"),
     DataPointer("data_pointer", "DataPointer Pattern"),
     CommandRegex("command_regex", "Command Regex Pattern"),
+}
+
+/**
+ * Outer form of a pasted text component; `mct kit display text --format`.
+ *
+ * [Auto] tries JSON first and SNBT second, which is the order the CLI uses for the same flag.
+ */
+enum class ComponentFormat(val label: String) {
+    Auto("自动"),
+    Json("JSON"),
+    Snbt("SNBT"),
 }
 
 /** Translation engine. For [Api], [ApiTranslateState.kind] selects the concrete service. */
@@ -171,8 +194,9 @@ enum class PatchKind(val label: String, val value: PathKind) {
 }
 
 enum class PatchFormat(val label: String, val extension: String) {
+    Mctp("MCTP", "mctp"),
     Json("JSON", "json"),
-    Cbor("CBOR", "mctp"),
+    Cbor("CBOR", "cbor"),
 }
 
 enum class PatchStrategy(val label: String, val value: PatchValidationFailureStrategy) {
@@ -340,10 +364,10 @@ data class MapToolState(
 )
 
 /**
- * Outcome of one map tool action, shown inside the map dialog.
+ * Outcome of one map tool action, shown inside the map tool's page.
  *
- * A snackbar is not an option there: the modal dialog covers it, so a confirmation or a failure
- * raised that way would never be read.
+ * A snackbar is not an option there: the page is where the user is looking, and a confirmation or a
+ * failure raised elsewhere would be easy to miss.
  */
 @Immutable
 data class MapToolStatus(val text: String, val error: Boolean = false)
@@ -370,6 +394,13 @@ data class ToolboxState(
     val commandInput: String = "",
     val commandPatterns: MCTPatternState = MCTPatternState(),
     val commandResult: String = "",
+    /** Fields of the text-component preview; the parsed component itself is derived from these. */
+    val componentInput: String = "",
+    val componentFormat: ComponentFormat = ComponentFormat.Auto,
+    /** Fields of the resolved-rule dump, mirroring the extraction tab's mode + rule editor. */
+    val patternMode: RunMode = RunMode.Region,
+    val patternPatterns: MCTPatternState = MCTPatternState(),
+    val patternResult: String = "",
     val officialSourceLanguage: String = "",
     val officialTargetLanguage: String = "",
     val officialMinecraftVersion: String = "latest",

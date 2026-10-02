@@ -430,8 +430,10 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
                 with(env) {
                     when (action) {
                         ProjectAction.Update -> updateProject(directory)
+                        ProjectAction.Check -> checkProject(directory)
                         ProjectAction.Term -> extractProjectTerms(directory)
                         ProjectAction.Translate -> translateProject(directory)
+                        ProjectAction.Preprocessing -> preprocessProject(directory)
                         ProjectAction.Build -> buildProject(directory)
                         ProjectAction.Patch -> assembleProjectPatch(directory)
                     }
@@ -457,6 +459,15 @@ private fun String.isAiTokenUnset(): Boolean = isBlank() || this == AIConfig.Def
         val config = editor ?: return null
         val extracted = cachedExtractions(directory).isNotEmpty()
         return when {
+            // `project preprocessing` reads `src/` and nothing else, so it is the one action that
+            // does not need an extraction cache.
+            action == ProjectAction.Preprocessing ->
+                if (isRegularFile(joinPath(joinPath(directory, "src"), "level.dat"))) {
+                    null
+                } else {
+                    "项目里没有 src/level.dat：请重新用源存档初始化项目"
+                }
+
             action != ProjectAction.Update && !extracted ->
                 "还没有提取结果：请先运行「更新」"
 

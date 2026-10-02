@@ -407,6 +407,8 @@ fun ActionButton(
     onClick: () -> Unit,
     enabled: Boolean,
     onCancel: (() -> Unit)? = null,
+    /** Label of the cancel affordance the button morphs into while [running]; see [onCancel]. */
+    cancelLabel: String = "取消",
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -515,11 +517,11 @@ fun ActionButton(
                     ActionButtonVisualState.Cancellable -> {
                         Icon(
                             Icons.Outlined.Stop,
-                            contentDescription = "取消",
+                            contentDescription = cancelLabel,
                             modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("取消翻译", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(cancelLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     ActionButtonVisualState.Running -> {

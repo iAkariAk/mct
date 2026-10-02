@@ -162,6 +162,34 @@ data class CommandTestResult(
     val endExclusive: Int,
 )
 
+/**
+ * `mct test pattern`: assemble the rule set an extraction run would use and render it, one layer per
+ * line.
+ *
+ * The assembly is [composePattern], the same call every extraction and patch entry point makes, so
+ * what is shown here cannot disagree with what a run does. A layer of `null` means its filter is
+ * switched off — that category extracts everything, which is the one thing a rule dump has to make
+ * obvious.
+ */
+context(env: Env)
+suspend fun inspectPattern(patterns: MCTPatternState): String = withContext(ioDispatcher) {
+    val pattern = composePattern(patterns)
+    fun layer(label: String, value: Any?): String =
+        "$label: ${value ?: "不启用过滤（提取全部）"}"
+
+    val dump = listOf(
+        layer("Region NBT", pattern.nbt),
+        layer("MCJson", pattern.mcjson),
+        layer("Command", pattern.command),
+        layer("Command Data", pattern.commandData),
+        layer("Command Component", pattern.commandComponent),
+        layer("Command Regex", pattern.commandRegex),
+        layer("Cext", pattern.cext),
+    ).joinToString("\n")
+    env.logger.info { "已汇总生效规则" }
+    dump
+}
+
 context(env: Env)
 suspend fun testCommandPatterns(
     input: String,

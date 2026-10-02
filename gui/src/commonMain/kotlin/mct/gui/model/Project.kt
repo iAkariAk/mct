@@ -88,8 +88,10 @@ enum class ProjectSection(val textFile: ProjectTextFile? = null) {
  */
 enum class ProjectAction(val label: String, val cancelLabel: String) {
     Update("更新", "取消更新"),
+    Check("缺失检查", "取消检查"),
     Term("术语", "取消术语提取"),
     Translate("翻译", "取消翻译"),
+    Preprocessing("预处理", "取消预处理"),
     Build("构建", "取消构建"),
     Patch("补丁", "取消补丁"),
 }

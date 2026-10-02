@@ -10,10 +10,7 @@ import mct.gui.platform.ioDispatcher
 import mct.gui.util.writeAtomically
 import mct.kit.TranslationMapping
 import mct.model.patch.Patch
-import mct.patch.HashValidatingFailure
-import mct.patch.PatchResult
-import mct.patch.applyPatch
-import mct.patch.createPatch
+import mct.patch.*
 import mct.serializer.MCTJson
 import mct.util.io.readCbor
 import mct.util.io.readJson
@@ -52,6 +49,7 @@ suspend fun createPatchFile(
         // previous one was.
         writeAtomically(env.fs, output.toPath()) { temp ->
             when (format) {
+                PatchFormat.Mctp -> MCTPFile.encodeToFile(temp, patch)
                 PatchFormat.Json -> temp.writeJson(patch, pretty = GuiSettings.prettyOutput)
                 PatchFormat.Cbor -> temp.writeCbor(patch)
             }
@@ -76,6 +74,7 @@ suspend fun applyPatchFile(
     either<MCTError, Unit> {
         val workspace = MCTWorkspace(input.toPath(), env)
         val patch = when (format) {
+            PatchFormat.Mctp -> MCTPFile.decodeFromFile(patchPath.toPath())
             PatchFormat.Json -> patchPath.toPath().readJson<Patch>()
             PatchFormat.Cbor -> patchPath.toPath().readCbor<Patch>()
         }

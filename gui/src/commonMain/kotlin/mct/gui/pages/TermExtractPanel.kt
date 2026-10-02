@@ -196,6 +196,7 @@ fun TermExtractPanel(
             onClick = onRun,
             enabled = state.input.isNotBlank() && state.output.isNotBlank(),
             onCancel = if (isRunning) onCancel else null,
+            cancelLabel = "取消术语提取",
         )
     }
 }
