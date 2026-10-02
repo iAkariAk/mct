@@ -62,6 +62,8 @@ inline infix fun ULong.divCeil(other: ULong) = (this + other - 1u) / other
 inline infix fun IntRange.overlapsWith(other: IntRange) = maxOf(first, other.first) <= minOf(last, other.last)
 
 inline fun String.findAll(str: String): Sequence<IntRange> = sequence {
+    if (str.isEmpty()) return@sequence
+
     var index = 0
     while (index < length) {
         index = indexOf(str, index)
