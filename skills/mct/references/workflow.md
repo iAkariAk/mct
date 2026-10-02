@@ -348,8 +348,9 @@ panic, 但不给路径时内置被清空, 该层实际上变成不过滤.
 | `kit display text <text-component> [-f (json\|snbt\|auto)]`                    | 渲染并高亮一个文本组件                                |
 | `kit display file mappings -i <mappings.json>`                                 | 逐行高亮渲染译文；`null` 显示为 `keep the original`   |
 | `kit display file missing -i <missing.json>`                                   | 逐行高亮渲染待译项                                    |
-| `kit convert`                                                                  | NBT ↔ SNBT ↔ JSON 互转                                |
-| `kit map view\|edit`                                                           | 地图文件 ↔ 图片                                       |
+| `kit convert`                                                                  | NBT ↔ SNBT ↔ JSON 互转(见下）                         |
+| `kit map view`                                                                 | 地图文件 → 图片                                       |
+| `kit map edit`                                                                 | 图片 → 地图文件                                       |
 
 `kit display` 是 **高亮渲染**工具：它把文本组件或译文按颜色渲染出来, 比读原始 JSON 直观得多, 校对时用得上.
 
@@ -358,6 +359,48 @@ mct kit display text '{"text":"Hello","color":"gold"}'      # 渲染单个文本
 mct kit display file mappings -i <项目>/mappings.json       # 逐条渲染译文
 mct kit display file missing  -i <项目>/missing.json        # 逐条渲染待译项
 ```
+
+### `kit convert`
+
+`-i` 是 **输入**(带 `-r` 时它就是正则本身), `-r` 是 **开关**；原来的 `-u/--current` 换成了 `-id/--input-dir`
+(默认当前目录）, `-o` 不给时默认当前目录.
+
+| 选项                         | 说明                                                               |
+|------------------------------|--------------------------------------------------------------------|
+| `-i` / `--input`(必填）      | 单个文件路径；加 `-r` 时这一项填正则                               |
+| `-r` / `--regex`             | 开关。加上后按正则批量处理 `-id` 下的所有匹配文件                  |
+| `-id` / `--input-dir`        | 批量模式的搜索根目录, 默认当前目录                                 |
+| `-o` / `--output`            | 输出文件或目录；默认当前目录(是目录时按 `<文件名>.<扩展名>` 命名） |
+| `-if` / `--input-format`     | `json` / `snbt` / `nbt` / `auto`(按扩展名推断, 默认 `auto`)        |
+| `-of` / `--output-format`    | `json` / `snbt` / `nbt`。**`auto` 会直接报错**, 所以这一项实际必填 |
+| `-c` / `--compression`       | `none` / `gzip` / `zlib`, 默认 `none`。**读写共用同一设置**        |
+| `-z` / `--compression-level` | 1..9                                                               |
+| `-p` / `--pretty`            | 开关，输出美化(SNBT / JSON）                                       |
+
+两个容易踩的点：
+
+- **gzip 压缩的 NBT 必须显式 `-c gzip`**, 哪怕只输出 SNBT / JSON, 否则报
+  `NbtDecodingException: Expected compression to be None, but was Gzip`. 因为 `-c` 同时配置了读和写.
+- **批量模式 (`-r`)的 `-o` 必须是目录**, 给文件会报
+  `When using --regex to match file, your output must be a directory instead of file.`. 批量模式也没有单个路径可推断扩展名,
+  所以 `-of` 必须显式给.
+
+```bash
+# 读地图名(level.dat 是 gzip NBT, -c gzip 不能省）
+mct kit convert -i <地图目录>/level.dat -if nbt -c gzip -of snbt -o level.snbt
+
+# 批量把一个目录里的 .dat 全转成 SNBT, 输出到 out/
+mct kit convert -i '\.dat$' -r -id <地图目录> -of snbt -o out
+```
+
+### `kit map`
+
+`view` 与 `convert` 共用同一套输入开关 (`-i` / `-r` / `-id` / `-o`), 区别是 `-f/--format` **必填**
+(`png` / `bmp` / `jpeg` / `gif`), 输出名按 `<地图文件名>.<格式>` 推.
+
+`edit` 不支持批量, 只有 `-i/--input`(地图文件）与 `-m/--image`(图片）, **就地改写地图文件**, 且图片必须正好
+`128x128`(边长不符报 `The size of the image must be 128x128`). 写回是量化结果：像素被吸附到 61 基础色 × 4 明度,
+所以「地图 → 图片 → 地图」不是无损往返.
 
 `kit official download` 加 `combine` 是零 token 拿到官方术语表的路径. 只在用户要求 100% 遵循 Minecraft 官方译名时使用；你也可以把它当作
 agent 自翻时的可选术语来源.
@@ -420,8 +463,8 @@ agent 自翻时的可选术语来源.
 }
 ```
 
-例子里 `target` 写成 `build/...`, 是因为 `target` 相对**进程工作目录**(项目根）解析, 而 `build/` 是成品世界所在.
-若你的目标是应用补丁的对方世界, `target` 要相应写成**对方运行 `patch apply` 时所在目录**下的相对路径.
+例子里 `target` 写成 `build/...`, 是因为 `target` 相对 **进程工作目录**(项目根）解析, 而 `build/` 是成品世界所在.
+若你的目标是应用补丁的对方世界, `target` 要相应写成 **对方运行 `patch apply` 时所在目录**下的相对路径.
 
 | 字段        | 含义                                       |
 |-------------|--------------------------------------------|
@@ -442,12 +485,13 @@ agent 自翻时的可选术语来源.
 - `target` 同样相对项目根. **想改世界里的文件就必须把世界目录写进去**, 例如 `target: "build/assets/pic.png"`
   (build 阶段）或 `target: "src/assets/pic.png"`.
 
-**这里有个真实陷阱**：`project build` 的工作目录是**项目根**, 不是 `build/`. 所以把 `target` 写成 `assets/pic.png` 时, 它指向的是
+**这里有个真实陷阱**：`project build` 的工作目录是 **项目根**, 不是 `build/`. 所以把 `target` 写成 `assets/pic.png` 时,
+它指向的是
 `<项目根>/assets/pic.png`, 与 `build/assets/pic.png` 无关. 实测: 项目里 `target: "src/assets_x.txt"` 跑 `build` 之后,
 改动落在了 **`src/assets_x.txt`**(`build/` 里那份仍是最初内容), 而 `target: "assets_x.txt"`(只有 `src/assets_x.txt` 存在）
 会在生成预处理时报 `File assets_x.txt not found`.
 
-路径写错在**生成阶段**就会报 `File <路径> not found`, 不会静默跳过.
+路径写错在 **生成阶段**就会报 `File <路径> not found`, 不会静默跳过.
 
 ### 7.3 生成与生效时机
 
@@ -469,8 +513,8 @@ mct project preprocessing     # 解析 manifest, 产出 cache/preprocessing.json
   文件必须存在且足够相似, 否则差分退化成整文件替换.
 - 图像建议用 `patch_binary`(精确到字节, 含长度变化）；`patch_text` 只用于确属文本、且 **不归 MCT 管的**文件.
 - `remove_file` 删除 `target`(用 `deleteRecursively`, 对目录也生效）, 适合替换掉被重命名的贴图.
-- 因为 `target` 是进程 CWD 相对路径, 它**不会**自动跟着"复制世界"走. 想让改动落在 `build/` 里面, `target` 要显式写成
-  `build/...`；写成裸相对路径时改的是项目根下的同名文件(常见后果是改到 `src/`, 而 `build/` 里那份没变）.
+- 因为 `target` 是进程 CWD 相对路径, 它 **不会**自动跟着"复制世界"走. 想让改动落在 `build/` 里面, `target` 要显式写成
+  `build/...`；写成裸相对路径时改的是项目根下的同名文件 (常见后果是改到 `src/`, 而 `build/` 里那份没变）.
 
 ## 八、用补丁分发译文 (`project patch` / `mct patch`）
 

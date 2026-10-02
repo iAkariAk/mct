@@ -431,17 +431,25 @@ pattern**(`mct test pattern -c` 统计）, 其中 `item` 占 17 条. 下表 `Wit
 - 省略/为 null 的 `pattern`：该组件只有在产出 **恰好一个**文本切片时才被抽.
 - 有 `pattern`：只保留指针命中该 pattern 的切片.
 
-内置集 `BuiltinMinecraftComponentPatterns`：
+内置集 `BuiltinMinecraftComponentPatterns`（共 11 条, 顺序即下表顺序）：
 
-| `name`                  | `pattern`                          |
-|-------------------------|------------------------------------|
-| `custom_name`           | null                               |
-| `item_name`             | null                               |
-| `text_display`          | null                               |
-| `description`           | null                               |
-| `lore`                  | null                               |
-| `written_book_content`  | regex `>#(?:text\|author\|pages)$` |
-| `writable_book_content` | right `pages`                      |
+| `name`                  | `pattern`                                                    | 类型  |
+|-------------------------|--------------------------------------------------------------|-------|
+| `attribute_modifiers`   | equal `>#display>#value`                                     | equal |
+| `block_entity_data`     | right `>#CustomName`                                         | right |
+| `custom_name`           | null                                                         | —     |
+| `description`           | null                                                         | —     |
+| `item_name`             | null                                                         | —     |
+| `lore`                  | null                                                         | —     |
+| `sign_text_front`       | regex `^>#(?:filtered_)?messages$`                           | regex |
+| `sign_text_back`        | regex `^>#(?:filtered_)?messages$`                           | regex |
+| `text_display`          | null                                                         | —     |
+| `written_book_content`  | regex `^>#(?:author\|pages\|title)(?:>#(?:filtered\|raw))?$` | regex |
+| `writable_book_content` | regex `^>#pages(?:>#(?:filtered\|raw))?$`                    | regex |
+
+`sign_text_front` / `sign_text_back` 是 1.21.5+ 的告示牌组件形态 (取代 `block_entities` 里的 `front_text` /
+`back_text`)；
+成书两项的 pattern 带 `filtered` / `raw` 后缀, 所以过滤过的页面和原文页面都会命中. `pattern` 为 `null` 的含义见上文.
 
 `--disable-builtin-command-component` 必须同时给 `--pattern-command-component`, 否则 panic.
 

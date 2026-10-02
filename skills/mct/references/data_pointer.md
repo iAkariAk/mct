@@ -30,6 +30,10 @@ DataPointer 是 MCT 的 **路径寻址系统**. JSON 数据包 (`--pattern-mcjso
 | `>N`     | 进入 list/array 的第 N 个元素 |
 | `>` 结尾 | 路径终止于该叶子值            |
 | `&>`     | key 名中字面量 `>` 的转义     |
+| `&&`     | key 名中字面量 `&` 的转义     |
+
+`&` 只在后面紧跟 `>` 或 `&` 时才是转义符, 所以 key 名里的其他 `&x` 组合会原样保留 (`&x` 解码回 `&x`).
+空字符串解码为 **根**(不是错误), 所以 `''` 等价于指向整棵树.
 
 示例：
 
@@ -120,7 +124,7 @@ DataPointer 是 MCT 的 **路径寻址系统**. JSON 数据包 (`--pattern-mcjso
 
 ## 四、内置 NBT / region 集
 
-`BuiltinNbtPatterns`(`mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt`）先 `dependsOn(ComponentPatterns)`, 再加：
+`BuiltinNbtPatterns`(`mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt`）先 `dependsOn(CommonComponentPatterns)`, 再加：
 
 | 目标                                   | pattern                                                                                                                                  |
 |----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|

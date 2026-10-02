@@ -94,7 +94,8 @@ format 列就是切片的 `FormatKind`：容器候选是 `json_obj`, 字符串�
 
 ## 三、内置 pattern 目录
 
-`BuiltinMCJsonPatterns`(`mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt`）先用 `dependsOn(ComponentPatterns)`
+`BuiltinMCJsonPatterns`(`mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt`）先用
+`dependsOn(CommonComponentPatterns)`
 带上共用集, 再加自己的. 顺序有意义：`matched()` 返回第一个命中的.
 
 ### 现代组件 (共用 `CommonComponentPatterns`）
