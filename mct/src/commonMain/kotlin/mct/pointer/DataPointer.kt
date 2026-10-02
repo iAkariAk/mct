@@ -77,8 +77,13 @@ fun DataPointer.encodeTo(sb: StringBuilder) {
             }
 
             is DataPointer.Map -> {
-                val escapedPoint = current.point.replace(">", "&>")
-                sb.append(">#$escapedPoint")
+                sb.append(">#")
+                for (c in current.point) {
+                    when (c) {
+                        '&', '>' -> sb.append('&')
+                    }
+                    sb.append(c)
+                }
                 current = current.value
             }
         }
@@ -90,6 +95,8 @@ fun DataPointer.encodeToString() = buildString(::encodeTo)
 
 context(_: Raise<DataPointerParseError>)
 fun DataPointer.Companion.decodeFromString(str: String): DataPointer {
+    if (str.isEmpty()) return DataPointer.Terminator
+
     ensure(str.startsWith(">")) {
         DataPointerParseError("Expected '>' at beginning, but found ${str.first()}")
     }
@@ -100,11 +107,12 @@ fun DataPointer.Companion.decodeFromString(str: String): DataPointer {
     for (i in str.indices) {
         val c = str[i]
         if (lastIsAmp) {
-            if (c == '>') {
-                buffer.append(c)
-            } else {
-                buffer.append('&')
-                buffer.append(c)
+            when (c) {
+                '>', '&' -> buffer.append(c)
+                else -> {
+                    buffer.append('&')
+                    buffer.append(c)
+                }
             }
             lastIsAmp = false
             continue

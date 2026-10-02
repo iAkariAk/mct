@@ -5,38 +5,68 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.equals.shouldBeEqual
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldBeEmpty
 
 
 class DataPointerTest : FreeSpec({
     "codec test" - {
-        val testPointerString = ">#a>0>#b>#op&>=&a&"
-        val testPointer = DataPointer {
-            map("a", array(0, map("b", map("op>=&a&", terminate()))))
-        }
-
-        "encodeToShould" {
-            val encoded = testPointer.encodeToString()
-            withClue("Encode from $testPointer") {
-                testPointerString shouldBeEqual encoded
+        "empty" - {
+            "decode" {
+                shouldNotRaise {
+                    DataPointer.decodeFromString("")
+                } shouldBe DataPointer.Terminator
             }
 
+            "encode" {
+                DataPointer.Terminator.encodeToString().shouldBeEmpty()
+            }
         }
 
-        "decodeFromString" - {
-            "should work on normal string" {
-                shouldNotRaise {
-                    withClue("Decode from $testPointerString") {
-                        DataPointer.decodeFromString(testPointerString) shouldBeEqual testPointer
+
+        "escape" - {
+            val pointer1 = DataPointer { map("&hi>", terminate()) }
+            val str1 = ">#&&hi&>"
+            val pointer2 = DataPointer {
+                map("a", array(0, map("b", map("op>=&a&", terminate()))))
+            }
+            val str2 = ">#a>0>#b>#op&>=&&a&&"
+
+            "decodeFromString" - {
+                "should work on normal string" {
+                    shouldNotRaise {
+                        withClue("Decode from $str2") {
+                            DataPointer.decodeFromString(str2) shouldBeEqual pointer2
+                        }
+                    }
+                }
+                "should work on continuous >" {
+                    val testPointerString2 = ">>>>>>>>#a>0>>>>#b>>>>>>#op&>=&a&"
+                    shouldNotRaise {
+                        withClue("Decode from $str2") {
+                            DataPointer.decodeFromString(testPointerString2) shouldBeEqual pointer2
+                        }
                     }
                 }
             }
-            "should work on continuous >" {
-                val testPointerString2 = ">>>>>>>>#a>0>>>>#b>>>>>>#op&>=&a&"
-                shouldNotRaise {
-                    withClue("Decode from $testPointerString") {
-                        DataPointer.decodeFromString(testPointerString2) shouldBeEqual testPointer
+            "decode" - {
+                "normal string" {
+                    shouldNotRaise {
+                        DataPointer.decodeFromString(str1) shouldBe pointer1
+                        DataPointer.decodeFromString(str2) shouldBe pointer2
                     }
                 }
+
+                "continuous > should be ignored" {
+                    val str2 = ">>>>>>>>#a>0>>>>#b>>>>>>#op&>=&a&"
+                    shouldNotRaise {
+                        DataPointer.decodeFromString(str2) shouldBeEqual pointer2
+                    }
+                }
+            }
+
+            "encode" {
+                pointer1.encodeToString() shouldBe str1
+                pointer2.encodeToString() shouldBe str2
             }
         }
     }
