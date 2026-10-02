@@ -4,13 +4,13 @@ package mct.dp.mcjson
 
 import mct.model.DataPointerPatternKind
 import mct.model.patch.ContentKind
-import mct.pointer.ComponentPatterns
+import mct.pointer.CommonComponentPatterns
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
 val BuiltinMCJsonPatterns = PatternSet {
-    dependsOn(ComponentPatterns)
+    dependsOn(CommonComponentPatterns)
 
     // --- Advancements ---
     +RightPattern(">#display>#title")                  // Advancement title

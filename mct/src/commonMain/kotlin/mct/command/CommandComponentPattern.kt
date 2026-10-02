@@ -29,11 +29,16 @@ private inline fun P(name: String, pattern: DataPointerPattern? = null) =
     ComponentPattern(name = name, pattern = pattern)
 
 val BuiltinMinecraftComponentPatterns = listOf(
+    P("attribute_modifiers", DataPointerPattern.Equal(">#display>#value")),
+    P("block_entity_data", DataPointerPattern.Right(">#CustomName")),
     P("custom_name"),
-    P("item_name"),
-    P("text_display"),
     P("description"),
+    P("item_name"),
     P("lore"),
-    P("written_book_content", DataPointerPattern.Regex(">#(?:text|author|pages)$")),
-    P("writable_book_content", DataPointerPattern.Right("pages")),
+    P("text_display"),
+    listOf("sign_text_front", "sign_text_back").forEach {
+        P(it, DataPointerPattern.Regex("^>#(?:filtered_)?messages$"))
+    },
+    P("written_book_content", DataPointerPattern.Regex("^>#(?:author|pages|title)(?:>#(?:filtered|raw))?$")),
+    P("writable_book_content", DataPointerPattern.Regex("^>#pages(?:>#(?:filtered|raw))?$"))
 )

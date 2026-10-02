@@ -2,13 +2,13 @@
 
 package mct.nbt
 
-import mct.pointer.ComponentPatterns
+import mct.pointer.CommonComponentPatterns
 import mct.pointer.PatternSet
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 
 val BuiltinNbtPatterns = PatternSet {
-    dependsOn(ComponentPatterns)
+    dependsOn(CommonComponentPatterns)
 
     +RightPattern(">#Command", kind = Command)
 
