@@ -123,14 +123,14 @@ private class ZipFileWalkStream(private val zip: Path, private val fs: FileSyste
         return zis.walk()
             .filter { !it.isDirectory }
             .map(ZipEntry::toStreamingFile)
-            .mapNotNull {
-                zos.putNextEntry(ZipEntry(it.path.toString()))
-                if (predicate(it)) {
-                    StreamingFileWriting(it, { source } to {}, { sink } to { s -> s.flush(); zos.closeEntry() }, ::copy) {
+            .mapNotNull { file ->
+                zos.putNextEntry(ZipEntry(file.path.toString()))
+                if (predicate(file)) {
+                    StreamingFileWriting(file, { source } to {}, { sink } to { s -> s.flush(); zos.closeEntry() }, ::copy) { throwable ->
                         zos.close()
                         zis.close()
                         fs.atomicMove(tmpZip, zip)
-                        throw it
+                        throw throwable
                     }
                 } else {
                     copy()

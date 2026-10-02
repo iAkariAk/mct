@@ -71,12 +71,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
 
                         path.endsWith(".nbt") -> {
                             val replacements = replacementGroup.replacements as List<DatapackReplacement.Nbt>
-                            val origin = runCatching {
-                                NbtGzip.decodeFromSource<NbtTag>(source)
-                            }.getOrElse {
-                                logger.error { "Skip $path because Failed to decode: ${it.message}" }
-                                return@handleFile
-                            }
+                            val origin = NbtGzip.decodeFromSource<NbtTag>(source)
 
                             closeSource(source)
 
@@ -84,13 +79,9 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                                 DataPointerWithValue(it.nbt.pointer, it.nbt.content.replacement, it.nbt.content.format)
                             }.toReplacementGroups()
                             val handled = origin.transform(ddrg)
-                            runCatching {
-                                val sink = getSink()
-                                NbtGzip.encodeToSink(handled, sink)
-                                closeSink(sink)
-                            }.getOrElse {
-                                logger.error { "Skip $path because Failed to encode: ${it.message}" }
-                            }
+                            val sink = getSink()
+                            NbtGzip.encodeToSink(handled, sink)
+                            closeSink(sink)
                         }
 
                         else -> error("Unvalidated extension: ${path.extension}")
