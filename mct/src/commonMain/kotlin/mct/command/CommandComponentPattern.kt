@@ -25,20 +25,21 @@ data class CustomizedComponentPattern(
     fun compile() = ComponentPattern(namespace, name, pattern)
 }
 
-private inline fun P(name: String, pattern: DataPointerPattern? = null) =
-    ComponentPattern(name = name, pattern = pattern)
 
-val BuiltinMinecraftComponentPatterns = listOf(
-    P("attribute_modifiers", DataPointerPattern.Equal(">#display>#value")),
-    P("block_entity_data", DataPointerPattern.Right(">#CustomName")),
-    P("custom_name"),
-    P("description"),
-    P("item_name"),
-    P("lore"),
-    P("text_display"),
+val BuiltinMinecraftComponentPatterns = buildList {
+    fun P(name: String, pattern: DataPointerPattern? = null) =
+        add(ComponentPattern(name = name, pattern = pattern))
+
+    P("attribute_modifiers", DataPointerPattern.Equal(">#display>#value"))
+    P("block_entity_data", DataPointerPattern.Right(">#CustomName"))
+    P("custom_name")
+    P("description")
+    P("item_name")
+    P("lore")
+    P("text_display")
     listOf("sign_text_front", "sign_text_back").forEach {
         P(it, DataPointerPattern.Regex("^>#(?:filtered_)?messages$"))
-    },
-    P("written_book_content", DataPointerPattern.Regex("^>#(?:author|pages|title)(?:>#(?:filtered|raw))?$")),
+    }
+    P("written_book_content", DataPointerPattern.Regex("^>#(?:author|pages|title)(?:>#(?:filtered|raw))?$"))
     P("writable_book_content", DataPointerPattern.Regex("^>#pages(?:>#(?:filtered|raw))?$"))
-)
+}
