@@ -17,6 +17,7 @@ val BuiltinNbtPatterns = PatternSet {
     // --- Item Display & Lore (Legacy/General) ---
     listOf("display", "SkullOwner").forEach { parent ->
         +RightPattern(">#$parent>#Name")                   // Item custom name
+        +RightPattern(">#$parent>#LocName")                // Local name
         +RightPattern(">#$parent>#Lore")                   // Item lore lines
     }
 
@@ -26,20 +27,21 @@ val BuiltinNbtPatterns = PatternSet {
     +RegexPattern("""#attribute_modifiers>#modifiers>\d+>#display>#value$""")
 
     // Display entities (refer to https://zh.minecraft.wiki/w/%E5%B1%95%E7%A4%BA%E5%AE%9E%E4%BD%93#%E5%AE%9E%E4%BD%93%E6%95%B0%E6%8D%AE)
-    +RegexPattern("""(^|>#Entities>\d+)>#text$""")
+    +RegexPattern("""(?:^|>#Entities>\d+)>#text$""")
     // description (e.g. entity data component minecraft:description stored as direct field)
-    +RegexPattern("""(^|>#Entities>\d+)>#description$""")
+    +RegexPattern("""(?:^|>#Entities>\d+)>#description$""")
 
     // --- Written Books---
-    +RegexPattern("(^|>#Book>#tag)>#(title|author|pages|display|filtered_pages|filtered_title)$")
+    +RegexPattern("(?:^|>#Book>#tag)>#(title|author|pages|display|filtered_pages|filtered_title)$")
 
     // legacy
-    +RegexPattern("""(^|>#TileEntities>\d+)>#Text\d$""")
-    +RegexPattern(""">#tag>#(pages|title|author)$""")
+    +RegexPattern("""(?:^|>#TileEntities>\d+)>#Text\d$""")
+    +RegexPattern(""">#BlockEntityTag>#Text\d$""")
+    +RegexPattern(""">#tag>#(?:pages|title|author)$""")
 
     // --- Block Entities (Signs, Containers, Spawners) ---
     // 1. Signs (Front & Back)
-    +RegexPattern(""">#block_entities>\d+>#(front|back)_text>#(filtered_)?messages(>\d+>#raw)?$""")
+    +RegexPattern(""">#block_entities>\d+>#(?:front|back)_text>#(?:filtered_)?messages(?:>\d+>#raw)?$""")
 
     // 2. Command Blocks
     // 'LastOutput' contains command feedback/error text (user-visible)
@@ -55,5 +57,5 @@ val BuiltinNbtPatterns = PatternSet {
 
     // --- Text Display Entity Fields ---
     // raw_text is the rendered plain-text form of a text display's JSON component
-    +RegexPattern("""(^|>#Entities>\d+)>#raw_text$""")
+    +RegexPattern("""(?:^|>#Entities>\d+)>#raw_text$""")
 }
