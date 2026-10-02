@@ -39,6 +39,33 @@ class Regex2Test : FreeSpec({
         shouldThrow<IllegalArgumentException> { match.groups2["missing"] }
     }
 
+    "matches and matchEntire require the whole input" {
+        // `a|ab` is the discriminating case: taking the leftmost alternative reports `false`.
+        Regex2("a|ab").matches("ab") shouldBe true
+        Regex2("a|ab").matchEntire("ab")?.value shouldBe "ab"
+
+        Regex2("a").matches("ab") shouldBe false
+        Regex2("a").matchEntire("ab") shouldBe null
+
+        Regex2(".*?x").matches("abx") shouldBe true
+
+        // A `$` inside a MULTILINE pattern must not let a shorter alternative win.
+        Regex2("a|a\n", RegexOption.MULTILINE).matches("a\n") shouldBe true
+    }
+
+    "replace expands group references like the JVM" {
+        Regex2("(\\d+)-(\\d+)").replace("1-2 3-4", "${'$'}2:${'$'}1") shouldBe "2:1 4:3"
+        Regex2("(?<a>a)?(?<b>b)").replace("b", "[${'$'}{a}:${'$'}{b}]") shouldBe "[:b]"
+        Regex2("a.b").replace("a.b", "x${Regex2.escapeReplacement("${'$'}")}y") shouldBe "x${'$'}y"
+        Regex2("a").replace("a", "\\${'$'}") shouldBe "${'$'}"
+
+        shouldThrow<IndexOutOfBoundsException> { Regex2("a").replace("a", "${'$'}1") }
+    }
+
+    "replaceFirst replaces only the first match" {
+        Regex2("a").replaceFirst("aaa", "b") shouldBe "baa"
+    }
+
     "next uses the result's own cursor" {
         val regex = Regex2("a")
         val first = regex.find("a a")

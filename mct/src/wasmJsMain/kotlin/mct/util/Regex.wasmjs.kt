@@ -32,93 +32,112 @@ actual class Regex2 actual constructor(
     @Language("RegExp") pattern: String,
     actual val options: Set<RegexOption>,
 ) {
-    private val flags = buildFlags(options)
-    private val namedGroupIndices = namedGroupIndices(pattern)
-
+    /**
+     * The caller's pattern, reported verbatim by [toString].
+     */
     actual val pattern: String = pattern
+
+    /**
+     * [pattern] after `LITERAL`/`COMMENTS` translation: what actually gets compiled.
+     *
+     * The JVM hands these options to its own engine, JS has no equivalent, so they are applied to the
+     * text before it reaches `RegExp`.
+     */
+    private val compiledPattern = translatePattern(pattern, options)
+    private val flags = buildFlags(compiledPattern, options)
+    private val nonGlobalFlagString = nonGlobalFlags(compiledPattern, options)
+
+    /**
+     * Whole-input match: `^(?:p)(?![\s\S])`.
+     *
+     * JS has no whole-input matcher, and `exec` returns the leftmost alternative (`a|ab` against `ab`
+     * gives `a`). The leading `^` plus the `(?![\s\S])` end-of-input assertion makes the engine
+     * backtrack until the entire string is consumed, which is what the JVM's `matches` requires. A
+     * trailing `$` would not do: under `MULTILINE` it also matches before a line terminator, so a
+     * shorter alternative would win where the JVM would have backtracked further.
+     */
+    private val anchoredPattern = "^(?:" + compiledPattern + ")(?![\\s\\S])"
+
+    private val namedGroupIndices = namedGroupIndices(compiledPattern)
+
+    // Cached regexes: `matches`/`find`/… sit in the extraction hot loop and rebuilding a `RegExp`
+    // recompiles the pattern every time. The iterating members (`findAll`, `split`,
+    // `replace(transform)`) keep a private instance instead, because they hold `lastIndex` across a
+    // lazy sequence that a caller can pause and resume.
+    private val singleRegex: RegExp by lazy { RegExp(compiledPattern, flags) }
+    private val singleNonGlobalRegex: RegExp by lazy { RegExp(compiledPattern, nonGlobalFlagString) }
+    private val anchoredRegex: RegExp by lazy { RegExp(anchoredPattern, flags) }
 
     actual constructor(@Language("RegExp") pattern: String) : this(pattern, emptySet())
     actual constructor(@Language("RegExp") pattern: String, option: RegexOption) : this(pattern, setOf(option))
 
     actual infix fun matches(input: CharSequence): Boolean {
         val str = input.toString()
-        val m = newRegExp().exec(str) ?: return false
-        return m.index == 0 && matchValue(m, 0)?.length == str.length
+        val m = anchoredRegex.withLastIndex(0).exec(str) ?: return false
+        // `^` under `MULTILINE` can also match at a later line start; only index 0 is a whole match.
+        return m.index == 0
     }
 
-    actual fun containsMatchIn(input: CharSequence): Boolean {
-        return newRegExp().test(input.toString())
-    }
+    actual fun containsMatchIn(input: CharSequence): Boolean =
+        singleRegex.withLastIndex(0).test(input.toString())
 
     actual fun find(input: CharSequence, startIndex: Int): MatchResult2? {
-        val regex = newRegExp()
-        regex.lastIndex = startIndex
         val str = input.toString()
-        val m = regex.exec(str) ?: return null
-        return matchResultFrom(m, pattern, flags, str, namedGroupIndices)
+        val m = singleRegex.withLastIndex(startIndex).exec(str) ?: return null
+        return matchResultFrom(m, compiledPattern, flags, str, namedGroupIndices)
     }
 
     actual fun findAll(input: CharSequence, startIndex: Int): Sequence<MatchResult2> = sequence {
-        val regex = newRegExp()
+        val regex = RegExp(compiledPattern, flags)
         regex.lastIndex = startIndex
         val str = input.toString()
         while (true) {
             val m = regex.exec(str) ?: break
-            yield(matchResultFrom(m, pattern, flags, str, namedGroupIndices))
+            yield(matchResultFrom(m, compiledPattern, flags, str, namedGroupIndices))
             advanceAfterEmptyMatch(regex, m)
         }
     }
 
     actual fun matchEntire(input: CharSequence): MatchResult2? {
         val str = input.toString()
-        val m = newRegExp().exec(str) ?: return null
-        val whole = matchValue(m, 0) ?: return null
-        return if (m.index == 0 && whole.length == str.length) {
-            matchResultFrom(m, pattern, flags, str, namedGroupIndices)
-        } else {
-            null
-        }
+        val m = anchoredRegex.withLastIndex(0).exec(str) ?: return null
+        if (m.index != 0) return null
+        return matchResultFrom(m, compiledPattern, flags, str, namedGroupIndices)
     }
 
     actual fun matchAt(input: CharSequence, index: Int): MatchResult2? {
-        val regex = newRegExp()
-        regex.lastIndex = index
         val str = input.toString()
-        val m = regex.exec(str) ?: return null
-        return if (m.index == index) matchResultFrom(m, pattern, flags, str, namedGroupIndices) else null
+        val m = singleRegex.withLastIndex(index).exec(str) ?: return null
+        return if (m.index == index) matchResultFrom(m, compiledPattern, flags, str, namedGroupIndices) else null
     }
 
     actual fun matchesAt(input: CharSequence, index: Int): Boolean = matchAt(input, index) != null
 
-    actual fun replace(input: CharSequence, replacement: String): String {
-        return replaceByRegExp(input.toString(), newRegExp(), replacement.jsEscape())
-    }
+    /**
+     * Replace every match, expanding [replacement] the way the JVM does.
+     *
+     * The expansion is done here rather than by `String.replace`: JS reads `$&`/`` $` `` and treats a
+     * lone `$` as a literal, while the JVM reads `$1`/`${name}` and rejects anything else. Sharing
+     * the JVM's parser is what keeps the two targets producing the same text.
+     */
+    actual fun replace(input: CharSequence, replacement: String): String =
+        replaceAll(input.toString()) { expandReplacement(replacement, it) }
 
-    actual fun replace(input: CharSequence, transform: (MatchResult) -> CharSequence): String {
-        val str = input.toString()
-        val regex = newRegExp()
-        val sb = StringBuilder()
-        var lastEnd = 0
-        while (true) {
-            val m = regex.exec(str) ?: break
-            val value = matchValue(m, 0) ?: ""
-            sb.append(str, lastEnd, m.index)
-            sb.append(transform(matchResultFrom(m, pattern, flags, str, namedGroupIndices)))
-            lastEnd = m.index + value.length
-            advanceAfterEmptyMatch(regex, m)
-        }
-        sb.append(str.substring(lastEnd))
-        return sb.toString()
-    }
+    actual fun replace(input: CharSequence, transform: (MatchResult) -> CharSequence): String =
+        replaceAll(input.toString()) { transform(it) }
 
     actual fun replaceFirst(input: CharSequence, replacement: String): String {
-        val single = RegExp(pattern, nonGlobalFlags(options))
-        return replaceByRegExp(input.toString(), single, replacement.jsEscape())
+        val str = input.toString()
+        val m = singleNonGlobalRegex.withLastIndex(0).exec(str) ?: return str
+        val matched = matchResultFrom(m, compiledPattern, flags, str, namedGroupIndices)
+        return str.substring(0, m.index) +
+            expandReplacement(replacement, matched) +
+            str.substring(m.index + (matchValue(m, 0)?.length ?: 0))
     }
 
     actual fun split(input: CharSequence, limit: Int): List<String> {
         val str = input.toString()
-        val regex = newRegExp()
+        val regex = RegExp(compiledPattern, flags)
         val result = mutableListOf<String>()
         val maxSplits = if (limit <= 0) Int.MAX_VALUE else limit - 1
         var lastEnd = 0
@@ -135,6 +154,8 @@ actual class Regex2 actual constructor(
             }
         }
         result.add(str.substring(lastEnd))
+        // `limit == 0` means "no limit", and Java drops the trailing empty strings in that case.
+        if (limit == 0) while (result.isNotEmpty() && result.last().isEmpty()) result.removeAt(result.size - 1)
         return result
     }
 
@@ -143,7 +164,24 @@ actual class Regex2 actual constructor(
 
     actual override fun toString(): String = pattern
 
-    private fun newRegExp(): RegExp = RegExp(pattern, flags)
+    private fun replaceAll(
+        str: String,
+        transform: (MatchResult2) -> CharSequence,
+    ): String {
+        val regex = RegExp(compiledPattern, flags)
+        val sb = StringBuilder()
+        var lastEnd = 0
+        while (true) {
+            val m = regex.exec(str) ?: break
+            val value = matchValue(m, 0) ?: ""
+            sb.append(str, lastEnd, m.index)
+            sb.append(transform(matchResultFrom(m, compiledPattern, flags, str, namedGroupIndices)))
+            lastEnd = m.index + value.length
+            advanceAfterEmptyMatch(regex, m)
+        }
+        sb.append(str.substring(lastEnd))
+        return sb.toString()
+    }
 
     actual companion object {
         actual fun fromLiteral(literal: String): Regex2 = Regex2(literal.jsRegexEscape(), emptySet())
@@ -157,18 +195,94 @@ actual class Regex2 actual constructor(
 // helpers
 // ---------------------------------------------------------------------------
 
-private fun buildFlags(options: Set<RegexOption>): String {
+private fun buildFlags(pattern: String, options: Set<RegexOption>): String {
     val sb = StringBuilder("gd")
     if (RegexOption.IGNORE_CASE in options) sb.append("i")
     if (RegexOption.MULTILINE in options) sb.append("m")
+    if (RegexOption.DOT_MATCHES_ALL in options) sb.append("s")
+    // `\p{…}`/`\P{…}` are Unicode property escapes only in `u` mode; without it JS turns the class
+    // into a literal character set, so a pattern like `[^\p{L}\p{M}]` would reject CJK where the JVM
+    // accepts it. `u` also makes constructs the JVM tolerates (a lone `]`, for one) a syntax error,
+    // so it is only switched on when the pattern needs it.
+    if (needsUnicodeMode(pattern)) sb.append("u")
     return sb.toString()
 }
 
-private fun String.jsEscape(): String = buildString {
-    for (c in this@jsEscape) {
-        if (c == '$') {
-            append('$'); append('$')
-        } else append(c)
+/**
+ * Translate the options JS's engine cannot express into the pattern text.
+ *
+ * `LITERAL` quotes the whole pattern; `COMMENTS` strips whitespace and `#` comments; `UNIX_LINES`
+ * makes `.` stop at `\n` alone (JS's `.` already refuses to match any line terminator, and the JVM
+ * with `UNIX_LINES` only excludes `\n`). The one thing left to the JS engine is `^`/`$` under
+ * `MULTILINE`: JS breaks lines on `\r`, `\u2028` and `\u2029` too, where the JVM with `UNIX_LINES`
+ * breaks on `\n` only.
+ */
+private fun translatePattern(pattern: String, options: Set<RegexOption>): String {
+    if (RegexOption.LITERAL in options) return pattern.jsRegexEscape()
+    var result = pattern
+    if (RegexOption.COMMENTS in options) result = result.stripPatternComments()
+    if (RegexOption.UNIX_LINES in options) result = result.withUnixLines()
+    return result
+}
+
+private fun needsUnicodeMode(pattern: String): Boolean =
+    pattern.contains("\\p{") || pattern.contains("\\P{")
+
+/** Drop whitespace and `#`-to-end-of-line comments, as the JVM's `COMMENTS` mode does. */
+private fun String.stripPatternComments(): String = buildString {
+    var inClass = false
+    var i = 0
+    while (i < length) {
+        val c = this@stripPatternComments[i]
+        when {
+            c == '\\' && i + 1 < length -> {
+                append(c); append(this@stripPatternComments[i + 1]); i += 2
+            }
+
+            c == '[' -> {
+                inClass = true; append(c); i++
+            }
+
+            c == ']' -> {
+                inClass = false; append(c); i++
+            }
+
+            !inClass && c == '#' -> while (i < length && this@stripPatternComments[i] != '\n') i++
+            !inClass && c.isWhitespace() -> i++
+            else -> {
+                append(c); i++
+            }
+        }
+    }
+}
+
+/** `UNIX_LINES`: a dot matches everything but `\n`, where JS's default dot excludes more. */
+private fun String.withUnixLines(): String = buildString {
+    var inClass = false
+    var i = 0
+    while (i < length) {
+        val c = this@withUnixLines[i]
+        when {
+            c == '\\' && i + 1 < length -> {
+                append(c); append(this@withUnixLines[i + 1]); i += 2
+            }
+
+            c == '[' -> {
+                inClass = true; append(c); i++
+            }
+
+            c == ']' -> {
+                inClass = false; append(c); i++
+            }
+
+            !inClass && c == '.' -> {
+                append("[^\\n]"); i++
+            }
+
+            else -> {
+                append(c); i++
+            }
+        }
     }
 }
 
@@ -178,9 +292,73 @@ private fun String.jsRegexEscape(): String = buildString {
     }
 }
 
-private fun nonGlobalFlags(options: Set<RegexOption>): String {
-    val base = buildFlags(options)
-    return base.replace("g", "").let { if ("d" !in it) "d$it" else it }
+private fun nonGlobalFlags(pattern: String, options: Set<RegexOption>): String =
+    buildFlags(pattern, options).replace("g", "")
+
+private fun RegExp.withLastIndex(index: Int): RegExp = apply { lastIndex = index }
+
+/**
+ * Expand a replacement string the way the JVM's `Matcher.appendReplacement` does.
+ *
+ * `$1`/`$0` select a numbered group, `${name}` a named one, `\x` is the literal `x`, and anything
+ * else after `$` is an error — the same contract `Regex.replace` documents on the JVM. A group that
+ * did not participate in the match expands to nothing, and a numbered reference past the last group
+ * is an `IndexOutOfBoundsException`, both as on the JVM.
+ */
+private fun expandReplacement(replacement: String, match: MatchResult2): String = buildString {
+    val groups = match.groups
+    val lastGroup = groups.size - 1
+    var i = 0
+    while (i < replacement.length) {
+        val c = replacement[i]
+        when {
+            c == '\\' -> {
+                require(i + 1 < replacement.length) { "character to be escaped is missing" }
+                append(replacement[i + 1])
+                i += 2
+            }
+
+            c == '$' -> {
+                require(i + 1 < replacement.length) { "Illegal group reference" }
+                when (val next = replacement[i + 1]) {
+                    '$' -> {
+                        append('$'); i += 2
+                    }
+
+                    '{' -> {
+                        val end = replacement.indexOf('}', i + 2)
+                        require(end >= 0) { "Named group reference is missing the closing brace" }
+                        val name = replacement.substring(i + 2, end)
+                        (match as HasGroups2).groups2[name]?.value?.let { append(it) }
+                        i = end + 1
+                    }
+
+                    else -> {
+                        require(next.isDigit()) { "Illegal group reference" }
+                        var ref = next - '0'
+                        var j = i + 2
+                        while (j < replacement.length && replacement[j].isDigit() &&
+                            ref * 10 + (replacement[j] - '0') <= lastGroup
+                        ) {
+                            ref = ref * 10 + (replacement[j] - '0')
+                            j++
+                        }
+                        // The JVM reports a missing numeric group as IndexOutOfBoundsException, not as
+                        // the IllegalArgumentException it uses for a malformed reference.
+                        if (ref > lastGroup) throw IndexOutOfBoundsException("No group $ref")
+                        // `groupValues` maps an unmatched group to "", which is exactly what the JVM
+                        // appends for one.
+                        append(match.groupValues[ref])
+                        i = j
+                    }
+                }
+            }
+
+            else -> {
+                append(c); i++
+            }
+        }
+    }
 }
 
 private fun matchResultFrom(
@@ -282,6 +460,3 @@ private fun nextMatchIndex(match: RegExpExecArray): Int {
     val value = matchValue(match, 0) ?: ""
     return match.index + value.length + if (value.isEmpty()) 1 else 0
 }
-
-private fun replaceByRegExp(input: String, regex: RegExp, replacement: String): String =
-    js("input.replace(regex, replacement)")
