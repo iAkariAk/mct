@@ -9,7 +9,9 @@ import mct.pointer.RightPattern
 import mct.util.isJson
 import mct.util.isNamespacedId
 
-private fun String.isSerializedTextComponent() = isTextComponentJson() || isTextComponentSnbt()
+private fun MCCommand.Arg.isJson() = content.isJson(MCCommandJsonRight)
+private fun MCCommand.Arg.isSerializedTextComponent() = content.isTextComponentJson() || content.isTextComponentSnbt()
+private fun MCCommand.Arg.mayBeSnbtCompound() = content.startsWith('{') && content.endsWith('}')
 
 val BuiltinCommandPatterns = PatternSet {
     // ── Plain text message commands (greedy) ──────────────────────
@@ -70,7 +72,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(3, strict = true) then {
             Positions(3 to ArgSelection.SnbtEntire) then {
                 Matches("dialog show") { cmd, arg ->
-                    cmd[1].content == "show" && arg.content.startsWith("{")
+                    cmd[1].content == "show" && arg.mayBeSnbtCompound()
                 }
             }
         }
@@ -91,7 +93,7 @@ val BuiltinCommandPatterns = PatternSet {
 
     // bossbar set <id> name <component>
     command("bossbar") {
-        WithSize(4) then {
+        WithSize(4, strict = true) then {
             Positions(4 to ArgSelection.TextComponentEntire) then {
                 Matches("bossbar name") { cmd, _ ->
                     cmd[1].content == "set" && cmd[3].content == "name"
@@ -191,7 +193,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(4) then {
             Positions(4 to ArgSelection.SnbtEntire) then {
                 Matches { _, arg ->
-                    arg.content.startsWith('{')
+                    arg.mayBeSnbtCompound()
                 }
             }
         }
@@ -205,7 +207,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(2) then {
             Positions(2 to ArgSelection.SnbtEntire) then {
                 Matches { _, arg ->
-                    arg.content.startsWith('{')
+                    arg.mayBeSnbtCompound()
                 }
             }
         }
@@ -221,7 +223,7 @@ val BuiltinCommandPatterns = PatternSet {
                             (cmd[2].content == "entity" || cmd[2].content == "storage") &&
                             cmd[5].content == "set" &&
                             cmd[6].content == "value" &&
-                            arg.content.isSerializedTextComponent()
+                            arg.isSerializedTextComponent()
                 }
             }
         }
@@ -236,7 +238,7 @@ val BuiltinCommandPatterns = PatternSet {
                             cmd[2].content == "block" &&
                             cmd[7].content == "set" &&
                             cmd[8].content == "value" &&
-                            arg.content.isSerializedTextComponent()
+                            arg.isSerializedTextComponent()
                 }
             }
         }
@@ -244,8 +246,10 @@ val BuiltinCommandPatterns = PatternSet {
 
 
     // ── give (item with text components in NBT) ─────────────────
+    // https://zh.minecraft.wiki/w/%E5%91%BD%E4%BB%A4/give
+    // give <targets> <item> [<count>]
     command("give") {
-        WithSize(2) then {
+        WithSizeIn(2..3) then {
             Positions(2 to ArgSelection.ItemStack).withAry()
         }
     }
@@ -276,14 +280,14 @@ val BuiltinCommandPatterns = PatternSet {
         }
 
         // item replace (block <pos>|entity <targets>) <slot> with <item> [<count>]
-        WithSize(6) then {
+        WithSizeIn(6..7) then {
             Positions(6 to ArgSelection.ItemStack) then {
                 Matches("item replace entity ... item (item_stack)") { cmd, _ ->
                     cmd[1].content == "replace" && cmd[2].content == "entity" && cmd[5].content == "with"
                 }
             }
         }
-        WithSize(8) then {
+        WithSizeIn(8..9) then {
             Positions(8 to ArgSelection.ItemStack) then {
                 Matches("item replace block ... item (item_stack)") { cmd, _ ->
                     cmd[1].content == "replace" && cmd[2].content == "block" && cmd[7].content == "with"
@@ -350,14 +354,14 @@ val BuiltinCommandPatterns = PatternSet {
         }
 
         // item fill (block|entity) <target> <slots> with <item> [<count>]
-        WithSize(6) then {
+        WithSizeIn(6..7) then {
             Positions(6 to ArgSelection.ItemStack) then {
                 Matches("item fill entity ...  item (ItemStack)") { cmd, arg ->
                     cmd[1].content == "fill" && cmd[2].content == "entity" && cmd[5].content == "with" && !arg.content.isNamespacedId()
                 }
             }
         }
-        WithSize(8) then {
+        WithSizeIn(8..9) then {
             Positions(8 to ArgSelection.ItemStack) then {
                 Matches("item fill block ...  item (ItemStack)") { cmd, arg ->
                     cmd[1].content == "fill" && cmd[2].content == "block" && cmd[7].content == "with" && !arg.content.isNamespacedId()
@@ -394,14 +398,14 @@ val BuiltinCommandPatterns = PatternSet {
             }
         }
         // item override (block|entity) <target> <slots> with <item> [<count>]
-        WithSize(6) then {
+        WithSizeIn(6..7) then {
             Positions(6 to ArgSelection.ItemStack) then {
                 Matches("item override entity ... with ...  item (ItemStack)") { cmd, _ ->
                     cmd[1].content == "override" && cmd[2].content == "entity" && cmd[5].content == "with"
                 }
             }
         }
-        WithSize(8) then {
+        WithSizeIn(8..9) then {
             Positions(8 to ArgSelection.ItemStack) then {
                 Matches("item override block ... with ...  item (ItemStack)") { cmd, _ ->
                     cmd[1].content == "override" && cmd[2].content == "block" && cmd[7].content == "with"
@@ -440,8 +444,8 @@ val BuiltinCommandPatterns = PatternSet {
         // fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [oldBlockHandling] [dataTag]
         WithSizeIn(8..9) then {
             Positions(-1 to ArgSelection.SnbtEntire) then {
-                Matches("latest arg check") { cmd, _ ->
-                    cmd.args.last().content.startsWith('{')
+                Matches("latest arg check") { _, arg ->
+                    arg.mayBeSnbtCompound()
                 }
             }
         }
@@ -454,7 +458,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(10, strict = true) then {
             Positions(10 to ArgSelection.WithInfo(JsonStr)) then {
                 Matches("replaceitem block (json)") { cmd, arg ->
-                    cmd[1].content == "block" && arg.content.isJson(MCCommandJsonRight)
+                    cmd[1].content == "block" && arg.isJson()
                 }
             }
         }
@@ -462,7 +466,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(11, strict = true) then {
             Positions(11 to ArgSelection.WithInfo(JsonStr)) then {
                 Matches("replaceitem block (json)") { cmd, arg ->
-                    cmd[1].content == "block" && arg.content.isJson(MCCommandJsonRight)
+                    cmd[1].content == "block" && arg.isJson()
                 }
             }
         }
@@ -470,7 +474,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(8, strict = true) then {
             Positions(8 to ArgSelection.WithInfo(JsonStr)) then {
                 Matches("replaceitem entity (json)") { cmd, arg ->
-                    cmd[1].content == "entity" && arg.content.isJson(MCCommandJsonRight)
+                    cmd[1].content == "entity" && arg.isJson()
                 }
             }
         }
@@ -478,7 +482,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(9, strict = true) then {
             Positions(9 to ArgSelection.WithInfo(JsonStr)) then {
                 Matches("replaceitem entity (json)") { cmd, arg ->
-                    cmd[1].content == "entity" && arg.content.isJson(MCCommandJsonRight)
+                    cmd[1].content == "entity" && arg.isJson()
                 }
             }
         }
@@ -528,7 +532,7 @@ val BuiltinCommandPatterns = PatternSet {
         WithSizeIn(4..7) then {
             Positions(-1 to ArgSelection.SnbtEntire) then {
                 Matches("setblock nbt") { _, arg ->
-                    arg.content.startsWith("{")
+                    arg.mayBeSnbtCompound()
                 }
             }
         }
@@ -539,35 +543,38 @@ val BuiltinCommandPatterns = PatternSet {
     // data merge entity <target> <nbt>
     // data merge storage <source> <nbt>
     command("data") {
-        And(WithSize(4), Regex("merge (entity|storage)")) then {
+        WithSize(4, strict = true) then {
             Positions(4 to ArgSelection.SnbtEntire) then {
-                Matches("data merge nbt") { _, arg ->
-                    arg.content.startsWith("{")
+                Matches("data merge nbt") { cmd, arg ->
+                    cmd[1].content == "merge"
+                            && (cmd[2].content == "entity" || cmd[2].content == "storage")
+                            && arg.mayBeSnbtCompound()
                 }
             }
         }
     }
 
-    // data merge block <pos> <nbt>
+    // data merge block <pos...> <nbt>
     command("data") {
-        And(WithSize(6), Regex("merge block")) then {
+        WithSize(6, strict = true) then {
             Positions(6 to ArgSelection.SnbtEntire) then {
-                Matches("data merge block nbt") { _, arg ->
-                    arg.content.startsWith("{")
+                Matches("data merge block nbt") { cmd, arg ->
+                    cmd[1].content == "merge"
+                            && (cmd[2].content == "entity" || cmd[2].content == "storage")
+                            && arg.mayBeSnbtCompound()
                 }
             }
         }
     }
 
 
-    // summon <entity> <pos>*3 [<nbt>]
+    // summon <entity> <pos...> [<nbt>]
     command("summon") {
         WithSize(5, strict = true) then {
             Positions(5 to ArgSelection.SnbtEntire).withAry()
         }
     }
 }
-
 
 val BuiltinCommandDataPatterns = mct.pointer.PatternSet {
     dependsOn(BuiltinNbtPatterns)
