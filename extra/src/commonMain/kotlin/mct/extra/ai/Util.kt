@@ -10,10 +10,11 @@ import kotlinx.coroutines.sync.withPermit
 import mct.util.Regex2
 import mct.util.codePointToString
 import kotlin.jvm.JvmName
+import kotlin.math.ceil
 
 const val TOKEN_COUNT_THRESHOLD = 2 shl 10 // n k
 
-internal expect fun calculateToken(str: String): Int
+internal fun calculateToken(str: String) = ceil(str.length * 0.9).toInt()
 
 @JvmName($$"chunkedByToken$String")
 internal fun Iterable<String>.chunkedByToken(tokenSizePerChunk: Int = TOKEN_COUNT_THRESHOLD): Sequence<MutableList<String>> =

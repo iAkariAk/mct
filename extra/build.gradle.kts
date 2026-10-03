@@ -66,7 +66,6 @@ kotlin {
         }
 
         jvmMain.dependencies {
-            implementation(libs.jtokkit)
         }
 
         jvmTest.dependencies {
