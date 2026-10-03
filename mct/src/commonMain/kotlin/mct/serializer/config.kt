@@ -5,7 +5,7 @@ package mct.serializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
-import mct.command.extractPatternModule
+import mct.command.CommandPatternModule
 import net.benwoodworth.knbt.Nbt
 import net.benwoodworth.knbt.NbtCompression
 import net.benwoodworth.knbt.NbtVariant
@@ -19,7 +19,7 @@ val MCTJson = Json {
     allowComments = true
     allowTrailingComma = true
 
-    serializersModule = extractPatternModule
+    serializersModule = CommandPatternModule
 }
 
 val PrettyJson = Json(MCTJson) {

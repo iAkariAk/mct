@@ -93,7 +93,7 @@ private operator fun TextComponentStyle?.invoke(content: String): String {
 }
 
 object TextComponentRender : Render<TextComponent<*>> {
-    override fun render(value: TextComponent<*>, terminal: Terminal, newline: Boolean) {
+    override fun render(value: TextComponent<*>, terminal: Terminal): String {
         val sb = StringBuilder()
         value.visitTextStyle { text, currentStyle ->
             val content = when (text) {
@@ -108,8 +108,8 @@ object TextComponentRender : Render<TextComponent<*>> {
             }
             sb.append(currentStyle(content))
         }
-        terminal.render(sb.toString(), newline)
+        return sb.toString()
     }
 }
 
-internal fun TextComponent<*>.render(terminal: Terminal, newline: Boolean = true) = TextComponentRender.render(this, terminal, newline)
+internal fun TextComponent<*>.renderOn(terminal: Terminal, newline: Boolean = true) = TextComponentRender.render(this, terminal)

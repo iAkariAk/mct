@@ -16,7 +16,7 @@ import mct.MCTError
 import mct.cli.BaseCommand
 import mct.cli.panic
 import mct.cli.path
-import mct.cli.render.render
+import mct.cli.render.renderOn
 import mct.command.MCCommandJsonRight
 import mct.kit.TranslationMapping
 import mct.kit.TranslationPool
@@ -45,7 +45,7 @@ private class DisplayTextCommand : BaseCommand(name = "text", "Display TextCompo
             "auto" -> (textComponentStr.toJsonElementOrNull()?.toIR() ?: textComponentStr.toSnbtNbtTagOrNull()?.toIR())
             else -> unreachable
         }?.decodeToCompound() ?: panic("No valid input")
-        textComponent.render(terminal)
+        textComponent.renderOn(terminal)
     }
 }
 
@@ -83,7 +83,7 @@ private class DisplayFileCommand : BaseCommand(name = "file", "Display some file
 }
 
 private fun Terminal.renderHighlight(raw: String, newline: Boolean = true) {
-    runCatching { parseComponentOrNull(raw)?.render(this@renderHighlight, newline) }.getOrNull() ?: render(raw)
+    runCatching { parseComponentOrNull(raw)?.renderOn(this@renderHighlight, newline) }.getOrNull() ?: render(raw)
 }
 
 private fun parseComponentOrNull(raw: String) =

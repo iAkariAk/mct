@@ -63,7 +63,8 @@ class CommandBuilderPostConditionScope {
     private fun PostCondition.bind() = also(result::add)
 
     fun Matches(comment: String = "<anonymous>", matcher: (MCCommand, MCCommand.Arg) -> Boolean): PostCondition =
-        object : PostCondition {
+        object : PostCondition.Companion.Builtin {
+            override val comment = comment
             override fun toString() = "Matches{$comment}"
             override fun matches(command: MCCommand, arg: MCCommand.Arg) = matcher(command, arg)
         }.bind()

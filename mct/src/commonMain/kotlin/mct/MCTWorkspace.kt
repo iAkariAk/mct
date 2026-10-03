@@ -6,6 +6,7 @@ import arrow.core.raise.context.ensure
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flattenMerge
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.cext.extractByCext
 import mct.dp.extractFromDatapack
@@ -32,6 +33,7 @@ sealed interface OpenError : MCTError {
 }
 
 @Serializable
+@SerialName("mct_config")
 data class MCTConfig(
     val parallelism: Int = 128,
 ) {

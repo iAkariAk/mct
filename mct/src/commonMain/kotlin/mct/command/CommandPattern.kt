@@ -4,6 +4,10 @@ import arrow.core.NonEmptyList
 import arrow.core.raise.context.Raise
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -227,10 +231,14 @@ fun interface PostCondition {
             override fun matches(command: MCCommand, arg: MCCommand.Arg): Boolean =
                 content == arg.content
         }
+
+        internal interface Builtin : PostCondition {
+            val comment: String
+        }
     }
 }
 
-val extractPatternModule = SerializersModule {
+val CommandPatternModule = SerializersModule {
     polymorphic(PreCondition::class) {
         subclass(PreCondition.Companion.Any::class)
         subclass(PreCondition.Companion.And::class)
@@ -256,5 +264,16 @@ val extractPatternModule = SerializersModule {
         subclass(PostCondition.Companion.MatchRegex::class)
         subclass(PostCondition.Companion.Contain::class)
         subclass(PostCondition.Companion.Equal::class)
+
+        polymorphicDefaultSerializer(PostCondition::class) { BuiltinSerializer }
+    }
+}
+
+private object BuiltinSerializer : SerializationStrategy<Any> {
+    override val descriptor = PrimitiveSerialDescriptor("mct.command.PostCondition.Buitlin", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Any) {
+        require(value is PostCondition.Companion.Builtin)
+        encoder.encodeString("Builtin(${value.comment})")
     }
 }
