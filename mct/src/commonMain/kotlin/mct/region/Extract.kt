@@ -20,7 +20,7 @@ fun MCTWorkspace.extractFromRegion(
 ): Flow<RegionExtractionGroup> {
     logger.info { "Extracting from ${dimensions.size} dimensions" }
 
-    return dimensions.values.asFlow().flatMapMerge { dimension ->
+    return dimensions.values.asFlow().flatMapMerge(config.parallelism) { dimension ->
         flowOf(
             dimension.regionRawMgr to ChunkDataKind.Terrain,
             dimension.poiRawMgr to ChunkDataKind.Poi,
@@ -44,7 +44,7 @@ fun MCTWorkspace.extractFromRegion(
                     }.flowOn(Dispatchers.Default)
                 }
             }
-    }.flowOn(Dispatchers.IO.limitedParallelism(128))
+    }.flowOn(Dispatchers.IO)
 }
 
 context(_: LoggerHolder)

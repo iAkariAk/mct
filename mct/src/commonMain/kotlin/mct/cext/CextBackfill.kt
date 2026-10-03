@@ -25,8 +25,9 @@ import okio.BufferedSource
 suspend fun MCTWorkspace.backfillCext(
     replacementGroups: Iterable<CextReplacementGroup>
 ) = coroutineScope {
+    val dispatcher = Dispatchers.IO.limitedParallelism(config.parallelism)
     replacementGroups.forEach { (pathStr, kind, replacements) ->
-        launch(Dispatchers.IO) {
+        launch(dispatcher) {
             val path = rootDir / pathStr
 
             when (kind) {

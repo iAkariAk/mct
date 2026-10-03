@@ -12,6 +12,7 @@ import com.github.ajalt.clikt.parameters.groups.default
 import com.github.ajalt.clikt.parameters.groups.mutuallyExclusiveOptions
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.mordant.rendering.TextColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -81,10 +82,17 @@ abstract class WorkspaceCommand(
 ) : BaseCommand(name, help) {
     val input by option("--input", "-i", help = "The path to your map where there should be level.dat").path()
         .required()
+    val parallelism by option(
+        "--parallelism",
+        help = "The number of parallelism (Default: ${MCTConfig.Default.parallelism})"
+    ).int()
 
     val workspace by lazy {
         either {
-            MCTWorkspace(input, env)
+            val config = MCTConfig(
+                parallelism = parallelism ?: MCTConfig.Default.parallelism,
+            )
+            MCTWorkspace(input, env, config)
         }.getOrElse {
             throw CliktError(it.message)
         }

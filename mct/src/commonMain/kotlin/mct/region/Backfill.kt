@@ -16,6 +16,7 @@ import mct.util.IO
 context(_: Raise<BackfillError>)
 suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplacementGroup>) = coroutineScope {
     logger.info { "Backfilling ${replacementGroups.count()} region replacement groups" }
+    val dispatcher = Dispatchers.IO.limitedParallelism(config.parallelism)
     replacementGroups.forEach { group ->
         val dimension = dimensions[group.dimension]
             ?: raise(BackfillError.DimensionNotFound(group.dimension))
@@ -34,7 +35,7 @@ suspend fun MCTWorkspace.backfillRegion(replacementGroups: Iterable<RegionReplac
             return@forEach
         } else logger.debug { "Backfilling $groupInfo with ${group.replacements.size} replacements" }
 
-        launch(Dispatchers.IO) {
+        launch(dispatcher) {
             recover({
                 mgr.modify(group.coord) { region ->
                     val chunks = region.chunks.toMutableList()

@@ -151,7 +151,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
         if (!fs.exists(dir / "level.dat")) {
             panic("Source directory is not a valid Minecraft world: $dir")
         }
-        return MCTWorkspace(dir, env)
+        return MCTWorkspace(dir, env, projectConfig.mct)
     }
 
     fun cache(path: String): Path {

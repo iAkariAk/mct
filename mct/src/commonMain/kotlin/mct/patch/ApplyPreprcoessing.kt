@@ -1,6 +1,6 @@
 package mct.patch
 
-import arrow.fx.coroutines.parMap
+import arrow.fx.coroutines.parMapUnordered
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
@@ -23,7 +23,7 @@ sealed interface PreprocessingOperationResult {
 
 fun MCTWorkspace.applyPreprocessing(preprocessing: PatchPreprocessing): Pair<Flow<PreprocessingOperationResult>, Flow<PreprocessingOperationResult>> {
     val ordered = preprocessing.ordered.asFlow().map { applyPreprocessingOperation(it) }
-    val unordered = preprocessing.unordered.asFlow().parMap { applyPreprocessingOperation(it) }
+    val unordered = preprocessing.unordered.asFlow().parMapUnordered(config.parallelism) { applyPreprocessingOperation(it) }
     return ordered to unordered
 }
 

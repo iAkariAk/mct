@@ -5,16 +5,13 @@ import com.akuleshov7.ktoml.annotations.TomlInlineTable
 import com.akuleshov7.ktoml.annotations.TomlMultiline
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import mct.EnvHolder
-import mct.FSHolder
-import mct.MCTPattern
+import mct.*
 import mct.cext.CextPattern
 import mct.cli.util.requirePath
 import mct.command.*
 import mct.dp.compile
 import mct.dp.compileWith
 import mct.dp.mcjson.BuiltinMCJsonPatterns
-import mct.env
 import mct.extra.ai.ChatCompletionCall
 import mct.extra.ai.translator.*
 import mct.model.patch.PathKind
@@ -66,6 +63,9 @@ data class ProjectConfig(
 
     @TomlComments("MCT Patch configuration")
     val patch: PatchConfig = PatchConfig.Default,
+
+    @TomlComments("MCT core configuration")
+    val mct: MCTConfig = MCTConfig.Default,
 )
 
 @Serializable

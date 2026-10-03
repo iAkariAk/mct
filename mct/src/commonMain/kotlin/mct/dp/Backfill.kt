@@ -25,6 +25,7 @@ import okio.Path.Companion.toPath
 
 suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackReplacementGroup>) = coroutineScope {
     logger.info { "Backfilling ${replacementGroups.count()} datapack replacement groups" }
+    val dispatcher = Dispatchers.IO.limitedParallelism(config.parallelism)
     replacementGroups.groupBy {
         datapackDir / it.source
     }.forEach { (datapackPath, replacementGroups) ->
@@ -32,7 +33,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
             logger.debug { "Skipping $datapackPath because its `replacementGroups` is empty" }
             return@forEach
         } else logger.debug { "Backfilling ${replacementGroups.size} replacements in $datapackPath" }
-        launch(Dispatchers.IO) {
+        launch(dispatcher) {
             val m = fs.metadata(datapackPath)
             val walk = if (m.isDirectory) fs.walkDirectory(datapackPath) else fs.walkZip(datapackPath)
             val replacementGroups = replacementGroups.associateBy { it.path.toPath() }

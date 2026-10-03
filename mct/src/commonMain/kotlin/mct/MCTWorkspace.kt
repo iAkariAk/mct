@@ -6,6 +6,7 @@ import arrow.core.raise.context.ensure
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flattenMerge
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.serialization.Serializable
 import mct.cext.extractByCext
 import mct.dp.extractFromDatapack
 import mct.model.DataVersions
@@ -30,16 +31,27 @@ sealed interface OpenError : MCTError {
     }
 }
 
+@Serializable
+data class MCTConfig(
+    val parallelism: Int = 128,
+) {
+    companion object {
+        val Default = MCTConfig()
+    }
+}
+
 class MCTWorkspace private constructor(
-    val rootDir: Path, override val env: Env,
+    val rootDir: Path,
+    override val env: Env,
+    val config: MCTConfig = MCTConfig.Default,
 ) : EnvHolder {
     companion object {
         context(_: Raise<OpenError>)
-        operator fun invoke(rootDir: Path, env: Env): MCTWorkspace {
+        operator fun invoke(rootDir: Path, env: Env, config: MCTConfig = MCTConfig.Default): MCTWorkspace {
             ensure(env.fs.exists(rootDir / "level.dat")) {
                 OpenError.UnvalidatedDir(rootDir)
             }
-            return MCTWorkspace(rootDir, env)
+            return MCTWorkspace(rootDir, env, config)
         }
     }
 

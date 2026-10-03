@@ -62,7 +62,7 @@ fun MCTWorkspace.extractFromDatapack(
             } else null
             if (walk == null) return@mapNotNull null
             it to walk
-        }.flatMapMerge { (sourcePath, walk) ->
+        }.flatMapMerge(config.parallelism) { (sourcePath, walk) ->
             flow {
                 walk.read { "__MACOSX" !in it.path.segments && it.size != 0L }.use { reading ->
                     reading.mapNotNull { reading ->

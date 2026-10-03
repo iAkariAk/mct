@@ -28,7 +28,7 @@ fun MCTWorkspace.extractByCext(pattern: MCTPattern): Flow<CextExtractionGroup> {
     if (cextPatterns.isNullOrEmpty()) return emptyFlow()
     return fs.listRecursively(rootDir).asFlow()
         .filter { !fs.metadata(it).isDirectory }
-        .parMapNotNullUnordered { path ->
+        .parMapNotNullUnordered(config.parallelism) { path ->
             val pathStr = path.relativeTo(rootDir).toString()
             val cextPattern =
                 cextPatterns.find { it.patternRegex.matches(pathStr) } ?: return@parMapNotNullUnordered null
