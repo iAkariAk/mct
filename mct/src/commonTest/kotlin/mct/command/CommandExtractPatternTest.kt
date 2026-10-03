@@ -466,6 +466,49 @@ class CommandExtractPatternTest : FreeSpec({
                         """give @s wooden_sword[custom_name={"color":"yellow","italic":false,"text":"盗火匕首"},unbreakable={},attribute_modifiers=[{id:"base_attack_damage",type:"attack_damage",amount:2,operation:"add_value",slot:"mainhand"},{id:"base_attack_speed",type:"attack_speed",amount:-2.4,operation:"add_value",slot:"mainhand"}],tooltip_display={hidden_components:["unbreakable"]},custom_data={true_price:4}]""",
                         """{"color":"yellow","italic":false,"text":"盗火匕首"}"""
                     ),
+                    // ---- legacy forms where the NBT is a trailing argument (until 1.13) ----
+                    commandContentCase(
+                        "give legacy dataTag",
+                        // https://minecraft.wiki/w/Commands/give?oldid=1167849
+                        // give <player> <item> [amount] [data] [dataTag]
+                        """give @p minecraft:skull 1 3 {display:{Name:"Skull name"}}""",
+                        "\"Skull name\""
+                    ),
+                    commandContentCase(
+                        "fill legacy dataValue + oldBlockHandling + dataTag",
+                        // https://minecraft.wiki/w/Commands/fill?oldid=1173481
+                        // fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [dataValue|state] [oldBlockHandling] [dataTag]
+                        """fill 0 0 0 2 2 2 minecraft:chest 0 replace {Items:[{id:"book",tag:{display:{Name:"Filled chest"}}}]}""",
+                        "\"Filled chest\""
+                    ),
+                    commandContentCase(
+                        "replaceitem entity legacy dataTag",
+                        // https://minecraft.wiki/w/Commands/replaceitem?oldid=1143892
+                        // replaceitem entity <selector> <slot> <item> [amount] [data] [dataTag]
+                        """replaceitem entity @s slot.armor.head minecraft:skull 1 3 {display:{Name:"Head name"}}""",
+                        "\"Head name\""
+                    ),
+                    commandContentCase(
+                        "replaceitem block legacy dataTag",
+                        // https://minecraft.wiki/w/Commands/replaceitem?oldid=1143892
+                        // replaceitem block <x> <y> <z> <slot> <item> [amount] [data] [dataTag]
+                        """replaceitem block ~ ~1 ~ slot.container.0 minecraft:paper 1 0 {display:{Name:"Chest item"}}""",
+                        "\"Chest item\""
+                    ),
+                    commandContentCase(
+                        "scoreboard players tag legacy dataTag",
+                        // https://minecraft.wiki/w/Scoreboard?oldid=1184804
+                        // scoreboard players tag <entity> add|remove <tagName> [dataTag]
+                        """scoreboard players tag @e[type=item] add card {Item:{tag:{display:{Name:"Tagged item"}}},OnGround:1b}""",
+                        "\"Tagged item\""
+                    ),
+                    commandContentCase(
+                        "scoreboard players set legacy dataTag",
+                        // https://minecraft.wiki/w/Scoreboard?oldid=1184804
+                        // scoreboard players set|add|remove <entity> <objective> <score> [dataTag]
+                        """scoreboard players set @a collectors 1 {Inventory:[{Slot:0b,tag:{display:{Name:"Filter item"}}}]}""",
+                        "\"Filter item\""
+                    ),
                     commandContentCase(
                         "summon",
                         """summon block_display -106 3 -436 {NoGravity:1b,Glowing:1b,CustomNameVisible:0b,Tags:["wickedorb"],CustomName:{"bold":true,"color":"dark_purple","text":"彩叶"},glow_color_override:0,transformation:{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],scale:[3f,3f,3f]},block_state:{Name:"minecraft:crying_obsidian"}}""",

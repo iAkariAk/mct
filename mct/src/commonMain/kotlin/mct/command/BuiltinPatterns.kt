@@ -160,6 +160,25 @@ val BuiltinCommandPatterns = PatternSet {
         }
     }
 
+    // legacy: the optional `dataTag` filter is a trailing argument
+    // https://minecraft.wiki/w/Scoreboard?oldid=1184804 (the 1.12-era command reference)
+    //   scoreboard players tag <entity> add|remove <tagName> [dataTag]              (1.9, 15w32b)
+    //   scoreboard players set|add|remove <entity> <objective> <score> [dataTag]    (1.8, 14w10a)
+    // 1.13 (17w45a) split `players tag` out to /tag and dropped the `dataTag` filter, so both
+    // forms only exist up to 1.12.2: https://minecraft.wiki/w/Commands/scoreboard
+    command("scoreboard") {
+        WithSizeIn(5..6) then {
+            Positions(-1 to ArgSelection.SnbtEntire) then {
+                val legacyPlayersSubcommands = setOf("tag", "set", "add", "remove")
+                Matches("legacy players dataTag") { cmd, arg ->
+                    cmd[1].content == "players" &&
+                            cmd[2].content in legacyPlayersSubcommands &&
+                            arg.mayBeSnbtCompound()
+                }
+            }
+        }
+    }
+
 
     // ── team ─────────────────────────────────────────────────────
     // team modify <team> displayName <component>
@@ -251,6 +270,18 @@ val BuiltinCommandPatterns = PatternSet {
     command("give") {
         WithSizeIn(2..3) then {
             Positions(2 to ArgSelection.ItemStack).withAry()
+        }
+
+        // legacy: https://minecraft.wiki/w/Commands/give?oldid=1167849
+        // give <player> <item> [amount] [data] [dataTag]
+        // `dataTag` was added in 1.7.2 (13w36a) and merged into `<item>` in 1.13 (17w45a /
+        // flattening), so the trailing-argument form only exists up to 1.12.2.
+        WithSizeIn(3..5) then {
+            Positions(-1 to ArgSelection.SnbtEntire) then {
+                Matches("legacy dataTag") { _, arg ->
+                    arg.mayBeSnbtCompound()
+                }
+            }
         }
     }
 
@@ -441,8 +472,12 @@ val BuiltinCommandPatterns = PatternSet {
         }
 
         // legacy: https://minecraft.wiki/w/Commands/fill?oldid=1352716
-        // fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [oldBlockHandling] [dataTag]
-        WithSizeIn(8..9) then {
+        //         https://minecraft.wiki/w/Commands/fill?oldid=1173481 (the 1.12.2 syntax)
+        // fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [dataValue|state] [oldBlockHandling] [dataTag]
+        // 7 mandatory arguments plus up to three optional ones, so the `dataTag` (NBT) can also
+        // land on argument 10 — e.g. `fill … end_gateway default destroy {ExactTeleport:1b}`.
+        // 1.13 moved the NBT into the `<block>` argument (block_id[block_states]{data_tags}).
+        WithSizeIn(8..10) then {
             Positions(-1 to ArgSelection.SnbtEntire) then {
                 Matches("latest arg check") { _, arg ->
                     arg.mayBeSnbtCompound()
@@ -483,6 +518,29 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(9 to ArgSelection.WithInfo(JsonStr)) then {
                 Matches("replaceitem entity (json)") { cmd, arg ->
                     cmd[1].content == "entity" && arg.isJson()
+                }
+            }
+        }
+
+        // legacy (Java Edition, until 1.13):
+        // https://minecraft.wiki/w/Commands/replaceitem?oldid=1143892
+        // replaceitem entity <selector> <slot> <item> [amount] [data] [dataTag]
+        // replaceitem block <x> <y> <z> <slot> <item> [amount] [data] [dataTag]
+        // `<slot>` is a single argument here (`slot.armor.head`, `slot.container.26`); 1.13 split it
+        // into `<slotType> <slotId>`, which is why the entity form has exactly 7 arguments.
+        // The `dataTag` argument was dropped in 1.13 and the command itself was replaced by
+        // `/item replace` in 1.17 (20w46a): https://minecraft.wiki/w/Commands/replaceitem
+        WithSize(7, strict = true) then {
+            Positions(-1 to ArgSelection.SnbtEntire) then {
+                Matches("legacy replaceitem entity") { cmd, arg ->
+                    cmd[1].content == "entity" && arg.mayBeSnbtCompound()
+                }
+            }
+        }
+        WithSize(9, strict = true) then {
+            Positions(-1 to ArgSelection.SnbtEntire) then {
+                Matches("legacy replaceitem block") { cmd, arg ->
+                    cmd[1].content == "block" && arg.mayBeSnbtCompound()
                 }
             }
         }
@@ -560,7 +618,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(6 to ArgSelection.SnbtEntire) then {
                 Matches("data merge block nbt") { cmd, arg ->
                     cmd[1].content == "merge"
-                            && (cmd[2].content == "entity" || cmd[2].content == "storage")
+                            && cmd[2].content == "block"
                             && arg.mayBeSnbtCompound()
                 }
             }
