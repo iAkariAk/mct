@@ -139,7 +139,6 @@ private class ZipFileWalkStream(private val zip: Path, private val fs: FileSyste
             }.closable {
                 zos.close()
                 zis.close()
-                fs.atomicMove(tmpZip, zip)
                 fs.delete(tmpZip)
             }
 
