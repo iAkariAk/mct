@@ -109,11 +109,25 @@ mct datapack extract -i <图> -o out.json --pattern-mcjson-pattern my.json --pat
 
 ## 常见误判
 
-| 症状                                    | 真正的问题                                                               |
-|-----------------------------------------|--------------------------------------------------------------------------|
-| 指针写对了却抽不出来                    | 层选错了：JSON 文件的路径拿去 `--pattern-nbt-pattern`, 或反过来          |
-| 数组里只有第一行被抽出                  | 文本组件数组要匹配**容器路径**(`>#pages`）, 不是 `>#pages>0`             |
-| 命令里的文本抽不出来                    | 命令层没配：只写了 `--pattern-mcjson-pattern`, 但文本在 `.mcfunction` 里 |
-| `>#Command` 里的文本抽不出来            | 它是命令字符串, 要命令层 pattern, 不是 DataPointer                       |
-| 文件里明明有文本, `rg` 也搜得到         | 该文件在 MCT 的默认扫描范围外, 要用 cext                                 |
-| 用 `--disable-builtin-*` 后什么都不抽了 | 没同时给 pattern 路径(`command`、`command_component` 层会直接 panic）    |
+| 症状                                                          | 真正的问题                                                               |
+|---------------------------------------------------------------|--------------------------------------------------------------------------|
+| 指针写对了却抽不出来                                          | 层选错了：JSON 文件的路径拿去 `--pattern-nbt-pattern`, 或反过来          |
+| 数组里只有第一行被抽出                                        | 文本组件数组要匹配**容器路径**(`>#pages`）, 不是 `>#pages>0`             |
+| 命令里的文本抽不出来                                          | 命令层没配：只写了 `--pattern-mcjson-pattern`, 但文本在 `.mcfunction` 里 |
+| `>#Command` 里的文本抽不出来                                  | 它是命令字符串, 要命令层 pattern, 不是 DataPointer                       |
+| 文件里明明有文本, `rg` 也搜得到                               | 该文件在 MCT 的默认扫描范围外, 要用 cext                                 |
+| 用 `--disable-builtin-*` 后什么都不抽了                       | 没同时给 pattern 路径(`command`、`command_component` 层会直接 panic）    |
+| `build` 抛 `Not allow to overlap range between A..B and A..B` | 写重复 pattern 了：`has_builtin = true` 时又把内置已有的规则写了一遍     |
+
+## 绝不能有重复 pattern
+
+`has_builtin = true` 时, 自己再写一条内置已有的规则是 **错误**, 不是「无害的冗余」. 后果：
+
+- `update` 一切正常, `missing.json` 与 `mappings.json` 也不变——因为文本池是 `Set`, 重复项被去重, 看不出任何异常
+- 但命令层 (`--pattern-command`)下同一条命令会被抽 **两次**；文本落在 NBT/JSON 里 (命令方块的 `Command` 字段等）时,
+  替换阶段直接抛 **`java.lang.IllegalArgumentException: Not allow to overlap range between A..B and A..B`**,
+  `project build` 与 `kit text-pool unflatten` 都会失败. (DataPointer 三层按「首个命中」取用, 所以重复写 nbt / mcjson /
+  command_data 的规则不会重复抽取, 但那仍是错的, 只是不会报错.)
+
+**动手写之前先 `mct test pattern -c` 对照**(它打印合并后的全部 pattern）, 只补内置没有的. 猜「内置大概没覆盖」然后补一条,
+是这类失败最常见的原因.

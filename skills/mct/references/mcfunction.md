@@ -15,29 +15,12 @@ pattern 类型与 flag：
 - **target selector 内在抽取**：`@p[...]`、`@a[...]` 等里的 `name=` 值.
 - **递归子命令**：`execute ... run` / `return run` 后面的命令会被重新解析并按普通命令匹配.
 
-处理顺序 (`mct/src/commonMain/kotlin/mct/command/Extract.kt`）：
-
-```text
-源文本
-  ├─ 解析出 List<MCCommand>
-  │    └─ 每条命令：target selector 切片 + 命令 pattern 切片
-  │         (pre 条件 → 位置选择器 → post 条件 → 参数选择）
-  └─ 若配了 commandRegex：对整份源文本跑正则, 切片追加在最后
-```
-
 CLI 选项表与合并语义见 `workflow.md`；DataPointer 路径规则见 `data_pointer.md`.
 
 ## 一、命令结构 pattern (`--pattern-command`）
 
-```text
-CommandExtractPattern
-  ├── command    命令名("say"、"give"、"item" …）
-  ├── pre        这条命令是否够格
-  ├── selector   抽哪个参数、怎么抽
-  └── post       对抽到的参数再做一次过滤
-```
-
-pattern 按命令名分组 (`ExtractPatternSet = Map<String, List<CommandExtractPattern>>`）；同一个命令下的多条 pattern 都会贡献切片.
+pattern 按命令名分组；同一个命令下的多条 pattern 都会贡献切片. 每条 pattern 的字段就是下面这四段：`command`、`pre`、
+`selector`、`post`.
 
 ```json
 [
@@ -125,12 +108,12 @@ token 数来放行,
 }
 ```
 
-| position | 对 `say hello world` | 抽出          | 逻辑                               |
-|----------|----------------------|---------------|------------------------------------|
-| `0`      | 特例                 | `hello world` | 从命令名之后开始                   |
-| `1`      | 第一个参数起         | `hello world` | `command[1].relativeIndices.first` |
-| `2`      | 第二个参数起         | `world`       | `command[2].relativeIndices.first` |
-| `-1`     | 最后一个参数起       | `world`       | 先换算成 `argsSize + position + 1` |
+| position | 对 `say hello world` | 抽出          |
+|----------|----------------------|---------------|
+| `0`      | 特例                 | `hello world` |
+| `1`      | 第一个参数起         | `hello world` |
+| `2`      | 第二个参数起         | `world`       |
+| `-1`     | 最后一个参数起       | `world`       |
 
 greedy 切片一律是 `PlainStr`, 且 **post 条件不会作用于 greedy**.
 
@@ -173,11 +156,10 @@ MissingFieldException: Field 'positions' is required for type with serial name '
 |-----------------------------------------------------------------------------|-----------|
 | `positions: {"-1": {"type": "snbt_entire"}}`                                | `dataTag` |
 
-内置 `fill` 的 legacy 形态就用 `-1` 抓最后一个参数；`setblock` 的 `{snbt}` 形态同样用 `-1`, 因为 NBT 参数既可能在
-第 5 个位置 (现代写法）, 也可能被 `[dataValue] [oldBlockHandling]` 挤到第 7 个 (legacy 写法）.
+内置 `fill` / `setblock` 的 legacy 形态都用 `-1` 抓最后一个参数 (它们的 NBT 参数位置会随可选项浮动）.
 
-`position: 0` 只对 `greedy` 有特判含义 (从命令名之后开始）, 其余位置 **一律 1-based**, 传 0 会命中
-`check(pos != 0) { "Should use 1-based instead of 0-based" }`.
+`position: 0` 只对 `greedy` 有特判含义 (从命令名之后开始), 其余位置 **一律 1-based**；给 0 会报
+`Should use 1-based instead of 0-based`.
 
 ### ArgSelection：抽出来怎么解析
 
@@ -194,17 +176,16 @@ MissingFieldException: Field 'positions' is required for type with serial name '
 `SnbtSyntaxKind` 取值 (无自定义名）：`Compound`、`List`、`SingleQuoteString`、`DoubleQuoteString`、`LiteralString`.
 
 **`syntax` 与 `format` 是两个轴**：`syntax` 是切片的 **外层词法形态**；
-当 `syntax`是引号类型时, `format` 是「引号内部内容」的格式; 否则是切片内容自身的格式.
-`inferFormatKind(syntax = …)` 会先脱引号再探测内容, 所以一个内容是 JSON 被包含在 SNBT 引号字符串是 `json_str` 而不是
-`plain_str`.
+当 `syntax` 是引号类型时, `format` 是「引号内部内容」的格式; 否则是切片内容自身的格式. 所以内容是 JSON 的 SNBT 引号字符串
+是 `json_str`, 不是 `plain_str`.
 
 各选择器产出的 format：
 
 - greedy 与 `plain_entire` → `plain_str`.
-- `snbt_entire`：文本组件 compound/list → `snbt_str`；其中的字符串叶子 → `inferFormatKind(syntax)`.
+- `snbt_entire`：文本组件 compound/list → `snbt_str`；其中的字符串叶子 → 按上面两轴规则推断.
 - `text_component_entire`：JSON 组件 → `json_str`；SNBT 组件 → `snbt_str`.
 - `with_info`：按声明的 `format`/`syntax`.
-- target selector 的 `name=` 切片与正则切片：未显式声明时用 `inferFormatKind(syntax)`.
+- target selector 的 `name=` 切片与正则切片：未显式声明时按上面两轴规则推断.
 
 选择失败时 (SNBT 解析失败、要求文本组件但不是）MCT 记录 `Selection fails: ...`, 并回退为 **整个参数按纯文本**.
 
@@ -222,7 +203,10 @@ MissingFieldException: Field 'positions' is required for type with serial name '
 内置集里还用了 **DSL 专有**的 `Matches { cmd, arg -> ... }` 谓词. 它是编译期 Kotlin, **无法用 JSON 表达**；自定义 pattern
 只能用 `regex` / `contain` / `equal` / `at` 近似.
 
-### 完整示例
+### 写法示例 (**不要照抄**）
+
+下面的命令 (`say` / `tell` / `tellraw` / `title` / `give` / `data`） **内置集已经全部覆盖**；抄进自定义 pattern 文件会造成
+重复 pattern, 让 `build` 直接失败 (见 `pattern-selection.md`）. 这张表只用来看字段怎么组合.
 
 ```json
 [
@@ -352,47 +336,51 @@ MissingFieldException: Field 'positions' is required for type with serial name '
 
 ### 内置命令目录
 
-`BuiltinCommandPatterns`(`mct/src/commonMain/kotlin/mct/command/BuiltinPatterns.kt`）. **实测规模：22 个命令键 / 53 条
-pattern**(`mct test pattern -c` 统计）, 其中 `item` 占 17 条. 下表 `WithSize(n)` 未标 strict 即为下界语义.
+`BuiltinCommandPatterns`. 下表是 **按键的概要**；内置集的权威清单用 `mct test pattern -c` 看 (源码变动后本表可能滞后).
+下表 `WithSize(n)` 未标 strict 即为下界语义.
 
-`blockdata` / `entitydata` / `fill` / `setblock` 除现代写法外还覆盖 **legacy 形态**(1.13 之前的数据值/`dataTag` 写法）,
-其中 `fill` 与 `setblock` 用负数位置 `-1` 抓「最后一个参数」, 因为 legacy 形态里 NBT 参数的位置会随可选项浮动.
+**legacy 覆盖**：`blockdata` / `entitydata` / `fill` / `setblock` / `scoreboard` / `give` / `replaceitem` 的 1.13 之前
+`dataTag` 写法内置已覆盖, 不需要自己写. 自己写同类形态时, 用负数位置 `-1` 抓「最后一个参数」比数位置稳.
 
-| 命令                                              | pre                                                 | selector                     | post                                                                                                   |
-|---------------------------------------------------|-----------------------------------------------------|------------------------------|--------------------------------------------------------------------------------------------------------|
-| `say`、`me`、`teammsg`                            | any                                                 | greedy 0                     | any                                                                                                    |
-| `tell`、`msg`、`w`                                | with_size 2                                         | greedy 2                     | any                                                                                                    |
-| `tellraw`                                         | with_size 2 strict                                  | `{2: text_component_entire}` | any                                                                                                    |
-| `title`                                           | with_size 3 strict                                  | `{3: text_component_entire}` | `cmd[2] != "times"`                                                                                    |
-| `dialog`                                          | with_size 3 strict                                  | `{3: snbt_entire}`           | `cmd[1] == "show"` 且参数以 `{` 开头                                                                   |
-| `bossbar` add                                     | with_size 3 strict                                  | `{3: text_component_entire}` | `cmd[1] == "add"`                                                                                      |
-| `bossbar` set name                                | with_size 4                                         | `{4: text_component_entire}` | `cmd[1] == "set"` 且 `cmd[3] == "name"`                                                                |
-| `scoreboard` objectives add/modify displayname    | with_size 5 strict                                  | `{5: text_component_entire}` | `cmd[1] == "objectives"` 且(`cmd[2] == "add"` 或 (`cmd[2] == "modify"` 且 `cmd[4] == "displayname"`)） |
-| `scoreboard` objectives modify numberformat fixed | with_size 6 strict                                  | `{6: text_component_entire}` | `cmd[1] == "objectives"`、`cmd[2] == "modify"`、`cmd[4] == "numberformat"`、`cmd[5] == "fixed"`        |
-| `scoreboard` players display name                 | with_size 6 strict                                  | `{6: text_component_entire}` | `cmd[1] == "players"`、`cmd[2] == "display"`、`cmd[3] == "name"`                                       |
-| `scoreboard` players display numberformat fixed   | with_size 7 strict                                  | `{7: text_component_entire}` | `cmd[1] == "players"`、`cmd[2] == "display"`、`cmd[3] == "numberformat"`、`cmd[6] == "fixed"`          |
-| `team` add                                        | with_size 3 strict                                  | `{3: text_component_entire}` | `cmd[1] == "add"`                                                                                      |
-| `team` modify displayName                         | with_size 4 strict                                  | `{4: text_component_entire}` | `cmd[1] == "modify"` 且 `cmd[3] == "displayName"`                                                      |
-| `team` modify prefix/suffix                       | with_size 4 strict                                  | `{4: text_component_entire}` | `cmd[1] == "modify"` 且 `cmd[3]` 为 `prefix`/`suffix`                                                  |
-| `data` modify entity/storage … set value          | with_size 7 strict                                  | `{7: text_component_entire}` | `cmd[1] == "modify"`、`cmd[2]` 为 `entity`/`storage`、`cmd[5] == "set"`、`cmd[6] == "value"`           |
-| `data` modify block … set value                   | with_size 9 strict                                  | `{9: text_component_entire}` | `cmd[1] == "modify"`、`cmd[2] == "block"`、`cmd[7] == "set"`、`cmd[8] == "value"`                      |
-| `data` merge entity/storage                       | `and(with_size 4, regex "merge (entity\|storage)")` | `{4: snbt_entire}`           | 参数以 `{` 开头                                                                                        |
-| `data` merge block                                | `and(with_size 6, regex "merge block")`             | `{6: snbt_entire}`           | 参数以 `{` 开头                                                                                        |
-| `blockdata`(legacy）                              | with_size 4                                         | `{4: snbt_entire}`           | 参数以 `{` 开头                                                                                        |
-| `entitydata`(legacy）                             | with_size 2                                         | `{2: snbt_entire}`           | 参数以 `{` 开头                                                                                        |
-| `fill` 现代写法                                   | with_size_in 7..8                                   | `{7: block_state}`           | 参数 7 个, 或第 8 个是 `outline`/`hollow`/`destroy`/`strict`/`replace`/`keep`                          |
-| `fill` 现代 + replace                             | with_size_in 9..10                                  | `{7: block_state}`           | `cmd[8] == "replace"`, 且 9 个参数或第 10 个是 `outline`/`hollow`/`destroy`/`strict`                   |
-| `fill` legacy                                     | with_size_in 8..9                                   | `{-1: snbt_entire}`          | 最后一个参数以 `{` 开头                                                                                |
-| `give`                                            | with_size 2                                         | `{2: item_stack}`            | any                                                                                                    |
-| `setblock` 现代写法                               | with_size_in 4..5                                   | `{4: block_state}`           | 参数 4 个, 或第 5 个是 `destroy`/`keep`/`replace`/`strict`                                             |
-| `setblock` NBT(含 legacy）                        | with_size_in 4..7                                   | `{-1: snbt_entire}`          | 最后一个参数以 `{` 开头                                                                                |
-| `summon`                                          | with_size 5 strict                                  | `{5: snbt_entire}`           | any                                                                                                    |
-| `kick`                                            | with_size 2                                         | greedy 2                     | any                                                                                                    |
-| `replaceitem` block                               | with_size 10 strict                                 | `{10: with_info(JsonStr)}`   | `cmd[1] == "block"` 且参数是 JSON                                                                      |
-| `replaceitem` block + replace mode                | with_size 11 strict                                 | `{11: with_info(JsonStr)}`   | 同上                                                                                                   |
-| `replaceitem` entity                              | with_size 8 strict                                  | `{8: with_info(JsonStr)}`    | `cmd[1] == "entity"` 且参数是 JSON                                                                     |
-| `replaceitem` entity + replace mode               | with_size 9 strict                                  | `{9: with_info(JsonStr)}`    | 同上                                                                                                   |
-| `item`(17 条）                                    | 见下                                                | 见下                         | 见下                                                                                                   |
+| 命令                                              | pre                 | selector                     | post                                                                                                   |
+|---------------------------------------------------|---------------------|------------------------------|--------------------------------------------------------------------------------------------------------|
+| `say`、`me`、`teammsg`                            | any                 | greedy 0                     | any                                                                                                    |
+| `tell`、`msg`、`w`                                | with_size 2         | greedy 2                     | any                                                                                                    |
+| `tellraw`                                         | with_size 2 strict  | `{2: text_component_entire}` | any                                                                                                    |
+| `title`                                           | with_size 3 strict  | `{3: text_component_entire}` | `cmd[2] != "times"`                                                                                    |
+| `dialog`                                          | with_size 3 strict  | `{3: snbt_entire}`           | `cmd[1] == "show"` 且参数是 SNBT compound                                                              |
+| `bossbar` add                                     | with_size 3 strict  | `{3: text_component_entire}` | `cmd[1] == "add"`                                                                                      |
+| `bossbar` set name                                | with_size 4 strict  | `{4: text_component_entire}` | `cmd[1] == "set"` 且 `cmd[3] == "name"`                                                                |
+| `scoreboard` objectives add/modify displayname    | with_size 5 strict  | `{5: text_component_entire}` | `cmd[1] == "objectives"` 且(`cmd[2] == "add"` 或 (`cmd[2] == "modify"` 且 `cmd[4] == "displayname"`)） |
+| `scoreboard` objectives modify numberformat fixed | with_size 6 strict  | `{6: text_component_entire}` | `cmd[1] == "objectives"`、`cmd[2] == "modify"`、`cmd[4] == "numberformat"`、`cmd[5] == "fixed"`        |
+| `scoreboard` players display name                 | with_size 6 strict  | `{6: text_component_entire}` | `cmd[1] == "players"`、`cmd[2] == "display"`、`cmd[3] == "name"`                                       |
+| `scoreboard` players display numberformat fixed   | with_size 7 strict  | `{7: text_component_entire}` | `cmd[1] == "players"`、`cmd[2] == "display"`、`cmd[3] == "numberformat"`、`cmd[6] == "fixed"`          |
+| `scoreboard` players set/add/remove/tag(legacy）  | with_size_in 5..6   | `{-1: snbt_entire}`          | `cmd[1] == "players"`、`cmd[2]` 为 `tag`/`set`/`add`/`remove`、参数是 SNBT compound                    |
+| `team` add                                        | with_size 3 strict  | `{3: text_component_entire}` | `cmd[1] == "add"`                                                                                      |
+| `team` modify displayName                         | with_size 4 strict  | `{4: text_component_entire}` | `cmd[1] == "modify"` 且 `cmd[3] == "displayName"`                                                      |
+| `team` modify prefix/suffix                       | with_size 4 strict  | `{4: text_component_entire}` | `cmd[1] == "modify"` 且 `cmd[3]` 为 `prefix`/`suffix`                                                  |
+| `data` modify entity/storage … set value          | with_size 7 strict  | `{7: text_component_entire}` | `cmd[1] == "modify"`、`cmd[2]` 为 `entity`/`storage`、`cmd[5] == "set"`、`cmd[6] == "value"`           |
+| `data` modify block … set value                   | with_size 9 strict  | `{9: text_component_entire}` | `cmd[1] == "modify"`、`cmd[2] == "block"`、`cmd[7] == "set"`、`cmd[8] == "value"`                      |
+| `data` merge entity/storage                       | with_size 4 strict  | `{4: snbt_entire}`           | `cmd[1] == "merge"`、`cmd[2]` 为 `entity`/`storage`、参数是 SNBT compound                              |
+| `data` merge block                                | with_size 6 strict  | `{6: snbt_entire}`           | `cmd[1] == "merge"`、`cmd[2] == "block"`、参数是 SNBT compound                                         |
+| `blockdata`(legacy）                              | with_size 4         | `{4: snbt_entire}`           | 参数是 SNBT compound                                                                                   |
+| `entitydata`(legacy）                             | with_size 2         | `{2: snbt_entire}`           | 参数是 SNBT compound                                                                                   |
+| `fill` 现代写法                                   | with_size_in 7..8   | `{7: block_state}`           | 参数 7 个, 或第 8 个是 `outline`/`hollow`/`destroy`/`strict`/`replace`/`keep`                          |
+| `fill` 现代 + replace                             | with_size_in 9..10  | `{7: block_state}`           | `cmd[8] == "replace"`, 且 9 个参数或第 10 个是 `outline`/`hollow`/`destroy`/`strict`                   |
+| `fill` legacy                                     | with_size_in 8..10  | `{-1: snbt_entire}`          | 参数是 SNBT compound                                                                                   |
+| `give`                                            | with_size_in 2..3   | `{2: item_stack}`            | any                                                                                                    |
+| `give` legacy                                     | with_size_in 3..5   | `{-1: snbt_entire}`          | 参数是 SNBT compound                                                                                   |
+| `setblock` 现代写法                               | with_size_in 4..5   | `{4: block_state}`           | 参数 4 个, 或第 5 个是 `destroy`/`keep`/`replace`/`strict`                                             |
+| `setblock` NBT(含 legacy）                        | with_size_in 4..7   | `{-1: snbt_entire}`          | 参数是 SNBT compound                                                                                   |
+| `summon`                                          | with_size 5 strict  | `{5: snbt_entire}`           | any                                                                                                    |
+| `kick`                                            | with_size 2         | greedy 2                     | any                                                                                                    |
+| `replaceitem` block                               | with_size 10 strict | `{10: with_info(JsonStr)}`   | `cmd[1] == "block"` 且参数是 JSON                                                                      |
+| `replaceitem` block + replace mode                | with_size 11 strict | `{11: with_info(JsonStr)}`   | 同上                                                                                                   |
+| `replaceitem` block(legacy）                      | with_size 9 strict  | `{-1: snbt_entire}`          | `cmd[1] == "block"` 且参数是 SNBT compound                                                             |
+| `replaceitem` entity                              | with_size 8 strict  | `{8: with_info(JsonStr)}`    | `cmd[1] == "entity"` 且参数是 JSON                                                                     |
+| `replaceitem` entity + replace mode               | with_size 9 strict  | `{9: with_info(JsonStr)}`    | 同上                                                                                                   |
+| `replaceitem` entity(legacy）                     | with_size 7 strict  | `{-1: snbt_entire}`          | `cmd[1] == "entity"` 且参数是 SNBT compound                                                            |
+| `item`(17 条）                                    | 见下                | 见下                         | 见下                                                                                                   |
 
 `item` 的 17 条遵循三种形状 (post 还要求 modifier 参数不是命名空间 id；当物品写成 `with <item>` 时改用 `item_stack`）：
 
@@ -400,16 +388,15 @@ pattern**(`mct test pattern -c` 统计）, 其中 `item` 占 17 条. 下表 `Wit
 |-------------------------------------------------------------|-----------------------------------------------------|---------------|
 | `item modify entity/block <target> <path> <modifier>`       | 5 / 7(strict）                                      | `snbt_entire` |
 | `item replace/fill/override … from entity/block <modifier>` | 同源 9 / 13(strict）；跨源 entity↔block 11(strict） | `snbt_entire` |
-| `item replace/fill/override … with <item>`                  | entity 6 / block 8                                  | `item_stack`  |
+| `item replace/fill/override … with <item> [count]`          | entity 6 / block 8, 各容许一个尾随 `[count]`        | `item_stack`  |
 
-包装子命令的命令 (`execute run`、`return run`）由递归处理, 不需要 pattern. 另有几条命令看起来会带文本、实际不会, 包括
-`spreadplayers`、`waypoint`、`damage`、`kill`、`place`；具体情况以 <https://minecraft.wiki/w/Commands> 为准. (`fill` 的
-`<block>`/`<filter>` 参数本身不产出文本切片, 但它的 legacy 形态能带 `dataTag`, 所以 `fill` 在内置集里. )
+另有几条命令看起来会带文本、实际不会：`spreadplayers`、`waypoint`、`damage`、`kill`、`place`. `execute run` / `return run`
+由递归处理, 不需要 pattern (见第五节).
 
 ## 二、物品组件 pattern (`--pattern-command-component`）
 
-被 `ArgSelection.item_stack` 使用, 对应现代 `id[key=value,...]` 写法. 组件键用 `findByCompoundKey` 查找：`namespace:name`
-, 或不带命名空间的 `name`(默认 `minecraft`）.
+被 `ArgSelection.item_stack` 使用, 对应现代 `id[key=value,...]` 写法. 组件键写 `namespace:name`, 或省掉命名空间的 `name`
+(默认 `minecraft`）.
 
 ```json
 [
@@ -441,15 +428,11 @@ pattern**(`mct test pattern -c` 统计）, 其中 `item` 占 17 条. 下表 `Wit
 | `description`           | null                                                         | —     |
 | `item_name`             | null                                                         | —     |
 | `lore`                  | null                                                         | —     |
+| `text_display`          | null                                                         | —     |
 | `sign_text_front`       | regex `^>#(?:filtered_)?messages$`                           | regex |
 | `sign_text_back`        | regex `^>#(?:filtered_)?messages$`                           | regex |
-| `text_display`          | null                                                         | —     |
 | `written_book_content`  | regex `^>#(?:author\|pages\|title)(?:>#(?:filtered\|raw))?$` | regex |
 | `writable_book_content` | regex `^>#pages(?:>#(?:filtered\|raw))?$`                    | regex |
-
-`sign_text_front` / `sign_text_back` 是 1.21.5+ 的告示牌组件形态 (取代 `block_entities` 里的 `front_text` /
-`back_text`)；
-成书两项的 pattern 带 `filtered` / `raw` 后缀, 所以过滤过的页面和原文页面都会命中. `pattern` 为 `null` 的含义见上文.
 
 `--disable-builtin-command-component` 必须同时给 `--pattern-command-component`, 否则 panic.
 
@@ -480,7 +463,7 @@ DataPointer 格式, 详见 `data_pointer.md`.
 ]
 ```
 
-`BuiltinCommandDataPatterns` 先 `dependsOn(BuiltinNbtPatterns)`, 再加：
+`BuiltinCommandDataPatterns` 在共用集之外再加：
 
 | pattern                                                                      | 类型  |
 |------------------------------------------------------------------------------|-------|
@@ -548,8 +531,7 @@ execute <entity> <x> <y> <z> <command>                     → 从第 5 个参�
 execute <entity> <x> <y> <z> detect <x2> <y2> <z2> <block> <data|state> <command>   → 从第 11 个参数起是子命令
 ```
 
-子命令名以 `/` 开头也会被剥掉 (`execute @a ~ ~ ~ /say hi`). 这条兼容在 `Extract.kt` 的
-`getLegacyExecuteSubBeginIndex` 里, 判据是「找不到 `run` 参数」且参数个数够. 不需要为 `execute` / `return` 写 pattern.
+子命令名以 `/` 开头也会被剥掉 (`execute @a ~ ~ ~ /say hi`). 不需要为 `execute` / `return` 写 pattern.
 
 ## 六、target selector 内在抽取
 
@@ -563,8 +545,7 @@ execute <entity> <x> <y> <z> detect <x2> <y2> <z2> <block> <data|state> <command
 @e[type=player,name="foo"]    → "foo"          (DoubleQuoteString）
 ```
 
-由 `CommandExtractorIntrinsic`(`mct/src/commonMain/kotlin/mct/command/Extract.kt`）实现, **始终生效、无法用 pattern 关闭**
-. 与命令 pattern 切片重叠的内在切片会被丢弃.
+这一通道 **始终生效、无法用 pattern 关闭**. 与命令 pattern 切片重叠的内在切片会被丢弃.
 
 注意这一通道只抓 `name=` 字段. `@name=AAAA` 这类写法属于选择器 name 字段的值, 本身也是玩家名；校对时不要把它当普通文本误翻
 (见

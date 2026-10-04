@@ -17,7 +17,10 @@ description: >
 
 ## 核心事实
 
-- 通过给`mct`的大部分传递`-V`将把一切日志打印出来, 也可以选择传递`-lInfo -lDebug -lWarning -lError`中的一个或多个命令查看特定日志
+- 排查问题时加 `-V` 打印全部日志；或改用 `-l Info -l Debug …`(可叠加, 与 `-V` 互斥）只看某几级
+- **验证译文有没有落到成品世界, 用 `mct kit export-snbt -i build -o <目录>` 再 `rg` 译串**； **不要**逐字节对比 `.mca` 或
+  `diff -r build`——region 文件在 MCA header 的时间戳表上每次构建都不同, 比出来一定是「不一致」. 要比两次构建是否等价, 比
+  `cache/*_extractions.json` 与 `cache/*_replacements.json`(见 `references/workflow.md` 第二节）
 - 下文除了`mct project init`外的`mct project`系列子命令都需要在项目目录调用, 或传递`-D`参数
 - **`mappings.json` 是 `{源串: 译串}`, 而源串是纯文本、结构化文本 (Json/Snbt）、Minecraft命令等 **(如 `"\"八千代\""`、
   `["\"Some texts\"",...]`）. 键与值要保持同一套编码, 只替换其中的可见文字. **编码写错时没有任何报错**, 只会静默产出 0
@@ -170,6 +173,9 @@ mct project build -lError -Warning
   `Build complete`, 但成品世界是未翻译的
 - `build/` 每次整体重建, 你的手工改动要落在 `src/` 或 `mappings.json`, 并且如果改动了`src/`, 则需要重新调用
   `mct project update`
+- **不要用 `diff -r build` 判断两次构建是否一致**：被回填过的 region 文件只在 MCA header 的时间戳表上不同, 逐字节比会得出
+  「输出不一致」的假结论. 要比就比 `cache/*_extractions.json` 与 `cache/*_replacements.json`(逐字节稳定）, 见
+  `references/workflow.md` 第二节「重建结果怎么比对」
 
 ### 8. 用户想要分享发布地图翻译的处理方法
 

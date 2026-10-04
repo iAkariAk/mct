@@ -10,7 +10,7 @@ DataPointer 的三种 pattern 类型、`kind` 递归、路径编码见 `data_poi
 
 ## 一、pattern 文件格式
 
-`List<DataPointerPattern>`：
+数组, 每个元素是一条 pattern：
 
 ```json
 [
@@ -35,7 +35,7 @@ DataPointer 的三种 pattern 类型、`kind` 递归、路径编码见 `data_poi
 
 ## 二、JSON 树遍历规则
 
-遍历器 (`mct/src/commonMain/kotlin/mct/dp/mcjson/Extract.kt`）对每个节点按下列规则产出候选：
+遍历时对每个节点按下列规则产出候选：
 
 | 节点       | 条件                   | 候选                                                     |
 |------------|------------------------|----------------------------------------------------------|
@@ -81,34 +81,16 @@ format 列就是切片的 `FormatKind`：容器候选是 `json_obj`, 字符串�
 
 对象：全部键都在文本组件字段表内, 且除结构字段 (`extra`、`with`、`hover_event`、`click_event`、`score`、`separator`、`player`、
 `shadow_color` 等）外的值都不是 map/collection. 数组：每个元素都是字符串或各自是文本组件. 另外 `{"":"text"}` 这种把 `text`
-简写成空键的对象会被识别并展开. 见 `mct/src/commonMain/kotlin/mct/model/text/Util.kt`.
+简写成空键的对象会被识别并展开.
 
 ### 指针编码
 
-| 编码     | 含义                    |
-|----------|-------------------------|
-| `>#key`  | map 取键                |
-| `>N`     | 数组取下标 N            |
-| `>` 结尾 | 路径终止于叶子          |
-| `&>`     | 键名中字面量 `>` 的转义 |
+与 region 共用同一套编码, 见 `data_pointer.md` 第二节(含 `&&` 转义与空串=根).
 
 ## 三、内置 pattern 目录
 
-`BuiltinMCJsonPatterns`(`mct/src/commonMain/kotlin/mct/dp/mcjson/BuiltinPatterns.kt`）先用
-`dependsOn(CommonComponentPatterns)`
-带上共用集, 再加自己的. 顺序有意义：`matched()` 返回第一个命中的.
-
-### 现代组件 (共用 `CommonComponentPatterns`）
-
-| pattern                                                                                                  | 类型  |
-|----------------------------------------------------------------------------------------------------------|-------|
-| `>#components>#(minecraft:)?custom_name(>#raw)?$`                                                        | regex |
-| `>#components>#(minecraft:)?item_name(>#raw)?$`                                                          | regex |
-| `>#components>#(minecraft:)?text_display(>#raw)?$`                                                       | regex |
-| `>#components>#(minecraft:)?description(>#raw)?$`                                                        | regex |
-| `>#components>#(minecraft:)?lore(>\d+>#raw)?$`                                                           | regex |
-| `>#components>#(minecraft:)?written_book_content>#(?:pages\|title\|author)(?:>\d+>#(?:raw\|filtered))?$` | regex |
-| `>#components>#(minecraft:)?writable_book_content>#pages(?:>\d+>#(?:raw\|filtered))?$`                   | regex |
+`BuiltinMCJsonPatterns` 的共用组件集与 NBT 相同, **清单见 `data_pointer.md` 第四节**(此处不再重复). 除共用集之外再加自己的.
+顺序有意义：`matched()` 返回第一个命中的.
 
 ### 成就
 
@@ -180,25 +162,16 @@ Minecraft 常用单引号 JSON, 这不是合法标准 JSON：
 }
 ```
 
-`MCJson`(`mct/src/commonMain/kotlin/mct/dp/mcjson/MCJson.kt`）是配置了 `isLenient`、`allowTrailingComma`、
-`allowIllegalEscape`、`allowSingleQuote` 的 `NonstandardJson`, 并且 **始终接受注释**. 它的 `standardize`(
-`mct/src/commonMain/kotlin/mct/util/NonstandardJson.kt`）会扫描文本并改写：
+解码器是宽容配置：接受注释、尾逗号、非法转义与单引号. 它会在解码时改写文本：
 
-- 单引号 `'text'` → 双引号 `"text"`
-- 单引号字符串内的转义单引号 `\'` → `'`
-- 单引号字符串内嵌套的双引号保留 (转义）
-- 混合引号风格一并处理
-- 引号外的 `//` 与 `/* */` 注释丢弃
-
-改写只作用于引号外的文本, 所以字符串里单独的 `/`(URL、日期、路径）保持原样.
+- 单引号字符串会转成双引号, 引号外的 `//` 与 `/* */` 注释丢弃；改写只作用于引号外的文本, 所以字符串里单独的 `/`(URL、日期、路径）保持原样.
 
 解码会自动标准化, 因此 **写 pattern 时可以用标准 JSON 语法**, 即使目标文件用单引号. 回填用紧凑的标准 `Json`
 配置重新编码, 所以输出文件不保留注释与单引号.
 
 ## 五、回填
 
-替换组是 `DatapackReplacementGroup(source, path, replacements)`：`source` 是数据包目录/压缩包名, `path` 是包内文件路径.
-`backfillDatapack` 遍历数据包, 按这个 `(source, path)` 精确匹配文件, 再按指针应用替换：
+替换组记录 `(source, path)`：`source` 是数据包目录/压缩包名, `path` 是包内文件路径；回填按这个组合精确匹配文件, 再按指针应用替换：
 
 - 指针终止于 `JsonObj` 替换 → 替换整个数组/对象候选；
 - `JsonStr` / `SnbtStr` / `PlainStr` 终止 → 替换字符串叶子.

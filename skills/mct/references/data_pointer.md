@@ -20,8 +20,6 @@ DataPointer 是 MCT 的 **路径寻址系统**. JSON 数据包 (`--pattern-mcjso
 
 候选值会依次与整组 pattern 比对, `matched()` 返回 **第一个**命中的 pattern. 所以 **顺序有意义**：更具体的 pattern 要放在前面.
 
-源码：`mct/src/commonMain/kotlin/mct/pointer/DataPointerPattern.kt`.
-
 ## 二、路径编码
 
 | 编码     | 含义                          |
@@ -80,7 +78,7 @@ DataPointer 是 MCT 的 **路径寻址系统**. JSON 数据包 (`--pattern-mcjso
 }
 ```
 
-三种取值 (`mct/src/commonMain/kotlin/mct/model/patch/Content.kt` 的 `ContentKind`）：
+三种取值：
 
 | kind               | 含义                                                                      |
 |--------------------|---------------------------------------------------------------------------|
@@ -107,7 +105,7 @@ DataPointer 是 MCT 的 **路径寻址系统**. JSON 数据包 (`--pattern-mcjso
 }
 ```
 
-`patterns` 是 `DataPointerPatternKind`(`mct/src/commonMain/kotlin/mct/model/ExtensiblePattern.kt`）：
+`patterns` 的取值：
 
 | 取值                                                          | 含义                                             |
 |---------------------------------------------------------------|--------------------------------------------------|
@@ -124,23 +122,23 @@ DataPointer 是 MCT 的 **路径寻址系统**. JSON 数据包 (`--pattern-mcjso
 
 ## 四、内置 NBT / region 集
 
-`BuiltinNbtPatterns`(`mct/src/commonMain/kotlin/mct/nbt/BuiltinPatterns.kt`）先 `dependsOn(CommonComponentPatterns)`, 再加：
+`BuiltinNbtPatterns` 在共用组件集之外再加：
 
-| 目标                                   | pattern                                                                                                                                  |
-|----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| 命令方块等的命令                       | `Right(">#Command", kind = Command)`                                                                                                     |
-| 自定义名                               | `Right(">#CustomName")`                                                                                                                  |
-| 物品名 / 描述(legacy 与通用）          | `Right(">#display>#Name")`、`Right(">#display>#Lore")`、`Right(">#SkullOwner>#Name")`、`Right(">#SkullOwner>#Lore")`                     |
-| 组件内文本：乐器描述、属性修饰符显示名 | `Regex("#instrument>#description$")`、`Regex("#attribute_modifiers>#modifiers>\d+>#display>#value$")`                                    |
-| 展示实体                               | `Regex("(^\|>#Entities>\d+)>#text$")`、`Regex("(^\|>#Entities>\d+)>#description$")`、`Regex("(^\|>#Entities>\d+)>#raw_text$")`           |
-| 成书                                   | `Regex("(^\|>#Book>#tag)>#(title\|author\|pages\|display\|filtered_pages\|filtered_title)$")`、`Regex(">#tag>#(pages\|title\|author)$")` |
-| 告示牌(正反面）                        | `Regex(">#block_entities>\d+>#(front\|back)_text>#(filtered_)?messages(>\d+>#raw)?$")`                                                   |
-| 命令方块反馈                           | `Regex(">#block_entities>\d+>#LastOutput$")`                                                                                             |
-| 方块实体描述                           | `Regex(">#block_entities>\d+>#description$")`                                                                                            |
-| 地图标记旗帜名                         | `Right("#banners>#name")`                                                                                                                |
-| 旧版 tile entity                       | `Regex("(^\|>#TileEntities>\d+)>#Text\d$")`                                                                                              |
+| 目标                                   | pattern                                                                                                                                                                               |
+|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 命令方块等的命令                       | `Right(">#Command", kind = Command)`                                                                                                                                                  |
+| 自定义名                               | `Right(">#CustomName")`                                                                                                                                                               |
+| 物品名 / 描述(legacy 与通用）          | `Right(">#display>#Name")`、`Right(">#display>#LocName")`、`Right(">#display>#Lore")`、`Right(">#SkullOwner>#Name")`、`Right(">#SkullOwner>#LocName")`、`Right(">#SkullOwner>#Lore")` |
+| 组件内文本：乐器描述、属性修饰符显示名 | `Regex("#instrument>#description$")`、`Regex("#attribute_modifiers>#modifiers>\d+>#display>#value$")`                                                                                 |
+| 展示实体                               | `Regex("(?:^\|>#Entities>\d+)>#(?:text\|description\|raw_text)$")`                                                                                                                    |
+| 成书                                   | `Regex("(?:^\|>#Book>#tag)>#(title\|author\|pages\|display\|filtered_pages\|filtered_title)$")`、`Regex(">#tag>#(?:pages\|title\|author)$")`                                          |
+| 告示牌(正反面）                        | `Regex(">#block_entities>\d+>#(?:front\|back)_text>#(?:filtered_)?messages(?:>\d+>#raw)?$")`                                                                                          |
+| 命令方块反馈                           | `Regex(">#block_entities>\d+>#LastOutput$")`                                                                                                                                          |
+| 方块实体描述                           | `Regex(">#block_entities>\d+>#description$")`                                                                                                                                         |
+| 地图标记旗帜名                         | `Right("#banners>#name")`                                                                                                                                                             |
+| 旧版 tile entity / 方块实体数据        | `Regex("(?:^\|>#TileEntities>\d+)>#Text\d$")`、`Regex(">#BlockEntityTag>#Text\d$")`                                                                                                   |
 
-`CommonComponentPatterns`(`mct/src/commonMain/kotlin/mct/pointer/CommonPatterns.kt`, mcjson 与 NBT 共用）：
+`CommonComponentPatterns`(mcjson 与 NBT 共用；`mcjson.md` 不再重复列一遍）：
 
 ```text
 >#components>#(minecraft:)?custom_name(>#raw)?$

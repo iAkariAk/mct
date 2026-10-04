@@ -32,7 +32,7 @@ java -jar cli/build/libs/cli-0.0-SNAPSHOT-all.jar --version
 
 ## 二、`mct project` 全流程
 
-`project` 面向「同一个地图反复翻译、反复重建」的场景：它把抽取、术语、翻译、回填串成一组可以断点续跑的步骤.
+`project` 面向「同一张地图反复翻译、反复重建」的场景：它把抽取、术语、翻译、回填串成一组可以断点续跑的步骤.
 
 ```text
 project init <名称> --from <地图目录> [-D <父目录, 可选>] [--translation-engine=(ai|api)]
@@ -99,6 +99,20 @@ project directory」；把父目录误传给它, 会得到「Source directory is
 `missing.json`, 而 `update` 只在发现新项时才写. `translate`、`build`、`patch` 会先检查缓存是否存在, 没有就
 panic「No extractions found in cache. Run `project update` first.」.
 
+### 重建结果怎么比对
+
+**不要用 `diff -r build` 或比对文件哈希来判断两次 build 是否一致**：被回填过的 region 文件在 MCA header 的每区块时间戳表里
+本来就不同 (只有被改动过的区块打当前时间戳）. 实测同样输入的两次 `build`, `region/r.-1.-1.mca` 与 `entities/r.-1.-1.mca`
+各差 **1 个字节**, 位置就落在 header 的时间戳表内；其余文件与区块内容逐字节一致.
+
+要核对「这次重建与上次是否等价」, 比 `cache/` 里的组：
+
+- 抽取组：`cache/region_extractions.json`、`cache/datapack_extractions.json`、`cache/cext_extractions.json`
+- 替换组：`cache/region_replacements.json`、`cache/datapack_replacements.json`、`cache/cext_replacements.json`
+
+这两组由内容决定, **逐字节稳定**(实测同一输入反复 `update` / `build`, 哈希不变）, 所以「译文有没有变、pattern 有没有多抽或
+少抽」要看它们, 而不是看 `build/`. `cache/build_mappings.json`(build 时合并 MTLX 后的最终映射)同样稳定.
+
 ### `--translation-engine` 与 `[translation.engine]`
 
 `init --translation-engine=(ai|api)` 决定 `mct.toml` 里 `[translation.engine].type`：
@@ -110,8 +124,9 @@ panic「No extractions found in cache. Run `project update` first.」.
 
 ## 三、`mct.toml` 字段
 
-`project init` 生成的配置 (实测）只写入 **非默认值、非 null 的字段**. 因此看不到 `version`、`description`、`mtlx`、
-`extra_prompts` 是正常的：它们默认 null, 需要时手动加.
+`project init` 生成的配置会写出 **所有非 null 的字段**(默认值也会写出, 例如 `[ai].static_check = false`、
+`[mct].parallelism = 128`). 因此看不到 `version`、`description`、`mtlx`、`extra_prompts`、`[map_info].name` /
+`[map_info].description`、`[patch].name` 是正常的：它们默认 null, 需要时手动加.
 
 ```toml
 name = "demo"
@@ -158,21 +173,26 @@ concurrent_by_kind = false
 type = "ai"
 [translation.engine.value] # type 非 ai 时在此填 api 引擎配置
 
+[mct]
+parallelism = 128          # 抽取/回填/预处理的并发上限
+
 [patch]
 name = "..."               # 可选, 默认跟随项目名
 kind = "immediate"         # immediate | deferred
 ```
+
+`[mct].parallelism` 控制抽取、回填与预处理三处的并发度, 默认 **128**. 它是 **资源并发**, 与 `[translation].concurrency`
+(翻译请求并发)是两回事：调大它会让读盘/写盘同时进行, 机器弱或机械盘上可以调小.
 
 ### `[patterns]` 每层的 `patterns` 与 `has_builtin`
 
 - `has_builtin = true`(默认）：内置集在 **前**, 配置的文件追加在 **后**.
 - `has_builtin = false`：只用配置的文件, 等价于 CLI 的 `--disable-builtin-<层>`.
 
-这与 CLI 的默认方向一致 (都是 builtin + custom）. 区别在于 `has_builtin = false` 时配置文件 **替掉**内置集, 所以「内置 +
-自定义」和「只用自定义」两种意图都能表达, 也不会出现 CLI 那种「没传 pattern 路径却传了 `--disable-builtin` 就 panic」的组合.
+`has_builtin = false` 时配置文件 **替掉**内置集 (不是追加). 所以 **别把内置已有的规则再写一遍**——那会变成重复 pattern 并让
+`build` 失败, 见 `pattern-selection.md`.
 
-`command` 与 `command_component` 两层的模式是 `List`/`Set`, `cext` 也是列表且多个文件会 **合并**(`optIn` 与 `customs`
-各自拼接）.
+同一层的多个文件会按顺序 **合并**(`cext` 的 `optIn` 与 `customs` 各自拼接）.
 
 ## 四、配置翻译引擎 (AI 与 API）
 
@@ -195,7 +215,7 @@ model = "gpt-4o"
 use_stream_api = true                    # 部分供应商会返回空响应, 开启更稳
 target_language = "简体中文"
 temperature = 1.0
-token_threshold = 2048                   # 单次请求的最大 token
+token_threshold = 2048                   # 单次请求的最大 token(按字符数估算, 不是精确 tokenizer)
 static_check = false                     # 内置提示词的输出前自检
 thinking_output = false                  # 打印模型思考过程(占终端）
 handle_gradient = false                  # 启用后按 references/gradient.md 处理渐变文本
@@ -240,8 +260,7 @@ config = { max_retry = 20, target = "zh_cn" }
 | `config.source`    | 源语言；留空即请求里的 `from: auto`                                                                             |
 | `config.target`    | 目标语言, 默认 `zh_cn`                                                                                          |
 
-对接细节 (`extra/src/commonMain/kotlin/mct/extra/ai/translator/ApiTranslator.kt`）：MCT 向 `$api_url/translate/batch` POST
-`{"from": <source 或 "auto">, "to": <target>, "texts": [...], "html": false}`, 再从响应的 `results` 数组取值.
+MCT 请求 `$api_url/translate/batch`(`{"from","to","texts","html"}` 进, 取响应的 `results`）, 可以据此手工 `curl` 验一条.
 
 **语言代码对不上, 是这类配置最常见的失败**：MCT 默认写 `target = "zh_cn"`, 而 MTranServer 的文档用 `zh-Hans` 这类写法. 先
 `curl $api_url/languages` 看服务实际接受什么, 再把 `target` 改成服务认的代码.
@@ -256,8 +275,8 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 连不上时依次确认四件事：服务是否已启动；端口是否被 `MT_PORT` 改过；`api_url` 末尾有没有 `/`；`MT_API_TOKEN` 与 toml 里的
 `token` 是否一致.
 
-**术语限制**：`api` 链路的 `ApiTranslator.terms` 是一张未使用的空表, 术语一致性完全靠手工维护 `terms.json`；`project term`
-也仍然要求 AI token, 用 `api` 链路时不要指望它.
+**术语限制**：`api` 链路没有术语能力, 一致性完全靠手工维护 `terms.json`；`project term` 仍然要求 AI token, 用 `api`
+链路时不要指望它.
 
 ### 4.3 `terms.json`：手动翻译时的术语持久化
 
@@ -289,14 +308,16 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 
 除 `project` 之外, 还有几组直接面向地图的命令, 适合单次操作或调试：
 
-| 命令组                | 作用                  |
-|-----------------------|-----------------------|
-| `mct datapack extract | backfill`             | 数据包(`.json`、`.mcfunction`、`.nbt`） |
-| `mct region extract   | backfill`             | `.mca` 区域文件 |
-| `mct cext extract     | backfill`             | 按路径正则自定义抽取 |
-| `mct kit ...`         | 数据与文本工具(见下） |
-| `mct patch create     | apply`                | 补丁 |
-| `mct test pointer     | command               |pattern` | 验证 pattern |
+| 命令组                               | 作用                                    |
+|--------------------------------------|-----------------------------------------|
+| `mct datapack extract\|backfill`     | 数据包(`.json`、`.mcfunction`、`.nbt`） |
+| `mct region extract\|backfill`       | `.mca` 区域文件                         |
+| `mct cext extract\|backfill`         | 按路径正则自定义抽取                    |
+| `mct kit ...`                        | 数据与文本工具(见下）                   |
+| `mct patch create\|apply`            | 补丁                                    |
+| `mct test pointer\|command\|pattern` | 验证 pattern                            |
+
+`backfill` 遇到无法解码的 NBT 文件会 **直接失败**, 不会静默跳过, 所以不存在「某个 `.nbt` 没被回填但命令照样成功」.
 
 `datapack` / `region` / `cext` 的 `extract`、`patch create`、`test command|pattern` 共用同一套 pattern 选项：
 
@@ -310,6 +331,9 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 | `--pattern-command-regex`     | 命令裸正则        | 无                                  | —                                     | —                               |
 | `--pattern-cext`              | 按路径自定义      | 无(文件内可 opt-in 预设）           | —                                     | —                               |
 
+`datapack` / `region` / `cext` 的 `extract|backfill`、`patch create|apply` 与 `kit export-snbt` 另外都有一个
+`--parallelism <n>`(默认 128）, 作用与 `[mct].parallelism` 相同, 用来限制抽取/回填/预处理的并发；`test` 组没有这个选项.
+
 合并语义 (`CommonCommand.kt` 的 `gatherPattern`）：
 
 | 情况                              | 结果                                                                                      |
@@ -319,16 +343,11 @@ curl http://127.0.0.1:8989/languages       # 支持的语言代码
 | 给了 `--disable-builtin-*` + 路径 | 只用自定义文件                                                                            |
 | 给了路径                          | 内置 + 自定义(列表层内置在前；`command` 层自定义在前）                                    |
 
-`command` 与 `command_component` 两层没有「关闭过滤器」选项, 且只给 `--disable-builtin-*` 而不给 pattern 路径会直接
-panic (源码里这两层是 `?: panic(...)`）. 其余层 (`nbt` / `mcjson` / `command_data` / `command_regex` / `cext`）不会
-panic, 但不给路径时内置被清空, 该层实际上变成不过滤.
+`command` / `command_component` 两层没有「关闭过滤器」选项；只给 `--disable-builtin-*` 而不给 pattern 路径时, 这两层会直接
+panic (其余层会变成不过滤). **诊断漏翻要用 `--disable-filter-*`**：它的语义就是「该层不过滤, 输出全部候选」, 不要靠
+`--disable-builtin-*` 去凑同样效果.
 
-**要「输出所有候选」用于诊断时, 用 `--disable-filter-*`**, 它的语义明确就是不过滤；靠 `--disable-builtin-*`
-不带路径来达到同样效果只是副作用, 不要依赖. 实测同一张地图：默认过滤得 20 条抽取, `--disable-filter-nbt` 与
-`--disable-builtin-nbt`(不带路径）都得 158601 条；而 `--disable-builtin-nbt` 配上自定义 pattern 时得 0 条 (内置确实被关掉了）.
-
-`--disable-filter-mcjson` 会把该层置为 null, 并打印一条警告；`--disable-filter-nbt` 与 `--disable-filter-command-data`
-同理, 各自作用于对应的层.
+`--disable-filter-mcjson` / `--disable-filter-nbt` / `--disable-filter-command-data` 各自作用于对应的层, 使用时都会打印一条警告.
 
 ## 六、`mct kit` 工具
 
@@ -463,8 +482,13 @@ agent 自翻时的可选术语来源.
 }
 ```
 
-例子里 `target` 写成 `build/...`, 是因为 `target` 相对 **进程工作目录**(项目根）解析, 而 `build/` 是成品世界所在.
-若你的目标是应用补丁的对方世界, `target` 要相应写成 **对方运行 `patch apply` 时所在目录**下的相对路径.
+**路径语义 (这里最容易错)**：`source` 与 `target` 都相对 **运行命令时的进程工作目录**(项目根）解析, **不是**世界根目录.
+
+- `source: "preprocessing/assets/pic.png"` ⇒ `<项目根>/preprocessing/assets/pic.png`. 素材写在 `preprocessing/` 下最自然.
+- `target` 想改世界里的文件, 必须把世界目录也写进去：build 阶段写 `target: "build/assets/pic.png"`. 写成裸的
+  `assets/pic.png` 只会命中 `<项目根>/assets/pic.png`, 不存在就在生成阶段报 `File <路径> not found`；写成 `src/...` 则会改到
+  `src/`, 而 `build/` 里那份不变.
+- 对方应用补丁时同理：`target` 相对 **对方运行 `patch apply` 时所在目录**.
 
 | 字段        | 含义                                       |
 |-------------|--------------------------------------------|
