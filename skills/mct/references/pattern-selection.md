@@ -25,6 +25,7 @@ DataPointer 路径编码**, 所以同一段文本在不同文件里可能需要�
 |-----------------------------------------------------------------------------------------------------------|-------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------|
 | JSON 对象的某个字符串值 / 整个文本组件数组或对象                                                          | mcjson            | `List<DataPointerPattern>`             | `[{"type":"right","right":"#display>#Name"}]`                                                              |
 | NBT 里的文本组件(告示牌、CustomName、成书、物品名…）                                                      | nbt               | `List<DataPointerPattern>`             | `[{"type":"regex","regex":">#block_entities>\\d+>#(front\|back)_text>#messages$"}]`                        |
+| 旧式告示牌(`Text1..Text4`, 1.19 及更早）                                                                  | nbt               | `List<DataPointerPattern>`             | 内置已有：`>#TileEntities>\d+>#Text\d`(**逐行命中, 一行一个键**, 见 `translation.md` 第八节）              |
 | 命令本身要抽参数(`say`、`tellraw`、`title`、`give`…）                                                     | command           | `List<CommandExtractPattern>`          | `[{"command":"say","pre":{"type":"any"},"selector":{"type":"greedy","position":0},"post":{"type":"any"}}]` |
 | 命令是 legacy 写法(`execute @a ~ ~ ~ …`、`blockdata`、`entitydata`、带 `dataTag` 的 `fill` / `setblock`） | command           | `List<CommandExtractPattern>`          | 内置集已覆盖, 通常无需自己写(见 `mcfunction.md` 第五、一节）                                               |
 | 命令里的物品组件 `id[custom_name=…]`                                                                      | command_component | `List<ComponentPattern>`               | `[{"namespace":"minecraft","name":"custom_name"}]`                                                         |
@@ -109,15 +110,16 @@ mct datapack extract -i <图> -o out.json --pattern-mcjson-pattern my.json --pat
 
 ## 常见误判
 
-| 症状                                                          | 真正的问题                                                               |
-|---------------------------------------------------------------|--------------------------------------------------------------------------|
-| 指针写对了却抽不出来                                          | 层选错了：JSON 文件的路径拿去 `--pattern-nbt-pattern`, 或反过来          |
-| 数组里只有第一行被抽出                                        | 文本组件数组要匹配**容器路径**(`>#pages`）, 不是 `>#pages>0`             |
-| 命令里的文本抽不出来                                          | 命令层没配：只写了 `--pattern-mcjson-pattern`, 但文本在 `.mcfunction` 里 |
-| `>#Command` 里的文本抽不出来                                  | 它是命令字符串, 要命令层 pattern, 不是 DataPointer                       |
-| 文件里明明有文本, `rg` 也搜得到                               | 该文件在 MCT 的默认扫描范围外, 要用 cext                                 |
-| 用 `--disable-builtin-*` 后什么都不抽了                       | 没同时给 pattern 路径(`command`、`command_component` 层会直接 panic）    |
-| `build` 抛 `Not allow to overlap range between A..B and A..B` | 写重复 pattern 了：`has_builtin = true` 时又把内置已有的规则写了一遍     |
+| 症状                                                          | 真正的问题                                                                                                |
+|---------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| 指针写对了却抽不出来                                          | 层选错了：JSON 文件的路径拿去 `--pattern-nbt-pattern`, 或反过来                                           |
+| 数组里只有第一行被抽出                                        | 文本组件数组要匹配**容器路径**(`>#pages`）, 不是 `>#pages>0`                                              |
+| 告示牌四行重排规则没生效, 四行被当四处独立句子翻              | 旧式告示牌 (`Text1..Text4`）被**逐行**抽出, 不是 4 元素数组：先按块聚合再翻译, 见 `translation.md` 第八节 |
+| 命令里的文本抽不出来                                          | 命令层没配：只写了 `--pattern-mcjson-pattern`, 但文本在 `.mcfunction` 里                                  |
+| `>#Command` 里的文本抽不出来                                  | 它是命令字符串, 要命令层 pattern, 不是 DataPointer                                                        |
+| 文件里明明有文本, `rg` 也搜得到                               | 该文件在 MCT 的默认扫描范围外, 要用 cext                                                                  |
+| 用 `--disable-builtin-*` 后什么都不抽了                       | 没同时给 pattern 路径(`command`、`command_component` 层会直接 panic）                                     |
+| `build` 抛 `Not allow to overlap range between A..B and A..B` | 写重复 pattern 了：`has_builtin = true` 时又把内置已有的规则写了一遍                                      |
 
 ## 绝不能有重复 pattern
 

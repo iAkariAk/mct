@@ -692,4 +692,11 @@ mct test command -i <mcfunction 文件> [--pattern-* ...]     # 高亮命中范�
     `--disable-filter-*` 那种「全部通过」的调试模式；需要全量抽取时用 CLI.
 
 11. **`--cache-dir` 默认是当前目录**. project 流程不读它 (缓存固定在项目内的 `cache/`）, 但直接跑 `datapack` / `region` /
-    `cext` 子命令时会在当前目录留下缓存. 批处理前先确认工作目录. 
+    `cext` 子命令时会在当前目录留下缓存. 批处理前先确认工作目录.
+
+12. **抽取项 ≠ 显示单元**. `mappings.json` 的键是 pattern 命中的那一个节点, 而玩家看到的是显示单元 (整块告示牌、一整页书、一整条
+    lore）. 旧式告示牌 (1.19 及更早）的 `Text1..Text4` 被内置 pattern **逐行**抽出, 一块牌就是 4 个互不相干的键, 第七节的
+    「4 元素数组 = 告示牌」例外不会触发. 翻译前先按 `cache/*_extractions.json` 的 `pointer` 聚合显示单元, 做法见
+    `translation.md` 第八节.
+
+13. **批量改 `mappings.json` 只改值, 不要按键重建**. 按键重建 (重新写一份 `{源串: 译串}`）会把已有译文覆盖回源文。

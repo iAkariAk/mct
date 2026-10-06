@@ -155,6 +155,9 @@ region/NBT 与 mcjson 的差异：
 - **文本组件整体命中**：看起来像文本组件的 compound (`{"text":"..."}`）会整体成为一个候选, pattern 匹配的是 **容器路径**
   , 而不是内部的单个键.
 - **命令字段**：`Command` 路径走命令抽取器, 不走 DataPointer.
+- **旧式告示牌**：`>#TileEntities>\d+>#Text\d$` 是 **逐行**命中——一块告示牌的 4 行是 4 个互不相干的键, 不是一个 4 元素数组.
+  翻译时
+  要按 `TileEntities>N` 把它们聚合回显示单元, 见 `translation.md` 第八节.
 - **查看实际数据**：`mct kit export-snbt -i <图> -o <目录>` 把区块 NBT 导成可读的 SNBT, 再用 `rg` 找文本最快.
 
 ## 五、验证
