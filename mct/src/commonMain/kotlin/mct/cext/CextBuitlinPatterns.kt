@@ -29,7 +29,7 @@ private fun P(builder: CextPatternBuilderScope.() -> Unit): List<CextPatternEntr
 @SerialName("level_dat")
 data object LevelDat : CextBuiltinPattern {
     override val patterns = P {
-        "level\\.dat" then CextFormatKind.Nbt(
+        """^level\.dat$""" then CextFormatKind.Nbt(
             compression = Gzip,
             patterns = customOf {
                 +EqualPattern(">#>#Data>#LevelName")
@@ -44,7 +44,7 @@ data object LevelDat : CextBuiltinPattern {
 @SerialName("player_dat")
 data object PlayDat : CextBuiltinPattern {
     override val patterns = P {
-        "playerdata[/\\\\\\\\].*\\\\.dat" then CextFormatKind.Nbt(
+        """^playerdata(\/|\\\\).*\.dat$""" then CextFormatKind.Nbt(
             compression = Gzip
         )
     }
