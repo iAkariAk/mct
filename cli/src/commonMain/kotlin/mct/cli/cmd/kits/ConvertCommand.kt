@@ -127,7 +127,7 @@ class ConvertCommand : RegexMultiInputCommand("convert", "Convert different form
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        enforceNot(outputFormat == Auto) {
+        enforceNot(fs.metadataOrNull(outputFileOrDir)?.isDirectory == true && outputFormat == Auto) {
             "Cannot infer the output format when missing the output path"
         }
 
