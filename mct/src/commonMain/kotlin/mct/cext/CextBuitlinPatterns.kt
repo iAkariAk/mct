@@ -24,6 +24,7 @@ private fun P(builder: CextPatternBuilderScope.() -> Unit): List<CextPatternEntr
     return scope.patterns
 }
 
+// https://minecraft.wiki/w/Java_Edition_level_format
 @Serializable
 @SerialName("level_dat")
 data object LevelDat : CextBuiltinPattern {
@@ -33,6 +34,18 @@ data object LevelDat : CextBuiltinPattern {
             patterns = customOf {
                 +EqualPattern(">#>#Data>#LevelName")
             }
+        )
+    }
+}
+
+// https://minecraft.wiki/w/Player.dat_format
+// Used to access `EnderItems` and `Inventory`
+@Serializable
+@SerialName("player_dat")
+data object PlayDat : CextBuiltinPattern {
+    override val patterns = P {
+        "playerdata[/\\\\\\\\].*\\\\.dat" then CextFormatKind.Nbt(
+            compression = Gzip
         )
     }
 }
