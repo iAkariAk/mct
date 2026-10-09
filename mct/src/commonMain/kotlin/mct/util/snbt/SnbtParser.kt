@@ -6,6 +6,75 @@ private data class Metadata(
     val type: SnbtType? = null,
 )
 
+private enum class IntBase {
+    HEX, DEC, BIN;
+
+    fun parseAsByte(str: String) = when (this) {
+        HEX -> str.substring(2).toByte(16)
+        DEC -> str.toByte(10)
+        BIN -> str.substring(2).toByte(2)
+    }
+
+    fun parseAsShort(str: String) = when (this) {
+        HEX -> str.substring(2).toShort(16)
+        DEC -> str.toShort(10)
+        BIN -> str.substring(2).toShort(2)
+    }
+
+    fun parseAsInt(str: String) = when (this) {
+        HEX -> str.substring(2).toInt(16)
+        DEC -> str.toInt(10)
+        BIN -> str.substring(2).toInt(2)
+    }
+
+    fun parseAsLong(str: String) = when (this) {
+        HEX -> str.substring(2).toLong(16)
+        DEC -> str.toLong(10)
+        BIN -> str.substring(2).toLong(2)
+    }
+
+    fun parseAsByteOrNull(str: String) = when (this) {
+        HEX -> str.substring(2).toByteOrNull(16)
+        DEC -> str.toByteOrNull(10)
+        BIN -> str.substring(2).toByteOrNull(2)
+    }
+
+    fun parseAsShortOrNull(str: String) = when (this) {
+        HEX -> str.substring(2).toShortOrNull(16)
+        DEC -> str.toShortOrNull(10)
+        BIN -> str.substring(2).toShortOrNull(2)
+    }
+
+    fun parseAsIntOrNull(str: String) = when (this) {
+        HEX -> str.substring(2).toIntOrNull(16)
+        DEC -> str.toIntOrNull(10)
+        BIN -> str.substring(2).toIntOrNull(2)
+    }
+
+    fun parseAsLongOrNull(str: String) = when (this) {
+        HEX -> str.substring(2).toLongOrNull(16)
+        DEC -> str.toLongOrNull(10)
+        BIN -> str.substring(2).toLongOrNull(2)
+    }
+
+
+    fun parse(str: String, snbtType: SnbtType) = when (snbtType) {
+        BYTE -> parseAsByte(str)
+        SHORT -> parseAsShort(str)
+        INT -> parseAsInt(str)
+        LONG -> parseAsLong(str)
+        else -> error("$snbtType isn't integer")
+    }
+
+    fun parseOrNull(str: String, snbtType: SnbtType) = when (snbtType) {
+        BYTE -> parseAsByteOrNull(str)
+        SHORT -> parseAsShortOrNull(str)
+        INT -> parseAsIntOrNull(str)
+        LONG -> parseAsLongOrNull(str)
+        else -> null
+    }
+}
+
 fun String.decodeToSnbtTag(): SnbtTag {
     val lexer = SnbtLexer(this)
     val parser = SnbtParser(this, lexer)
@@ -122,46 +191,52 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer, private
     private fun parseNumber(metadata: Metadata? = null): SnbtTag {
         val raw = currentView()
 
-        val suffix = raw.takeLastWhile(Char::isLetter).lowercase()
-
-        if (suffix.length > 1) parseError("Illegal suffix $suffix")
-        val signOrNull = suffix.firstOrNull()
-        val inferredType =
-            signOrNull?.let { sign -> SnbtType.fromSign(sign) ?: parseError("Illegal suffix $signOrNull") }
+        val inferredType = inferTypeFromRaw(raw)
         val expectedType = metadata?.type
         val numStr = raw.dropLast(1).replace("_", "")
         if (expectedType != null && inferredType != null && expectedType != inferredType) parseError("Expected $expectedType, got $inferredType")
+        val base: IntBase = when {
+            numStr.startsWith("0x") -> HEX
+            numStr.startsWith("0b") -> BIN
+            else -> DEC
+        }
+        if (base != DEC && inferredType?.isFloat() == true) parseError("Invalid base $base in $raw")
         val num = when (inferredType) {
-            BYTE -> SnbtByte(currentToken!!.indices, numStr.toByte())
-            SHORT -> SnbtShort(currentToken!!.indices, numStr.toShort())
-            INT -> SnbtInt(currentToken!!.indices, numStr.toInt())
-            LONG -> SnbtLong(currentToken!!.indices, numStr.toLong())
+            BYTE -> SnbtByte(currentToken!!.indices, base.parseAsByte(numStr))
+            SHORT -> SnbtShort(currentToken!!.indices, base.parseAsShort(numStr))
+            INT -> SnbtInt(currentToken!!.indices, base.parseAsInt(numStr))
+            LONG -> SnbtLong(currentToken!!.indices, base.parseAsLong(numStr))
             FLOAT -> SnbtFloat(currentToken!!.indices, numStr.toFloat())
             DOUBLE -> SnbtDouble(currentToken!!.indices, numStr.toDouble())
             null -> {
                 val cleaned = raw.replace("_", "")
-                val parsed = tryParseNumber(cleaned, currentToken!!.indices, expectedType)
+                val parsed = tryParseNumber(cleaned, currentToken!!.indices, expectedType, base)
                     ?: illegalNumber("Number $cleaned can be neither an integer nor a double")
                 return parsed
             }
 
-            else -> parseError("Illegal suffix $suffix")
+            else -> parseError("Illegal type $inferredType")
         }
 
         return num
     }
 
     // Refer to https://minecraft.wiki/w/NBT_format#Conversion_from_SNBT
-    private inline fun tryParseNumber(numStr: String, indices: IntRange, type: SnbtType? = null): SnbtTag? =
+    private inline fun tryParseNumber(
+        numStr: String,
+        indices: IntRange,
+        type: SnbtType? = null,
+        base: IntBase
+    ): SnbtTag? =
         if (type == null)
-            if ('.' in numStr) numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
-            else numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
-                ?: numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
+            if ('.' in numStr || 'e' in numStr) numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
+            else base.parseAsIntOrNull(numStr)?.let(::SnbtInt.partially1(indices))
+                ?: base.parseAsLongOrNull(numStr)?.let(::SnbtLong.partially1(indices))
         else when (type) {
-            BYTE -> numStr.toByteOrNull()?.let(::SnbtByte.partially1(indices))
-            SHORT -> numStr.toShortOrNull()?.let(::SnbtShort.partially1(indices))
-            INT -> numStr.toIntOrNull()?.let(::SnbtInt.partially1(indices))
-            LONG -> numStr.toLongOrNull()?.let(::SnbtLong.partially1(indices))
+            BYTE -> base.parseAsByteOrNull(numStr)?.let(::SnbtByte.partially1(indices))
+            SHORT -> base.parseAsShortOrNull(numStr)?.let(::SnbtShort.partially1(indices))
+            INT -> base.parseAsIntOrNull(numStr)?.let(::SnbtInt.partially1(indices))
+            LONG -> base.parseAsLongOrNull(numStr)?.let(::SnbtLong.partially1(indices))
             FLOAT -> numStr.toFloatOrNull()?.let(::SnbtFloat.partially1(indices))
             DOUBLE -> numStr.toDoubleOrNull()?.let(::SnbtDouble.partially1(indices))
             else -> null
@@ -174,4 +249,12 @@ class SnbtParser(private val snbt: String, private val lexer: SnbtLexer, private
             else -> SnbtString(currentToken!!.indices, literal, null)
         }
     }
+}
+
+private fun inferTypeFromRaw(raw: String): SnbtType? {
+    val shouldBeFloat = raw.firstOrNull { it !in "+-" } == '.'
+    val signOrNull = raw.lastOrNull()?.takeIf(Char::isLetter)?.lowercaseChar()?.takeUnless { it == 'f' && raw.startsWith("0x") }
+    val type = signOrNull?.let { sign -> SnbtType.fromSign(sign) ?: parseError("Illegal suffix $signOrNull") }
+    if (shouldBeFloat && type?.isFloat() == false) parseError("Expected float/double, got $type from '$raw'")
+    return type
 }

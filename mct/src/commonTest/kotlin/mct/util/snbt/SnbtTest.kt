@@ -40,6 +40,17 @@ private fun parseTest(@Language("snbt") snbt: String) = shouldNotThrowAny {
     }
 }
 
+private inline fun <T> matchFully(constructor: (IntRange, T) -> SnbtTag, str: String, expected: T) =
+    parseTest(str) shouldBe constructor(str.indices, expected)
+
+private inline fun matchByte(str: String, expected: Byte) = matchFully(::SnbtByte, str, expected)
+private inline fun matchShort(str: String, expected: Short) = matchFully(::SnbtShort, str, expected)
+private inline fun matchInt(str: String, expected: Int) = matchFully(::SnbtInt, str, expected)
+private inline fun matchLong(str: String, expected: Long) = matchFully(::SnbtLong, str, expected)
+private inline fun matchFloat(str: String, expected: Float) = matchFully(::SnbtFloat, str, expected)
+private inline fun matchDouble(str: String, expected: Double) = matchFully(::SnbtDouble, str, expected)
+
+
 class SnbtTest : FreeSpec({
     "empty list" {
         parseTest("[]") shouldBe SnbtList(0..1, emptyList())
@@ -127,6 +138,45 @@ class SnbtTest : FreeSpec({
                 SnbtInt(5..5, 3),
             )
         )
+    }
+
+    "number" - {
+        "normal integer" {
+            matchInt("1234", 1234)
+            matchInt("+1234", 1234)
+            matchInt("-1234", -1234)
+        }
+
+        "normal float" {
+            matchFloat("1234f", 1234f)
+            matchFloat("+1234f", 1234f)
+            matchFloat("-1234f", -1234f)
+            matchDouble("-1234.0", -1234.0)
+        }
+
+        ". leading float" {
+            matchFloat(".114f", .114f)
+            matchDouble(".114", .114)
+        }
+
+        "exponential float" {
+            matchFloat("3e10f", 3e10f)
+            matchDouble("3e10", 3e10)
+        }
+
+        "hex" {
+            matchByte("0xFb", 0xF)
+            matchShort("0xFFs", 0xFF)
+            matchInt("0xFF", 0xFF)
+            matchLong("0xFFl", 0xFF)
+        }
+
+        "bin" {
+            matchByte("0b111b", 0b111.toByte())
+            matchShort("0b111s", 0b111)
+            matchInt("0b111", 0b111)
+            matchLong("0b111l", 0b111)
+        }
     }
 
     "anyway" {

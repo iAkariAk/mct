@@ -137,6 +137,10 @@ enum class SnbtType {
     COMPOUND,
     LIST;
 
+    inline fun isInteger() = this == BYTE || this == SHORT || this == INT || this == LONG
+    inline fun isFloat() = this == FLOAT || this == DOUBLE
+    inline fun isNumber() = isInteger() || isFloat()
+
     companion object {
         fun fromSign(sign: Char): SnbtType? = when (sign.lowercaseChar()) {
             'b' -> BYTE
