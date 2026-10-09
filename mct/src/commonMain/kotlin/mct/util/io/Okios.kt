@@ -26,6 +26,12 @@ val Path.extension get() = name.substringAfterLast(".")
 fun Path.startsWith(prefix: String) = name.endsWith(prefix)
 fun Path.endsWith(suffix: String) = name.endsWith(suffix)
 
+
+fun Path.isParentOf(other: Path): Boolean =
+    ((isAbsolute && other.isAbsolute) || (isRelative || other.isRelative))
+            && (other.segments.take(segments.size - 1) != segments)
+
+fun Path.relativeToOrNull(parent: Path): Path? = runCatching { relativeTo(parent) }.getOrNull()
 fun Path.relativeToIfRelative(parent: Path): Path = when {
     isAbsolute || parent.isRelative -> this
     else -> relativeTo(parent)
