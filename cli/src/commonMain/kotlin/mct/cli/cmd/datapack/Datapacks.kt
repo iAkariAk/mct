@@ -24,11 +24,11 @@ class DatapackCommands : SuspendingCliktCommand(name = "datapack") {
     override fun help(context: Context) = "Datapack operators"
 
     init {
-        subcommands(ExtractDatapack(), BackfillDatapack())
+        subcommands(ExtractDatapackCommand(), BackfillDatapackCommand())
     }
 }
 
-private class ExtractDatapack : WorkspaceCommand(name = "extract") {
+private class ExtractDatapackCommand : WorkspaceCommand(name = "extract") {
     val pattern by withPattern()
     val output by option("--output", "-o", help = "The JSON output path for extracted texts").path().required()
 
@@ -43,7 +43,7 @@ private class ExtractDatapack : WorkspaceCommand(name = "extract") {
 }
 
 
-private class BackfillDatapack : WorkspaceCommand(name = "backfill") {
+private class BackfillDatapackCommand : WorkspaceCommand(name = "backfill") {
     val replacementGroupsPath by option(
         "--replacements", "-r",
         help = "The replacements JSON file to apply back to datapack files"

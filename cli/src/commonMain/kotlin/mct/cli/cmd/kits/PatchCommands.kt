@@ -29,11 +29,11 @@ class PatchCommands : BaseCommand(
     name = "patch", help = "Creating or applying patch"
 ) {
     init {
-        subcommands(CreatePatch(), ApplyPatch())
+        subcommands(CreatePatchCommand(), ApplyPatchCommand())
     }
 }
 
-private class CreatePatch : WorkspaceCommand(name = "create", help = "Creates a new patch") {
+private class CreatePatchCommand : WorkspaceCommand(name = "create", help = "Creates a new patch") {
     val pattern by withPattern()
     val mappingFile by option("-m", "--mapping", help = "Path to mapping json file").path().required()
     val kind by option("-k", "--kind", help = "Kind of patches").enum<PathKind>(ignoreCase = true).default(Immediate)
@@ -61,7 +61,7 @@ private class CreatePatch : WorkspaceCommand(name = "create", help = "Creates a 
     }
 }
 
-private class ApplyPatch : WorkspaceCommand(name = "apply", help = "Apply a patch") {
+private class ApplyPatchCommand : WorkspaceCommand(name = "apply", help = "Apply a patch") {
     val patchFile by option("--patch", "-p", help = "Path to patch file").path().required()
 
     val patchFormat by option("-f", "--patch-format", help = "Format of patches").choice("mctp", "json", "cbor")

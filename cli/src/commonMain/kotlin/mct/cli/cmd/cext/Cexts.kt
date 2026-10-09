@@ -23,14 +23,14 @@ import mct.util.io.writeJson
 
 class CextCommands : SuspendingCliktCommand(name = "cext") {
     init {
-        subcommands(CextExtract(), CextBackfill())
+        subcommands(CextExtractCommand(), CextBackfillCommand())
     }
 
     override suspend fun run() = Unit
     override fun help(context: Context) = "Customize your extractor"
 }
 
-private class CextExtract : WorkspaceCommand(name = "extract") {
+private class CextExtractCommand : WorkspaceCommand(name = "extract") {
     val pattern by withPattern()
     val output by option("--output", "-o", help = "The JSON output path for extracted texts").path().required()
 
@@ -46,7 +46,7 @@ private class CextExtract : WorkspaceCommand(name = "extract") {
 }
 
 
-private class CextBackfill : WorkspaceCommand(name = "backfill") {
+private class CextBackfillCommand : WorkspaceCommand(name = "backfill") {
     val replacementGroupsPath by option(
         "--replacements", "-r",
         help = "The replacements JSON file"
