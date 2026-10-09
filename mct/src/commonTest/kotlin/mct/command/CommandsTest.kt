@@ -6,6 +6,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.equals.shouldBeEqual
+import io.kotest.matchers.equals.shouldEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldStartWith
@@ -128,6 +129,15 @@ class CommandsTest : StringSpec({
         val replacement = MCFunction(extractions[0].indices, "{greeting}")
         val backfilled = mcf.backfillMCFunction(listOf(replacement))
         backfilled shouldBe "say {greeting}"
+    }
+
+    "test separator" {
+        val mcf1 = "say hello world"
+        val mcf2 = "say\thello world"
+
+        val extractions = extractText(mcf1)
+        extractions shouldEqual extractText(mcf2)
+        extractions.first().content shouldBe "hello world"
     }
 
     "test backfill multiple extractions from different lines" {

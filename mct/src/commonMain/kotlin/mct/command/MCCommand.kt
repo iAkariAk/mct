@@ -55,6 +55,8 @@ data class MCCommand(
     companion object
 }
 
+private fun Char.isWhitespace() = this == ' ' || this == '\t'
+
 context(_: LoggerHolder)
 fun parseCommands(content: String): List<MCCommand> {
     val mcfunctions = mutableListOf<MCCommand>()
@@ -98,6 +100,14 @@ fun parseCommands(content: String): List<MCCommand> {
                 fun invaliChar() = logger.error {
                     "Invali $c is found at $line, in that what is after the marco should be letter"
                 }
+
+                if (c.isWhitespace()) {
+                    if (isMarco) {
+                        invaliChar()
+                        return
+                    } else continue
+                }
+
                 when (c) {
                     '#' -> {
                         if (isMarco) {
@@ -105,11 +115,6 @@ fun parseCommands(content: String): List<MCCommand> {
                             return
                         } else return // skip comments
                     }
-
-                    ' ' -> if (isMarco) {
-                        invaliChar()
-                        return
-                    } else continue
 
                     '$' -> {
                         isMarco = true
@@ -158,7 +163,7 @@ fun parseCommands(content: String): List<MCCommand> {
                 continue
             }
 
-            if (c == ' ' && peekedState == RootState && buffer.isNotBlank()) { // cmd argument
+            if (c.isWhitespace() && peekedState == RootState && buffer.isNotBlank()) { // cmd argument
                 bindBufferIntoCmd(col - 1)
                 continue
             }
