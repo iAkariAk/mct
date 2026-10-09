@@ -609,7 +609,8 @@ private class Build : ProjectCommand("build", "Build translated world") {
         }
 
         if (hasBackfillErrors) {
-            printlnYellow("Build completed with errors. Check logs above.")
+            printlnRed("Build completed with errors. Check logs above.")
+            throw CliExit(1)
         } else {
             printlnGreen("Build complete. Translated world at " + bold("$buildDir"))
         }
