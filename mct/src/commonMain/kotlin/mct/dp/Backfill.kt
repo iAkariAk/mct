@@ -13,15 +13,11 @@ import mct.pointer.DataPointerWithValue
 import mct.pointer.toReplacementGroups
 import mct.serializer.NbtGzip
 import mct.util.IO
-import mct.util.io.endsWith
-import mct.util.io.extension
-import mct.util.io.walkDirectory
-import mct.util.io.walkZip
+import mct.util.io.*
 import net.benwoodworth.knbt.NbtTag
 import net.benwoodworth.knbt.decodeFromSource
 import net.benwoodworth.knbt.encodeToSink
 import okio.Path.Companion.toPath
-
 
 suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackReplacementGroup>) = coroutineScope {
     logger.info { "Backfilling ${replacementGroups.count()} datapack replacement groups" }
@@ -36,15 +32,15 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
         launch(dispatcher) {
             val m = fs.metadata(datapackPath)
             val walk = if (m.isDirectory) fs.walkDirectory(datapackPath) else fs.walkZip(datapackPath)
-            val replacementGroups = replacementGroups.associateBy { it.path.toPath() }
+            val replacementGroups = replacementGroups.associateBy { it.path.toPath().unixString() }
             val writing = walk.write {
-                !replacementGroups[it.path]?.replacements.isNullOrEmpty()
+                !replacementGroups[it.path.unixString()]?.replacements.isNullOrEmpty()
             }
             writing.forEach handleFile@{ (file, tmp1, tmp2, onNotChanged, onFailure) ->
                 val (getSource, closeSource) = tmp1
                 val (getSink, closeSink) = tmp2
                 val path = file.path
-                val replacementGroup = replacementGroups[path]!!
+                val replacementGroup = replacementGroups[path.unixString()]!!
                 val source = getSource()
                 try {
                     @Suppress("UNCHECKED_CAST")
@@ -88,6 +84,7 @@ suspend fun MCTWorkspace.backfillDatapack(replacementGroups: Iterable<DatapackRe
                         else -> error("Unvalidated extension: ${path.extension}")
                     }
                 } catch (e: Throwable) {
+                    logger.error { "Datapack backfill failed for ${path}: ${e.stackTraceToString()}" }
                     onFailure(e)
                 }
             }
