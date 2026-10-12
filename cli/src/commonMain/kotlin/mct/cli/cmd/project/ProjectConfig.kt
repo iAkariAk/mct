@@ -7,7 +7,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.*
 import mct.cext.CextPattern
-import mct.cli.util.requirePath
+import mct.cli.panic
 import mct.command.*
 import mct.dp.compile
 import mct.dp.compileWith
@@ -18,6 +18,7 @@ import mct.model.patch.PathKind
 import mct.nbt.BuiltinNbtPatterns
 import mct.pointer.DataPointerPattern
 import mct.util.io.readJson
+import okio.Path
 
 object ProjectConfigDefaults {
     var translateEngine: TranslationEngine = TranslationEngine.AI
@@ -111,34 +112,42 @@ data class PatternsConfig(
     }
 
     context(_: FSHolder)
-    fun evaluate(): MCTPattern {
+    private fun requirePath(workdir: Path, relPath: String, label: String): Path {
+        val path = workdir / relPath
+        if (!fs.exists(path)) panic("$label file not found: $path")
+        return path
+    }
+
+
+    context(_: FSHolder)
+    fun evaluate(projectDir: Path): MCTPattern {
         val nbtPatterns = nbt.patterns.flatMap {
-            requirePath(it, "Region pattern").readJson<List<DataPointerPattern>>()
+            requirePath(projectDir, it, "Region pattern").readJson<List<DataPointerPattern>>()
         }.let { if (nbt.hasBuiltin) BuiltinNbtPatterns + it else it }
 
         val commandPatterns = command.patterns.flatMap {
-            requirePath(it, "Command pattern").readJson<List<CommandExtractPattern>>()
+            requirePath(projectDir, it, "Command pattern").readJson<List<CommandExtractPattern>>()
         }.let { if (command.hasBuiltin) it.compileWith(BuiltinCommandPatterns) else it.compile() }
 
         val mcjsonPatterns = mcjson.patterns.flatMap {
-            requirePath(it, "MCJson pattern").readJson<List<DataPointerPattern>>()
+            requirePath(projectDir, it, "MCJson pattern").readJson<List<DataPointerPattern>>()
         }.let { if (mcjson.hasBuiltin) BuiltinMCJsonPatterns + it else it }
 
         val commandComponentPatterns = commandComponent.patterns.flatMap {
-            requirePath(it, "Command Component pattern").readJson<List<ComponentPattern>>()
+            requirePath(projectDir, it, "Command Component pattern").readJson<List<ComponentPattern>>()
         }.let { if (commandComponent.hasBuiltin) BuiltinMinecraftComponentPatterns + it else it }
 
         val commandDataPatterns = commandData.patterns.flatMap {
-            requirePath(it, "Command Data pattern").readJson<List<DataPointerPattern>>()
+            requirePath(projectDir, it, "Command Data pattern").readJson<List<DataPointerPattern>>()
         }.let { if (commandData.hasBuiltin) BuiltinCommandDataPatterns + it else it }
 
 
         val commandRegexPatterns = commandRegex.flatMap {
-            requirePath(it, "Command Regex pattern").readJson<List<CommandRegexPattern>>()
+            requirePath(projectDir, it, "Command Regex pattern").readJson<List<CommandRegexPattern>>()
         }
 
         val cextPattern = cext.map {
-            requirePath(it, "Cext pattern").readJson<CextPattern>()
+            requirePath(projectDir, it, "Cext pattern").readJson<CextPattern>()
         }.let {
             CextPattern(
                 optIn = it.flatMap(CextPattern::optIn), customs = it.flatMap(CextPattern::customs)

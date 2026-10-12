@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import mct.extra.ai.translator.MapInfo
 import mct.gui.platform.ioDispatcher
 import mct.gui.util.pathExists
+import kotlin.time.Duration.Companion.milliseconds
 
 private enum class ActionButtonVisualState {
     Idle,
@@ -139,7 +140,7 @@ internal fun rememberMissingPath(value: String, mustExist: Boolean): Boolean {
     LaunchedEffect(value, mustExist) {
         missing = false
         if (!mustExist || value.isBlank()) return@LaunchedEffect
-        delay(PATH_CHECK_DEBOUNCE_MILLIS)
+        delay(PATH_CHECK_DEBOUNCE_MILLIS.milliseconds)
         missing = withContext(ioDispatcher) { !pathExists(value) }
     }
     return missing

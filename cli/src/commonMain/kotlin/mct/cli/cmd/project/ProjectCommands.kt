@@ -231,7 +231,7 @@ private class Update : ProjectCommand("update", "Update extraction pool") {
     context(_: Raise<MCTError>)
     override suspend fun App() {
         val w = workspace()
-        val pattern = patterns.evaluate()
+        val pattern = patterns.evaluate(projectDir)
 
         val existingMapping = if (fs.exists(mappingFile)) {
             mappingFile.readJson<TranslationMapping>()
@@ -628,7 +628,7 @@ private class AssemblePatch : ProjectCommand("patch", "create a patch file") {
             PatchPreprocessing.None
         } else preprocessingFile.readJson()
 
-        val pattern = patterns.evaluate()
+        val pattern = patterns.evaluate(projectDir)
         val regionGroups = if (fs.exists(regionExtractionFile)) {
             regionExtractionFile.readJson<List<ExtractionGroup>>() as List<RegionExtractionGroup>
         } else emptyList()

@@ -51,7 +51,7 @@ fun ProjectConfigSection(controller: ProjectController, modifier: Modifier = Mod
         ) {
             item { ProjectInfoGroup(editor) }
             item { ProjectFilesGroup(editor) }
-            item { ProjectPatternsGroup(editor) }
+            item { ProjectPatternsGroup(editor, controller.opened?.directory.orEmpty()) }
             item { ProjectMapInfoGroup(editor) }
             item { ProjectAiGroup(editor) }
             item { ProjectEngineGroup(editor) }
@@ -233,11 +233,11 @@ private fun ProjectFilesGroup(editor: ProjectConfigEditor) {
 }
 
 @Composable
-private fun ProjectPatternsGroup(editor: ProjectConfigEditor) {
+private fun ProjectPatternsGroup(editor: ProjectConfigEditor, projectDirectory: String) {
     ConfigGroup("提取规则 patterns", Icons.AutoMirrored.Outlined.Rule) {
         Text(
-            "每一类的规则文件之外，还可以决定是否保留该类的内置规则。从磁盘选择的文件会写成绝对路径："
-                    + "这些路径由 CLI 按其自身工作目录解析，而不是项目目录。",
+            "每一类的规则文件之外，还可以决定是否保留该类的内置规则。从磁盘选择的文件会写成绝对路径；"
+                    + "相对路径与 mct.toml 中其它路径一样，按项目目录解析。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -245,7 +245,7 @@ private fun ProjectPatternsGroup(editor: ProjectConfigEditor) {
             if (index > 0) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            ConfigPatternSlotField(slot)
+            ConfigPatternSlotField(slot, projectDirectory)
         }
     }
 }

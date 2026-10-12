@@ -18,6 +18,7 @@ import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import mct.gui.platform.platformPathOf
+import mct.gui.services.resolveProjectPath
 import mct.gui.state.ProjectPatternSlotEditor
 import mct.gui.util.oneDecimal
 
@@ -330,11 +331,12 @@ fun <T> ConfigButtonGroupRow(
  * One extraction-pattern category: its rule files plus, where the CLI supports it, the switch that
  * decides whether the built-in patterns of that category are merged into the custom ones.
  *
- * Picked files are stored as absolute paths on purpose. Pattern paths are the one kind of path in
- * `mct.toml` the CLI resolves against its *working directory* rather than the project root (other
- * paths are joined onto `--project-dir`), so a path relative to the project would make
- * `project update` fail — or worse, silently read a same-named file from wherever the CLI was
- * started. An absolute path is read the same way before and after that resolution is fixed.
+ * A rule file's path hangs off the project root, the same as every other path in `mct.toml`
+ * (`PatternsConfig.evaluate(projectDir)`), so the existence check below resolves against
+ * [projectDirectory] — a relative path in a hand-written file names a file inside the project, not
+ * one under the process working directory. Picked files are still written as absolute paths: a
+ * picker can return a file outside the project, and an absolute path means the same thing wherever
+ * the project is opened from.
  *
  * Separators are written as `/`, which the CLI reads on every platform: ktoml's writer does not
  * escape a backslash that precedes a `u` or `U`, so a Windows path such as `C:\Users\...` would be
@@ -343,6 +345,8 @@ fun <T> ConfigButtonGroupRow(
 @Composable
 fun ConfigPatternSlotField(
     slot: ProjectPatternSlotEditor,
+    /** Project root of the open project; a relative rule path is resolved against it. */
+    projectDirectory: String,
     modifier: Modifier = Modifier,
 ) {
     val paths = slot.paths.value
@@ -359,10 +363,7 @@ fun ConfigPatternSlotField(
                 )
             }
             if (slot.slot.supportsBuiltin) {
-                HoverHint(
-                    slot.slot.builtinNote
-                        ?: "patterns.${slot.slot.key}.has_builtin — 与该类的内置规则合并；关闭后只使用上面列出的文件",
-                ) {
+                HoverHint("patterns.${slot.slot.key}.has_builtin — 与该类的内置规则合并；关闭后只使用上面列出的文件") {
                     Text(
                         "内置",
                         style = MaterialTheme.typography.labelMedium,
@@ -373,15 +374,6 @@ fun ConfigPatternSlotField(
                 Switch(checked = slot.hasBuiltin.value, onCheckedChange = slot::setHasBuiltin)
             }
         }
-        slot.slot.builtinNote?.let { note ->
-            // Inline, not only in the tooltip: this switch is ignored by the CLI as it stands, and a
-            // control that silently does nothing is exactly what the note exists to prevent.
-            Text(
-                note,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
         if (paths.isEmpty()) {
             Text(
                 "未指定规则文件，仅使用内置规则",
@@ -391,9 +383,7 @@ fun ConfigPatternSlotField(
         } else {
             paths.forEach { path ->
                 key(path) {
-                    // Resolved exactly like the CLI resolves it, i.e. relative to the process'
-                    // working directory, so a path the CLI cannot read is flagged here first.
-                    val missing = rememberMissingPath(path, mustExist = true)
+                    val missing = rememberMissingPath(resolveProjectPath(projectDirectory, path), mustExist = true)
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -417,7 +407,7 @@ fun ConfigPatternSlotField(
                                 )
                                 if (missing) {
                                     Text(
-                                        "文件不存在（CLI 按自身工作目录解析该路径）",
+                                        "文件不存在",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error,
                                     )
