@@ -45,7 +45,10 @@ import mct.mtl.translateByMTLX
 import mct.patch.*
 import mct.region.backfillRegion
 import mct.region.extractFromRegion
-import mct.util.io.*
+import mct.util.io.copyToRecursively
+import mct.util.io.readJson
+import mct.util.io.readText
+import mct.util.io.writeJson
 import mct.util.unreachable
 import okio.Path
 
@@ -78,20 +81,16 @@ private class Init : BaseCommand(name = "init") {
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        enforceNot("/" in projectName || "\\" in projectName) {
-            "Project name cannot contain / or \\"
+        if ("/" in projectName || "\\" in projectName) {
+            panic("name cannot contain / or \\")
         }
         val projectDir = projectDir / projectName
-        enforceNot(mapDir.isParentOf(projectDir)) {
-            "Not allow to create a project in source directory"
-        }
-
         fs.createDirectories(projectDir)
-        enforce(fs.exists(mapDir)) {
-            "Source directory does not exist: $mapDir"
+        if (!fs.exists(mapDir)) {
+            panic("Source directory does not exist: $mapDir")
         }
-        enforce(fs.exists(mapDir / "level.dat")) {
-            "Source directory is not a valid Minecraft world (level.dat not found): $mapDir"
+        if (!fs.exists(mapDir / "level.dat")) {
+            panic("Source directory is not a valid Minecraft world (level.dat not found): $mapDir")
         }
         val srcTarget = projectDir / "src"
         if (fs.exists(srcTarget)) {
