@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import mct.Env
 import mct.LoggerLevel
+import mct.cli.CliExit
 import mct.cli.MCT
 import mct.gui.platform.ioDispatcher
 import java.io.ByteArrayOutputStream
@@ -63,12 +64,13 @@ internal actual suspend fun runCliCommand(arguments: List<String>) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: RuntimeException) {
-                // Clikt reports a usage error by "exiting"; in process that surfaces as an exception
-                // whose type is private to the CLI module and whose message is only the status code
-                // (`Exit with status 1`). The parse error itself has already been written to the
-                // captured console above, so the useless wording and a stack trace must not become
-                // the message the operator sees.
-                throw if (e::class.simpleName == "CliExit") {
+                // Clikt reports a usage error by "exiting"; in process that surfaces as `mct.cli`'s
+                // `CliExit`, whose message is only the status code (`Exit with status 1`). The parse
+                // error itself has already been written to the captured console above, so the
+                // useless wording and a stack trace must not become the message the operator sees.
+                // Matched on the type, not on `e::class.simpleName`: the build obfuscates the CLI's
+                // class name, which would silently stop a name comparison from ever matching.
+                throw if (e is CliExit) {
                     IllegalStateException("CLI 参数错误（${e.message}），详见上方控制台输出", e)
                 } else {
                     e

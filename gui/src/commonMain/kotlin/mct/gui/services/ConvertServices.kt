@@ -22,11 +22,16 @@ suspend fun convertFormats(state: ConvertToolState) {
         add("--input")
         add(state.input)
         if (state.batch) {
-            // Batch mode converts every file the pattern matches and has no single output path; the
-            // CLI rejects `--output` together with `--regex`.
+            // Batch mode converts every file the pattern matches under `--input-dir`; `--output`
+            // stays a directory there — the CLI enforces that ("your output must be a directory
+            // instead of file") and writes `<stem>.<format>` into it. Omitting it is not an option:
+            // it would default to the CLI's own working directory, which for a packaged app is the
+            // install directory and on Android is `/`.
             add("--regex")
             add("--input-dir")
             add(state.currentDirectory)
+            add("--output")
+            add(state.output)
         } else {
             add("--output")
             add(state.output)

@@ -168,8 +168,10 @@ private fun ToolboxOperation.isReady(state: ToolboxState): Boolean = when (this)
         val level = convert.compressionLevel.toIntOrNull()
         val levelValid = convert.compressionLevel.isBlank() || (level != null && level in 1..9)
         val pathsValid = if (convert.batch) {
-            // `--regex` needs a directory to walk, and there is no output path to infer the format from.
-            convert.currentDirectory.isNotBlank() && convert.outputFormat != ConvertFormat.Auto
+            // `--regex` walks `--input-dir` and needs a directory to write into; the output format
+            // cannot be inferred per file, so it has to be spelled out.
+            convert.currentDirectory.isNotBlank() && convert.output.isNotBlank() &&
+                    convert.outputFormat != ConvertFormat.Auto
         } else {
             convert.output.isNotBlank()
         }
@@ -526,6 +528,9 @@ private fun ConvertFields(state: ToolboxState, update: Update) {
     val convert = state.convert
     val inputPicker = filePicker { path -> update { it.copy(convert = it.convert.copy(input = path)) } }
     val workingDirPicker = directoryPicker { path -> update { it.copy(convert = it.convert.copy(currentDirectory = path)) } }
+    val outputDirPicker = directoryPicker { path ->
+        update { it.copy(convert = it.convert.copy(output = path)) }
+    }
     val outputFilePicker = outputPicker(convert.output) { path ->
         update { it.copy(convert = it.convert.copy(output = path)) }
     }
@@ -575,7 +580,15 @@ private fun ConvertFields(state: ToolboxState, update: Update) {
         label = { it.label },
         onSelected = { format -> update { it.copy(convert = it.convert.copy(inputFormat = format)) } },
     )
-    if (!convert.batch) {
+    if (convert.batch) {
+        PathRow(
+            label = "输出目录",
+            placeholder = "每个匹配文件按 <原名>.<格式> 写入该目录",
+            value = convert.output,
+            onValueChange = { path -> update { it.copy(convert = it.convert.copy(output = path)) } },
+            onBrowse = { outputDirPicker.launch() },
+        )
+    } else {
         PathRow(
             label = "输出文件",
             value = convert.output,
