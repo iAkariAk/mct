@@ -15,6 +15,16 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
+val portableDesktopPlatforms = configurations.create("portableDesktopPlatforms") {
+    isCanBeConsumed = false
+    description = "Desktop platforms the portable fat jar carries in addition to the host's"
+    exclude(group = "org.jetbrains.skiko", module = "skiko-awt-runtime-all")
+}
+
+configurations.matching { it.name.startsWith("desktop") }.configureEach {
+    exclude(group = "org.jetbrains.skiko", module = "skiko-awt-runtime-all")
+}
+
 kotlin {
     // Named "desktop" rather than the default "jvm" so the platform-specific source set is
     // `desktopMain`; the Compose desktop application below binds to it by target type, not name, so
@@ -71,19 +81,9 @@ kotlin {
         }
 
         getByName("desktopMain").dependencies {
-            if (!isCiBuild()) {
-                implementation(compose.desktop.currentOs)
-            } else {
-                val composeVersion = libs.versions.compose.get()
-                listOf(
-                    "windows-x64",
-                    "linux-arm64",
-                    "linux-x64",
-                    "macos-arm64",
-                ).forEach { platform ->
-                    implementation("org.jetbrains.compose.desktop:desktop-jvm-$platform:$composeVersion")
-                }
-            }
+            // The host's Compose desktop dependency (`desktop` + the host Skiko build), for every
+            // build type: a distribution only ever runs on the platform it was packaged for.
+            implementation(compose.desktop.currentOs)
             implementation(libs.kiteimage)
             implementation(libs.kiteimage.compose)
             // Supplies Dispatchers.Main on the desktop.
@@ -105,6 +105,18 @@ dependencies {
     // here as well as enabled on the target above: the library variant alone does not put it on the
     // app's compile classpath.
     add("coreLibraryDesugaring", libs.com.android.desugar.jdk.libs)
+
+    if (isCiBuild()) {
+        val composeVersion = libs.versions.compose.get()
+        listOf(
+            "windows-x64",
+            "linux-arm64",
+            "linux-x64",
+            "macos-arm64",
+        ).forEach { platform ->
+            portableDesktopPlatforms("org.jetbrains.compose.desktop:desktop-jvm-$platform:$composeVersion")
+        }
+    }
 }
 
 compose.desktop {
@@ -131,10 +143,11 @@ compose.desktop {
     }
 }
 
-// The shadow plugin does not prefix its task with the target name, so this stays `shadowJar`
-// (unlike KGP's own `desktopRun`).
 tasks.withType<ShadowJar>().configureEach {
     mergeServiceFiles()
+    exclude("libskiko-macos-x64.dylib", "libskiko-macos-x64.dylib.sha256")
+    exclude("skiko-windows-arm64.dll", "skiko-windows-arm64.dll.sha256")
+    configurations.add(portableDesktopPlatforms)
 }
 
 
