@@ -33,8 +33,9 @@ fun JsonElement.toNbtCompound(): NbtTag = when (this) {
     JsonNull -> unreachable
 }
 
+// Being used to transform [NbtTag] Minecraft decoded is safe.
 internal fun List<NbtTag>.asNbtListUnsafe(): NbtList<NbtTag> {
-    val first = first()
+    val first = firstOrNull() ?: error("The list should be not empty.")
 
     @Suppress(
         "CAST_NEVER_SUCCEEDS", "UNCHECKED_CAST",

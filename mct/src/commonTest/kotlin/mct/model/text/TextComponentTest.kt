@@ -2,6 +2,7 @@ package mct.model.text
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import mct.util.formatir.*
@@ -274,12 +275,28 @@ class TextComponentTest : FreeSpec({
             snbt.isTextComponentSnbt().shouldBeTrue()
         }
 
+        fun shouldBeNotJsonTextComponent(@Language("json") json: String) {
+            json.isTextComponentJson().shouldBeFalse()
+        }
+
+        fun shouldBeNotSnbtTextComponent(@Language("snbt") snbt: String) {
+            snbt.isTextComponentSnbt().shouldBeFalse()
+        }
+
+
         "recognizes nested compounds" {
             shouldBeJsonTextComponent("""[{"text":"a"},{"keybind":"key.use"}]""")
             shouldBeJsonTextComponent("""["A \' illegal escape"]""")
             shouldBeSnbtTextComponent("""[{text:"a"},{keybind:"key.use"}]""")
             shouldBeSnbtTextComponent("""["A \' illegal escape"]""")
             shouldBeSnbtTextComponent("""["",{color:"dark_red",text:"Warning!\n"},{color:"yellow",text:"This map is intended to be played in Survival mode only. Scouting in Spectator or Creative mode will spoil puzzles. I will not stop you, but this is not intended or required to solve this map."}]""")
+        }
+
+        "Empty isn't TextCompound" {
+            shouldBeNotJsonTextComponent("[]")
+            shouldBeNotJsonTextComponent("{}")
+            shouldBeNotSnbtTextComponent("[]")
+            shouldBeNotSnbtTextComponent("{}")
         }
     }
 })

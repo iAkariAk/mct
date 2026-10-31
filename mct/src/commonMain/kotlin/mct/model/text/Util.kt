@@ -76,15 +76,15 @@ private val STRUCTURAL_FIELDS = hashSetOf(
 )
 
 internal fun Map<String, *>.isTextComponent() =
-    isTextComponentShorthanded() || keys.all { ALL_FIELD.contains(it) } &&
+    isNotEmpty() && (isTextComponentShorthanded() || keys.all { ALL_FIELD.contains(it) } &&
             entries.all { (key, value) ->
                 // Structural fields can have compound/list values
                 if (key in STRUCTURAL_FIELDS) true
                 // All other fields must be primitive leaf types (esp. text)
                 else value !is Map<*, *> && value !is Collection<*>
-            }
+            })
 
-internal fun List<*>.isTextComponent(): Boolean = all {
+internal fun List<*>.isTextComponent(): Boolean = isNotEmpty() && all {
     @Suppress("UNCHECKED_CAST")
     when {
         it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) -> true
@@ -107,7 +107,7 @@ internal fun List<*>.isTextComponent(): Boolean = all {
 //  }
 //],
 internal fun Map<String, *>.isTextComponentShorthanded() =
-    "text" !in this && (this[""]?.let { it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
+    isNotEmpty() && "text" !in this && (this[""]?.let { it is String || it is IRString || it is NbtString || it is SnbtString || (it is JsonPrimitive && it.isString) }
         ?: false)
 
 fun String.isTextComponentSnbt() = toSnbtNbtTagOrNull()?.let {
@@ -119,11 +119,12 @@ fun String.isTextComponentSnbt() = toSnbtNbtTagOrNull()?.let {
     }
 } ?: false
 
-fun String.isTextComponentJson(json: Either<Json, NonstandardJson> = MCCommandJsonRight) = toJsonElementOrNull(json)?.let {
-    when (it) {
-        is JsonArray -> it.isTextComponent()
-        is JsonObject -> it.isTextComponent()
-        is JsonPrimitive if it.isString -> true
-        else -> false
-    }
-} ?: false
+fun String.isTextComponentJson(json: Either<Json, NonstandardJson> = MCCommandJsonRight) =
+    toJsonElementOrNull(json)?.let {
+        when (it) {
+            is JsonArray -> it.isTextComponent()
+            is JsonObject -> it.isTextComponent()
+            is JsonPrimitive if it.isString -> true
+            else -> false
+        }
+    } ?: false
