@@ -12,12 +12,14 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.utils.io.*
+import kotlinx.coroutines.flow.*
 import kotlinx.schema.json.serializers.toJsonElements
 import kotlinx.serialization.json.*
 import mct.Env
 import mct.LoggerHolder
 import mct.command.getTargetSelectorName
 import mct.command.isTargetSelector
+import mct.extra.ai.chunkedBy
 import mct.logger
 import mct.model.patch.FormatKind
 import mct.model.patch.FormatKind.PlainStr
@@ -37,6 +39,24 @@ sealed interface ApiTranslationError : TranslationError {
             "Retry too much, exceeding max retry $maxRetry; Exceptions: ${exceptions.joinToString("\n---\n") { it.message ?: "<null>" }}"
     }
 }
+
+private suspend inline fun translateByChunks(
+    threshold: Int,
+    concurrency: Int,
+    crossinline translate: suspend (List<String>) -> List<String>,
+    text: List<String>
+): List<String> {
+    return text.chunkedBy(
+        String::length,
+        threshold,
+        { it }
+    ).asFlow().flatMapMerge(concurrency) { subtexts ->
+        flow {
+            emitAll(translate(subtexts).asFlow())
+        }
+    }.toList()
+}
+
 
 sealed class TranslationApi(protected val maxRetry: Int, val from: String?, val to: String) : AutoCloseable {
     abstract class SingleTranslation(maxRetry: Int, from: String?, to: String) : TranslationApi(maxRetry, from, to) {
@@ -83,10 +103,15 @@ object TranslationApis {
     class MTranServerTranslation(
         val apiUrl: String,
         private val token: String? = null,
+        private val concurrency: Int = 1,
         maxRetry: Int = Translator.MAX_RETRY_COUNT,
         sourceLanguage: String?,
         targetLanguage: String
     ) : TranslationApi.BatchTranslation(maxRetry, sourceLanguage, targetLanguage) {
+        companion object {
+            private const val MTRANS_THRESHOLD = 50_000
+        }
+
         private val client = HttpClient {
             defaultRequest {
                 token?.let {
@@ -98,16 +123,20 @@ object TranslationApis {
             }
 
             install(HttpTimeout) {
-                connectTimeoutMillis = 600000
-                requestTimeoutMillis = 600000
-                connectTimeoutMillis = 600000
+                connectTimeoutMillis = 6_000_000
+                requestTimeoutMillis = 6_000_000
+                connectTimeoutMillis = 6_000_000
             }
         }
 
         override fun close() = client.close()
 
         context(_: Raise<ApiTranslationError>, _: LoggerHolder)
-        override suspend fun translateWithoutRetry(texts: List<String>): List<String> {
+        override suspend fun translateWithoutRetry(texts: List<String>): List<String> =
+            translateByChunks(MTRANS_THRESHOLD, concurrency, { translateWithoutRetryForChunk(it) }, texts)
+
+        context(_: Raise<ApiTranslationError>, _: LoggerHolder)
+        private suspend fun translateWithoutRetryForChunk(texts: List<String>): List<String> {
             val response = client.post("$apiUrl/translate/batch") {
                 contentType(ContentType.Application.Json)
                 setBody(buildJsonObject {

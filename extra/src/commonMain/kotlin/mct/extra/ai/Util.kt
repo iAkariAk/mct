@@ -27,24 +27,29 @@ internal fun Iterable<IndexedValue<String>>.chunkedByToken(tokenSizePerChunk: In
 private inline fun <T> Iterable<T>.chunkedByTokenImpl(
     tokenSizePerChunk: Int = TOKEN_COUNT_THRESHOLD,
     crossinline content: (T) -> String,
+): Sequence<MutableList<T>> = chunkedBy(::calculateToken, tokenSizePerChunk, content)
+
+internal inline fun <T> Iterable<T>.chunkedBy(
+    crossinline chunkSize: (String) -> Int,
+    threshold: Int,
+    crossinline content: (T) -> String,
 ): Sequence<MutableList<T>> = sequence {
     val tmp = mutableListOf<T>()
-    var tokenCount = 0
-    for (source in this@chunkedByTokenImpl) {
-        val approximateTokenCount = calculateToken(content(source))
-        if (tokenCount > 0 && tokenCount + approximateTokenCount > tokenSizePerChunk) {
+    var accumulatedSize = 0
+    for (source in this@chunkedBy) {
+        val size = chunkSize(content(source))
+        if (accumulatedSize > 0 && accumulatedSize + size > threshold) {
             yield(tmp.toMutableList())
             tmp.clear()
-            tokenCount = 0
+            accumulatedSize = 0
         }
         tmp += source
-        tokenCount += approximateTokenCount
+        accumulatedSize += size
     }
     if (tmp.isNotEmpty()) {
         yield(tmp.toMutableList())
     }
 }
-
 
 internal suspend inline fun <T, E> Iterable<T>.forEachConcurrently(
     concurrency: Int,

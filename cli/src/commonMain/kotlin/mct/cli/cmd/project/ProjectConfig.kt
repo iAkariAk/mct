@@ -218,8 +218,10 @@ sealed class TranslationEngine {
         @SerialName("MTranServer")
         data class MTranServer(
             @SerialName("api_url")
-            val apiUrl: String = "http://127.0.0.1:8989/",
+            val apiUrl: String = "http://127.0.0.1:8989",
             val token: String? = null,
+            @TomlComments("The concurrency for chunked large texts")
+            val concurrency: Int = 1,
             @TomlInlineTable
             override val config: ApiConfig = ApiConfig.Default,
         ) : Api() {
@@ -228,7 +230,14 @@ sealed class TranslationEngine {
             }
 
             override fun createApi(): TranslationApi =
-                TranslationApis.MTranServerTranslation(apiUrl, token, config.maxRetry, config.source, config.target)
+                TranslationApis.MTranServerTranslation(
+                    apiUrl,
+                    token,
+                    concurrency,
+                    config.maxRetry,
+                    config.source,
+                    config.target
+                )
 
             override fun display(): String = "MTranServer($apiUrl)"
 
