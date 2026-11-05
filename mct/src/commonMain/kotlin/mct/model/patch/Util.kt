@@ -1,29 +1,31 @@
 package mct.model.patch
 
 import mct.LoggerHolder
+import mct.VersionHolder
 import mct.kit.TranslationMapping
 
-context(_: LoggerHolder)
+context(_: LoggerHolder, _: VersionHolder)
 fun List<ExtractionGroup>.replaceSimply(replace: (String) -> String?): List<ReplacementGroup> = replace(
     mcfReplace = replace,
     mcjReplace = { it.replace(replace) },
     nbtReplace = { it.replace(replace) },
 )
 
-context(_: LoggerHolder)
+context(_: LoggerHolder, _: VersionHolder)
 fun List<ExtractionGroup>.replace(mapping: TranslationMapping) = replace(
     mcfReplace = { mapping[it] },
     mcjReplace = { it.replace(mapping::get) },
     nbtReplace = { it.replace(mapping::get) },
 )
 
-context(_: LoggerHolder)
+context(_: LoggerHolder, _: VersionHolder)
 fun Extraction.replaceSimply(replace: (String) -> String?): Replacement? = replace(
     mcfReplace = replace,
     mcjReplace = { it.replace(replace) },
     nbtReplace = { it.replace(replace) },
 )
 
+context(_: LoggerHolder, _: VersionHolder)
 inline fun Extraction.replace(
     mcfReplace: (String) -> String?,
     mcjReplace: (ExtractionContent) -> ReplacementContent?,
@@ -37,6 +39,7 @@ inline fun Extraction.replace(
     is SnbtExtraction -> replace { nbtReplace(it) ?: return null }
 }
 
+context(_: LoggerHolder, _: VersionHolder)
 inline fun List<ExtractionGroup>.replace(
     mcfReplace: (String) -> String?,
     mcjReplace: (ExtractionContent) -> ReplacementContent?,

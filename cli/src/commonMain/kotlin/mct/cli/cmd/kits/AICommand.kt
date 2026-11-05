@@ -9,6 +9,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.int
 import mct.MCTError
+import mct.VersionHolder
 import mct.cli.BaseCommand
 import mct.cli.NotifierHooks
 import mct.cli.jsonFile
@@ -27,7 +28,7 @@ import mct.util.io.writeJson
 
 open class AICommand(
     name: String? = null, help: String? = null,
-) : BaseCommand(name = name, help = help) {
+) : BaseCommand(name = name, help = help), VersionHolder {
     val apiUrl by option("--openai-api-url", envvar = "OPENAI_URL", help = "OpenAI compatible API base URL")
     val model by option("--openai-model", envvar = "OPENAI_MODEL", help = "Model name (e.g. gpt-4o)").required()
     val token by option("--openai-token", envvar = "OPENAI_TOKEN", help = "API access token").required()
@@ -75,6 +76,8 @@ open class AICommand(
     )
 
     val mapInfo by lazy { mapInfoFile?.readJson<MapInfo>() ?: MapInfo.None }
+
+    override val dataVersion by option("--data-version", help = "The Minecraft data version").int()
 
     context(_: Raise<ChatCompletionCallError>)
     suspend fun creatCall() = context(env) {

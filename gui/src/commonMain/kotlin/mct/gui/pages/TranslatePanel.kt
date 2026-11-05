@@ -69,8 +69,10 @@ fun TranslatePanel(
         type = FileKitType.File(), mode = FileKitMode.Single
     ) { file: PlatformFile? -> file?.let { onStateChange(currentState.copy(cachesPath = platformPathOf(it))) } }
 
+    // A blank version means "unknown", which the service reports; a typed one has to be a number.
+    val dataVersionValid = state.dataVersion.isBlank() || state.dataVersion.toIntOrNull() != null
     val readyToRun = state.input.isNotBlank() && state.output.isNotBlank() &&
-            state.mappingOutput.isNotBlank() &&
+            state.mappingOutput.isNotBlank() && dataVersionValid &&
             when (state.engine) {
                 // The term table is an AI-side artifact: the API engine neither reads nor writes it,
                 // so demanding that path there only blocks a run that would have succeeded.
@@ -287,6 +289,14 @@ fun TranslatePanel(
             value = state.cachesPath,
             onValueChange = { onStateChange(currentState.copy(cachesPath = it)) },
             onBrowse = { cachesPicker.launch() },
+        )
+        // Mirrors `mct kit ai translate --data-version`: the check can only warn about quoting a
+        // literal once it knows which version the source world is from.
+        ConfigTextField(
+            value = state.dataVersion,
+            onValueChange = { onStateChange(currentState.copy(dataVersion = it)) },
+            label = { Text("Minecraft 数据版本（可选）") },
+            placeholder = { Text("例如 4774；留空表示未知") },
         )
 
         if (state.engine == TranslationEngine.Ai) {

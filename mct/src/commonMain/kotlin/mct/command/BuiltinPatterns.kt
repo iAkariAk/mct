@@ -7,7 +7,7 @@ import mct.pointer.EqualPattern
 import mct.pointer.RegexPattern
 import mct.pointer.RightPattern
 import mct.util.isJson
-import mct.util.isNamespacedId
+import mct.util.isMinecraftNamespacedId
 
 private fun MCCommand.Arg.isJson() = content.isJson(MCCommandJsonRight)
 private fun MCCommand.Arg.isSerializedTextComponent() = content.isTextComponentJson() || content.isTextComponentSnbt()
@@ -298,14 +298,14 @@ val BuiltinCommandPatterns = PatternSet {
         WithSize(5, strict = true) then {
             Positions(5 to ArgSelection.SnbtEntire) then {
                 Matches("item modify entity ... modifier (modifier)") { cmd, arg ->
-                    cmd[1].content == "modify" && cmd[2].content == "entity" && !arg.content.isNamespacedId()
+                    cmd[1].content == "modify" && cmd[2].content == "entity" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
         WithSize(7, strict = true) then {
             Positions(7 to ArgSelection.SnbtEntire) then {
                 Matches("item modify block ... modifier (modifier)") { cmd, arg ->
-                    cmd[1].content == "modify" && cmd[2].content == "block" && !arg.content.isNamespacedId()
+                    cmd[1].content == "modify" && cmd[2].content == "block" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -331,7 +331,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(9 to ArgSelection.SnbtEntire) then {
                 Matches("item replace entity ...  modifier (modifier)") { cmd, arg ->
                     cmd[1].content == "replace" && cmd[2].content == "entity" &&
-                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isNamespacedId()
+                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -341,7 +341,7 @@ val BuiltinCommandPatterns = PatternSet {
                     cmd[1].content == "replace" && (
                             (cmd[2].content == "entity" && cmd[5].content == "from" && cmd[6].content == "block") ||
                                     (cmd[2].content == "block" && cmd[7].content == "from" && cmd[8].content == "entity")
-                            ) && !arg.content.isNamespacedId()
+                            ) && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -349,7 +349,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(13 to ArgSelection.SnbtEntire) then {
                 Matches("item replace block ...  modifier (modifier)") { cmd, arg ->
                     cmd[1].content == "replace" && cmd[2].content == "block" &&
-                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isNamespacedId()
+                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -361,7 +361,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(9 to ArgSelection.SnbtEntire) then {
                 Matches("item fill entity ...  modifier (modifier)") { cmd, arg ->
                     cmd[1].content == "fill" && cmd[2].content == "entity" &&
-                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isNamespacedId()
+                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -371,7 +371,7 @@ val BuiltinCommandPatterns = PatternSet {
                     cmd[1].content == "fill" && (
                             (cmd[2].content == "entity" && cmd[5].content == "from" && cmd[6].content == "block") ||
                                     (cmd[2].content == "block" && cmd[7].content == "from" && cmd[8].content == "entity")
-                            ) && !arg.content.isNamespacedId()
+                            ) && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -379,7 +379,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(13 to ArgSelection.SnbtEntire) then {
                 Matches("item fill block from block modifier (modifier)") { cmd, arg ->
                     cmd[1].content == "fill" && cmd[2].content == "block" &&
-                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isNamespacedId()
+                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -388,14 +388,14 @@ val BuiltinCommandPatterns = PatternSet {
         WithSizeIn(6..7) then {
             Positions(6 to ArgSelection.ItemStack) then {
                 Matches("item fill entity ...  item (ItemStack)") { cmd, arg ->
-                    cmd[1].content == "fill" && cmd[2].content == "entity" && cmd[5].content == "with" && !arg.content.isNamespacedId()
+                    cmd[1].content == "fill" && cmd[2].content == "entity" && cmd[5].content == "with" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
         WithSizeIn(8..9) then {
             Positions(8 to ArgSelection.ItemStack) then {
                 Matches("item fill block ...  item (ItemStack)") { cmd, arg ->
-                    cmd[1].content == "fill" && cmd[2].content == "block" && cmd[7].content == "with" && !arg.content.isNamespacedId()
+                    cmd[1].content == "fill" && cmd[2].content == "block" && cmd[7].content == "with" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -406,7 +406,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(9 to ArgSelection.SnbtEntire) then {
                 Matches("item override entity ... from ... modifier (modifier)") { cmd, arg ->
                     cmd[1].content == "override" && cmd[2].content == "entity" &&
-                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isNamespacedId()
+                            cmd[5].content == "from" && cmd[6].content == "entity" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -416,7 +416,7 @@ val BuiltinCommandPatterns = PatternSet {
                     cmd[1].content == "override" && (
                             (cmd[2].content == "entity" && cmd[5].content == "from" && cmd[6].content == "block") ||
                                     (cmd[2].content == "block" && cmd[7].content == "from" && cmd[8].content == "entity")
-                            ) && !arg.content.isNamespacedId()
+                            ) && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }
@@ -424,7 +424,7 @@ val BuiltinCommandPatterns = PatternSet {
             Positions(13 to ArgSelection.SnbtEntire) then {
                 Matches("item override block from block modifier (modifier)") { cmd, arg ->
                     cmd[1].content == "override" && cmd[2].content == "block" &&
-                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isNamespacedId()
+                            cmd[7].content == "from" && cmd[8].content == "block" && !arg.content.isMinecraftNamespacedId()
                 }
             }
         }

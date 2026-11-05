@@ -46,7 +46,7 @@ class MCTWorkspace private constructor(
     val rootDir: Path,
     override val env: Env,
     val config: MCTConfig = MCTConfig.Default,
-) : EnvHolder {
+) : EnvHolder, VersionHolder {
     companion object {
         context(_: Raise<OpenError>)
         operator fun invoke(rootDir: Path, env: Env, config: MCTConfig = MCTConfig.Default): MCTWorkspace {
@@ -70,12 +70,14 @@ class MCTWorkspace private constructor(
 
     val datapackDir = rootDir / "datapacks"
 
+    private val _dataVersion = level?.data?.dataVersion
+    override val dataVersion: Int? get() = _dataVersion
+
     val dimensions: DimensionProvider = run {
         logger.info { "Minecraft version ${level?.data?.versionInfo?.toSnbt()}(${level?.data?.dataVersion})" }
 
-        val dataVersion = level?.data?.dataVersion
         val useV2 = if (dataVersion != null) {
-            dataVersion >= DataVersions.`26_1-snapshot-6`
+            dataVersion!! >= DataVersions.`26_1-snapshot-6`
         } else {
             fs.exists(rootDir / "dimensions")
         }

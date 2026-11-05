@@ -5,13 +5,14 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import mct.Logger
+import mct.VersionHolder
 import mct.kit.exportIntoPool
 import mct.model.patch.ExtractionContent
 import mct.model.patch.replace
 import mct.pointer.encodeToString
 
 class MCJStructurePatternTest : FreeSpec({
-    context(Logger.Console()) {
+    context(Logger.Console(), VersionHolder.None) {
         "set_nbt" - {
             val json = """
 {

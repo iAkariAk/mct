@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mct.LoggerHolder
 import mct.MCTPattern
+import mct.VersionHolder
 import mct.command.extractTextFromCommands
 import mct.dp.mcjson.backfillMCJson
 import mct.dp.mcjson.extractTextFromMCJson
@@ -16,7 +17,7 @@ import mct.serializer.IntRangeSerializable
 import mct.util.StringIndices
 import mct.util.patch
 
-context(_: LoggerHolder)
+context(_: LoggerHolder, _: VersionHolder)
 inline fun ExtractionContent.replace(
     noinline replace: (String) -> String?,
 ): ReplacementContent? = replace(
@@ -24,7 +25,7 @@ inline fun ExtractionContent.replace(
     replaceCommand = { it.map(replace) }
 )
 
-context(_: LoggerHolder)
+context(_: LoggerHolder, _: VersionHolder)
 fun ExtractionContent.replace(
     replaceText: (String) -> String?,
     replaceCommand: (List<String>) -> List<String?>,
@@ -117,13 +118,14 @@ sealed interface ExtractionContent {
             inline fun unquoted() = content.unquoted(syntax)
         }
 
+        context(_: LoggerHolder, _: VersionHolder)
         inline fun replace(replace: (List<String>) -> List<String?>): ReplacementContent.Command {
             val replacements = replace(locations.map { it.unquoted() })
             require(locations.size == replacements.size) { "locations.size should equal replacements.size" }
             return ReplacementContent.Command(
                 raw.patch(replacements.mapIndexedNotNull { index, replacement ->
                     val location = locations[index]
-                    val quoted = replacement?.doubleQuotedIfString(location.syntax) ?: return@mapIndexedNotNull null
+                    val quoted = replacement?.doubleQuotedIfNecessary(location.syntax) ?: return@mapIndexedNotNull null
                     StringIndices(location.indices, quoted)
                 })
             )
@@ -137,7 +139,7 @@ sealed interface ExtractionContent {
         val raw: String,
         val contents: List<PointedExtractionContent>
     ) : ExtractionContent {
-        context(_: LoggerHolder)
+        context(_: LoggerHolder, _: VersionHolder)
         fun replaceX(
             replaceText: (String) -> String?,
             replaceCommand: (List<String>) -> List<String?>,

@@ -125,5 +125,8 @@ fun String.laseIndexRangeOf(str: String, startIndex: Int = 0, ignoreCase: Boolea
 
 // https://zh.minecraft.wiki/w/%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4ID
 private val NAMESPACED_IDENTIFIER = Regex2("""(?:(?<namespace>[\w\-.]+):)?(?<name>[\w\-./]+)""")
-fun String.isNamespacedId() = NAMESPACED_IDENTIFIER.matches(this)
+fun String.isMinecraftNamespacedId() = NAMESPACED_IDENTIFIER.matches(this)
 
+private val LITERAL_STRING = Regex2("""[^ ]+""")
+
+fun String.isMinecraftLiteralString() = LITERAL_STRING.matches(this)

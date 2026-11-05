@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.toList
 import mct.MCTError
 import mct.MCTWorkspace
+import mct.VersionHolder
 import mct.cext.backfillCext
 import mct.cext.extractByCext
 import mct.cli.*
@@ -107,15 +108,17 @@ private class Init : BaseCommand(name = "init") {
             "api" -> TranslationEngine.Api.MTranServer.Default
             else -> unreachable
         }
+        val workspace = MCTWorkspace(srcTarget, env)
         val config = ProjectConfig(
             name = projectName,
+            dataVersion = workspace.dataVersion
         )
         (projectDir / "mct.toml").writeToml(config)
         printlnGreen("Project '$projectName' created at $projectDir")
     }
 }
 
-private abstract class ProjectCommand(name: String? = null, help: String? = null) : BaseCommand(name, help) {
+private abstract class ProjectCommand(name: String? = null, help: String? = null) : BaseCommand(name, help), VersionHolder {
     val projectDir by option("--project-dir", "-D").path().default(Path.CURRENT_PATH)
     val projectConfig by lazy {
         val toml = projectDir / "mct.toml"
@@ -145,6 +148,7 @@ private abstract class ProjectCommand(name: String? = null, help: String? = null
     val termsFile by lazy { projectDir / projectConfig.terms }
     val mappingFile by lazy { projectDir / projectConfig.mappings }
     val mtlxFile by lazy { projectConfig.mtlx?.let { projectDir / it } }
+    override val dataVersion by lazy { projectConfig.dataVersion }
 
     context(_: Raise<MCTError>)
     fun workspace(dir: Path = srcDir): MCTWorkspace {

@@ -4,7 +4,9 @@ import arrow.core.raise.Raise
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.parameters.types.int
 import mct.MCTError
+import mct.VersionHolder
 import mct.cli.BaseCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -20,15 +22,18 @@ class ReplaceAllCommand : BaseCommand(name = "replace-all") {
     val replacement by option(
         "--replacement", "-r", help = "The replacement which will replace extraction"
     ).default("\"MCT\"")
+    val dataVersion by option("--data-version", help = "The Minecraft data version").int().default(Int.MAX_VALUE)
 
     context(_: Raise<MCTError>)
     override suspend fun App() {
-        logger.info { "Loading extractions from $input" }
-        val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
-        logger.info { "Replacing ${extractionGroups.size} groups with $replacement" }
-        val result = extractionGroups.replaceSimply { replacement }
-        logger.info { "Writing ${result.size} replacement groups to $output" }
-        output.writeJson(result)
-        logger.info { "Done." }
+        context(VersionHolder.of(dataVersion)) {
+            logger.info { "Loading extractions from $input" }
+            val extractionGroups = input.jsonFile<List<ExtractionGroup>>()
+            logger.info { "Replacing ${extractionGroups.size} groups with $replacement" }
+            val result = extractionGroups.replaceSimply { replacement }
+            logger.info { "Writing ${result.size} replacement groups to $output" }
+            output.writeJson(result)
+            logger.info { "Done." }
+        }
     }
 }

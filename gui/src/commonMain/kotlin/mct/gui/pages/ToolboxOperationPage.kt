@@ -121,6 +121,10 @@ private val ToolboxOperation.needsRun: Boolean
 
 private typealias Update = ((ToolboxState) -> ToolboxState) -> Unit
 
+/** Blank means "assume the newest version", the CLI's default for the file-to-file tools. */
+private val ToolboxState.hasValidDataVersion: Boolean
+    get() = dataVersion.isBlank() || dataVersion.toIntOrNull() != null
+
 @Composable
 private fun ToolboxOperation.icon(): ImageVector = when (this) {
     ToolboxOperation.PointerTest -> Icons.Outlined.GpsFixed
@@ -151,10 +155,13 @@ private fun ToolboxOperation.isReady(state: ToolboxState): Boolean = when (this)
     ToolboxOperation.PatternInspect -> true
     ToolboxOperation.ExportSnbt -> state.exportInput.isNotBlank() && state.exportOutput.isNotBlank()
     ToolboxOperation.FlattenPool -> state.poolInput.isNotBlank() && state.poolOutput.isNotBlank()
-    ToolboxOperation.UnflattenPool -> state.poolInput.isNotBlank() && state.mappingInput.isNotBlank() && state.poolOutput.isNotBlank()
+    // The data version is optional; a typed one has to be a number.
+    ToolboxOperation.UnflattenPool -> state.poolInput.isNotBlank() && state.mappingInput.isNotBlank() &&
+            state.poolOutput.isNotBlank() && state.hasValidDataVersion
     ToolboxOperation.GenerateMtlx -> state.poolInput.isNotBlank() && state.poolOutput.isNotBlank()
     ToolboxOperation.TranslateMtlx -> state.mtlxInput.isNotBlank() && state.poolInput.isNotBlank() && state.poolOutput.isNotBlank()
-    ToolboxOperation.ReplaceAll -> state.poolInput.isNotBlank() && state.poolOutput.isNotBlank()
+    ToolboxOperation.ReplaceAll -> state.poolInput.isNotBlank() && state.poolOutput.isNotBlank() &&
+            state.hasValidDataVersion
     ToolboxOperation.ExportSchema -> state.poolOutput.isNotBlank()
     ToolboxOperation.CommandTest -> state.commandInput.isNotBlank()
     ToolboxOperation.DownloadOfficialLanguage -> state.officialMinecraftVersion.isNotBlank() &&
@@ -439,6 +446,16 @@ private fun PoolFields(state: ToolboxState, update: Update, showMapping: Boolean
             { simply -> update { it.copy(poolSimply = simply) } },
             "使用简单文本池模式",
         )
+    } else {
+        // Mirrors `mct kit text-pool unflatten --data-version`: the replacement file quotes literal
+        // strings, so the version decides whether that is safe.
+        ConfigTextField(
+            value = state.dataVersion,
+            onValueChange = { text -> update { it.copy(dataVersion = text) } },
+            label = { Text("Minecraft 数据版本（可选）") },
+            placeholder = { Text("例如 4774；留空按最新版本处理") },
+            singleLine = true,
+        )
     }
 }
 
@@ -517,6 +534,14 @@ private fun ReplaceAllFields(state: ToolboxState, update: Update) {
         value = state.replacement,
         onValueChange = { text -> update { it.copy(replacement = text) } },
         label = { Text("固定替换内容") },
+        singleLine = true,
+    )
+    // Mirrors `mct kit replace-all --data-version`; see [PoolFields].
+    ConfigTextField(
+        value = state.dataVersion,
+        onValueChange = { text -> update { it.copy(dataVersion = text) } },
+        label = { Text("Minecraft 数据版本（可选）") },
+        placeholder = { Text("例如 4774；留空按最新版本处理") },
         singleLine = true,
     )
 }

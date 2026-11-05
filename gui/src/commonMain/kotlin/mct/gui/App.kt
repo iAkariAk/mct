@@ -213,7 +213,10 @@ private fun AppContent(vm: AppViewModel) {
                                 )
 
                                 ToolboxOperation.UnflattenPool -> unflattenTextPool(
-                                    state.poolInput, state.mappingInput, state.poolOutput
+                                    state.poolInput,
+                                    state.mappingInput,
+                                    state.poolOutput,
+                                    state.dataVersion.toIntOrNull(),
                                 )
 
                                 ToolboxOperation.GenerateMtlx -> generateMtlxTemplate(
@@ -225,7 +228,10 @@ private fun AppContent(vm: AppViewModel) {
                                 )
 
                                 ToolboxOperation.ReplaceAll -> replaceAllExtractions(
-                                    state.poolInput, state.poolOutput, state.replacement
+                                    state.poolInput,
+                                    state.poolOutput,
+                                    state.replacement,
+                                    state.dataVersion.toIntOrNull(),
                                 )
 
                                 ToolboxOperation.ExportSchema -> exportPatternSchema(
@@ -316,6 +322,7 @@ private fun AppContent(vm: AppViewModel) {
                                                 mapInfo = vm.translation.state.mapInfo,
                                                 extraPrompts = vm.translation.state.extraPrompts.ifBlank { null },
                                                 staticChecking = vm.translation.state.staticChecking,
+                                                dataVersion = vm.translation.state.dataVersion.toIntOrNull(),
                                                 engine = vm.translation.state.engine,
                                                 api = vm.translation.state.api,
                                                 onFailure = {

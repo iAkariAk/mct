@@ -15,6 +15,20 @@ interface FSHolder {
     val fs: FileSystem
 }
 
+interface VersionHolder {
+    companion object {
+        val None = object : VersionHolder {
+            override val dataVersion = null
+        }
+
+        inline fun of(dataVersion: Int) = object : VersionHolder {
+            override val dataVersion = dataVersion
+        }
+    }
+
+    val dataVersion: Int?
+}
+
 interface EnvHolder : LoggerHolder, NotifierHolder, FSHolder {
     val env: Env
 
@@ -47,3 +61,28 @@ val logger get() = holder.logger
 
 context(holder: NotifierHolder)
 val notifier get() = holder.notifier
+
+context(holder: VersionHolder)
+val dataVersion get() = holder.dataVersion
+
+
+context(_: VersionHolder)
+inline fun checkDataVersion(
+    lower: Int,
+    ifNone: () -> Unit = {},
+    ifLess: (Int) -> Unit = {}
+) {
+    val version = dataVersion
+    when {
+        version == null -> ifNone()
+        version <= lower -> ifLess(version)
+    }
+}
+
+context(_: VersionHolder, _: LoggerHolder)
+inline fun checkDataVersion(
+    lower: Int,
+    ifLess: (Int) -> Unit = {}
+) = checkDataVersion(lower, {
+    logger.warning { "Unknown data version maybe cause some problems." }
+}, ifLess)

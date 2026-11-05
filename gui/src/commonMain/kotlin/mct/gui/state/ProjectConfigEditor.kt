@@ -65,6 +65,9 @@ class ProjectConfigEditor(
     val version = field { it.version }
     val description = field { it.description }
 
+    /** `data_version`, written by `project init`; `null` means the CLI treats the version as unknown. */
+    val dataVersion = field { it.dataVersion }
+
     // ── files ───────────────────────────────────────────────────
     val mappings = field { it.mappings }
     val mtlx = field { it.mtlx }

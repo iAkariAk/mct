@@ -2,7 +2,12 @@ package mct.model.patch
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import mct.LoggerHolder
+import mct.VersionHolder
+import mct.checkDataVersion
 import mct.command.MCCommandJsonRight
+import mct.logger
+import mct.model.DataVersions
 import mct.model.text.isTextComponentJson
 import mct.model.text.isTextComponentSnbt
 import mct.util.*
@@ -86,10 +91,16 @@ fun String.quoted(syntax: SnbtSyntaxKind?) = when (syntax) {
     else -> this
 }
 
-fun String.doubleQuotedIfString(syntax: SnbtSyntaxKind?) = when (syntax) {
+context(_: LoggerHolder, _: VersionHolder)
+fun String.doubleQuotedIfNecessary(syntax: SnbtSyntaxKind?) = when (syntax) {
     SingleQuoteString -> doubleQuoted()
     DoubleQuoteString -> doubleQuoted()
-    LiteralString -> doubleQuoted()
+    LiteralString -> doubleQuoted().also {
+        checkDataVersion(DataVersions.`17w45a`) {
+            logger.warning { "Quote a literal maybe cause some problem after the `17w45a` version." }
+        }
+    }
+
     else -> this
 }
 

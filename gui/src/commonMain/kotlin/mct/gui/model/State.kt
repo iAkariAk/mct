@@ -307,6 +307,8 @@ data class TranslateState(
     val mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
     val extraPrompts: String = LLMTranslationPrompts.extraPrompts.orEmpty(),
 
+    /** `--data-version` of the CLI's AI translate; blank means unknown, which is the CLI default. */
+    val dataVersion: String = "",
     val staticChecking: Boolean = LLMTranslationPrompts.staticChecking,
     val engine: TranslationEngine = TranslationEngine.Ai,
     val api: ApiTranslateState = ApiTranslateState(),
@@ -387,6 +389,11 @@ data class ToolboxState(
     val poolKind: RunMode = RunMode.Region,
     val poolSimply: Boolean = false,
     val mappingInput: String = "mappings.json",
+    /**
+     * `--data-version` of the text-pool and replace-all tools. Unlike the translate page, blank
+     * assumes the newest version, matching those commands' `Int.MAX_VALUE` default.
+     */
+    val dataVersion: String = "",
     val mtlxInput: String = "translation.mtlx",
     val mtlxSource: MtlxSource = MtlxSource.Pool,
     val replacement: String = "\"MCT\"",

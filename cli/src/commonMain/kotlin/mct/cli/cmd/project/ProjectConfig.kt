@@ -36,6 +36,10 @@ data class ProjectConfig(
     @TomlComments("Project description")
     val description: String? = null,
 
+    @TomlComments("Minecraft data version")
+    @SerialName("data_version")
+    val dataVersion: Int? = null,
+
     @TomlComments("Path to the translation mapping JSON file (source -> target)")
     val mappings: String = "mappings.json",
 

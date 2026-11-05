@@ -198,6 +198,12 @@ private fun ProjectInfoGroup(editor: ProjectConfigEditor) {
             value = editor.description,
             onValueChange = { value -> editor.update { it.copy(description = value) } },
         )
+        ConfigNullableIntField(
+            label = "Minecraft 数据版本",
+            hint = "data_version — 源存档 level.dat 的 DataVersion；留空表示未知，引用字面量时会警告",
+            value = editor.dataVersion,
+            onValueChange = { value -> editor.update { it.copy(dataVersion = value) } },
+        )
     }
 }
 

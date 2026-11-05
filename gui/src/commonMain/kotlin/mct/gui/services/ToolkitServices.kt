@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import mct.Env
+import mct.VersionHolder
 import mct.cli.util.downloadAndSha1
 import mct.command.CommandExtractPattern
 import mct.command.CommandRegexPattern
@@ -75,12 +76,17 @@ suspend fun unflattenTextPool(
     input: String,
     mapping: String,
     output: String,
+    dataVersion: Int? = null,
 ) = withContext(ioDispatcher) {
     val groups = env.fs.read(input.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<List<ExtractionGroup>>(it) }
     val translations = env.fs.read(mapping.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<TranslationMapping>(it) }
-    val replacements = groups.replace(translations)
+    // Same default as the CLI's `text-pool unflatten --data-version`: an unknown version assumes
+    // the newest one, because this command cannot read a world's `level.dat`.
+    val replacements = context(VersionHolder.of(dataVersion ?: Int.MAX_VALUE)) {
+        groups.replace(translations)
+    }
     writeOutputAtomically(output) { it.writeJson(replacements, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已将 ${translations.size} 条映射应用到 ${replacements.size} 个替换分组: $output" }
 }
@@ -127,10 +133,14 @@ suspend fun replaceAllExtractions(
     input: String,
     output: String,
     replacement: String,
+    dataVersion: Int? = null,
 ) = withContext(ioDispatcher) {
     val groups = env.fs.read(input.toPath()) { readUtf8() }
         .let { MCTJson.decodeFromString<List<ExtractionGroup>>(it) }
-    val replacements = groups.replaceSimply { replacement }
+    // Same default as the CLI's `replace-all --data-version`; see [unflattenTextPool].
+    val replacements = context(VersionHolder.of(dataVersion ?: Int.MAX_VALUE)) {
+        groups.replaceSimply { replacement }
+    }
     writeOutputAtomically(output) { it.writeJson(replacements, pretty = GuiSettings.prettyOutput) }
     env.logger.info { "已为 ${groups.size} 个分组生成固定替换: $output" }
 }

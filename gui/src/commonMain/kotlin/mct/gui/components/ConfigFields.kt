@@ -209,6 +209,43 @@ fun ConfigIntField(
     )
 }
 
+/**
+ * A `mct.toml` integer field whose value may be absent, i.e. `null` in the file.
+ *
+ * Separate from [ConfigIntField] for the same reason [ConfigNullableTextField] is separate from
+ * [ConfigTextField]: the two states erase to the same JVM signature. An emptied box here stores
+ * `null` — unlike [ConfigIntField], there is a meaningful "no value" to fall back to.
+ */
+@Composable
+fun ConfigNullableIntField(
+    label: String,
+    hint: String,
+    value: State<Int?>,
+    onValueChange: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val current = value.value
+    // Local text so a half-typed number ("4" on the way to "4774") is not normalised back; the
+    // field only re-syncs when the value changed somewhere else (reload, revert, another control).
+    var text by remember { mutableStateOf(current?.toString().orEmpty()) }
+    LaunchedEffect(current) {
+        if (text.toIntOrNull() != current) text = current?.toString().orEmpty()
+    }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            val digits = raw.filter(Char::isDigit).take(9)
+            text = digits
+            onValueChange(digits.toIntOrNull())
+        },
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(label) },
+        supportingText = { Text(hint, style = MaterialTheme.typography.bodySmall) },
+        singleLine = true,
+        colors = fieldColors(),
+    )
+}
+
 /** A `mct.toml` boolean, shown as a switch with the CLI's comment as a hover tooltip. */
 @Composable
 fun ConfigSwitchRow(

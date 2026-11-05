@@ -2,6 +2,8 @@ package mct.model.patch
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import mct.LoggerHolder
+import mct.VersionHolder
 import mct.serializer.IntRangeSerializable
 import mct.util.StringIndices
 
@@ -60,9 +62,10 @@ sealed interface DatapackExtraction : Extraction {
     ) : DatapackExtraction {
         inline fun unquoted() = content.unquoted(syntax)
 
+        context(_: LoggerHolder, _: VersionHolder)
         inline fun replace(replacement: (String) -> String): DatapackReplacement.MCFunction {
             val r = replacement(content.unquoted(syntax))
-            return DatapackReplacement.MCFunction(indices, r.doubleQuotedIfString(syntax))
+            return DatapackReplacement.MCFunction(indices, r.doubleQuotedIfNecessary(syntax))
         }
     }
 

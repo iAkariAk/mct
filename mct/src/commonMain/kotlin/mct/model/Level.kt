@@ -6,6 +6,7 @@ import net.benwoodworth.knbt.NbtCompound
 
 @Suppress("ConstPropertyName")
 object DataVersions {
+    const val `17w45a` = 1447
     const val `26_1-snapshot-6` = 4774
 }
 

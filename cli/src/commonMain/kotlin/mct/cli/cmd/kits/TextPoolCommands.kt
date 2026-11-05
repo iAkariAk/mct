@@ -2,11 +2,14 @@ package mct.cli.cmd.kits
 
 import arrow.core.raise.Raise
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.int
 import mct.MCTError
+import mct.VersionHolder
 import mct.cli.BaseCommand
 import mct.cli.jsonFile
 import mct.cli.path
@@ -57,20 +60,23 @@ class TextPoolCommands : BaseCommand(
         val mapping by option("--mapping", "-m", help = "The translation mapping JSON file").path().required()
         val output by option("--output", "-o", help = "The output path for the replacement groups JSON").path()
             .required()
+        val dataVersion by option("--data-version", help = "The Minecraft data version").int().default(Int.MAX_VALUE)
 
         context(_: Raise<MCTError>)
         override suspend fun App() {
-            logger.info { "Loading groups from $input" }
-            val groups = input.jsonFile<List<ExtractionGroup>>()
+            context(VersionHolder.of(dataVersion)) {
+                logger.info { "Loading groups from $input" }
+                val groups = input.jsonFile<List<ExtractionGroup>>()
 
-            logger.info { "Loading mapping from $mapping" }
-            val map: TranslationMapping = mapping.jsonFile()
-            logger.info { "Loaded mapping with ${map.size} entries" }
+                logger.info { "Loading mapping from $mapping" }
+                val map: TranslationMapping = mapping.jsonFile()
+                logger.info { "Loaded mapping with ${map.size} entries" }
 
-            @Suppress("UNCHECKED_CAST") val result: List<ReplacementGroup> = groups.replace(map)
-            logger.info { "Writing ${result.size} replacement groups to $output" }
+                @Suppress("UNCHECKED_CAST") val result: List<ReplacementGroup> = groups.replace(map)
+                logger.info { "Writing ${result.size} replacement groups to $output" }
 
-            output.writeJson(result)
+                output.writeJson(result)
+            }
         }
     }
 }

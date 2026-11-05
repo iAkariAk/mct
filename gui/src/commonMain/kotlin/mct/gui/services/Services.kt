@@ -125,6 +125,10 @@ suspend fun runExtraction(
 
 /**
  * Run AI translation in the background.
+ *
+ * [dataVersion] is the source world's `DataVersion`. Building the replacement file quotes literal
+ * strings, which is version-sensitive, so the same check the CLI's `--data-version` drives runs
+ * here; `null` means unknown, and the check reports that when a literal has to be quoted.
  */
 context(env: Env, _: Raise<TranslationError>)
 suspend fun runTranslation(
@@ -141,6 +145,7 @@ suspend fun runTranslation(
     mapInfo: MapInfo = LLMTranslationPrompts.mapInfo,
     extraPrompts: String? = LLMTranslationPrompts.extraPrompts,
     staticChecking: Boolean = LLMTranslationPrompts.staticChecking,
+    dataVersion: Int? = null,
     concurrency: Int = GuiSettings.concurrency,
     onFailure: ((ChatCompletionCallError) -> Unit)? = null,
     onCancel: OnLLMTranslationCancel = { _, _ -> },
@@ -249,7 +254,9 @@ suspend fun runTranslation(
                 concurrentByKind = GuiSettings.concurrentByKind,
                 onCancel = wrappedOnCancel
             )
-            val replacements = extractionGroups.replace(mapping)
+            val replacements = context(dataVersion?.let { VersionHolder.of(it) } ?: VersionHolder.None) {
+                extractionGroups.replace(mapping)
+            }
 
             writeOutputJson(output, replacements)
             writeOutputJson(mappingOutput, mapping)
