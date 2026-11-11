@@ -5,15 +5,6 @@ import mct.LoggerHolder
 import mct.logger
 import mct.util.*
 
-val MCCommandJson = NonstandardJson(
-    allowTrailingComma = true,
-    allowIllegalEscape = true,
-    allowSingleQuote = false,
-    isLenient = false,
-)
-
-val MCCommandJsonRight = MCCommandJson.right()
-
 data class MCCommand(
     val raw: String,
     val name: String,
