@@ -1,6 +1,5 @@
 package mct.command
 
-import arrow.core.right
 import mct.LoggerHolder
 import mct.logger
 import mct.util.*
@@ -50,18 +49,21 @@ private fun Char.isWhitespace() = this == ' ' || this == '\t'
 
 context(_: LoggerHolder)
 fun parseCommands(content: String): List<MCCommand> {
-    val mcfunctions = mutableListOf<MCCommand>()
+    val commands = mutableListOf<MCCommand>()
     var row = 0
+    val buffer = StringBuilder()
+    val stateStack = ArrayDeque<State>()
 
     line@ fun handleLine(lineStartLine: Int, line: String) {
-        val buffer = StringBuilder()
 
         var lineBeginMode = true
         var isMarco = false
         var isBeginWithSlash = false
         var commandName: String? = null
         val args = mutableListOf<MCCommand.Arg>()
-        val stateStack = ArrayDeque<State>().apply { push(RootState) }
+        stateStack.clear()
+        stateStack.push(RootState)
+        buffer.clear()
 
         fun bindBufferIntoCmd(endCol: Int) {
             val str = buffer.toString()
@@ -202,12 +204,12 @@ fun parseCommands(content: String): List<MCCommand> {
             args,
             isMarco
         )
-        mcfunctions += mcfunction
+        commands += mcfunction
     }
 
 
     val line = StringBuilder()
-    var lastC: Char? = null
+    var lastC = '\u0000'
     var lineStart = 0
     for (charOffset in content.indices) {
         val c = content[charOffset]
@@ -240,7 +242,7 @@ fun parseCommands(content: String): List<MCCommand> {
     }
     handleLine(lineStart, line.toString())
 
-    return mcfunctions
+    return commands
 }
 
 private sealed interface State
