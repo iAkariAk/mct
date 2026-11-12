@@ -4,7 +4,6 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.fus.internal.isCiBuild
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -106,16 +105,14 @@ dependencies {
     // app's compile classpath.
     add("coreLibraryDesugaring", libs.com.android.desugar.jdk.libs)
 
-    if (isCiBuild()) {
-        val composeVersion = libs.versions.compose.get()
-        listOf(
-            "windows-x64",
-            "linux-arm64",
-            "linux-x64",
-            "macos-arm64",
-        ).forEach { platform ->
-            portableDesktopPlatforms("org.jetbrains.compose.desktop:desktop-jvm-$platform:$composeVersion")
-        }
+    val composeVersion = libs.versions.compose.get()
+    listOf(
+        "windows-x64",
+        "linux-arm64",
+        "linux-x64",
+        "macos-arm64",
+    ).forEach { platform ->
+        portableDesktopPlatforms("org.jetbrains.compose.desktop:desktop-jvm-$platform:$composeVersion")
     }
 }
 
@@ -144,7 +141,18 @@ compose.desktop {
 }
 
 tasks.withType<ShadowJar>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+    val desktopTarget = kotlin.targets.getByName("desktop")
+    from(desktopTarget.compilations.getByName("main").output)
+
+    configurations = listOf(
+        project.configurations.getByName("desktopRuntimeClasspath"),
+        portableDesktopPlatforms
+    )
+
     mergeServiceFiles()
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
     exclude("libskiko-macos-x64.dylib", "libskiko-macos-x64.dylib.sha256")
     exclude("skiko-windows-arm64.dll", "skiko-windows-arm64.dll.sha256")
     configurations.add(portableDesktopPlatforms)
